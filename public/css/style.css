@@ -1,0 +1,49 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    background-color: #f4f4f4;
+    min-height: 100vh; /* フッターを常に下部に */
+    display: flex;
+    flex-direction: column;
+}
+header {
+    background-color: #333;
+    color: white;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+header h1 {
+    margin: 0;
+}
+header h1 a {
+    color: white;
+    text-decoration: none;
+}
+main {
+    flex-grow: 1; /* コンテンツがフッターを押し下げるように */
+    padding: 20px;
+}
+footer {
+    background-color: #333;
+    color: white;
+    padding: 1rem;
+    text-align: center;
+    /* position: fixed; */ /* sticky footers のため削除 */
+    bottom: 0;
+    width: 100%;
+}
+footer ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: space-around;
+}
+footer li a {
+    color: white;
+    text-decoration: none;
+    padding: 0.5rem;
+    display: block;
+}
