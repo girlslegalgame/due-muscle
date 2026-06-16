@@ -79,7 +79,7 @@
         <nav>
             <ul>
                 <li><a href="/mydecks">トップ</a></li>
-                <li><a href="/help">ヘルプ</a></li>
+                <li><a href="/help/search">ヘルプ</a></li>
                 <li><a href="/search">デッキ検索</a></li>
                 <li><a href="/decks/new">デッキ作成</a></li>
             </ul>

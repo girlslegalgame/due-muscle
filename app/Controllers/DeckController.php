@@ -364,5 +364,40 @@ class DeckController {
             ]);
         }
     }
-   
+
+    /**
+     * ヘルプカード検索画面の表示
+     */
+    public function helpSearch() {
+        // プロジェクトの「app」ディレクトリの絶対パスを取得
+        $appPath = dirname(__DIR__);
+
+        // views（小文字）と Views（大文字）の両方のフォルダに対応
+        $viewDir = is_dir($appPath . '/Views') ? $appPath . '/Views' : $appPath . '/views';
+
+        // 1. サブビュー（help_search.php）を読み込みます
+        ob_start();
+        $viewPath = $viewDir . '/deck/help_search.php';
+        if (file_exists($viewPath)) {
+            include $viewPath;
+        } else {
+            // deck フォルダの直下にない場合のフォールバック
+            include $viewDir . '/help_search.php';
+        }
+        $content = ob_get_clean();
+
+        // 2. 全体レイアウト（app.php）を読み込みます
+        $layoutPath = $viewDir . '/app.php';
+        if (file_exists($layoutPath)) {
+            include $layoutPath;
+        } else {
+            // layouts フォルダなどに入っている場合のフォールバック
+            $fallbackLayout = $viewDir . '/layouts/app.php';
+            if (file_exists($fallbackLayout)) {
+                include $fallbackLayout;
+            } else {
+                die("テンプレートファイル (app.php) が見つかりません。配置場所を確認してください。");
+            }
+        }
+    }   
 }

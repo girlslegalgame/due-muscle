@@ -31,6 +31,15 @@ $routes = [
         '/api/master/abilities' => 'MasterDataController@abilitiesApi',
         '/api/master/themes' => 'MasterDataController@themesApi',
         '/api/master-data' => 'CardController@masterDataApi',
+
+        '/api/cards/help-search' => 'CardController@helpSearchApi',
+        '/api/cards/help-detail' => 'CardController@helpDetailApi',
+        '/api/master-data-extended' => 'CardController@masterDataExtendedApi',
+                
+        '/help/search' => 'DeckController@helpSearch',
+        '/api/cards/help-search' => 'CardController@helpSearchApi',
+        '/api/cards/help-detail' => 'CardController@helpDetailApi',
+        '/api/master-data-extended' => 'CardController@masterDataExtendedApi',
     ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // ★修正：最初に登録情報を受け取ってコードを送信
