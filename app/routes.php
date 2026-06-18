@@ -50,6 +50,7 @@ $routes = [
         // APIエンドポイント (POSTリクエスト)
         '/api/decks' => 'DeckController@storeDeckApi',
         '/api/decks/copy' => 'DeckController@copyDeckApi',
+        '/api/cards/help-update' => 'CardController@helpUpdateApi',
     ],
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',

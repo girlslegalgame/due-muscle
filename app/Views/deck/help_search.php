@@ -67,7 +67,30 @@
         .info-row { margin-bottom: 10px; line-height: 1.4; }
         .info-label { font-weight: bold; color: #555; font-size: 12px; }
         .info-value { font-size: 14px; background: #f5f5f5; padding: 6px 10px; border-radius: 4px; white-space: pre-wrap; }
-    </style>
+        .selected-badge {
+            display: inline-flex;
+            align-items: center;
+            background: #e8f4fd;
+            color: #007bff;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            margin-right: 6px;
+            margin-bottom: 6px;
+            font-weight: bold;
+            border: 1px solid #bce0fd;
+        }
+        .selected-badge .badge-close {
+            margin-left: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #dc3545;
+            font-size: 13px;
+        }
+        .selected-badge .badge-close:hover {
+            color: #a71d2a;
+        }
+</style>
 </head>
 <body>
 
@@ -111,7 +134,7 @@
                 <label><input type="checkbox" class="civ-include-check" value="4" onchange="triggerHelpSearch()"> 火</label>
                 <label><input type="checkbox" class="civ-include-check" value="5" onchange="triggerHelpSearch()"> 自然</label>
                 <label><input type="checkbox" class="civ-include-check" value="6" onchange="triggerHelpSearch()"> 無色</label>
-            </div>
+                <label style="color: #c9302c;"><input type="checkbox" class="civ-include-check" value="-1" onchange="triggerHelpSearch()"> 未設定</label>            </div>
         </div>
 
         <!-- 多色がONの時のみ表示される「含まれない文明」選択 -->
@@ -167,29 +190,91 @@
 </div>
 
 <!-- カード詳細モーダル -->
+<!-- 修正対象：カード詳細表示モーダル（helpDetailModal）の全体 -->
 <div id="helpDetailModal" class="modal">
     <div class="modal-content detail-modal-content">
         <div class="modal-header">
-            <h3>カード詳細情報</h3>
+            <h3>カード情報の編集（ヘルプ・仮）</h3>
             <span class="close-btn" onclick="closeHelpDetailModal()">&times;</span>
         </div>
         <div class="modal-body">
             <div class="detail-layout">
                 <img id="detail-card-image" class="detail-img" src="/images/card/noimage.webp">
                 <div class="detail-info">
-                    <div class="info-row"><div class="info-label">カードID</div><div id="info-id" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">カード名</div><div id="info-name" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">カードの読み</div><div id="info-reading" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">文明</div><div id="info-civs" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">種族</div><div id="info-races" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">特殊能力</div><div id="info-abilities" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">パワー</div><div id="info-power" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">コスト</div><div id="info-cost" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">テキスト</div><div id="info-text" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">フレーバーテキスト</div><div id="info-flavor" class="info-value"></div></div>
-                    <div class="info-row"><div class="info-label">収録商品</div><div id="info-goods" class="info-value"></div></div>
+                    <!-- 非表示でcard_idを保持 -->
+                    <input type="hidden" id="edit-card-id">
+
+                    <div class="info-row"><div class="info-label">カードID</div><div id="info-id" class="info-value" style="background:#eee; font-weight:bold;"></div></div>
+                    
+                    <div class="info-row">
+                        <div class="info-label">カード名</div>
+                        <input type="text" id="edit-name" class="input-text" style="font-size:14px; padding:6px;">
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="info-label">カードの読み</div>
+                        <input type="text" id="edit-reading" class="input-text" style="font-size:14px; padding:6px;">
+                    </div>
+                    
+                    <div class="info-row">
+                        <div class="info-label">文明（複数選択）</div>
+                        <div id="edit-civs-area" style="display:flex; gap:10px; flex-wrap:wrap; background:#f5f5f5; padding:8px; border-radius:4px;">
+                            <label><input type="checkbox" class="edit-civ-check" value="1"> 光</label>
+                            <label><input type="checkbox" class="edit-civ-check" value="2"> 水</label>
+                            <label><input type="checkbox" class="edit-civ-check" value="3"> 闇</label>
+                            <label><input type="checkbox" class="edit-civ-check" value="4"> 火</label>
+                            <label><input type="checkbox" class="edit-civ-check" value="5"> 自然</label>
+                            <label><input type="checkbox" class="edit-civ-check" value="6"> 無色</label>
+                        </div>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">パワー (無限は 2147483647)</div>
+                        <input type="number" id="edit-power" class="input-text" style="font-size:14px; padding:6px;">
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">コスト (無限は 2147483647)</div>
+                        <input type="number" id="edit-cost" class="input-text" style="font-size:14px; padding:6px;">
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">テキスト</div>
+                        <textarea id="edit-text" class="input-text" rows="4" style="font-size:14px; padding:6px; font-family:sans-serif; resize:vertical;"></textarea>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">フレーバーテキスト</div>
+                        <textarea id="edit-flavor" class="input-text" rows="3" style="font-size:14px; padding:6px; font-family:sans-serif; resize:vertical;"></textarea>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">種族（複数選択）</div>
+                        <!-- ★ 追加：選択中バッジ表示エリア -->
+                        <div id="edit-selected-races" style="display: flex; flex-wrap: wrap; margin-bottom: 5px;"></div>
+                        <!-- ★ 追加：モーダル内検索ボックス -->
+                        <input type="text" id="edit-race-search" class="input-text" placeholder="種族を絞り込み検索..." style="font-size:12px; padding:5px; margin-bottom:5px;">
+                        
+                        <div id="edit-races-area" style="max-height:100px; overflow-y:auto; border:1px solid #ccc; padding:8px; border-radius:4px; background:#f5f5f5; font-size:13px;"></div>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">特殊能力（複数選択）</div>
+                        <!-- ★ 追加：選択中バッジ表示エリア -->
+                        <div id="edit-selected-abilities" style="display: flex; flex-wrap: wrap; margin-bottom: 5px;"></div>
+                        <!-- ★ 追加：モーダル内検索ボックス -->
+                        <input type="text" id="edit-ability-search" class="input-text" placeholder="特殊能力を絞り込み検索..." style="font-size:12px; padding:5px; margin-bottom:5px;">
+                        
+                        <div id="edit-abilities-area" style="max-height:100px; overflow-y:auto; border:1px solid #ccc; padding:8px; border-radius:4px; background:#f5f5f5; font-size:13px;"></div>
+                    </div>
+                    <div class="info-row"><div class="info-label">収録商品（編集不可）</div><div id="info-goods" class="info-value" style="background:#eee;"></div></div>
                 </div>
             </div>
+        </div>
+        <!-- 決定・キャンセルのフッターを追加 -->
+        <div class="modal-footer" style="margin-top:10px;">
+            <button onclick="closeHelpDetailModal()" style="padding: 10px 20px; background: #ccc; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; margin-right: 5px;">キャンセル</button>
+            <button onclick="saveHelpDetail()" style="padding: 10px 20px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">更新する</button>
         </div>
     </div>
 </div>
@@ -222,6 +307,14 @@ let masterData = {
 window.addEventListener('DOMContentLoaded', () => {
     handleCivTypeChange(); // 文明の表示切り替えと初期検索
     loadAllMasterData();   // 各種マスターデータのロード
+});
+
+window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        console.log("[Shortcut] Escapeキーが検出されました。モーダルを閉じます。");
+        closeHelpModal();        // 絞り込みモーダルを閉じる
+        closeHelpDetailModal();  // 詳細編集モーダルを閉じる
+    }
 });
 
 /**
@@ -387,8 +480,12 @@ function loadAllMasterData() {
     fetch('/api/master-data')
         .then(res => res.json())
         .then(data => {
-            masterData.race = data.races || [];
-            masterData.ability = data.abilities || [];
+                        // ★ 先頭に未設定を追加
+            const racesList = data.races || [];
+            masterData.race = [{ race_id: -1, race_name: "（未設定 / なし）" }, ...racesList];
+
+            const abilitiesList = data.abilities || [];
+            masterData.ability = [{ ability_id: -1, ability_name: "（未設定 / なし）" }, ...abilitiesList];
         })
         .catch(err => console.error("種族・能力マスタ取得エラー:", err));
 
@@ -396,17 +493,20 @@ function loadAllMasterData() {
     fetch('/api/master-data-extended')
         .then(res => res.json())
         .then(data => {
-            // カードタイプ：ID昇順でソートしてキャッシュ
+            // カードタイプ：先頭に未設定を追加
             if (data.cardtypes) {
-                masterData.cardtype = data.cardtypes.sort((a, b) => a.cardtype_id - b.cardtype_id);
+                const sorted = data.cardtypes.sort((a, b) => a.cardtype_id - b.cardtype_id);
+                masterData.cardtype = [{ cardtype_id: -1, cardtype_name: "（未設定 / なし）" }, ...sorted];
             }
-            // 特殊タイプ：ID昇順でソートしてキャッシュ
+            // 特殊タイプ：先頭に未設定を追加
             if (data.characteristics) {
-                masterData.characteristic = data.characteristics.sort((a, b) => a.characteristics_id - b.characteristics_id);
+                const sorted = data.characteristics.sort((a, b) => a.characteristics_id - b.characteristics_id);
+                masterData.characteristic = [{ characteristics_id: -1, characteristics_name: "（未設定 / なし）" }, ...sorted];
             }
-            // 収録商品：ID降順でソートしてキャッシュ
+            // 収録商品：先頭に未設定を追加
             if (data.goods) {
-                masterData.goods = data.goods.sort((a, b) => b.goods_id - a.goods_id);
+                const sorted = data.goods.sort((a, b) => b.goods_id - a.goods_id);
+                masterData.goods = [{ goods_id: -1, goods_name: "（未設定 / なし）" }, ...sorted];
             }
         })
         .catch(err => console.error("拡張マスタデータ取得エラー:", err));
@@ -457,11 +557,16 @@ function renderModalList() {
         const id = item.race_id || item.ability_id || item.characteristics_id || item.cardtype_id || item.goods_id || item.id;
         const name = item.race_name || item.ability_name || item.characteristics_name || item.cardtype_name || item.goods_name || item.name;
         
+        // ★ 追加：よみがなを取得して検索用キーワードを作成します
+        const reading = item.reading || '';
+        const searchKeyword = (name + reading).toLowerCase();
+
         const isChecked = activeFilters[currentModalType].includes(id);
 
         const div = document.createElement('label');
         div.className = 'list-item';
         div.dataset.name = name;
+        div.dataset.search = searchKeyword; // ★ 検索用キーワードを保持
         div.innerHTML = `
             <span>${name}</span>
             <input type="checkbox" class="help-modal-check" value="${id}" data-name="${name}" ${isChecked ? 'checked' : ''}>
@@ -505,21 +610,58 @@ function applyHelpFilter() {
  * カード詳細表示モーダルを開く
  */
 function openHelpDetail(cardId) {
+    // モーダルを開く前に、種族と特殊能力の全チェックリストを動的に生成します
+    renderEditRacesAndAbilities();
+
     fetch('/api/cards/help-detail?card_id=' + cardId)
         .then(res => res.json())
         .then(card => {
             const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
             document.getElementById('detail-card-image').src = '/images/card' + path;
-            document.getElementById('info-id').innerText = card.card_id || 'なし';            document.getElementById('info-name').innerText = card.card_name || 'なし';
-            document.getElementById('info-reading').innerText = card.reading || 'なし';
-            document.getElementById('info-civs').innerText = card.civilizations || 'なし';
-            document.getElementById('info-races').innerText = card.races || 'なし';
-            document.getElementById('info-abilities').innerText = card.abilities || 'なし';
-            document.getElementById('info-power').innerText = (card.pow === 2147483647 ? '無限' : card.pow) || 'なし';
-            document.getElementById('info-cost').innerText = (card.cost === 2147483647 ? '無限' : card.cost) || 'なし';
-            document.getElementById('info-text').innerText = card.text ? card.text.replace(/\\n/g, '\n') : 'なし';
-            document.getElementById('info-flavor').innerText = card.flavortext ? card.flavortext.replace(/\\n/g, '\n') : 'なし';
+            
+            // 編集フォームに入力値をセット
+            document.getElementById('edit-card-id').value = card.card_id;
+            document.getElementById('info-id').innerText = card.card_id;
+            document.getElementById('edit-name').value = card.card_name || '';
+            document.getElementById('edit-reading').value = card.reading || '';
+            document.getElementById('edit-power').value = card.pow !== null ? card.pow : '';
+            document.getElementById('edit-cost').value = card.cost !== null ? card.cost : '';
+            document.getElementById('edit-text').value = card.text ? card.text.replace(/\\n/g, '\n') : '';
+            document.getElementById('edit-flavor').value = card.flavortext ? card.flavortext.replace(/\\n/g, '\n') : '';
             document.getElementById('info-goods').innerText = card.goods_name || 'なし';
+
+            // 1. 文明チェックボックスの復元
+            document.querySelectorAll('.edit-civ-check').forEach(el => el.checked = false);
+            if (card.civilizations_ids) {
+                const civIds = card.civilizations_ids.split(',').map(Number);
+                civIds.forEach(id => {
+                    const chk = document.querySelector(`.edit-civ-check[value="${id}"]`);
+                    if (chk) chk.checked = true;
+                });
+            }
+
+            // 2. 種族チェックボックスの復元
+            document.querySelectorAll('.edit-race-check').forEach(el => el.checked = false);
+            if (card.race_ids) {
+                const raceIds = card.race_ids.split(',').map(Number);
+                raceIds.forEach(id => {
+                    const chk = document.querySelector(`.edit-race-check[value="${id}"]`);
+                    if (chk) chk.checked = true;
+                });
+            }
+
+            // 3. 特殊能力チェックボックスの復元
+            document.querySelectorAll('.edit-ability-check').forEach(el => el.checked = false);
+            if (card.ability_ids) {
+                const abilityIds = card.ability_ids.split(',').map(Number);
+                abilityIds.forEach(id => {
+                    const chk = document.querySelector(`.edit-ability-check[value="${id}"]`);
+                    if (chk) chk.checked = true;
+                });
+            }
+
+            updateSelectedBadges('race');
+            updateSelectedBadges('ability');
 
             document.getElementById('helpDetailModal').style.display = 'block';
         })
@@ -528,6 +670,153 @@ function openHelpDetail(cardId) {
 
 function closeHelpDetailModal() {
     document.getElementById('helpDetailModal').style.display = 'none';
+}
+/**
+ * 新規追加：詳細モーダル内に種族と特殊能力のチェックボックスリストを動的に出力
+ */
+function renderEditRacesAndAbilities() {
+    // 1. 種族チェックボックスの生成（ID -1（未設定）は除外）
+    const raceContainer = document.getElementById('edit-races-area');
+    raceContainer.innerHTML = '';
+    const races = masterData.race || [];
+    races.forEach(r => {
+        if (r.race_id === -1) return;
+        const lbl = document.createElement('label');
+        lbl.className = 'edit-checkbox-label';
+        lbl.style.display = 'block';
+        
+        // ★ 修正：よみがな情報を含めて検索キーワードにします
+        const reading = r.reading || '';
+        lbl.dataset.search = (r.race_name + reading).toLowerCase();
+        
+        lbl.innerHTML = `<input type="checkbox" class="edit-race-check" value="${r.race_id}" data-name="${r.race_name}" onchange="updateSelectedBadges('race')"> ${r.race_name}`;
+        raceContainer.appendChild(lbl);
+    });
+
+    // 2. 特殊能力チェックボックスの生成（ID -1（未設定）は除外）
+    const abilityContainer = document.getElementById('edit-abilities-area');
+    abilityContainer.innerHTML = '';
+    const abilities = masterData.ability || [];
+    abilities.forEach(a => {
+        if (a.ability_id === -1) return;
+        const lbl = document.createElement('label');
+        lbl.className = 'edit-checkbox-label';
+        lbl.style.display = 'block';
+        
+        // ★ 修正：よみがな情報を含めて検索キーワードにします
+        const reading = a.reading || '';
+        lbl.dataset.search = (a.ability_name + reading).toLowerCase();
+        
+        lbl.innerHTML = `<input type="checkbox" class="edit-ability-check" value="${a.ability_id}" data-name="${a.ability_name}" onchange="updateSelectedBadges('ability')"> ${a.ability_name}`;
+        abilityContainer.appendChild(lbl);
+    });
+
+    setupModalSearchFilter('race');
+    setupModalSearchFilter('ability');
+}
+
+/**
+ * 新規追加：選択されたチェックボックスから「×」付きのバッジエリアを同期描画する
+ */
+function updateSelectedBadges(type) {
+    const selectedArea = document.getElementById(`edit-selected-${type === 'race' ? 'races' : 'abilities'}`);
+    selectedArea.innerHTML = '';
+
+    const checkedBoxes = Array.from(document.querySelectorAll(`.edit-${type}-check:checked`));
+    
+    if (checkedBoxes.length === 0) {
+        selectedArea.innerHTML = '<span style="color:#999; font-size:11px;">未選択</span>';
+        return;
+    }
+
+    checkedBoxes.forEach(chk => {
+        const id = chk.value;
+        const name = chk.dataset.name;
+
+        const badge = document.createElement('span');
+        badge.className = 'selected-badge';
+        badge.innerHTML = `
+            ${name}
+            <span class="badge-close" onclick="removeEditSelection('${type}', ${id})">&times;</span>
+        `;
+        selectedArea.appendChild(badge);
+    });
+}
+
+/**
+ * 新規追加：バッジの「×」が押されたときにチェックボックスを外し、バッジを再描画する
+ */
+function removeEditSelection(type, id) {
+    const chk = document.querySelector(`.edit-${type}-check[value="${id}"]`);
+    if (chk) {
+        chk.checked = false;
+        updateSelectedBadges(type);
+    }
+}
+
+/**
+ * 新規追加：検索テキストボックスの入力に合わせて、リストをリアルタイムに絞り込む
+ */
+function setupModalSearchFilter(type) {
+    const searchInput = document.getElementById(`edit-${type}-search`);
+    searchInput.value = '';
+    
+    searchInput.oninput = () => {
+        const q = searchInput.value.toLowerCase().trim();
+        const labels = document.querySelectorAll(`#edit-${type === 'race' ? 'races' : 'abilities'}-area .edit-checkbox-label`);
+        
+        labels.forEach(lbl => {
+            // ★ 修正：よみがなが含まれる data-search 属性からマッチング判定します
+            const searchKey = lbl.dataset.search || '';
+            lbl.style.display = searchKey.includes(q) ? 'block' : 'none';
+        });
+    };
+}
+
+/**
+ * 新規追加：編集したカード情報をサーバーに送信して更新
+ */
+function saveHelpDetail() {
+    const cardId = document.getElementById('edit-card-id').value;
+    if (!cardId) return;
+
+    const data = {
+        card_id: cardId,
+        card_name: document.getElementById('edit-name').value.trim(),
+        reading: document.getElementById('edit-reading').value.trim(),
+        pow: document.getElementById('edit-power').value,
+        cost: document.getElementById('edit-cost').value,
+        text: document.getElementById('edit-text').value.trim().replace(/\n/g, '\\n'), // 改行を「\n」に変換
+        flavortext: document.getElementById('edit-flavor').value.trim().replace(/\n/g, '\\n'),
+        civilizations: Array.from(document.querySelectorAll('.edit-civ-check:checked')).map(el => parseInt(el.value, 10)),
+        races: Array.from(document.querySelectorAll('.edit-race-check:checked')).map(el => parseInt(el.value, 10)),
+        abilities: Array.from(document.querySelectorAll('.edit-ability-check:checked')).map(el => parseInt(el.value, 10))
+    };
+
+    if (!data.card_name) {
+        return alert("カード名は必須です。");
+    }
+
+    // データベース更新APIを呼び出し
+    fetch('/api/cards/help-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(resData => {
+        if (resData.success) {
+            alert("カード情報を更新しました！");
+            closeHelpDetailModal();
+            triggerHelpSearch(false); // ページ数を維持したまま再検索して画面をリフレッシュ
+        } else {
+            alert("更新に失敗しました: " + resData.error);
+        }
+    })
+    .catch(err => {
+        console.error("更新エラー:", err);
+        alert("通信中にエラーが発生しました。");
+    });
 }
 </script>
 </body>

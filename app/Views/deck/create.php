@@ -363,14 +363,40 @@
     <div class="filter-content">
         <h3>詳細絞り込み</h3>
         <div class="filter-scroll">
-            <div class="filter-group"><label>文明</label><div class="civ-checkboxes">
-                <label><input type="checkbox" class="civ-check" value="1"> 光</label>
-                <label><input type="checkbox" class="civ-check" value="2"> 水</label>
-                <label><input type="checkbox" class="civ-check" value="3"> 闇</label>
-                <label><input type="checkbox" class="civ-check" value="4"> 火</label>
-                <label><input type="checkbox" class="civ-check" value="5"> 自然</label>
-                <label><input type="checkbox" class="civ-check" value="6"> ゼロ</label>
-            </div></div>
+            <div class="filter-group">
+                <label>文明</label>
+                <!-- 単色・多色選択 -->
+                <div style="display: flex; gap: 15px; margin-bottom: 8px;">
+                    <label style="font-size: 13px;"><input type="checkbox" id="filter-civ-single" checked onchange="toggleFilterCivType()"> 単色</label>
+                    <label style="font-size: 13px;"><input type="checkbox" id="filter-civ-multi" checked onchange="toggleFilterCivType()"> 多色</label>
+                </div>
+                
+                <div class="civ-checkboxes">
+                    <label><input type="checkbox" class="civ-check" value="1"> 光</label>
+                    <label><input type="checkbox" class="civ-check" value="2"> 水</label>
+                    <label><input type="checkbox" class="civ-check" value="3"> 闇</label>
+                    <label><input type="checkbox" class="civ-check" value="4"> 火</label>
+                    <label><input type="checkbox" class="civ-check" value="5"> 自然</label>
+                    <label><input type="checkbox" class="civ-check" value="6"> ゼロ</label>
+                </div>
+                <!-- 多色がONの時のみ表示される「含まれない文明」除外エリア -->
+                <div id="filter-exclude-civ-area" style="display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px dashed #ccc; padding-top: 8px; margin-top: 5px;">
+                    <span style="font-size: 11px; color: #666; width: 100%;"><strong>含まれない文明を指定</strong></span>
+                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="1"> 光</label>
+                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="2"> 水</label>
+                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="3"> 闇</label>
+                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="4"> 火</label>
+                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="5"> 自然</label>
+                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="6"> ゼロ</label>
+                </div>
+            
+                <!-- 含む / のみ持つ ラジオボタン -->
+                <div style="display: flex; gap: 15px; margin-bottom: 8px; font-size: 12px; color: #555;">
+                    <label style="cursor: pointer;"><input type="radio" name="filter-civ-match-type" value="include" checked> 選択した文明を含む</label>
+                    <label style="cursor: pointer;"><input type="radio" name="filter-civ-match-type" value="match"> 選択した文明のみ持つ</label>
+                </div>
+            
+            </div>
             <div style="display:flex; gap:20px;">
                 <div class="filter-group"><label>コスト</label><input type="number" id="cost-min" style="width:60px;"> 〜 <input type="number" id="cost-max" style="width:60px;"></div>
                 <div class="filter-group"><label>パワー</label><input type="number" id="pow-min" style="width:80px;"> 〜 <input type="number" id="pow-max" style="width:80px;"></div>
@@ -543,7 +569,8 @@ const input = document.getElementById('card-search-input');
 let currentFilters = { 
     q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
     pow_min: '', pow_max: '', races: [], abilities: [], 
-    race_logic: 'OR', ability_logic: 'OR', reg: [] 
+    race_logic: 'OR', ability_logic: 'OR', reg: [] ,
+    civ_type: '', civ_match_type: 'include', exclude_civs: []
 };
 let currentOffset = 0, isFetching = false, hasMoreCards = true;
 let searchTimeout = null, abortController = null;
@@ -1068,7 +1095,16 @@ function fetchAndRender() {
     const p = new URLSearchParams();
     if (currentFilters.q) p.append('q', currentFilters.q);
     p.append('scope', currentFilters.scope.join(',')); 
-    if (currentFilters.civs.length) p.append('civs', currentFilters.civs.join(','));
+    if (currentFilters.civs.length) {
+        p.append('civs', currentFilters.civs.join(','));
+        p.append('civ_match_type', currentFilters.civ_match_type);
+    };
+    if (currentFilters.civ_type) {
+        p.append('civ_type', currentFilters.civ_type);
+    }   
+    if (currentFilters.exclude_civs.length) {
+        p.append('exclude_civs', currentFilters.exclude_civs.join(','));
+    }  
     if (currentFilters.cost_min) p.append('cost_min', currentFilters.cost_min);
     if (currentFilters.cost_max) p.append('cost_max', currentFilters.cost_max);
     if (currentFilters.pow_min) p.append('pow_min', currentFilters.pow_min);
@@ -1157,8 +1193,29 @@ function clearSubSelection(type) {
     updateTriggerText(type);
 }
 
+/**
+ * ★ 新設：文明の「単色/多色」の変更による除外エリアの表示制御
+ */
+function toggleFilterCivType() {
+    const isMulti = document.getElementById('filter-civ-multi').checked;
+    const excludeArea = document.getElementById('filter-exclude-civ-area');
+    excludeArea.style.display = isMulti ? 'flex' : 'none';
+}
+
 function applyFilters() {
     currentFilters.civs = Array.from(document.querySelectorAll('.civ-check:checked')).map(el => el.value);
+    
+    // ★ 追加：新しい文明フィルター情報の取得
+    const singleChecked = document.getElementById('filter-civ-single').checked;
+    const multiChecked = document.getElementById('filter-civ-multi').checked;
+    if (singleChecked && !multiChecked) currentFilters.civ_type = 'single';
+    else if (!singleChecked && multiChecked) currentFilters.civ_type = 'multi';
+    else if (!singleChecked && !multiChecked) currentFilters.civ_type = 'none';
+    else currentFilters.civ_type = ''; // 両方ON
+
+    currentFilters.civ_match_type = document.querySelector('input[name="filter-civ-match-type"]:checked').value;
+    currentFilters.exclude_civs = Array.from(document.querySelectorAll('.filter-exclude-civ-check:checked')).map(el => el.value);
+
     currentFilters.cost_min = document.getElementById('cost-min').value;
     currentFilters.cost_max = document.getElementById('cost-max').value;
     currentFilters.pow_min = document.getElementById('pow-min').value;
@@ -1178,11 +1235,20 @@ function clearAllFilters() {
         el.checked = false;
         el.value = '';
     });
+    
+    // ★ 追加：文明初期状態の復元
+    document.getElementById('filter-civ-single').checked = true;
+    document.getElementById('filter-civ-multi').checked = true;
+    document.querySelector('input[name="filter-civ-match-type"][value="include"]').checked = true;
+    toggleFilterCivType();
+
     input.value = '';
     currentFilters = { 
         q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
         pow_min: '', pow_max: '', races: [], abilities: [], 
-        race_logic: 'OR', ability_logic: 'OR', reg: [] 
+        race_logic: 'OR', ability_logic: 'OR', reg: [],
+        // ★ 追加
+        civ_type: '', civ_match_type: 'include', exclude_civs: []
     };
     clearSubSelection('race');
     clearSubSelection('ability');

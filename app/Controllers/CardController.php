@@ -29,6 +29,9 @@ class CardController {
         $races = isset($_GET['races']) ? explode(',', $_GET['races']) : [];
         $abilities = isset($_GET['abilities']) ? explode(',', $_GET['abilities']) : [];
         $regulations = isset($_GET['reg']) ? explode(',', $_GET['reg']) : [];
+        $civType = $_GET['civ_type'] ?? '';
+        $excludeCivs = isset($_GET['exclude_civs']) ? explode(',', $_GET['exclude_civs']) : [];
+        $civMatchType = $_GET['civ_match_type'] ?? 'include';
         
         $raceLogic = $_GET['race_logic'] ?? 'OR';
         $abilityLogic = $_GET['ability_logic'] ?? 'OR';
@@ -72,11 +75,39 @@ class CardController {
             if ($powMin !== '') { $searchSql .= " AND c_search.pow >= :pMin"; $params[':pMin'] = (int)$powMin; }
             if ($powMax !== '') { $searchSql .= " AND c_search.pow <= :pMax"; $params[':pMax'] = (int)$powMax; }
 
-            if (!empty($civs)) {
-                $civList = implode(',', array_map('intval', $civs));
-                $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id IN ($civList))";
+// 修正対象：cardsApi メソッド内の $searchSql の WHERE条件結合（文明に関する部分のみを差し替え）
+
+            // ★ 修正：単色・多色による絞り込みの連動
+            if ($civType === 'single') {
+                $searchSql .= " AND (SELECT COUNT(*) FROM card_civilization cc WHERE cc.card_id = c_search.card_id) = 1";
+            } elseif ($civType === 'multi') {
+                $searchSql .= " AND (SELECT COUNT(*) FROM card_civilization cc WHERE cc.card_id = c_search.card_id) >= 2";
+            } elseif ($civType === 'none') {
+                $searchSql .= " AND 1=0";
             }
 
+            // ★ 修正：含む文明 / のみ持つ文明（AND完全一致）の連動
+            if (!empty($civs)) {
+                $civList = implode(',', array_map('intval', $civs));
+                
+                if ($civMatchType === 'match') {
+                    // のみ持つ（完全一致AND結合）
+                    foreach ($civs as $cId) {
+                        $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id = " . (int)$cId . ")";
+                    }
+                    $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id NOT IN ($civList))";
+                } else {
+                    // 含む
+                    $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id IN ($civList))";
+                }
+            }
+
+            // ★ 追加：多色カードから除外する文明の連動
+            if (!empty($excludeCivs)) {
+                $excludeList = implode(',', array_map('intval', $excludeCivs));
+                $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id IN ($excludeList))";
+            }
+            
             if (!empty($races)) {
                 $ids = array_map('intval', $races);
                 if ($raceLogic === 'AND') {
@@ -273,6 +304,9 @@ public function cardVersionsApi() {
     /**
      * 新規追加：ヘルプ画面用の高度な絞り込みカード検索API（文明完全一致・全バージョン表示・新着順ソート完全版）
      */
+/**
+     * 新規追加：ヘルプ画面用の高度な絞り込みカード検索API（クリンナップ完全版）
+     */
     public function helpSearchApi() {
         header('Content-Type: application/json; charset=utf-8');
         
@@ -297,14 +331,14 @@ public function cardVersionsApi() {
             $pdo = Database::connect();
             $params = [];
 
-            // ベースとなるSQLクエリ (is_primary_version と is_main_side の制限を撤廃、release_date をセレクトに追加)
+            // ベースとなるSQLクエリ
             $sql = "
                 SELECT DISTINCT c.card_id, c.card_name, cd.imagepath, cd.release_date
                 FROM card c
                 JOIN card_detail cd ON c.card_id = cd.card_id
-                WHERE 1=1
+                WHERE cd.imagepath IS NOT NULL 
+                AND cd.imagepath <> ''
             ";
-
             // キーワード検索（スコープ対応）
             if ($q !== '') {
                 $conds = [];
@@ -334,21 +368,29 @@ public function cardVersionsApi() {
                 $sql .= " AND 1=0";
             }
 
-            // 含む文明 / のみ持つ文明
+            // 含む文明 / のみ持つ文明の結合処理
             if (!empty($civs)) {
-                $civList = implode(',', array_map('intval', $civs));
-                
-                if ($civMatchType === 'match') {
-                    // 「のみ持つ」：
-                    // 1. 選択したすべての文明を「過不足なくすべて持っている」 (AND結合)
-                    foreach ($civs as $cId) {
-                        $sql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id = " . (int)$cId . ")";
+                if (in_array(-1, $civs)) {
+                    // 「未設定（文明なし）」を処理
+                    $otherCivs = array_filter($civs, function($v) { return $v != -1; });
+                    if (!empty($otherCivs)) {
+                        $civList = implode(',', array_map('intval', $otherCivs));
+                        $sql .= " AND (NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id) OR EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id IN ($civList)))";
+                    } else {
+                        $sql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id)";
                     }
-                    // 2. 選択した文明「以外」の文明を一切持たない
-                    $sql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id NOT IN ($civList))";
                 } else {
-                    // 「含む」：選択した文明のいずれかを持つ
-                    $sql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id IN ($civList))";
+                    $civList = implode(',', array_map('intval', $civs));
+                    if ($civMatchType === 'match') {
+                        // 「のみ持つ（完全一致AND結合）」
+                        foreach ($civs as $cId) {
+                            $sql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id = " . (int)$cId . ")";
+                        }
+                        $sql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id NOT IN ($civList))";
+                    } else {
+                        // 「含む」
+                        $sql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id IN ($civList))";
+                    }
                 }
             }
 
@@ -358,33 +400,90 @@ public function cardVersionsApi() {
                 $sql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c.card_id AND cc.civilization_id IN ($excludeList))";
             }
 
-            // 各種絞り込み
+            // 種族絞り込み (未設定対応)
             if (!empty($races)) {
-                $idList = implode(',', array_map('intval', $races));
-                $sql .= " AND EXISTS (SELECT 1 FROM card_race cr WHERE cr.card_id = c.card_id AND cr.race_id IN ($idList))";
-            }
-            if (!empty($abilities)) {
-                $idList = implode(',', array_map('intval', $abilities));
-                $sql .= " AND EXISTS (SELECT 1 FROM card_ability ca WHERE ca.card_id = c.card_id AND ca.ability_id IN ($idList))";
-            }
-            if (!empty($characteristics)) {
-                $idList = implode(',', array_map('intval', $characteristics));
-                $sql .= " AND EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c.card_id AND c_char.characteristics_id IN ($idList))";
-            }
-            if (!empty($cardtypes)) {
-                $idList = implode(',', array_map('intval', $cardtypes));
-                $sql .= " AND EXISTS (SELECT 1 FROM card_cardtype c_type WHERE c_type.card_id = c.card_id AND c_type.cardtype_id IN ($idList))";
-            }
-            if (!empty($goods)) {
-                $idList = implode(',', array_map('intval', $goods));
-                $sql .= " AND cd.goods_id IN ($idList)";
+                if (in_array(-1, $races)) {
+                    $otherRaces = array_filter($races, function($v) { return $v != -1; });
+                    if (!empty($otherRaces)) {
+                        $idList = implode(',', array_map('intval', $otherRaces));
+                        $sql .= " AND (NOT EXISTS (SELECT 1 FROM card_race cr WHERE cr.card_id = c.card_id) OR EXISTS (SELECT 1 FROM card_race cr WHERE cr.card_id = c.card_id AND cr.race_id IN ($idList)))";
+                    } else {
+                        $sql .= " AND NOT EXISTS (SELECT 1 FROM card_race cr WHERE cr.card_id = c.card_id)";
+                    }
+                } else {
+                    $idList = implode(',', array_map('intval', $races));
+                    $sql .= " AND EXISTS (SELECT 1 FROM card_race cr WHERE cr.card_id = c.card_id AND cr.race_id IN ($idList))";
+                }
             }
 
-            // 発売日（release_date）が新しい順（DESC）にし、同日の場合はコスト・読みがな順で並び替えて制限します
+            // 特殊能力絞り込み (未設定対応)
+            if (!empty($abilities)) {
+                if (in_array(-1, $abilities)) {
+                    $otherAbilities = array_filter($abilities, function($v) { return $v != -1; });
+                    if (!empty($otherAbilities)) {
+                        $idList = implode(',', array_map('intval', $otherAbilities));
+                        $sql .= " AND (NOT EXISTS (SELECT 1 FROM card_ability ca WHERE ca.card_id = c.card_id) OR EXISTS (SELECT 1 FROM card_ability ca WHERE ca.card_id = c.card_id AND ca.ability_id IN ($idList)))";
+                    } else {
+                        $sql .= " AND NOT EXISTS (SELECT 1 FROM card_ability ca WHERE ca.card_id = c.card_id)";
+                    }
+                } else {
+                    $idList = implode(',', array_map('intval', $abilities));
+                    $sql .= " AND EXISTS (SELECT 1 FROM card_ability ca WHERE ca.card_id = c.card_id AND ca.ability_id IN ($idList))";
+                }
+            }
+
+            // 特殊タイプ絞り込み (未設定対応)
+            if (!empty($characteristics)) {
+                if (in_array(-1, $characteristics)) {
+                    $otherChars = array_filter($characteristics, function($v) { return $v != -1; });
+                    if (!empty($otherChars)) {
+                        $idList = implode(',', array_map('intval', $otherChars));
+                        $sql .= " AND (NOT EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c.card_id) OR EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c.card_id AND c_char.characteristics_id IN ($idList)))";
+                    } else {
+                        $sql .= " AND NOT EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c.card_id)";
+                    }
+                } else {
+                    $idList = implode(',', array_map('intval', $characteristics));
+                    $sql .= " AND EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c.card_id AND c_char.characteristics_id IN ($idList))";
+                }
+            }
+
+            // カードタイプ絞り込み (未設定対応)
+            if (!empty($cardtypes)) {
+                if (in_array(-1, $cardtypes)) {
+                    $otherTypes = array_filter($cardtypes, function($v) { return $v != -1; });
+                    if (!empty($otherTypes)) {
+                        $idList = implode(',', array_map('intval', $otherTypes));
+                        $sql .= " AND (NOT EXISTS (SELECT 1 FROM card_cardtype c_type WHERE c_type.card_id = c.card_id) OR EXISTS (SELECT 1 FROM card_cardtype c_type WHERE c_type.card_id = c.card_id AND c_type.cardtype_id IN ($idList)))";
+                    } else {
+                        $sql .= " AND NOT EXISTS (SELECT 1 FROM card_cardtype c_type WHERE c_type.card_id = c.card_id)";
+                    }
+                } else {
+                    $idList = implode(',', array_map('intval', $cardtypes));
+                    $sql .= " AND EXISTS (SELECT 1 FROM card_cardtype c_type WHERE c_type.card_id = c.card_id AND c_type.cardtype_id IN ($idList))";
+                }
+            }
+
+            // 収録商品絞り込み (未設定対応)
+            if (!empty($goods)) {
+                if (in_array(-1, $goods)) {
+                    $otherGoods = array_filter($goods, function($v) { return $v != -1; });
+                    if (!empty($otherGoods)) {
+                        $idList = implode(',', array_map('intval', $otherGoods));
+                        $sql .= " AND (cd.goods_id IS NULL OR cd.goods_id IN ($idList))";
+                    } else {
+                        $sql .= " AND cd.goods_id IS NULL";
+                    }
+                } else {
+                    $idList = implode(',', array_map('intval', $goods));
+                    $sql .= " AND cd.goods_id IN ($idList)";
+                }
+            }
+
+            // 発売日の新しい順に並び替え
             $sql .= " ORDER BY cd.release_date DESC, c.cost ASC, c.reading ASC LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
 
             $stmt = $pdo->prepare($sql);
-            
             foreach ($params as $key => $val) {
                 $stmt->bindValue($key, $val, is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
@@ -426,18 +525,9 @@ public function cardVersionsApi() {
                     c.flavortext,
                     cd.imagepath,
                     g.goods_name,
-                    (SELECT GROUP_CONCAT(cl.civilization_name SEPARATOR ' / ') 
-                     FROM card_civilization cc 
-                     JOIN civilization cl ON cc.civilization_id = cl.civilization_id 
-                     WHERE cc.card_id = c.card_id) as civilizations,
-                    (SELECT GROUP_CONCAT(r.race_name SEPARATOR ' / ') 
-                     FROM card_race cr 
-                     JOIN race r ON cr.race_id = r.race_id 
-                     WHERE cr.card_id = c.card_id) as races,
-                    (SELECT GROUP_CONCAT(ab.ability_name SEPARATOR ' / ') 
-                     FROM card_ability ca 
-                     JOIN ability ab ON ca.ability_id = ab.ability_id 
-                     WHERE ca.card_id = c.card_id) as abilities
+                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civilizations_ids,
+                    (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
+                    (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = c.card_id) as ability_ids
                 FROM card c
                 JOIN card_detail cd ON c.card_id = cd.card_id
                 LEFT JOIN goods g ON cd.goods_id = g.goods_id
@@ -463,5 +553,90 @@ public function cardVersionsApi() {
         }
         exit;
     }
-    
+    /**
+     * 新規追加：カード詳細情報の更新（中間テーブル再登録対応）
+     */
+    public function helpUpdateApi() {
+        header('Content-Type: application/json; charset=utf-8');
+
+        // JSONリクエストデータの取得
+        $input = json_decode(file_get_contents('php://input'), true);
+        if (!$input || empty($input['card_id'])) {
+            http_response_code(400);
+            echo json_encode(['error' => '無効なデータです。']);
+            exit;
+        }
+
+        $cardId = (int)$input['card_id'];
+        $cardName = $input['card_name'] ?? '';
+        $reading = $input['reading'] ?? '';
+        $cost = $input['cost'] !== '' ? (int)$input['cost'] : null;
+        $pow = $input['pow'] !== '' ? (int)$input['pow'] : null;
+        $text = $input['text'] ?? '';
+        $flavortext = $input['flavortext'] ?? '';
+
+        $civs = $input['civilizations'] ?? []; // 文明IDの配列
+        $races = $input['races'] ?? [];             // 種族IDの配列
+        $abilities = $input['abilities'] ?? [];     // 特殊能力IDの配列
+
+        try {
+            $pdo = Database::connect();
+            $pdo->beginTransaction(); // トランザクション開始
+
+            // 1. cardテーブル（基本情報）のアップデート
+            $sqlCard = "
+                UPDATE card 
+                SET card_name = :card_name, reading = :reading, cost = :cost, pow = :pow, text = :text, flavortext = :flavortext 
+                WHERE card_id = :card_id
+            ";
+            $stmtCard = $pdo->prepare($sqlCard);
+            $stmtCard->execute([
+                ':card_name' => $cardName,
+                ':reading'   => $reading,
+                ':cost'      => $cost,
+                ':pow'       => $pow,
+                ':text'      => $text,
+                ':flavortext'=> $flavortext,
+                ':card_id'   => $cardId
+            ]);
+
+            // 2. 文明中間テーブルの削除＆再登録
+            $pdo->prepare("DELETE FROM card_civilization WHERE card_id = :id")->execute([':id' => $cardId]);
+            if (!empty($civs)) {
+                $stmtCiv = $pdo->prepare("INSERT INTO card_civilization (card_id, civilization_id) VALUES (:id, :civ_id)");
+                foreach ($civs as $civId) {
+                    $stmtCiv->execute([':id' => $cardId, ':civ_id' => (int)$civId]);
+                }
+            }
+
+            // 3. 種族中間テーブルの削除＆再登録
+            $pdo->prepare("DELETE FROM card_race WHERE card_id = :id")->execute([':id' => $cardId]);
+            if (!empty($races)) {
+                $stmtRace = $pdo->prepare("INSERT INTO card_race (card_id, race_id) VALUES (:id, :race_id)");
+                foreach ($races as $raceId) {
+                    $stmtRace->execute([':id' => $cardId, ':race_id' => (int)$raceId]);
+                }
+            }
+
+            // 4. 特殊能力中間テーブルの削除＆再登録
+            $pdo->prepare("DELETE FROM card_ability WHERE card_id = :id")->execute([':id' => $cardId]);
+            if (!empty($abilities)) {
+                $stmtAbility = $pdo->prepare("INSERT INTO card_ability (card_id, ability_id) VALUES (:id, :ability_id)");
+                foreach ($abilities as $abilityId) {
+                    $stmtAbility->execute([':id' => $cardId, ':ability_id' => (int)$abilityId]);
+                }
+            }
+
+            $pdo->commit(); // コミット
+            echo json_encode(['success' => true]);
+
+        } catch (\Exception $e) {
+            if (isset($pdo) && $pdo->inTransaction()) {
+                $pdo->rollBack(); // エラー時はロールバック
+            }
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        exit;
+    }   
 }
