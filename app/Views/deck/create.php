@@ -524,6 +524,44 @@
         margin: 0;
         cursor: pointer;
     }
+/* --- シンプルなスライドトグルボタン --- */
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #d1d1d6;
+    transition: .3s;
+    border-radius: 24px;
+}
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-slider {
+    background-color: #28a745; /* ONのときは親しみやすい緑色に */
+}
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(20px); /* スライダーを右へスライド */
+}
 </style>
 
 <!-- 外部ライブラリ読み込み -->
@@ -822,69 +860,77 @@
 </div>
 <!-- デッキ保存・設定モーダル -->
 <div id="deckSaveModal" class="sub-modal">
-    <div class="sub-modal-content" style="width: 450px; height: auto; max-height: 90vh;">
-        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px;">
-            <h3 style="margin: 0;">デッキ保存設定</h3>
+    <div class="sub-modal-content" style="max-width: 460px; height: auto; max-height: 90vh;">
+        <!-- 画面上部角までぴったり #333 のヘッダー -->
+        <div class="sub-modal-header">
+            <span>デッキ保存設定</span>
             <span onclick="closeSaveModal()" style="cursor:pointer; font-size:24px;">&times;</span>
         </div>
         
-        <div style="display: flex; flex-direction: column; gap: 15px; overflow-y: auto; max-height: 60vh; padding-right: 5px;">
+        <!-- 余白を綺麗に持たせたスクロールエリア -->
+        <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
             <!-- デッキ名 -->
             <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">デッキ名</label>
-                <input type="text" id="save-deck-name" placeholder="デッキ名を入力してください" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">デッキ名</label>
+                <input type="text" id="save-deck-name" placeholder="デッキ名を入力してください" style="width: 100%; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 14px;">
             </div>
             
             <!-- フォーマット選択 -->
             <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">フォーマット</label>
-                <select id="save-deck-format" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; background: white; font-size: 14px;">
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">フォーマット</label>
+                <select id="save-deck-format" style="width: 100%; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; box-sizing: border-box; background: white; font-size: 14px; outline: none; cursor: pointer;">
                     <!-- JSで動的にオプション生成 -->
                 </select>
             </div>
             
             <!-- サムネイル選択 -->
             <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">デッキサムネイル</label>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">デッキサムネイル</label>
                 <div style="display: flex; gap: 15px; align-items: center;">
-                    <div id="thumbnail-preview-box" style="width: 90px; height: 126px; border: 2px dashed #ccc; border-radius: 4px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f9f9f9; flex-shrink: 0;">
+                    <div id="thumbnail-preview-box" style="width: 80px; height: 112px; border: 2px dashed #d1d1d6; border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #f9f9f9; flex-shrink: 0;">
                         <span id="thumbnail-placeholder" style="font-size: 11px; color: #999; text-align: center; padding: 5px;">未選択</span>
                         <img id="thumbnail-preview-img" style="display: none; width: 100%; height: 100%; object-fit: contain;">
                     </div>
                     <div style="flex: 1;">
-                        <p style="font-size: 12px; color: #666; margin: 0 0 8px 0;">デッキに採用されているカードの中から、1枚をサムネイル画像（看板）として登録できます。</p>
-                        <button type="button" onclick="openThumbnailSelector()" style="padding: 6px 12px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">カードを選択する</button>
+                        <p style="font-size: 11px; color: #666; margin: 0 0 8px 0; line-height: 1.4;">デッキに採用されているカードの中から、1枚をサムネイル画像（看板）として登録できます。</p>
+                        <button type="button" onclick="openThumbnailSelector()" style="padding: 8px 16px; background: #17a2b8; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; transition: background 0.2s;">カードを選択する</button>
                     </div>
                 </div>
                 <input type="hidden" id="save-deck-thumbnail-id" value="">
             </div>
 
-            <div class="switch-container">
-                <div>
-                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 2px;">デッキを公開する</label>
-                    <span style="font-size: 11px; color: #666; display: block;">公開すると、他のユーザーがデッキ検索で閲覧・コピーできるようになります。</span>
+            <!-- 公開設定（シンプルなスライドトグル） -->
+            <div style="margin-top: 10px; border-top: 1px solid #f2f2f7; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="padding-right: 15px; flex: 1;">
+                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 2px; color: #444;">デッキを公開する</label>
+                    <span style="font-size: 11px; color: #666; display: block; line-height: 1.4;">公開すると、他のユーザーがデッキ検索で閲覧・コピーできるようになります。</span>
                 </div>
-                <label class="switch">
+                
+                <!-- スタイリッシュなスライド式トグル -->
+                <label class="toggle-switch" style="flex-shrink: 0;">
                     <input type="checkbox" id="save-deck-public">
-                    <span class="slider"></span>
+                    <span class="toggle-slider"></span>
                 </label>
             </div>
         </div>
         
-        <div style="margin-top: 20px; display: flex; gap: 10px;">
-            <button onclick="closeSaveModal()" style="flex: 1; padding: 10px; background: #ccc; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">キャンセル</button>
-            <button onclick="submitDeckSave()" style="flex: 1; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>
+        <!-- フッターボタンエリア -->
+        <div style="padding: 15px 20px 20px 20px; border-top: 1px solid #f2f2f7; display: flex; gap: 12px; background: #fff;">
+            <button onclick="closeSaveModal()" style="flex: 1; padding: 12px; background: #f2f2f7; color: #555; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">キャンセル</button>
+            <button onclick="submitDeckSave()" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">保存する</button>
         </div>
     </div>
 </div>
 
 <!-- サムネイルカード選択サブモーダル -->
 <div id="thumbnailSelectModal" class="sub-modal">
-    <div class="sub-modal-content" style="width: 400px; height: 75vh;">
-        <div class="sub-modal-header" style="padding: 12px; background: #333; color: #fff; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; font-size: 14px;">サムネイルにするカードを選択</span>
+    <div class="sub-modal-content" style="max-width: 400px; height: 75vh;">
+        <!-- 画面上部角までぴったり #333 のヘッダー -->
+        <div class="sub-modal-header">
+            <span>サムネイルにするカードを選択</span>
             <span onclick="closeThumbnailSelector()" style="cursor:pointer; font-size: 20px;">&times;</span>
         </div>
+        <!-- ボディエリア -->
         <div id="thumbnail-cards-list" class="sub-modal-body" style="padding: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-content: start;">
             <!-- JSでデッキ内カード画像を動的に配置 -->
         </div>
@@ -962,9 +1008,12 @@ window.addEventListener('DOMContentLoaded', () => {
         <?php endif; ?>
 
         <?php if (isset($deck['is_public'])): ?>
-            document.getElementById('save-deck-public').checked = <?php echo $deck['is_public'] ? 'true' : 'false'; ?>;
+            const isPublicVal = <?php echo $deck['is_public'] ? 'true' : 'false'; ?>;
+            document.getElementById('save-deck-public').checked = isPublicVal;
+            // ★追記：ラジオボタン（トグルボタン）のアクティブ側も初期同期
+            const toggleRadio = document.querySelector(`input[name="deck-public-toggle"][value="${isPublicVal ? '1' : '0'}"]`);
+            if (toggleRadio) toggleRadio.checked = true;
         <?php endif; ?>
-
         <?php if (isset($deck['thumbnail_card_id']) && isset($deck['thumbnail_imagepath'])): ?>
             setThumbnail(
                 '<?php echo $deck['thumbnail_card_id']; ?>', 
@@ -1952,5 +2001,11 @@ function hiraToKata(str) {
 function escapeSelectorValue(str) {
     if (!str) return '';
     return str.replace(/"/g, '\\"');
+}
+/**
+ * 公開設定トグルボタンの値変更を、非表示チェックボックスに同期する
+ */
+function updatePublicValue(val) {
+    document.getElementById('save-deck-public').checked = (val === 1);
 }
 </script>
