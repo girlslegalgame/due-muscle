@@ -64,6 +64,25 @@
             width: 100% !important;
             z-index: 2000 !important;
         }
+
+        /* ナビゲーションを横に並べて均等配置する設定 */
+        footer nav ul {
+            display: flex;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        footer nav li {
+            flex: 1;
+            text-align: center;
+        }
+
+        /* ★色や文字サイズはそのままに、クリック判定の領域（padding）のみを拡大 */
+        footer nav a {
+            display: block;
+            padding: 18px 0; /* 上下の余白を広げてタップしやすくします */
+        }
     </style>
 </head>
 <body>

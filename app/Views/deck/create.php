@@ -193,82 +193,337 @@
     .qty-controls { display: flex; align-items: center; gap: 20px; margin: 20px 0; justify-content: center; font-size: 1.2rem; }
     .btn-qty { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #ccc; cursor: pointer; font-size: 1.5rem; background: #fff; }
 
-    /* 絞り込み */
-    .filter-content { width: 500px; }
-    .filter-scroll { max-height: 400px; overflow-y: auto; padding-right: 5px; }
-    .civ-checkboxes { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+/* --- 絞り込みモーダル (新スタイル) --- */
+    #filterModal {
+        display: none;
+        align-items: center;
+        justify-content: center;
+    }
+    /* モーダル表示時に中央配置にするための調整 */
+    #filterModal[style*="display: block"] {
+        display: flex !important;
+    }
+    .filter-content { 
+        width: 100%;
+        max-width: 500px; 
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        display: flex;
+        flex-direction: column;
+        max-height: 85vh;
+        border: none;
+        margin: 0;
+        overflow: hidden;       /* ★角丸でのヘッダー切り抜きを有効化 */
+        padding: 0 !important;  /* ★共通定義の余白を強制リセット */
+    }
+    /* ★ヘッダーを角まで #333 に */
+    .filter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #333;       /* ★背景を#333に設定 */
+        padding: 16px 20px;     /* ★ヘッダー内の適切な余白 */
+        margin-bottom: 0;
+    }
+    .filter-header h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        color: #fff;            /* ★文字色を白に */
+        font-weight: bold;
+    }
+    .filter-close {
+        font-size: 24px;
+        color: #ccc;            /* ★閉じるボタンの色を変更 */
+        cursor: pointer;
+        line-height: 1;
+        transition: color 0.2s;
+    }
+    .filter-close:hover {
+        color: #fff;
+    }
+    /* ★スクロールエリア側に個別の内余白を持たせる */
+    .filter-scroll { 
+        flex: 1;
+        overflow-y: auto; 
+        padding: 20px 20px 0 20px; /* 左右と上の余白 */
+        margin-bottom: 0;
+    }
+    .filter-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    .filter-scroll::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+    }
+    .filter-scroll::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 10px;
+    }
+
+    .filter-group {
+        margin-bottom: 20px;
+    }
+    .filter-group > label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #444;
+        margin-bottom: 8px;
+    }
+
+    /* 文明チップスのスタイル */
+    .civ-checkboxes, #filter-exclude-civ-area { 
+        display: grid; 
+        grid-template-columns: repeat(3, 1fr); 
+        gap: 8px; 
+    }
+
+    .civ-checkboxes {
+        margin-bottom: 12px;
+    }
+
+    .civ-checkboxes label, #filter-exclude-civ-area label {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 4px;
+        background: #f5f5f7;
+        border: 1px solid #e5e5ea;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin: 0;
+        font-weight: normal;
+        color: #555;
+    }
+    
+    .civ-checkboxes input, #filter-exclude-civ-area input {
+        margin: 0;
+    }
+    /* チェック時のカラーアニメーション (:has セレクタを使用) */
+    .civ-checkboxes label:has(input:checked) {
+        background: #e6f2ff;
+        border-color: #007bff;
+        color: #007bff;
+        font-weight: bold;
+    }
+    #filter-exclude-civ-area label:has(input:checked) {
+        background: #ffebe6;
+        border-color: #ff3b30;
+        color: #ff3b30;
+        font-weight: bold;
+    }
+
+    /* 範囲指定フォーム（コスト・パワー） */
+    .range-inputs {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .range-inputs input[type="number"] {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #d1d1d6;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        outline: none;
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+    .range-inputs input[type="number"]:focus {
+        border-color: #007bff;
+    }
+    .range-separator {
+        color: #8e8e93;
+        font-size: 0.9rem;
+    }
+
+    /* セレクトトリガー（種族・能力） */
     .select-trigger { 
-        width: 100% !important; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; 
-        cursor: pointer; background: #fff; box-sizing: border-box; min-height: 32px; 
-        font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        width: 100% !important; 
+        padding: 10px 14px; 
+        border: 1px solid #d1d1d6; 
+        border-radius: 8px; 
+        cursor: pointer; 
+        background: #fff; 
+        box-sizing: border-box; 
+        min-height: 40px; 
+        font-size: 0.85rem; 
+        color: #333; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+        white-space: nowrap;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
     }
-    .logic-switch { display: flex; border: 1px solid #ccc; border-radius: 20px; overflow: hidden; background: #eee; }
-    .logic-switch label { flex: 1; text-align: center; cursor: pointer; font-size: 11px; margin:0; padding: 3px 8px; }
+    .select-trigger:hover {
+        border-color: #007bff;
+        background: #fafafa;
+    }
+    .select-trigger::after {
+        content: "▼";
+        font-size: 10px;
+        color: #8e8e93;
+    }
+
+    /* AND / OR 切り替えスイッチ */
+    .logic-switch { 
+        display: inline-flex; 
+        border: 1px solid #d1d1d6; 
+        border-radius: 8px; 
+        overflow: hidden; 
+        background: #f2f2f7; 
+        padding: 2px;
+    }
+    .logic-switch label { 
+        text-align: center; 
+        cursor: pointer; 
+        font-size: 0.75rem; 
+        font-weight: bold;
+        margin: 0; 
+        padding: 4px 12px; 
+        border-radius: 6px;
+        transition: all 0.2s;
+        color: #666;
+    }
     .logic-switch input { display: none; }
-    .logic-switch input:checked + span { background: #007bff; color: #fff; display: block; border-radius: 20px; }
-
-    /* サブモーダル */
-    .sub-modal-content { width: 400px; display: flex; flex-direction: column; height: 80vh; }
-    .sub-modal-header { padding: 15px; background: #333; color: #fff; display: flex; justify-content: space-between; border-radius: 12px 12px 0 0; }
-    .sub-modal-body { flex: 1; overflow-y: auto; padding: 15px; }
-    .sub-modal-content input[type="text"] { width: 100% !important; box-sizing: border-box; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 4px; }
-    .list-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 5px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 14px; }
-
-    /* その他 */
-    #trash-area {
-        width: 60px; height: 60px; background: #ffcccc; border: 2px dashed #cc0000;
-        display: none; justify-content: center; align-items: center; 
-        font-size: 30px; border-radius: 8px; color: #cc0000;
-        position: fixed; right: calc(50% - 440px); top: 120px; z-index: 100;
+    .logic-switch input:checked + span { 
+        background: #fff; 
+        color: #007bff; 
+        box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        display: block; 
+        padding: 4px 12px;
+        border-radius: 6px;
+        margin: -4px -12px; /* 内部余白調整 */
     }
-    .search-msg { display: flex; align-items: center; justify-content: center; width: 100%; min-width: 880px; height: 100px; color: #666; font-weight: bold; }
-    .special-box.empty img { display: none; }
-/* --- デッキ公開トグルスイッチのスタイル --- */
-        .switch-container {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 15px;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
-        .switch {
-            position: relative;
-            display: inline-block;
-            width: 46px;
-            height: 24px;
-            flex-shrink: 0;
-        }
-        .switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #ccc;
-            transition: .3s;
-            border-radius: 24px;
-        }
-        .slider:before {
-            position: absolute;
-            content: "";
-            height: 16px;
-            width: 16px;
-            left: 4px;
-            bottom: 4px;
-            background-color: white;
-            transition: .3s;
-            border-radius: 50%;
-        }
-        .switch input:checked + .slider {
-            background-color: #28a745; /* ONのときは緑色に */
-        }
-        .switch input:checked + .slider:before {
-            transform: translateX(22px);
-        }
+
+    /* 下部ボタン群 */
+    .filter-actions {
+        display: flex;
+        gap: 12px;
+        padding: 15px 20px 20px 20px; /* 適切な余白 */
+        background: #fff;
+    }
+    
+    .btn-filter-apply {
+        flex: 2;
+        padding: 12px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: bold;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .btn-filter-apply:hover {
+        background: #0056b3;
+    }
+    .btn-filter-clear {
+        flex: 1;
+        padding: 12px;
+        background: #f2f2f7;
+        color: #ff3b30;
+        border: none;
+        border-radius: 10px;
+        font-weight: bold;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-filter-clear:hover {
+        background: #ffebe6;
+    }  
+    
+/* --- サブモーダル (種族・特殊能力選択 新スタイル) --- */
+    .sub-modal { 
+        display: none; 
+        position: fixed; 
+        z-index: 3000; 
+        left: 0; top: 0; 
+        width: 100%; height: 100%; 
+        background: rgba(0,0,0,0.8); 
+        align-items: center;
+        justify-content: center;
+    }
+    /* モーダル表示時に中央配置にするための調整 */
+    .sub-modal[style*="display: block"] {
+        display: flex !important;
+    }
+    .sub-modal-content { 
+        background: white; 
+        width: 100%;
+        max-width: 400px; 
+        height: 75vh; 
+        border-radius: 16px; 
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        display: flex; 
+        flex-direction: column; 
+        box-sizing: border-box;
+        overflow: hidden; 
+        margin: 0;
+        padding: 0 !important;  /* ★共通定義の余白を強制リセット */
+    }
+    
+    /* ★ヘッダーを角まで #333 に */
+    .sub-modal-header { 
+        padding: 16px 20px; 
+        background: #333; 
+        color: #fff; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+    }
+    
+    .sub-modal-header span {
+        font-weight: bold;
+        font-size: 0.95rem;
+    }
+    .sub-modal-body { 
+        flex: 1; 
+        overflow-y: auto; 
+        padding: 10px 20px; 
+    }
+    /* 検索ボックスのスタイリッシュ化 */
+    .sub-modal-content input[type="text"] { 
+        width: 100% !important; 
+        box-sizing: border-box; 
+        padding: 10px 14px; 
+        margin-bottom: 5px; 
+        border: 1px solid #d1d1d6; 
+        border-radius: 8px; 
+        font-size: 0.9rem;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .sub-modal-content input[type="text"]:focus {
+        border-color: #007bff;
+    }
+    /* 選択肢リストのスタイリッシュ化 */
+    .list-item { 
+        display: flex; 
+        align-items: center; 
+        justify-content: space-between; 
+        padding: 12px 8px; 
+        border-bottom: 1px solid #f2f2f7; 
+        cursor: pointer; 
+        font-size: 0.85rem; 
+        color: #333;
+        transition: background 0.2s;
+    }
+    .list-item:hover {
+        background: #f5f5f7;
+    }
+    .list-item input[type="checkbox"] {
+        margin: 0;
+        cursor: pointer;
+    }
 </style>
 
 <!-- 外部ライブラリ読み込み -->
@@ -361,14 +616,23 @@
 <!-- 絞り込みモーダル -->
 <div id="filterModal">
     <div class="filter-content">
-        <h3>詳細絞り込み</h3>
+        <div class="filter-header">
+            <h3>詳細絞り込み</h3>
+            <span class="filter-close" onclick="toggleFilterModal()">&times;</span>
+        </div>
+        
         <div class="filter-scroll">
+            <!-- 文明グループ -->
             <div class="filter-group">
                 <label>文明</label>
                 <!-- 単色・多色選択 -->
-                <div style="display: flex; gap: 15px; margin-bottom: 8px;">
-                    <label style="font-size: 13px;"><input type="checkbox" id="filter-civ-single" checked onchange="toggleFilterCivType()"> 単色</label>
-                    <label style="font-size: 13px;"><input type="checkbox" id="filter-civ-multi" checked onchange="toggleFilterCivType()"> 多色</label>
+                <div style="display: flex; gap: 15px; margin-bottom: 12px;">
+                    <label style="font-size: 13px; font-weight: normal; margin: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <input type="checkbox" id="filter-civ-single" checked onchange="toggleFilterCivType()"> 単色
+                    </label>
+                    <label style="font-size: 13px; font-weight: normal; margin: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <input type="checkbox" id="filter-civ-multi" checked onchange="toggleFilterCivType()"> 多色
+                    </label>
                 </div>
                 
                 <div class="civ-checkboxes">
@@ -379,31 +643,74 @@
                     <label><input type="checkbox" class="civ-check" value="5"> 自然</label>
                     <label><input type="checkbox" class="civ-check" value="6"> ゼロ</label>
                 </div>
-                <!-- 多色がONの時のみ表示される「含まれない文明」除外エリア -->
-                <div id="filter-exclude-civ-area" style="display: flex; gap: 10px; flex-wrap: wrap; border-top: 1px dashed #ccc; padding-top: 8px; margin-top: 5px;">
-                    <span style="font-size: 11px; color: #666; width: 100%;"><strong>含まれない文明を指定</strong></span>
-                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="1"> 光</label>
-                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="2"> 水</label>
-                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="3"> 闇</label>
-                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="4"> 火</label>
-                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="5"> 自然</label>
-                    <label style="font-size: 11px;"><input type="checkbox" class="filter-exclude-civ-check" value="6"> ゼロ</label>
-                </div>
-            
+
                 <!-- 含む / のみ持つ ラジオボタン -->
-                <div style="display: flex; gap: 15px; margin-bottom: 8px; font-size: 12px; color: #555;">
-                    <label style="cursor: pointer;"><input type="radio" name="filter-civ-match-type" value="include" checked> 選択した文明を含む</label>
-                    <label style="cursor: pointer;"><input type="radio" name="filter-civ-match-type" value="match"> 選択した文明のみ持つ</label>
+                <div style="display: flex; gap: 15px; margin: 12px 0; font-size: 12px; color: #555;">
+                    <label style="cursor: pointer; font-weight: normal; display: flex; align-items: center; gap: 4px;"><input type="radio" name="filter-civ-match-type" value="include" checked> 選択した文明を含む</label>
+                    <label style="cursor: pointer; font-weight: normal; display: flex; align-items: center; gap: 4px;"><input type="radio" name="filter-civ-match-type" value="match"> 選択した文明のみ持つ</label>
                 </div>
-            
+
+                <!-- 含まれない文明を指定（除外エリア） -->
+                <div id="filter-exclude-civ-area" style="border-top: 1px solid #eaeaea; padding-top: 12px; margin-top: 12px;">
+                    <span style="font-size: 11px; color: #666; grid-column: span 3; font-weight: bold; margin-bottom: 4px;">含まれない文明を指定（除外）</span>
+                    <label><input type="checkbox" class="filter-exclude-civ-check" value="1"> 光</label>
+                    <label><input type="checkbox" class="filter-exclude-civ-check" value="2"> 水</label>
+                    <label><input type="checkbox" class="filter-exclude-civ-check" value="3"> 闇</label>
+                    <label><input type="checkbox" class="filter-exclude-civ-check" value="4"> 火</label>
+                    <label><input type="checkbox" class="filter-exclude-civ-check" value="5"> 自然</label>
+                    <label><input type="checkbox" class="filter-exclude-civ-check" value="6"> ゼロ</label>
+                </div>
             </div>
-            <div style="display:flex; gap:20px;">
-                <div class="filter-group"><label>コスト</label><input type="number" id="cost-min" style="width:60px;"> 〜 <input type="number" id="cost-max" style="width:60px;"></div>
-                <div class="filter-group"><label>パワー</label><input type="number" id="pow-min" style="width:80px;"> 〜 <input type="number" id="pow-max" style="width:80px;"></div>
-            </div>
+
+            <!-- 特殊タイプグループ -->
             <div class="filter-group">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <label>種族</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">特殊タイプ</label>
+                    <div class="logic-switch">
+                        <label><input type="radio" name="characteristic_logic" value="AND"><span>AND</span></label>
+                        <label><input type="radio" name="characteristic_logic" value="OR" checked><span>OR</span></label>
+                    </div>
+                </div>
+                <div id="characteristics-trigger" class="select-trigger" onclick="openSubModal('characteristics')">特殊タイプを選択</div>
+            </div>
+
+            <!-- カードタイプグループ -->
+            <div class="filter-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">カードタイプ</label>
+                    <div class="logic-switch">
+                        <label><input type="radio" name="cardtype_logic" value="AND"><span>AND</span></label>
+                        <label><input type="radio" name="cardtype_logic" value="OR" checked><span>OR</span></label>
+                    </div>
+                </div>
+                <div id="cardtype-trigger" class="select-trigger" onclick="openSubModal('cardtype')">カードタイプを選択</div>
+            </div>
+
+            <!-- コスト・パワーグループ -->
+            <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; margin-bottom: 20px;">
+                <div class="filter-group" style="margin: 0;">
+                    <label>コスト</label>
+                    <div class="range-inputs">
+                        <input type="number" id="cost-min" placeholder="下限">
+                        <span class="range-separator">〜</span>
+                        <input type="number" id="cost-max" placeholder="上限">
+                    </div>
+                </div>
+                <br>
+                <div class="filter-group" style="margin: 0;">
+                    <label>パワー</label>
+                    <div class="range-inputs">
+                        <input type="number" id="pow-min" placeholder="下限">
+                        <span class="range-separator">〜</span>
+                        <input type="number" id="pow-max" placeholder="上限">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 種族グループ -->
+            <div class="filter-group">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">種族</label>
                     <div class="logic-switch">
                         <label><input type="radio" name="race_logic" value="AND"><span>AND</span></label>
                         <label><input type="radio" name="race_logic" value="OR" checked><span>OR</span></label>
@@ -411,9 +718,11 @@
                 </div>
                 <div id="race-trigger" class="select-trigger" onclick="openSubModal('race')">種族を選択</div>
             </div>
+
+            <!-- 特殊能力グループ -->
             <div class="filter-group">
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <label>特殊能力</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                    <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">特殊能力</label>
                     <div class="logic-switch">
                         <label><input type="radio" name="ability_logic" value="AND"><span>AND</span></label>
                         <label><input type="radio" name="ability_logic" value="OR" checked><span>OR</span></label>
@@ -421,13 +730,23 @@
                 </div>
                 <div id="ability-trigger" class="select-trigger" onclick="openSubModal('ability')">特殊能力を選択</div>
             </div>
-            <div class="filter-group"><label>レギュレーション</label><label><input type="checkbox" class="reg-check" value="2"> 殿堂</label><label><input type="checkbox" class="reg-check" value="3"> プレミアム殿堂</label></div>
+
+            <!-- レギュレーショングループ -->
+            <div class="filter-group" style="margin: 0;">
+                <label>レギュレーション</label>
+                <div style="display: flex; gap: 15px;">
+                    <label style="font-size: 13px; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 4px;"><input type="checkbox" class="reg-check" value="2"> 殿堂</label>
+                    <label style="font-size: 13px; font-weight: normal; cursor: pointer; display: flex; align-items: center; gap: 4px;"><input type="checkbox" class="reg-check" value="3"> プレミアム殿堂</label>
+                </div>
+            </div>
         </div>
-        <button onclick="applyFilters()" style="width:100%; padding:10px; background:#007bff; color:white; border:none; border-radius:4px; margin-top:10px;">適用する</button>
-        <button onclick="clearAllFilters()" style="width:100%; padding:10px; background:#ccc; border:none; border-radius:4px; margin-top:5px;">クリア</button>
+
+        <div class="filter-actions">
+            <button class="btn-filter-clear" onclick="clearAllFilters()">クリア</button>
+            <button class="btn-filter-apply" onclick="applyFilters()">適用する</button>
+        </div>
     </div>
 </div>
-
 <!-- 並び替えモーダル -->
 <div id="sortModal" class="sub-modal">
     <div class="sub-modal-content" style="width: 400px; height: auto; max-height: 90vh; margin: 15vh auto;">
@@ -476,6 +795,31 @@
     <div style="padding:10px; border-top:1px solid #eee;"><button onclick="closeSubModal('ability')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:4px;">決定</button></div>
 </div></div>
 
+<div id="characteristicsSelectModal" class="sub-modal">
+    <div class="sub-modal-content">
+        <div class="sub-modal-header">
+            <span>特殊タイプ選択</span>
+            <span onclick="closeSubModal('characteristics')" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div id="characteristics-list-container" class="sub-modal-body"></div>
+        <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
+            <button onclick="closeSubModal('characteristics')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">決定</button>
+        </div>
+    </div>
+</div>
+
+<div id="cardtypeSelectModal" class="sub-modal">
+    <div class="sub-modal-content">
+        <div class="sub-modal-header">
+            <span>カードタイプ選択</span>
+            <span onclick="closeSubModal('cardtype')" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div id="cardtype-list-container" class="sub-modal-body"></div>
+        <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
+            <button onclick="closeSubModal('cardtype')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">決定</button>
+        </div>
+    </div>
+</div>
 <!-- デッキ保存・設定モーダル -->
 <div id="deckSaveModal" class="sub-modal">
     <div class="sub-modal-content" style="width: 450px; height: auto; max-height: 90vh;">
@@ -569,7 +913,10 @@ const input = document.getElementById('card-search-input');
 let currentFilters = { 
     q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
     pow_min: '', pow_max: '', races: [], abilities: [], 
-    race_logic: 'OR', ability_logic: 'OR', reg: [] ,
+    characteristics: [], cardtypes: [], // ★特殊タイプとカードタイプを追加
+    race_logic: 'OR', ability_logic: 'OR', 
+    characteristic_logic: 'OR', cardtype_logic: 'OR', // ★ロジックを追加
+    reg: [] ,
     civ_type: '', civ_match_type: 'include', exclude_civs: []
 };
 let currentOffset = 0, isFetching = false, hasMoreCards = true;
@@ -632,6 +979,17 @@ window.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             renderMasterList('race', data.races);
             renderMasterList('ability', data.abilities);
+            
+            // ★ 特殊タイプの描画（ID昇順ソート）
+            if (data.characteristics) {
+                data.characteristics.sort((a, b) => a.characteristics_id - b.characteristics_id);
+                renderMasterList('characteristics', data.characteristics);
+            }
+            // ★ カードタイプの描画（ID昇順ソート）
+            if (data.cardtypes) {
+                data.cardtypes.sort((a, b) => a.cardtype_id - b.cardtype_id);
+                renderMasterList('cardtype', data.cardtypes);
+            }
         });
 
     // 初期ロード後にサイズ調整
@@ -1093,7 +1451,12 @@ function fetchAndRender() {
     if (currentOffset === 0) resultsDiv.innerHTML = '<div class="search-msg">検索中...</div>';
 
     const p = new URLSearchParams();
-    if (currentFilters.q) p.append('q', currentFilters.q);
+    if (currentFilters.q) {
+        // 検索キーワードのひらがなをカタカナに変換してセット
+        const convertedQuery = hiraToKata(currentFilters.q);
+        p.append('q', convertedQuery);
+    }
+    
     p.append('scope', currentFilters.scope.join(',')); 
     if (currentFilters.civs.length) {
         p.append('civs', currentFilters.civs.join(','));
@@ -1113,6 +1476,12 @@ function fetchAndRender() {
     p.append('race_logic', currentFilters.race_logic);
     if (currentFilters.abilities.length) p.append('abilities', currentFilters.abilities.join(','));
     p.append('ability_logic', currentFilters.ability_logic);
+
+    if (currentFilters.characteristics.length) p.append('characteristics', currentFilters.characteristics.join(','));
+    p.append('characteristic_logic', currentFilters.characteristic_logic);
+    if (currentFilters.cardtypes.length) p.append('cardtypes', currentFilters.cardtypes.join(','));
+    p.append('cardtype_logic', currentFilters.cardtype_logic);
+
     if (currentFilters.reg.length) p.append('reg', currentFilters.reg.join(','));
     p.append('offset', currentOffset);
 
@@ -1224,6 +1593,12 @@ function applyFilters() {
     currentFilters.race_logic = document.querySelector('input[name="race_logic"]:checked').value;
     currentFilters.abilities = Array.from(document.querySelectorAll('.ability-check:checked')).map(el => el.value);
     currentFilters.ability_logic = document.querySelector('input[name="ability_logic"]:checked').value;
+
+    currentFilters.characteristics = Array.from(document.querySelectorAll('.characteristics-check:checked')).map(el => el.value);
+    currentFilters.characteristic_logic = document.querySelector('input[name="characteristic_logic"]:checked').value;
+    currentFilters.cardtypes = Array.from(document.querySelectorAll('.cardtype-check:checked')).map(el => el.value);
+    currentFilters.cardtype_logic = document.querySelector('input[name="cardtype_logic"]:checked').value;
+
     currentFilters.reg = Array.from(document.querySelectorAll('.reg-check:checked')).map(el => el.value);
     
     toggleFilterModal();
@@ -1246,12 +1621,15 @@ function clearAllFilters() {
     currentFilters = { 
         q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
         pow_min: '', pow_max: '', races: [], abilities: [], 
+        characteristics: [], cardtypes: [],
         race_logic: 'OR', ability_logic: 'OR', reg: [],
-        // ★ 追加
+        characteristic_logic: 'OR', cardtype_logic: 'OR',
         civ_type: '', civ_match_type: 'include', exclude_civs: []
     };
     clearSubSelection('race');
     clearSubSelection('ability');
+    clearSubSelection('characteristics'); // ★初期化追加
+    clearSubSelection('cardtype');
     searchCards();
 }
 
@@ -1269,7 +1647,7 @@ function openSaveModal() {
 
     const nameInput = document.getElementById('save-deck-name');
     if (!nameInput.value) {
-        nameInput.value = isEdit ? initialDeckName : "マイデッキ";
+        nameInput.value = isEdit ? initialDeckName : "";
     }
 
     // デフォルトサムネイルの自動設定
@@ -1561,5 +1939,15 @@ function sortDeckList(listElement, key, order) {
 
     // ソート順に沿ってDOMを再登録する
     imgs.forEach(img => listElement.appendChild(img));
+}
+
+/**
+ * ひらがなをカタカナに変換する
+ */
+function hiraToKata(str) {
+    return str.replace(/[\u3041-\u3096]/g, function(match) {
+        const chr = match.charCodeAt(0) + 0x60;
+        return String.fromCharCode(chr);
+    });
 }
 </script>
