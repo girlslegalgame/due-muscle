@@ -1,4 +1,18 @@
 <!-- app/Views/deck/help_search.php -->
+<?php
+// セッションが開始されていない場合は開始する
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// ログイン状態（セッション）のチェック
+// ※ プロジェクトで設定しているログインセッションのキー名（例: 'user_id' や 'user' など）に合わせて適宜変更してください
+if (!isset($_SESSION['user_id']) && empty($_SESSION['logged_in'])) {
+    // ログインしていない場合はログイン画面（例: /login）へリダイレクト
+    header("Location: /login");
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
