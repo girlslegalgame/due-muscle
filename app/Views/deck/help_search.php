@@ -786,7 +786,7 @@ function saveHelpDetail() {
         reading: document.getElementById('edit-reading').value.trim(),
         pow: document.getElementById('edit-power').value,
         cost: document.getElementById('edit-cost').value,
-        text: document.getElementById('edit-text').value.trim().replace(/\n/g, '\\n'), // 改行を「\n」に変換
+        text: document.getElementById('edit-text').value.trim(), 
         flavortext: document.getElementById('edit-flavor').value.trim().replace(/\n/g, '\\n'),
         civilizations: Array.from(document.querySelectorAll('.edit-civ-check:checked')).map(el => parseInt(el.value, 10)),
         races: Array.from(document.querySelectorAll('.edit-race-check:checked')).map(el => parseInt(el.value, 10)),

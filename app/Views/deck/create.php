@@ -1003,10 +1003,12 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-    const deckArea = document.getElementById('deck-area');
+const deckArea = document.getElementById('deck-area');
     if (deckArea) resizeObserver.observe(deckArea);
-});
 
+    // ★ 追記：画面を開いた直後に自動で発売日が新しいカードを表示する
+    searchCards();
+});
 /**
  * フォーマットのドロップダウンオプションのレンダリング
  */
@@ -1177,8 +1179,7 @@ function checkLimit(name, nameLimit, listElement, itemElement, totalLimit, zoneN
         alert(`${zoneName}は合計${totalLimit}枚までです。`);
         return false;
     }
-    const nameCount = listElement.querySelectorAll(`img[data-card-name="${name}"]`).length;
-    if (nameCount > nameLimit) {
+    const nameCount = listElement.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`).length;    if (nameCount > nameLimit) {
         alert(`${name} は${zoneName}に最大${nameLimit}枚までです。`);
         return false;
     }
@@ -1254,7 +1255,7 @@ function renderDetailModal() {
     } else {
         const type = determineZoneType(selectedCardData.char_ids);
         let targetList = type === 'super_dimensional' ? superDimList : (type === 'gr' ? grList : mainList);
-        count = targetList.querySelectorAll(`img[data-card-name="${name}"]`).length;
+        count = targetList.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`).length;
     }
     document.getElementById('detail-qty').innerText = count;
 
@@ -1299,7 +1300,7 @@ function adjustQty(diff) {
     if (type === 'super_dimensional') { targetList = superDimList; totalLimit = 8; zoneName = "超次元ゾーン"; }
     else if (type === 'gr') { targetList = grList; totalLimit = 12; limit = 2; zoneName = "超GRゾーン"; }
 
-    const count = targetList.querySelectorAll(`img[data-card-name="${name}"]`).length;
+    const count = targetList.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`).length;
     const totalCount = targetList.querySelectorAll('img').length;
 
     if (diff > 0) {
@@ -1434,7 +1435,6 @@ function searchCards() {
     const isEmpty = !currentFilters.q && !currentFilters.civs.length && !currentFilters.cost_min && !currentFilters.cost_max && 
                     !currentFilters.pow_min && !currentFilters.pow_max && !currentFilters.races.length && !currentFilters.abilities.length && !currentFilters.reg.length;
 
-    if (isEmpty) return;
     fetchAndRender();
 }
 
@@ -1568,9 +1568,8 @@ function clearSubSelection(type) {
 function toggleFilterCivType() {
     const isMulti = document.getElementById('filter-civ-multi').checked;
     const excludeArea = document.getElementById('filter-exclude-civ-area');
-    excludeArea.style.display = isMulti ? 'flex' : 'none';
+    excludeArea.style.display = isMulti ? 'grid' : 'none'; // ★ 'flex' から 'grid' に修正
 }
-
 function applyFilters() {
     currentFilters.civs = Array.from(document.querySelectorAll('.civ-check:checked')).map(el => el.value);
     
@@ -1949,5 +1948,9 @@ function hiraToKata(str) {
         const chr = match.charCodeAt(0) + 0x60;
         return String.fromCharCode(chr);
     });
+}
+function escapeSelectorValue(str) {
+    if (!str) return '';
+    return str.replace(/"/g, '\\"');
 }
 </script>

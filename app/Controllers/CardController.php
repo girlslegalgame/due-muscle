@@ -36,6 +36,11 @@ class CardController {
         $raceLogic = $_GET['race_logic'] ?? 'OR';
         $abilityLogic = $_GET['ability_logic'] ?? 'OR';
 
+        $characteristics = isset($_GET['characteristics']) ? explode(',', $_GET['characteristics']) : [];
+        $cardtypes = isset($_GET['cardtypes']) ? explode(',', $_GET['cardtypes']) : [];
+        $characteristicLogic = $_GET['characteristic_logic'] ?? 'OR';
+        $cardtypeLogic = $_GET['cardtype_logic'] ?? 'OR';
+
         $limit = 50;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -47,14 +52,16 @@ class CardController {
             // 裏面がヒットしても表面の名前に変換するロジックを維持
             $searchSql = "
                 SELECT DISTINCT 
-                    COALESCE(c_front.card_name, c_search.card_name) as target_name
+                    CASE 
+                        WHEN ccb_search.card_id IS NOT NULL THEN c_front.card_name
+                        ELSE c_search.card_name
+                    END as target_name
                 FROM card c_search
                 JOIN card_detail cd_search ON c_search.card_id = cd_search.card_id
                 LEFT JOIN card_combination ccb_search ON c_search.card_id = ccb_search.card_id
                 LEFT JOIN card_combination ccb_front ON ccb_search.combination_id = ccb_front.combination_id AND ccb_front.is_main_side = 1
                 LEFT JOIN card c_front ON ccb_front.card_id = c_front.card_id
                 WHERE 1=1";
-
             if ($q !== '') {
                 $conds = [];
                 if (in_array('name', $scope)) {
@@ -134,26 +141,92 @@ class CardController {
                 }
             }
 
+            // ★ 新規追加：特殊タイプ（characteristics）の絞り込み処理
+            if (!empty($characteristics)) {
+                $ids = array_map('intval', $characteristics);
+                if ($characteristicLogic === 'AND') {
+                    foreach($ids as $i => $id) {
+                        $searchSql .= " AND EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c_search.card_id AND c_char.characteristics_id = :char$i)";
+                        $params[":char$i"] = $id;
+                    }
+                } else {
+                    $idList = implode(',', $ids);
+                    $searchSql .= " AND EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c_search.card_id AND c_char.characteristics_id IN ($idList))";
+                }
+            }
+
+            // ★ 新規追加：カードタイプ（cardtype）の絞り込み処理
+            if (!empty($cardtypes)) {
+                $ids = array_map('intval', $cardtypes);
+                if ($cardtypeLogic === 'AND') {
+                    foreach($ids as $i => $id) {
+                        $searchSql .= " AND EXISTS (SELECT 1 FROM card_cardtype c_type WHERE c_type.card_id = c_search.card_id AND c_type.cardtype_id = :ctype$i)";
+                        $params[":ctype$i"] = $id;
+                    }
+                } else {
+                    $idList = implode(',', $ids);
+                    $searchSql .= " AND EXISTS (SELECT 1 FROM card_cardtype c_type WHERE c_type.card_id = c_search.card_id AND c_type.cardtype_id IN ($idList))";
+                }
+            }
+            
             if (!empty($regulations)) {
                 $regList = implode(',', array_map('intval', $regulations));
                 $searchSql .= " AND cd_search.regulation IN ($regList)";
             }
 
-            // --- ステップ2: メインクエリ ---
-            // ゾーン振り分け用の characteristics_id (char_ids) を追加で取得
-            $sql = "
-                SELECT 
-                    c.*, cd.modelnum, cd.imagepath,
-                    (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
-                    IF(ccb.card_id IS NOT NULL, 1, 0) as is_combo
-                FROM card c
-                JOIN card_detail cd ON c.card_id = cd.card_id
-                LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
-                JOIN ($searchSql) as matched_names ON c.card_name = matched_names.target_name
-                WHERE cd.is_primary_version = 1
-                AND (ccb.combination_id IS NULL OR ccb.is_main_side = 1)
-                ORDER BY c.cost ASC, c.reading ASC
-                LIMIT :limit OFFSET :offset";
+            // ★ ここから追記：フィルター条件が何も指定されていないかを判定
+            $isFiltered = (
+                $q !== '' 
+                || $costMin !== '' 
+                || $costMax !== '' 
+                || $powMin !== '' 
+                || $powMax !== '' 
+                || $civType !== ''
+                || !empty($civs) 
+                || !empty($excludeCivs)
+                || !empty($races) 
+                || !empty($abilities) 
+                || !empty($characteristics) 
+                || !empty($cardtypes) 
+                || !empty($regulations)
+            );
+
+            // 共通の洗練されたソート順：
+            // 発売日が新しい順 ＞ 収録商品IDの降順 ＞ カードIDの降順
+            $orderBy = "ORDER BY cd.release_date DESC, cd.goods_id, c.card_id ";
+
+            // 絞り込みの有無によってSQLクエリを分岐（ソート順はどちらも統一）
+            if (!$isFiltered) {
+                // ① 絞り込みがない初期状態：
+                $sql = "
+                    SELECT 
+                        c.*, cd.modelnum, cd.imagepath,
+                        (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                        IF(ccb.card_id IS NOT NULL, 1, 0) as is_combo
+                    FROM card c
+                    JOIN card_detail cd ON c.card_id = cd.card_id
+                    LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
+                    WHERE cd.is_primary_version = 1
+                    AND (ccb.combination_id IS NULL OR ccb.is_main_side = 1)
+                    $orderBy
+                    LIMIT :limit OFFSET :offset";
+            } else {
+                // ② 絞り込み条件がある状態：
+                $sql = "
+                    SELECT 
+                        c.*, cd.modelnum, cd.imagepath,
+                        (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                        IF(ccb.card_id IS NOT NULL, 1, 0) as is_combo
+                    FROM card c
+                    JOIN card_detail cd ON c.card_id = cd.card_id
+                    LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
+                    JOIN ($searchSql) as matched_names ON c.card_name = matched_names.target_name
+                    WHERE cd.is_primary_version = 1
+                    AND (ccb.combination_id IS NULL OR ccb.is_main_side = 1)
+                    $orderBy
+                    LIMIT :limit OFFSET :offset";
+            }
+
 
             $stmt = $pdo->prepare($sql);
             $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
@@ -171,19 +244,32 @@ class CardController {
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
-        public function masterDataApi() {
+public function masterDataApi() {
         try {
             $pdo = Database::connect();
+            
+            // 既存の種族と特殊能力
             $races = $pdo->query("SELECT race_id, race_name, reading FROM race ORDER BY (CASE WHEN reading = '' OR reading IS NULL THEN 0 ELSE 1 END) ASC, reading ASC, race_id ASC")->fetchAll(PDO::FETCH_ASSOC);
             $abilities = $pdo->query("SELECT ability_id, ability_name, reading FROM ability ORDER BY (CASE WHEN reading = '' OR reading IS NULL THEN 0 ELSE 1 END) ASC, reading ASC, ability_id ASC")->fetchAll(PDO::FETCH_ASSOC);
+            
+            // ★ 新規追加：特殊タイプ（昇順）
+            $characteristics = $pdo->query("SELECT characteristics_id, characteristics_name FROM characteristics ORDER BY characteristics_id ASC")->fetchAll(PDO::FETCH_ASSOC);
+            
+            // ★ 新規追加：カードタイプ（昇順）
+            $cardtypes = $pdo->query("SELECT cardtype_id, cardtype_name FROM cardtype ORDER BY cardtype_id ASC")->fetchAll(PDO::FETCH_ASSOC);
+
             header('Content-Type: application/json');
-            echo json_encode(['races' => $races, 'abilities' => $abilities]);
+            echo json_encode([
+                'races' => $races,
+                'abilities' => $abilities,
+                'characteristics' => $characteristics, // JSONに追加
+                'cardtypes' => $cardtypes             // JSONに追加
+            ]);
         } catch (\Exception $e) {
             header('Content-Type: application/json', true, 500);
             echo json_encode(['error' => $e->getMessage()]);
         }
     }
-
 public function cardVersionsApi() {
         $cardId = $_GET['card_id'] ?? null;
         if (!$cardId) return;
