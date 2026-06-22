@@ -56,14 +56,21 @@ class DeckController {
             $params[':format_id'] = (int)$formatId;
         }
         if ($cardName !== '') {
-            // 指定されたカード名が採用されているデッキを絞り込み
-            $sql .= " AND EXISTS (
-                SELECT 1 FROM deck_cards dc 
-                JOIN card c ON dc.card_id = c.card_id 
-                WHERE dc.deck_id = d.deck_id AND c.card_name LIKE :card_name
-            )";
-            $params[':card_name'] = "%$cardName%";
+            // カンマ区切りで送られてきた複数のカード名を配列に分解（空要素は除外）
+            $cardNames = array_filter(array_map('trim', explode(',', $cardName)), 'strlen');
+            
+            // 分解したカード名ごとに EXISTS 句を追加し、選択されたカードがすべて採用されているデッキを検索 (AND条件)
+            foreach ($cardNames as $i => $name) {
+                $paramName = ":card_name_$i";
+                $sql .= " AND EXISTS (
+                    SELECT 1 FROM deck_cards dc 
+                    JOIN card c ON dc.card_id = c.card_id 
+                    WHERE dc.deck_id = d.deck_id AND c.card_name LIKE $paramName
+                )";
+                $params[$paramName] = "%$name%";
+            }
         }
+        
         if (!empty($civIds)) {
             if ($civLogic === 'only') {
                 // 【のみ検索】選択されていない（デッキに含めてはいけない）文明を算出

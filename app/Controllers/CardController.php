@@ -40,7 +40,7 @@ class CardController {
         $cardtypes = isset($_GET['cardtypes']) ? explode(',', $_GET['cardtypes']) : [];
         $characteristicLogic = $_GET['characteristic_logic'] ?? 'OR';
         $cardtypeLogic = $_GET['cardtype_logic'] ?? 'OR';
-
+        $goods = isset($_GET['goods']) ? explode(',', $_GET['goods']) : [];
         $limit = 50;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -174,6 +174,11 @@ class CardController {
                 $searchSql .= " AND cd_search.regulation IN ($regList)";
             }
 
+            if (!empty($goods)) {
+                $goodsList = implode(',', array_map('intval', $goods));
+                $searchSql .= " AND cd_search.goods_id IN ($goodsList)";
+            }
+            
             // ★ ここから追記：フィルター条件が何も指定されていないかを判定
             $isFiltered = (
                 $q !== '' 
@@ -189,6 +194,7 @@ class CardController {
                 || !empty($characteristics) 
                 || !empty($cardtypes) 
                 || !empty($regulations)
+                || !empty($goods) // ★追加
             );
 
             // 共通の洗練されたソート順：

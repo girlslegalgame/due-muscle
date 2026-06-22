@@ -91,7 +91,7 @@
         <nav><a href="/account">アカウント</a></nav>
     </header>
     <main>
-        <?php echo $content; ?>
+        <?php echo $content ?? ''; ?>
     </main>
     <?php if (!isset($hideFooter) || !$hideFooter): ?>
     <footer>

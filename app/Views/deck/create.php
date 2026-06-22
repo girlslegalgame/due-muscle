@@ -768,7 +768,11 @@
                 </div>
                 <div id="ability-trigger" class="select-trigger" onclick="openSubModal('ability')">特殊能力を選択</div>
             </div>
-
+            <!-- 収録商品グループ -->
+            <div class="filter-group">
+                <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin-bottom: 8px;">収録商品</label>
+                <div id="goods-trigger" class="select-trigger" onclick="openSubModal('goods')">収録商品を選択</div>
+            </div>            
             <!-- レギュレーショングループ -->
             <div class="filter-group" style="margin: 0;">
                 <label>レギュレーション</label>
@@ -937,6 +941,22 @@
     </div>
 </div>
 
+<div id="goodsSelectModal" class="sub-modal">
+    <div class="sub-modal-content">
+        <div class="sub-modal-header">
+            <span>収録商品選択</span>
+            <span onclick="closeSubModal('goods')" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div style="padding:10px;">
+            <input type="text" id="goods-list-search" placeholder="商品を検索..." style="width:100%; padding:8px;">
+        </div>
+        <div id="goods-list-container" class="sub-modal-body"></div>
+        <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
+            <button onclick="closeSubModal('goods')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">決定</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // --- A. グローバル状態管理 ---
 const isEdit = <?php echo !empty($isEdit) ? 'true' : 'false'; ?>;
@@ -960,6 +980,7 @@ let currentFilters = {
     q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
     pow_min: '', pow_max: '', races: [], abilities: [], 
     characteristics: [], cardtypes: [], // ★特殊タイプとカードタイプを追加
+    goods: [],
     race_logic: 'OR', ability_logic: 'OR', 
     characteristic_logic: 'OR', cardtype_logic: 'OR', // ★ロジックを追加
     reg: [] ,
@@ -1040,6 +1061,16 @@ window.addEventListener('DOMContentLoaded', () => {
                 renderMasterList('cardtype', data.cardtypes);
             }
         });
+
+    // 拡張マスターデータAPIから収録商品（goods）を取得して一覧を描画
+    fetch('/api/master-data-extended')
+        .then(res => res.json())
+        .then(data => {
+            if (data.goods) {
+                renderMasterList('goods', data.goods);
+            }
+        })
+        .catch(err => console.error("商品データの取得に失敗しました", err));
 
     // 初期ロード後にサイズ調整
     setTimeout(adjustMainDeckRows, 100);
@@ -1510,7 +1541,7 @@ function fetchAndRender() {
     if (currentFilters.civs.length) {
         p.append('civs', currentFilters.civs.join(','));
         p.append('civ_match_type', currentFilters.civ_match_type);
-    };
+    }
     if (currentFilters.civ_type) {
         p.append('civ_type', currentFilters.civ_type);
     }   
@@ -1525,6 +1556,11 @@ function fetchAndRender() {
     p.append('race_logic', currentFilters.race_logic);
     if (currentFilters.abilities.length) p.append('abilities', currentFilters.abilities.join(','));
     p.append('ability_logic', currentFilters.ability_logic);
+
+    // ★追記：選択された商品ID配列をパラメータに結合して追加
+    if (currentFilters.goods && currentFilters.goods.length) {
+        p.append('goods', currentFilters.goods.join(','));
+    }
 
     if (currentFilters.characteristics.length) p.append('characteristics', currentFilters.characteristics.join(','));
     p.append('characteristic_logic', currentFilters.characteristic_logic);
@@ -1550,7 +1586,6 @@ function fetchAndRender() {
                     img.dataset.cardName = card.card_name;
                     img.dataset.charIds = card.char_ids;
                     img.dataset.imagepath = card.imagepath;
-                    // 並び替え用に文明とコストの情報を属性として保存
                     img.dataset.civ = card.civilization || card.civ || '';
                     img.dataset.cost = card.cost !== undefined ? card.cost : '';
                     img.onerror = () => handleImageError(img);
@@ -1590,13 +1625,16 @@ function renderMasterList(type, list) {
     });
 }
 
-['race', 'ability'].forEach(type => {
-    document.getElementById(`${type}-list-search`).addEventListener('input', function() {
-        const q = this.value.toLowerCase();
-        document.querySelectorAll(`#${type}-list-container .list-item`).forEach(el => {
-            el.style.display = el.dataset.search.includes(q) ? 'flex' : 'none';
+['race', 'ability', 'goods'].forEach(type => {
+    const searchInput = document.getElementById(`${type}-list-search`);
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            const q = this.value.toLowerCase();
+            document.querySelectorAll(`#${type}-list-container .list-item`).forEach(el => {
+                el.style.display = el.dataset.search.includes(q) ? 'flex' : 'none';
+            });
         });
-    });
+    }
 });
 
 function updateTriggerText(type) {
@@ -1641,7 +1679,7 @@ function applyFilters() {
     currentFilters.race_logic = document.querySelector('input[name="race_logic"]:checked').value;
     currentFilters.abilities = Array.from(document.querySelectorAll('.ability-check:checked')).map(el => el.value);
     currentFilters.ability_logic = document.querySelector('input[name="ability_logic"]:checked').value;
-
+    currentFilters.goods = Array.from(document.querySelectorAll('.goods-check:checked')).map(el => el.value);
     currentFilters.characteristics = Array.from(document.querySelectorAll('.characteristics-check:checked')).map(el => el.value);
     currentFilters.characteristic_logic = document.querySelector('input[name="characteristic_logic"]:checked').value;
     currentFilters.cardtypes = Array.from(document.querySelectorAll('.cardtype-check:checked')).map(el => el.value);
@@ -1659,7 +1697,7 @@ function clearAllFilters() {
         el.value = '';
     });
     
-    // ★ 追加：文明初期状態の復元
+    // 文明初期状態の復元
     document.getElementById('filter-civ-single').checked = true;
     document.getElementById('filter-civ-multi').checked = true;
     document.querySelector('input[name="filter-civ-match-type"][value="include"]').checked = true;
@@ -1670,14 +1708,16 @@ function clearAllFilters() {
         q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
         pow_min: '', pow_max: '', races: [], abilities: [], 
         characteristics: [], cardtypes: [],
+        goods: [], // ★追記: 初期状態に空配列をセット
         race_logic: 'OR', ability_logic: 'OR', reg: [],
         characteristic_logic: 'OR', cardtype_logic: 'OR',
         civ_type: '', civ_match_type: 'include', exclude_civs: []
     };
     clearSubSelection('race');
     clearSubSelection('ability');
-    clearSubSelection('characteristics'); // ★初期化追加
+    clearSubSelection('characteristics');
     clearSubSelection('cardtype');
+    clearSubSelection('goods'); // ★追記: 商品選択をクリア
     searchCards();
 }
 
@@ -1926,8 +1966,13 @@ function compareCardsByKey(a, b, key) {
         return valA - valB;
     }
     if (key === 'cost') {
-        const valA = parseInt(a.dataset.cost, 10) || 0;
-        const valB = parseInt(b.dataset.cost, 10) || 0;
+        const nameA = a.dataset.cardName || '';
+        const nameB = b.dataset.cardName || '';
+
+        // 「禁断 ～封印されしX～」の場合はコスト99として扱い、それ以外は元々のコストを取得
+        const valA = nameA.includes('禁断 ～封印されしX～') ? 99 : (parseInt(a.dataset.cost, 10) || 0);
+        const valB = nameB.includes('禁断 ～封印されしX～') ? 99 : (parseInt(b.dataset.cost, 10) || 0);
+
         return valA - valB;
     }
     if (key === 'name') {
