@@ -366,6 +366,8 @@ public function cardVersionsApi() {
      * 修正：特殊タイプ、カードタイプ、収録商品のマスターデータを取得するAPI
      * （プロジェクト共通の Database::connect() に接続を統一しました）
      */
+// app/Controllers/CardController.php 内
+
     public function masterDataExtendedApi() {
         header('Content-Type: application/json; charset=utf-8');
         try {
@@ -380,10 +382,14 @@ public function cardVersionsApi() {
             // 収録商品 (降順)
             $goods = $pdo->query("SELECT goods_id, goods_name FROM goods ORDER BY goods_id DESC")->fetchAll(PDO::FETCH_ASSOC);
 
+            // ★追記：レアリティマスタ（昇順）の取得
+            $rarities = $pdo->query("SELECT rarity_id, rarity_name FROM rarity ORDER BY rarity_id ASC")->fetchAll(PDO::FETCH_ASSOC);
+
             echo json_encode([
                 'cardtypes' => $cardtypes,
                 'characteristics' => $characteristics,
-                'goods' => $goods
+                'goods' => $goods,
+                'rarities' => $rarities // ★追記: レスポンスに追加
             ], JSON_UNESCAPED_UNICODE);
 
         } catch (\Exception $e) {
@@ -606,6 +612,7 @@ public function cardVersionsApi() {
         try {
             $pdo = Database::connect();
 
+            // ★修正: SELECT句に、中間テーブル（card_rarity, card_characteristics, card_cardtype）からのID取得を追加
             $sql = "
                 SELECT 
                     c.card_id,
@@ -619,7 +626,10 @@ public function cardVersionsApi() {
                     g.goods_name,
                     (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civilizations_ids,
                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
-                    (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = c.card_id) as ability_ids
+                    (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = c.card_id) as ability_ids,
+                    (SELECT GROUP_CONCAT(rarity_id) FROM card_rarity WHERE card_id = c.card_id) as rarity_ids,
+                    (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as characteristic_ids,
+                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
                 FROM card c
                 JOIN card_detail cd ON c.card_id = cd.card_id
                 LEFT JOIN goods g ON cd.goods_id = g.goods_id
@@ -645,13 +655,13 @@ public function cardVersionsApi() {
         }
         exit;
     }
+    
     /**
      * 新規追加：カード詳細情報の更新（中間テーブル再登録対応）
      */
     public function helpUpdateApi() {
         header('Content-Type: application/json; charset=utf-8');
 
-        // JSONリクエストデータの取得
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input || empty($input['card_id'])) {
             http_response_code(400);
@@ -667,9 +677,14 @@ public function cardVersionsApi() {
         $text = $input['text'] ?? '';
         $flavortext = $input['flavortext'] ?? '';
 
-        $civs = $input['civilizations'] ?? []; // 文明IDの配列
-        $races = $input['races'] ?? [];             // 種族IDの配列
-        $abilities = $input['abilities'] ?? [];     // 特殊能力IDの配列
+        $civs = $input['civilizations'] ?? [];
+        $races = $input['races'] ?? [];
+        $abilities = $input['abilities'] ?? [];
+        
+        // ★追記: リクエストから追加の3項目を取得
+        $rarities = $input['rarities'] ?? [];
+        $characteristics = $input['characteristics'] ?? [];
+        $cardtypes = $input['cardtypes'] ?? [];
 
         try {
             $pdo = Database::connect();
@@ -716,6 +731,33 @@ public function cardVersionsApi() {
                 $stmtAbility = $pdo->prepare("INSERT INTO card_ability (card_id, ability_id) VALUES (:id, :ability_id)");
                 foreach ($abilities as $abilityId) {
                     $stmtAbility->execute([':id' => $cardId, ':ability_id' => (int)$abilityId]);
+                }
+            }
+
+            // ★追記: 5. レアリティ中間テーブルの削除＆再登録
+            $pdo->prepare("DELETE FROM card_rarity WHERE card_id = :id")->execute([':id' => $cardId]);
+            if (!empty($rarities)) {
+                $stmtRarity = $pdo->prepare("INSERT INTO card_rarity (card_id, rarity_id) VALUES (:id, :rarity_id)");
+                foreach ($rarities as $rarityId) {
+                    $stmtRarity->execute([':id' => $cardId, ':rarity_id' => (int)$rarityId]);
+                }
+            }
+
+            // ★追記: 6. 特殊タイプ中間テーブルの削除＆再登録
+            $pdo->prepare("DELETE FROM card_characteristics WHERE card_id = :id")->execute([':id' => $cardId]);
+            if (!empty($characteristics)) {
+                $stmtChar = $pdo->prepare("INSERT INTO card_characteristics (card_id, characteristics_id) VALUES (:id, :char_id)");
+                foreach ($characteristics as $charId) {
+                    $stmtChar->execute([':id' => $cardId, ':char_id' => (int)$charId]);
+                }
+            }
+
+            // ★追記: 7. カードタイプ中間テーブルの削除＆再登録
+            $pdo->prepare("DELETE FROM card_cardtype WHERE card_id = :id")->execute([':id' => $cardId]);
+            if (!empty($cardtypes)) {
+                $stmtType = $pdo->prepare("INSERT INTO card_cardtype (card_id, cardtype_id) VALUES (:id, :type_id)");
+                foreach ($cardtypes as $typeId) {
+                    $stmtType->execute([':id' => $cardId, ':type_id' => (int)$typeId]);
                 }
             }
 

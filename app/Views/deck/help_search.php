@@ -281,6 +281,24 @@ if (!isset($_SESSION['user_id']) && empty($_SESSION['logged_in'])) {
                         
                         <div id="edit-abilities-area" style="max-height:100px; overflow-y:auto; border:1px solid #ccc; padding:8px; border-radius:4px; background:#f5f5f5; font-size:13px;"></div>
                     </div>
+                    <div class="info-row">
+                        <div class="info-label">レアリティ（複数選択）</div>
+                        <div id="edit-selected-rarities" style="display: flex; flex-wrap: wrap; margin-bottom: 5px;"></div>
+                        <div id="edit-rarities-area" style="max-height:100px; overflow-y:auto; border:1px solid #ccc; padding:8px; border-radius:4px; background:#f5f5f5; font-size:13px;"></div>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">特殊タイプ（複数選択）</div>
+                        <div id="edit-selected-characteristics" style="display: flex; flex-wrap: wrap; margin-bottom: 5px;"></div>
+                        <div id="edit-characteristics-area" style="max-height:100px; overflow-y:auto; border:1px solid #ccc; padding:8px; border-radius:4px; background:#f5f5f5; font-size:13px;"></div>
+                    </div>
+
+                    <div class="info-row">
+                        <div class="info-label">カードタイプ（複数選択）</div>
+                        <div id="edit-selected-cardtypes" style="display: flex; flex-wrap: wrap; margin-bottom: 5px;"></div>
+                        <div id="edit-cardtypes-area" style="max-height:100px; overflow-y:auto; border:1px solid #ccc; padding:8px; border-radius:4px; background:#f5f5f5; font-size:13px;"></div>
+                    </div>
+                    
                     <div class="info-row"><div class="info-label">収録商品（編集不可）</div><div id="info-goods" class="info-value" style="background:#eee;"></div></div>
                 </div>
             </div>
@@ -314,7 +332,8 @@ let masterData = {
     ability: [],
     characteristic: [],
     cardtype: [],
-    goods: []
+    goods: [],
+    rarity: [] // ★追記
 };
 
 // ページ読み込み完了時の初期化
@@ -489,12 +508,13 @@ function renderSearchResults(cards) {
 /**
  * マスターデータの初期ロード（安全・一括取得版）
  */
+// loadAllMasterData() 関数を以下に差し替え
+
 function loadAllMasterData() {
     // 種族と特殊能力をロード
     fetch('/api/master-data')
         .then(res => res.json())
         .then(data => {
-                        // ★ 先頭に未設定を追加
             const racesList = data.races || [];
             masterData.race = [{ race_id: -1, race_name: "（未設定 / なし）" }, ...racesList];
 
@@ -503,29 +523,33 @@ function loadAllMasterData() {
         })
         .catch(err => console.error("種族・能力マスタ取得エラー:", err));
 
-    // カードタイプ、特殊タイプ、収録商品を一括ロード
+    // カードタイプ、特殊タイプ、収録商品、レアリティを一括ロード
     fetch('/api/master-data-extended')
         .then(res => res.json())
         .then(data => {
-            // カードタイプ：先頭に未設定を追加
+            // カードタイプ：IDの昇順
             if (data.cardtypes) {
                 const sorted = data.cardtypes.sort((a, b) => a.cardtype_id - b.cardtype_id);
                 masterData.cardtype = [{ cardtype_id: -1, cardtype_name: "（未設定 / なし）" }, ...sorted];
             }
-            // 特殊タイプ：先頭に未設定を追加
+            // 特殊タイプ：IDの昇順
             if (data.characteristics) {
                 const sorted = data.characteristics.sort((a, b) => a.characteristics_id - b.characteristics_id);
                 masterData.characteristic = [{ characteristics_id: -1, characteristics_name: "（未設定 / なし）" }, ...sorted];
             }
-            // 収録商品：先頭に未設定を追加
+            // 収録商品
             if (data.goods) {
                 const sorted = data.goods.sort((a, b) => b.goods_id - a.goods_id);
                 masterData.goods = [{ goods_id: -1, goods_name: "（未設定 / なし）" }, ...sorted];
             }
+            // レアリティ：IDの昇順でロード (APIがraritiesを返却する想定)
+            if (data.rarities) {
+                const sorted = data.rarities.sort((a, b) => a.rarity_id - b.rarity_id);
+                masterData.rarity = [{ rarity_id: -1, rarity_name: "（未設定 / なし）" }, ...sorted];
+            }
         })
         .catch(err => console.error("拡張マスタデータ取得エラー:", err));
 }
-
 /**
  * 絞り込みモーダルを開く
  */
@@ -673,9 +697,44 @@ function openHelpDetail(cardId) {
                     if (chk) chk.checked = true;
                 });
             }
+// 4. レアリティチェックボックスの復元 (card.rarity_ids がカンマ区切りで返る、または card.rarity_id が単一で返るケース双方に対応)
+            document.querySelectorAll('.edit-rarity-check').forEach(el => el.checked = false);
+            if (card.rarity_ids) {
+                const rarityIds = card.rarity_ids.split(',').map(Number);
+                rarityIds.forEach(id => {
+                    const chk = document.querySelector(`.edit-rarity-check[value="${id}"]`);
+                    if (chk) chk.checked = true;
+                });
+            } else if (card.rarity_id) {
+                const chk = document.querySelector(`.edit-rarity-check[value="${card.rarity_id}"]`);
+                if (chk) chk.checked = true;
+            }
+
+            // 5. 特殊タイプチェックボックスの復元
+            document.querySelectorAll('.edit-characteristic-check').forEach(el => el.checked = false);
+            if (card.characteristic_ids) {
+                const charIds = card.characteristic_ids.split(',').map(Number);
+                charIds.forEach(id => {
+                    const chk = document.querySelector(`.edit-characteristic-check[value="${id}"]`);
+                    if (chk) chk.checked = true;
+                });
+            }
+
+            // 6. カードタイプチェックボックスの復元
+            document.querySelectorAll('.edit-cardtype-check').forEach(el => el.checked = false);
+            if (card.cardtype_ids) {
+                const typeIds = card.cardtype_ids.split(',').map(Number);
+                typeIds.forEach(id => {
+                    const chk = document.querySelector(`.edit-cardtype-check[value="${id}"]`);
+                    if (chk) chk.checked = true;
+                });
+            }
 
             updateSelectedBadges('race');
             updateSelectedBadges('ability');
+            updateSelectedBadges('rarity');          // ★追記
+            updateSelectedBadges('characteristic');  // ★追記
+            updateSelectedBadges('cardtype'); 
 
             document.getElementById('helpDetailModal').style.display = 'block';
         })
@@ -688,8 +747,10 @@ function closeHelpDetailModal() {
 /**
  * 新規追加：詳細モーダル内に種族と特殊能力のチェックボックスリストを動的に出力
  */
+// renderEditRacesAndAbilities() 関数を以下に差し替え
+
 function renderEditRacesAndAbilities() {
-    // 1. 種族チェックボックスの生成（ID -1（未設定）は除外）
+    // 1. 種族チェックボックスの生成
     const raceContainer = document.getElementById('edit-races-area');
     raceContainer.innerHTML = '';
     const races = masterData.race || [];
@@ -698,16 +759,13 @@ function renderEditRacesAndAbilities() {
         const lbl = document.createElement('label');
         lbl.className = 'edit-checkbox-label';
         lbl.style.display = 'block';
-        
-        // ★ 修正：よみがな情報を含めて検索キーワードにします
         const reading = r.reading || '';
         lbl.dataset.search = (r.race_name + reading).toLowerCase();
-        
         lbl.innerHTML = `<input type="checkbox" class="edit-race-check" value="${r.race_id}" data-name="${r.race_name}" onchange="updateSelectedBadges('race')"> ${r.race_name}`;
         raceContainer.appendChild(lbl);
     });
 
-    // 2. 特殊能力チェックボックスの生成（ID -1（未設定）は除外）
+    // 2. 特殊能力チェックボックスの生成
     const abilityContainer = document.getElementById('edit-abilities-area');
     abilityContainer.innerHTML = '';
     const abilities = masterData.ability || [];
@@ -716,13 +774,52 @@ function renderEditRacesAndAbilities() {
         const lbl = document.createElement('label');
         lbl.className = 'edit-checkbox-label';
         lbl.style.display = 'block';
-        
-        // ★ 修正：よみがな情報を含めて検索キーワードにします
         const reading = a.reading || '';
         lbl.dataset.search = (a.ability_name + reading).toLowerCase();
-        
         lbl.innerHTML = `<input type="checkbox" class="edit-ability-check" value="${a.ability_id}" data-name="${a.ability_name}" onchange="updateSelectedBadges('ability')"> ${a.ability_name}`;
         abilityContainer.appendChild(lbl);
+    });
+
+    // 3. レアリティチェックボックスの生成 (ID -1は除外)
+    const rarityContainer = document.getElementById('edit-rarities-area');
+    rarityContainer.innerHTML = '';
+    const rarities = masterData.rarity || [];
+    rarities.forEach(r => {
+        if (r.rarity_id === -1) return;
+        const lbl = document.createElement('label');
+        lbl.className = 'edit-checkbox-label';
+        lbl.style.display = 'block';
+        lbl.dataset.search = (r.rarity_name || '').toLowerCase();
+        lbl.innerHTML = `<input type="checkbox" class="edit-rarity-check" value="${r.rarity_id}" data-name="${r.rarity_name}" onchange="updateSelectedBadges('rarity')"> ${r.rarity_name}`;
+        rarityContainer.appendChild(lbl);
+    });
+
+    // 4. 特殊タイプチェックボックスの生成 (ID -1は除外)
+    const charContainer = document.getElementById('edit-characteristics-area');
+    charContainer.innerHTML = '';
+    const chars = masterData.characteristic || [];
+    chars.forEach(c => {
+        if (c.characteristics_id === -1) return;
+        const lbl = document.createElement('label');
+        lbl.className = 'edit-checkbox-label';
+        lbl.style.display = 'block';
+        lbl.dataset.search = (c.characteristics_name || '').toLowerCase();
+        lbl.innerHTML = `<input type="checkbox" class="edit-characteristic-check" value="${c.characteristics_id}" data-name="${c.characteristics_name}" onchange="updateSelectedBadges('characteristic')"> ${c.characteristics_name}`;
+        charContainer.appendChild(lbl);
+    });
+
+    // 5. カードタイプチェックボックスの生成 (ID -1は除外)
+    const typeContainer = document.getElementById('edit-cardtypes-area');
+    typeContainer.innerHTML = '';
+    const types = masterData.cardtype || [];
+    types.forEach(t => {
+        if (t.cardtype_id === -1) return;
+        const lbl = document.createElement('label');
+        lbl.className = 'edit-checkbox-label';
+        lbl.style.display = 'block';
+        lbl.dataset.search = (t.cardtype_name || '').toLowerCase();
+        lbl.innerHTML = `<input type="checkbox" class="edit-cardtype-check" value="${t.cardtype_id}" data-name="${t.cardtype_name}" onchange="updateSelectedBadges('cardtype')"> ${t.cardtype_name}`;
+        typeContainer.appendChild(lbl);
     });
 
     setupModalSearchFilter('race');
@@ -732,8 +829,21 @@ function renderEditRacesAndAbilities() {
 /**
  * 新規追加：選択されたチェックボックスから「×」付きのバッジエリアを同期描画する
  */
+// updateSelectedBadges(type) 関数を以下に差し替え
+
 function updateSelectedBadges(type) {
-    const selectedArea = document.getElementById(`edit-selected-${type === 'race' ? 'races' : 'abilities'}`);
+    // typeに応じたバッジエリア要素のIDマッピング
+    const areaMap = {
+        race: 'edit-selected-races',
+        ability: 'edit-selected-abilities',
+        rarity: 'edit-selected-rarities',
+        characteristic: 'edit-selected-characteristics',
+        cardtype: 'edit-selected-cardtypes'
+    };
+
+    const selectedArea = document.getElementById(areaMap[type]);
+    if (!selectedArea) return;
+    
     selectedArea.innerHTML = '';
 
     const checkedBoxes = Array.from(document.querySelectorAll(`.edit-${type}-check:checked`));
@@ -790,6 +900,8 @@ function setupModalSearchFilter(type) {
 /**
  * 新規追加：編集したカード情報をサーバーに送信して更新
  */
+// saveHelpDetail() 関数のリクエストデータの取得部分を以下のように修正
+
 function saveHelpDetail() {
     const cardId = document.getElementById('edit-card-id').value;
     if (!cardId) return;
@@ -804,7 +916,12 @@ function saveHelpDetail() {
         flavortext: document.getElementById('edit-flavor').value.trim().replace(/\n/g, '\\n'),
         civilizations: Array.from(document.querySelectorAll('.edit-civ-check:checked')).map(el => parseInt(el.value, 10)),
         races: Array.from(document.querySelectorAll('.edit-race-check:checked')).map(el => parseInt(el.value, 10)),
-        abilities: Array.from(document.querySelectorAll('.edit-ability-check:checked')).map(el => parseInt(el.value, 10))
+        abilities: Array.from(document.querySelectorAll('.edit-ability-check:checked')).map(el => parseInt(el.value, 10)),
+        
+        // ★追記: 追加3項目の選択状態を送信データに追加
+        rarities: Array.from(document.querySelectorAll('.edit-rarity-check:checked')).map(el => parseInt(el.value, 10)),
+        characteristics: Array.from(document.querySelectorAll('.edit-characteristic-check:checked')).map(el => parseInt(el.value, 10)),
+        cardtypes: Array.from(document.querySelectorAll('.edit-cardtype-check:checked')).map(el => parseInt(el.value, 10))
     };
 
     if (!data.card_name) {
