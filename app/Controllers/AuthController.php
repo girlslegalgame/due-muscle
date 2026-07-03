@@ -11,63 +11,6 @@ class AuthController {
         renderView('auth/register.php', ['errors' => $errors]);
     }
 
-    /**
-     * 3. 認証コードを検証し、本アカウントをDBにインサートする
-     */
-    public function register() {
-        if (!isset($_SESSION['temp_register'])) {
-            $_SESSION['error'] = 'セッションの有効期限が切れました。最初からやり直してください。';
-            header('Location: /register');
-            exit;
-        }
-
-        $temp = $_SESSION['temp_register'];
-        $inputCode = trim($_POST['code'] ?? '');
-
-        // 期限切れチェック
-        if (time() > $temp['expiry']) {
-            unset($_SESSION['temp_register']);
-            $_SESSION['error'] = '認証コードの有効期限（10分）が切れました。最初からやり直してください。';
-            header('Location: /register');
-            exit;
-        }
-
-        // コード検証
-        if ($inputCode !== $temp['code']) {
-            $_SESSION['error'] = '認証コードが正しくありません。';
-            header('Location: /register/verify');
-            exit;
-        }
-
-        try {
-            $pdo = \Models\Database::connect();
-
-            // 本登録（usersテーブルにインサート）
-            $stmt = $pdo->prepare("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (:name, :email, :pass, NOW(), NOW())");
-            $stmt->execute([
-                ':name' => $temp['username'],
-                ':email' => $temp['email'],
-                ':pass' => $temp['password_hash']
-            ]);
-
-            $userId = $pdo->lastInsertId();
-
-            // セッション一時データの削除と、ログイン状態への移行
-            unset($_SESSION['temp_register']);
-            $_SESSION['user_id'] = $userId;
-            $_SESSION['username'] = $temp['username'];
-
-            $_SESSION['success'] = 'アカウント登録が完了しました！';
-            header('Location: /mydecks');
-            exit;
-
-        } catch (\Exception $e) {
-            $_SESSION['error'] = '登録処理中にエラーが発生しました: ' . $e->getMessage();
-            header('Location: /register/verify');
-            exit;
-        }
-    }
-
     public function showLoginForm($errors =[]) {
         renderView('auth/login.php', ['errors' => $errors]);
     }
@@ -246,19 +189,21 @@ class AuthController {
         $password = $_POST['password'] ?? '';
         $passwordConfirm = $_POST['password_confirm'] ?? '';
 
-        // 入力値の受け取りチェック（フォームのname属性と一致しているか確認）
+        // 入力値の必須チェック
         if (empty($username) || empty($email) || empty($password)) {
             $_SESSION['error'] = 'すべての項目を入力してください。';
             header('Location: /register');
             exit;
         }
 
+        // パスワード確認チェック
         if ($password !== $passwordConfirm) {
-            $_SESSION['error'] = 'パスワードが一致しません。';
+            $_SESSION['error'] = '確認用のパスワードが一致しません。';
             header('Location: /register');
             exit;
         }
 
+        // パスワード文字数チェック
         if (strlen($password) < 8) {
             $_SESSION['error'] = 'パスワードは8文字以上で設定してください。';
             header('Location: /register');
@@ -277,73 +222,30 @@ class AuthController {
                 exit;
             }
 
-            // 6桁の認証コードを生成
-            $code = str_pad(random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
-            $expiry = time() + (10 * 60); // 有効期限: 10分
+            // 直接本登録（usersテーブルにインサート）
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+            $stmtInsert = $pdo->prepare("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (:name, :email, :pass, NOW(), NOW())");
+            $stmtInsert->execute([
+                ':name' => $username,
+                ':email' => $email,
+                ':pass' => $passwordHash
+            ]);
 
-            // 登録情報とコードをセッションに一時保存
-            $_SESSION['temp_register'] = [
-                'username' => $username,
-                'email' => $email,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-                'code' => $code,
-                'expiry' => $expiry
-            ];
+            $userId = $pdo->lastInsertId();
 
-            // 認証メール送信処理
-            $to = $email;
-            $subject = "【デッキメーカー】新規登録の認証コード";
-            $message = "デッキメーカーの新規アカウント作成を完了するには、以下の認証コードを入力してください。\n\n"
-                     . "認証コード: " . $code . "\n"
-                     . "有効期限: 10分\n\n"
-                     . "※心当たりがない場合は、このメールを破棄してください。";
-            
-            $headers = "From: no-reply@example.com\r\n" . "Reply-To: no-reply@example.com\r\n";
+            // 登録したユーザー情報でそのままセッションログイン
+            $_SESSION['user_id'] = $userId;
+            $_SESSION['username'] = $username;
 
-            // 日本語メール送信のための文字コード設定
-            mb_language("Japanese");
-            mb_internal_encoding("UTF-8");
-            
-            // @を付けて送信エラー時のPHPの直接的な警告出力を抑制します
-            $mailSent = @mb_send_mail($to, $subject, $message, $headers);
-            
-            // ローカル環境（localhostやIP指定）、またはメール送信が失敗した場合でもテストを進行させるためのフォールバック
-            $isLocal = ($_SERVER['HTTP_HOST'] === 'localhost' || str_contains($_SERVER['HTTP_HOST'], '127.0.0.1'));
-
-            if ($mailSent) {
-                $_SESSION['success'] = 'ご入力いただいたメールアドレスに認証コードを送信しました。';
-                header('Location: /register/verify');
-                exit;
-            } else if ($isLocal || !$mailSent) {
-                // メールが送れなかった場合、画面にコードを一時表示して、テスト段階の入力を進められるようにします
-                $_SESSION['success'] = '【開発用デバッグ表示】メール送信環境がないため、画面にコードを表示します。コード:「 ' . $code . ' 」';
-                header('Location: /register/verify');
-                exit;
-            } else {
-                $_SESSION['error'] = 'メールの送信に失敗しました。サーバーのメール送信設定を確認してください。';
-                header('Location: /register');
-                exit;
-            }
+            $_SESSION['success'] = 'アカウント登録が完了しました！';
+            header('Location: /mydecks');
+            exit;
 
         } catch (\Exception $e) {
-            $_SESSION['error'] = 'エラーが発生しました: ' . $e->getMessage();
+            $_SESSION['error'] = '登録処理中にエラーが発生しました: ' . $e->getMessage();
             header('Location: /register');
             exit;
         }
     }
-
-    
-    /**
-     * 2. 認証コード入力画面の表示
-     */
-    public function showVerifyForm() {
-        if (!isset($_SESSION['temp_register'])) {
-            $_SESSION['error'] = '登録セッションの有効期限が切れたか、無効なアクセスです。';
-            header('Location: /register');
-            exit;
-        }
-        renderView('auth/verify.php');
-    }
-
     
 }

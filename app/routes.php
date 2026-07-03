@@ -36,6 +36,7 @@ $routes = [
         '/api/cards/help-detail' => 'CardController@helpDetailApi',
         '/api/master-data-extended' => 'CardController@masterDataExtendedApi',
                 
+        '/help' => 'DeckController@help',
         '/help/search' => 'DeckController@helpSearch',
         '/api/cards/help-search' => 'CardController@helpSearchApi',
         '/api/cards/help-detail' => 'CardController@helpDetailApi',

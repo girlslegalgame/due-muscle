@@ -190,84 +190,81 @@
         cursor: pointer !important;
     }
 </style>
-
 <!-- 共通デッキ詳細モーダルのHTML -->
 <div id="deckModal">
     <div class="modal-content">
         <span class="close-btn" onclick="closeModal()">&times;</span>
         <h2 id="modal-deck-title" style="margin:0; font-size: 1.2rem;">デッキ内容</h2>
-        
-        <div class="tab-menu">
-            <div id="tab-main" class="tab-item active" onclick="switchTab('main')">メイン</div>
-            <div id="tab-extra" class="tab-item" onclick="switchTab('extra')">GR / 超次元 / 特殊</div>
-            <div id="tab-analysis" class="tab-item" onclick="switchTab('analysis')">分析</div>
-        </div>
+    <div class="tab-menu">
+        <div id="tab-main" class="tab-item active" onclick="switchTab('main')">メイン</div>
+        <div id="tab-extra" class="tab-item" onclick="switchTab('extra')">GR / 超次元 / 特殊</div>
+        <div id="tab-analysis" class="tab-item" onclick="switchTab('analysis')">分析</div>
+    </div>
 
-        <div class="scroll-area">
-            <!-- メイン -->
-            <div id="content-main" class="tab-content active"><div id="modal-main-list" class="image-grid"></div></div>
+    <div class="scroll-area">
+        <!-- メイン -->
+        <div id="content-main" class="tab-content active"><div id="modal-main-list" class="image-grid"></div></div>
 
-            <!-- GR / 超次元 / 特殊 統合エリア -->
-            <div id="content-extra" class="tab-content">
-                <div class="extra-split-container">
-                    <div class="extra-side">
-                        <h4 class="zone-title" style="margin:0 0 10px 0;">超GRゾーン</h4>
-                        <div id="modal-gr-list" class="grid-gr"></div>
+        <!-- GR / 超次元 / 特殊 統合エリア -->
+        <div id="content-extra" class="tab-content">
+            <div class="extra-split-container">
+                <div class="extra-side">
+                    <h4 class="zone-title" style="margin:0 0 10px 0;">超GRゾーン</h4>
+                    <div id="modal-gr-list" class="grid-gr"></div>
+                </div>
+                <div class="vertical-divider"></div>
+                <div class="extra-side" style="display: flex; flex-direction: column; width: 100%;">
+                    <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                        <h4 class="zone-title" style="margin:0 0 10px 0;">超次元ゾーン</h4>
+                        <div id="modal-dim-list" class="grid-dim"></div>
                     </div>
-                    <div class="vertical-divider"></div>
-                    <div class="extra-side" style="display: flex; flex-direction: column; width: 100%;">
-                        <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-                            <h4 class="zone-title" style="margin:0 0 10px 0;">超次元ゾーン</h4>
-                            <div id="modal-dim-list" class="grid-dim"></div>
-                        </div>
-                        <div class="horizontal-divider"></div>
-                        <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
-                            <h4 class="zone-title" style="margin:0 0 10px 0;">特殊カード</h4>
-                            <div id="modal-special-list" class="grid-special"></div>
-                        </div>
+                    <div class="horizontal-divider"></div>
+                    <div style="width: 100%; display: flex; flex-direction: column; align-items: center;">
+                        <h4 class="zone-title" style="margin:0 0 10px 0;">特殊カード</h4>
+                        <div id="modal-special-list" class="grid-special"></div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- 分析 -->
-            <div id="content-analysis" class="tab-content">
-                <div class="analysis-grid">
-                    <div class="chart-box">
-                        <h4>文明バランス</h4>
-                        <div class="canvas-container"><canvas id="colorPieChart"></canvas></div>
-                        <table class="analysis-table">
-                            <thead>
-                                <tr>
-                                    <th></th>
-                                    <th class="civ-fire">火</th><th class="civ-water">水</th><th class="civ-light">光</th>
-                                    <th class="civ-dark">闇</th><th class="civ-nature">自然</th><th class="civ-zero">零</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="row-label">合計</td><td id="total-4">0</td><td id="total-2">0</td><td id="total-1">0</td><td id="total-3">0</td><td id="total-5">0</td><td id="total-6">0</td></tr>
-                                <tr><td class="row-label">単色</td><td id="single-4">0</td><td id="single-2">0</td><td id="single-1">0</td><td id="single-3">0</td><td id="single-5">0</td><td id="single-6">0</td></tr>
-                                <tr><td class="row-label">多色</td><td id="multi-4">0</td><td id="multi-2">0</td><td id="multi-1">0</td><td id="multi-3">0</td><td id="multi-5">0</td><td id="multi-6">0</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="chart-box">
-                        <h4>マナカーブ</h4>
-                        <div class="canvas-container"><canvas id="manaBarChart"></canvas></div>
-                        <table class="analysis-table">
-                            <thead>
-                                <tr><th class="row-label">コスト</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9+</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr><td class="row-label">枚数</td><td id="mana-0">0</td><td id="mana-1">0</td><td id="mana-2">0</td><td id="mana-3">0</td><td id="mana-4">0</td><td id="mana-5">0</td><td id="mana-6">0</td><td id="mana-7">0</td><td id="mana-8">0</td><td id="mana-9">0</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+        <!-- 分析 -->
+        <div id="content-analysis" class="tab-content">
+            <div class="analysis-grid">
+                <div class="chart-box">
+                    <h4>文明バランス</h4>
+                    <div class="canvas-container"><canvas id="colorPieChart"></canvas></div>
+                    <table class="analysis-table">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th class="civ-fire">火</th><th class="civ-water">水</th><th class="civ-light">光</th>
+                                <th class="civ-dark">闇</th><th class="civ-nature">自然</th><th class="civ-zero">零</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="row-label">合計</td><td id="total-4">0</td><td id="total-2">0</td><td id="total-1">0</td><td id="total-3">0</td><td id="total-5">0</td><td id="total-6">0</td></tr>
+                            <tr><td class="row-label">単色</td><td id="single-4">0</td><td id="single-2">0</td><td id="single-1">0</td><td id="single-3">0</td><td id="single-5">0</td><td id="single-6">0</td></tr>
+                            <tr><td class="row-label">多色</td><td id="multi-4">0</td><td id="multi-2">0</td><td id="multi-1">0</td><td id="multi-3">0</td><td id="multi-5">0</td><td id="multi-6">0</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="chart-box">
+                    <h4>マナカーブ</h4>
+                    <div class="canvas-container"><canvas id="manaBarChart"></canvas></div>
+                    <table class="analysis-table">
+                        <thead>
+                            <tr><th class="row-label">コスト</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9+</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td class="row-label">枚数</td><td id="mana-0">0</td><td id="mana-1">0</td><td id="mana-2">0</td><td id="mana-3">0</td><td id="mana-4">0</td><td id="mana-5">0</td><td id="mana-6">0</td><td id="mana-7">0</td><td id="mana-8">0</td><td id="mana-9">0</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
+</div>
 <!-- 共通デッキ詳細モーダルの制御スクリプト -->
 <script>
 let colorChart = null;

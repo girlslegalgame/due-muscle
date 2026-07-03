@@ -164,8 +164,22 @@
     #search-controls-wrapper { display: flex; flex-direction: column; gap: 5px; }
     #search-controls { display: flex; gap: 10px; height: 45px; align-items: center; }
     #card-search-input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
-    .btn-filter { padding: 10px 20px; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-    .btn-sort { padding: 10px 20px; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+    .btn-filter, .btn-sort, .btn-analysis { 
+        padding: 10px 20px; 
+        color: white; 
+        border: none; 
+        border-radius: 4px; 
+        cursor: pointer; 
+        font-weight: bold; 
+        font-size: 14px; /* テキストサイズを統一 */
+        box-sizing: border-box;
+    }
+    /* 個別の背景色定義 */
+    .btn-filter { background: #17a2b8; }
+    .btn-sort { background: #6c757d; }
+    .btn-analysis { background: #28a745; }
+    .btn-analysis:hover { background: #218838; }
+    
     .search-scope { display: flex; gap: 15px; font-size: 12px; color: #666; }
 
     /* --- 6. モーダル共通 --- */
@@ -179,19 +193,59 @@
         border-radius: 12px; position: relative; box-sizing: border-box; 
     }
     
-    /* カード詳細 */
+    /* カード詳細 (PC向けグリッド配置) */
     .detail-content { width: 850px; display: flex; flex-direction: column; }
-    .detail-top { display: flex; gap: 25px; margin-bottom: 20px; }
-    .detail-left { width: 280px; flex-shrink: 0; text-align: center; }
-    .detail-left img { width: 100%; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-    .detail-right { flex: 1; min-width: 0; }
-    #detail-name { margin: 0 0 15px 0; font-size: 1.5rem; border-bottom: 2px solid #eee; padding-bottom: 10px; }
-    #detail-text { white-space: pre-wrap; word-wrap: break-word; background: #f8f9fa; padding: 15px; border-radius: 5px; font-size: 0.95rem; line-height: 1.6; max-height: 250px; overflow-y: auto; }
+    .detail-grid { 
+        display: grid; 
+        grid-template-columns: 280px 1fr; 
+        grid-template-rows: auto auto 1fr; 
+        gap: 0 25px; 
+        margin-bottom: 20px; 
+    }
+    #detail-name { 
+        grid-column: 2 / 3; 
+        grid-row: 1 / 2; 
+        margin: 0 0 15px 0; 
+        font-size: 1.5rem; 
+        border-bottom: 2px solid #eee; 
+        padding-bottom: 10px; 
+    }
+    .detail-image { 
+        grid-column: 1 / 2; 
+        grid-row: 1 / 3; 
+        text-align: center; 
+    }
+    .detail-image img { 
+        width: 100%; 
+        border-radius: 8px; 
+        box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+    }
+    .detail-qty { 
+        grid-column: 1 / 2; 
+        grid-row: 3 / 4; 
+    }
+    .detail-desc { 
+        grid-column: 2 / 3; 
+        grid-row: 2 / 4; 
+        min-width: 0; 
+    }
+    #detail-text { 
+        white-space: pre-wrap; 
+        word-wrap: break-word; 
+        background: #f8f9fa; 
+        padding: 15px; 
+        border-radius: 5px; 
+        font-size: 0.95rem; 
+        line-height: 1.6; 
+        max-height: 250px; 
+        overflow-y: auto; 
+    }
     .version-list { display: flex; overflow-x: auto; gap: 12px; padding: 10px 5px; }
     .version-list img { height: 100px; cursor: pointer; border: 3px solid transparent; border-radius: 4px; flex-shrink: 0; }
     .version-list img.selected { border-color: #007bff; }
     .qty-controls { display: flex; align-items: center; gap: 20px; margin: 20px 0; justify-content: center; font-size: 1.2rem; }
     .btn-qty { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #ccc; cursor: pointer; font-size: 1.5rem; background: #fff; }
+    .detail-close-btn { position: absolute; right: 20px; top: 15px; cursor: pointer; font-size: 30px; z-index: 10; line-height: 1; }
 
 /* --- 絞り込みモーダル (新スタイル) --- */
     #filterModal {
@@ -562,6 +616,169 @@
 .toggle-switch input:checked + .toggle-slider:before {
     transform: translateX(20px); /* スライダーを右へスライド */
 }
+
+@media (max-width: 768px) {
+    /* 1. デッキエリアのパディング */
+    #deck-area {
+        padding: 8px;
+        /* スマホ時は検索領域が下を塞ぐため、通常時の余白を多めに確保 */
+        padding-bottom: 210px; 
+    }
+    
+    /* 検索セクションが閉じている場合 */
+    #deck-area.search-collapsed {
+        padding-bottom: 110px;
+    }
+
+    /* 2. メインデッキの表示をスマホ幅に最適化 */
+    #main-deck-list {
+        grid-template-columns: repeat(8, 1fr) !important; /* 8列を維持しつつ縮小 */
+        gap: 1px;
+    }
+
+    /* 3. 超次元・GRエリアの横並びを縦並び（もしくは縮小）に */
+    #extra-deck-area {
+        flex-direction: column !important;
+        gap: 10px;
+        overflow-y: auto;
+    }
+    .extra-list {
+        grid-template-columns: repeat(4, 1fr) !important;
+        grid-auto-rows: auto;
+    }
+    .extra-list img {
+        width: 100% !important;
+        height: auto !important;
+    }
+
+    /* 4. 特殊タブ（ドルマゲドン・零龍）のスロット幅調整 */
+    #special-deck-list.active {
+        flex-direction: column !important;
+        align-items: center;
+        gap: 15px;
+    }
+    .special-box {
+        width: 180px !important;
+        height: 250px !important;
+    }
+    .special-v-line {
+        display: none;
+    }
+
+    /* 5. 検索セクションのコンパクト化 */
+    #search-section {
+        height: 180px; /* スマホでは高さをやや低く */
+    }
+    #search-section.collapsed {
+        transform: translateX(-50%) translateY(180px);
+    }
+    #search-results {
+        height: 95px;
+    }
+    #search-results img {
+        height: 85px;
+    }
+    #search-controls {
+        height: 38px;
+    }
+    #card-search-input {
+        padding: 6px;
+        font-size: 14px;
+    }
+    .btn-filter, .btn-sort, .btn-analysis {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    /* カード詳細モーダル スマホ用配置 */
+    .detail-content {
+        width: 92% !important;
+        margin: 3vh auto !important;
+        padding: 15px !important;
+        max-height: 94vh;
+        overflow-y: auto;
+    }
+    .detail-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+        margin-bottom: 15px !important;
+    }
+    #detail-name {
+        order: 1;
+        font-size: 1.2rem !important;
+        margin: 15px 0 5px 0 !important;
+        padding-bottom: 8px !important;
+        padding-right: 25px; /* ×ボタンと被らないように余白確保 */
+    }
+    .detail-image {
+        order: 2;
+        width: 100%;
+        max-width: 200px; /* スマホ画面で大きすぎないサイズに調整 */
+        margin: 0 auto !important;
+    }
+    .detail-qty {
+        order: 3;
+    }
+    .qty-controls {
+        margin: 5px 0 !important;
+    }
+    .detail-desc {
+        order: 4;
+        width: 100%;
+    }
+    #detail-text {
+        max-height: 160px !important;
+        padding: 10px !important;
+        font-size: 0.85rem !important;
+    }
+    .detail-close-btn {
+        right: 15px !important;
+        top: 12px !important;
+        font-size: 28px !important;
+    }
+    .version-section h4 {
+        margin: 10px 0 5px 0 !important;
+        font-size: 0.9rem;
+    }
+}
+/* --- 選択済みバッジ用のスタイル --- */
+.selected-badges-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 5px;
+    margin-bottom: 10px;
+    max-height: 85px;
+    overflow-y: auto;
+    padding: 5px;
+    background: #fdfdfd;
+    border: 1px dashed #ccc;
+    border-radius: 4px;
+}
+.selected-badge {
+    background-color: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+    border-radius: 16px;
+    padding: 2px 10px;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: bold;
+}
+.selected-badge-remove {
+    cursor: pointer;
+    color: #ef4444;
+    font-weight: bold;
+    font-size: 0.95rem;
+    line-height: 1;
+    display: inline-block;
+    margin-left: 2px;
+}
+.selected-badge-remove:hover {
+    color: #b91c1c;
+}
 </style>
 
 <!-- 外部ライブラリ読み込み -->
@@ -578,6 +795,7 @@
         <div id="deck-header">
             <h3>デッキ内容</h3>
             <div style="display: flex; align-items: center; gap: 15px;">
+                <button class="btn-analysis" onclick="openAnalysisModal()">分析</button>
                 <button id="save-deck-btn" onclick="openSaveModal()" style="padding: 8px 20px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>                <div id="trash-area">🗑️</div>
             </div>
         </div>
@@ -635,19 +853,34 @@
 <!-- 詳細モーダル -->
 <div id="cardDetailModal">
     <div class="detail-content">
-        <span onclick="closeDetailModal()" style="position:absolute; right:20px; top:10px; cursor:pointer; font-size:30px;">&times;</span>
-        <div class="detail-top">
-            <div class="detail-left">
+        <!-- 右上の閉じるボタン -->
+        <span class="detail-close-btn" onclick="closeDetailModal()">&times;</span>
+        
+        <!-- PC時はGrid、スマホ時はFlexbox(縦)で順序を制御 -->
+        <div class="detail-grid">
+            <h2 id="detail-name"></h2>
+            
+            <div class="detail-image">
                 <img id="detail-main-img" src="">
+            </div>
+            
+            <div class="detail-qty">
                 <div class="qty-controls">
                     <button class="btn-qty" onclick="adjustQty(-1)">-</button>
-                    <span id="detail-qty">0</span> / 4枚
+                    <span id="detail-qty">0</span> / <span id="detail-limit">4</span>枚
                     <button class="btn-qty" onclick="adjustQty(1)">+</button>
                 </div>
             </div>
-            <div class="detail-right"><h2 id="detail-name"></h2><div id="detail-text"></div></div>
+            
+            <div class="detail-desc">
+                <div id="detail-text"></div>
+            </div>
         </div>
-        <div class="version-section"><h4>バージョン切り替え</h4><div id="detail-version-list" class="version-list"></div></div>
+        
+        <div class="version-section">
+            <h4>バージョン切り替え</h4>
+            <div id="detail-version-list" class="version-list"></div>
+        </div>
     </div>
 </div>
 
@@ -822,26 +1055,37 @@
     </div>
 </div>
 
-<!-- サブモーダル (種族/能力) -->
+<!-- サブモーダル (種族選択) -->
 <div id="raceSelectModal" class="sub-modal"><div class="sub-modal-content">
     <div style="padding:15px; background:#333; color:#fff; display:flex; justify-content:space-between;"><span>種族選択</span><span onclick="closeSubModal('race')" style="cursor:pointer;">&times;</span></div>
-    <div style="padding:10px;"><input type="text" id="race-list-search" placeholder="検索..." style="width:100%; padding:8px;"></div>
+    <div style="padding:10px;">
+        <input type="text" id="race-list-search" placeholder="検索..." style="width:100%; padding:8px; margin-bottom:5px;">
+        <div id="race-selected-badges" class="selected-badges-container" style="display: none;"></div>
+    </div>
     <div id="race-list-container" class="sub-modal-body"></div>
     <div style="padding:10px; border-top:1px solid #eee;"><button onclick="closeSubModal('race')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:4px;">決定</button></div>
 </div></div>
 
+<!-- サブモーダル (特殊能力選択) -->
 <div id="abilitySelectModal" class="sub-modal"><div class="sub-modal-content">
     <div style="padding:15px; background:#333; color:#fff; display:flex; justify-content:space-between;"><span>特殊能力選択</span><span onclick="closeSubModal('ability')" style="cursor:pointer;">&times;</span></div>
-    <div style="padding:10px;"><input type="text" id="ability-list-search" placeholder="検索..." style="width:100%; padding:8px;"></div>
+    <div style="padding:10px;">
+        <input type="text" id="ability-list-search" placeholder="検索..." style="width:100%; padding:8px; margin-bottom:5px;">
+        <div id="ability-selected-badges" class="selected-badges-container" style="display: none;"></div>
+    </div>
     <div id="ability-list-container" class="sub-modal-body"></div>
     <div style="padding:10px; border-top:1px solid #eee;"><button onclick="closeSubModal('ability')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:4px;">決定</button></div>
 </div></div>
 
+<!-- サブモーダル (特殊タイプ選択) -->
 <div id="characteristicsSelectModal" class="sub-modal">
     <div class="sub-modal-content">
         <div class="sub-modal-header">
             <span>特殊タイプ選択</span>
             <span onclick="closeSubModal('characteristics')" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div style="padding:10px 20px 0 20px;">
+            <div id="characteristics-selected-badges" class="selected-badges-container" style="display: none;"></div>
         </div>
         <div id="characteristics-list-container" class="sub-modal-body"></div>
         <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
@@ -850,11 +1094,15 @@
     </div>
 </div>
 
+<!-- サブモーダル (カードタイプ選択) -->
 <div id="cardtypeSelectModal" class="sub-modal">
     <div class="sub-modal-content">
         <div class="sub-modal-header">
             <span>カードタイプ選択</span>
             <span onclick="closeSubModal('cardtype')" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div style="padding:10px 20px 0 20px;">
+            <div id="cardtype-selected-badges" class="selected-badges-container" style="display: none;"></div>
         </div>
         <div id="cardtype-list-container" class="sub-modal-body"></div>
         <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
@@ -862,6 +1110,25 @@
         </div>
     </div>
 </div>
+
+<!-- サブモーダル (収録商品選択) -->
+<div id="goodsSelectModal" class="sub-modal">
+    <div class="sub-modal-content">
+        <div class="sub-modal-header">
+            <span>収録商品選択</span>
+            <span onclick="closeSubModal('goods')" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div style="padding:10px;">
+            <input type="text" id="goods-list-search" placeholder="商品を検索..." style="width:100%; padding:8px; margin-bottom:5px;">
+            <div id="goods-selected-badges" class="selected-badges-container" style="display: none;"></div>
+        </div>
+        <div id="goods-list-container" class="sub-modal-body"></div>
+        <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
+            <button onclick="closeSubModal('goods')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">決定</button>
+        </div>
+    </div>
+</div>
+
 <!-- デッキ保存・設定モーダル -->
 <div id="deckSaveModal" class="sub-modal">
     <div class="sub-modal-content" style="max-width: 460px; height: auto; max-height: 90vh;">
@@ -940,22 +1207,10 @@
         </div>
     </div>
 </div>
+<!-- 既存のモーダル類の直後や、最下部に配置 -->
+<?php include __DIR__ . '/analysis_modal.php'; ?>
 
-<div id="goodsSelectModal" class="sub-modal">
-    <div class="sub-modal-content">
-        <div class="sub-modal-header">
-            <span>収録商品選択</span>
-            <span onclick="closeSubModal('goods')" style="cursor:pointer; font-size: 20px;">&times;</span>
-        </div>
-        <div style="padding:10px;">
-            <input type="text" id="goods-list-search" placeholder="商品を検索..." style="width:100%; padding:8px;">
-        </div>
-        <div id="goods-list-container" class="sub-modal-body"></div>
-        <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
-            <button onclick="closeSubModal('goods')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">決定</button>
-        </div>
-    </div>
-</div>
+
 
 <script>
 // --- A. グローバル状態管理 ---
@@ -1112,10 +1367,14 @@ function addCardToDeck(card, forcedType = null) {
     img.src = getCardImagePath(card);
     img.dataset.cardId = card.card_id;
     img.dataset.cardName = card.card_name;
+    img.dataset.comboNames = card.combo_names || ''; // ★ 追記
     img.dataset.charIds = card.char_ids;
     img.dataset.imagepath = card.imagepath;
-    // 並び替え用に文明とコストの情報を属性として保存
-    img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';    img.dataset.cost = card.cost !== undefined ? card.cost : '';
+    // 個別上限を保持（null または 空の場合は空文字を設定）
+    img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : '';
+    // 並び替え用
+    img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
+    img.dataset.cost = card.cost !== undefined ? card.cost : '';
     img.alt = card.card_name;
     img.onerror = () => handleImageError(img);
 
@@ -1155,60 +1414,107 @@ function determineZoneType(charIdsStr) {
 [mainList, superDimList, grList].forEach(list => list.addEventListener('click', (e) => {
     if (e.target.tagName === 'IMG') openCardDetail(e.target.dataset.cardId, e.target);
 }));
-resultsDiv.addEventListener('click', (e) => {
-    if (e.target.tagName === 'IMG') openCardDetail(e.target.dataset.cardId, e.target);
-});
-document.querySelectorAll('.special-box').forEach(box => box.addEventListener('click', (e) => {
-    if (e.target.tagName === 'IMG') openCardDetail(e.target.dataset.cardId, e.target);
-}));
+    resultsDiv.addEventListener('click', (e) => {
+        if (e.target.tagName === 'IMG') {
+            const cardId = e.target.dataset.cardId;
+            const cardName = e.target.dataset.cardName;
+            const comboNames = e.target.dataset.comboNames; // ★ 追記
+            const charIds = e.target.dataset.charIds;
+            const imagepath = e.target.dataset.imagepath;
+            const civ = e.target.dataset.civ;
+            const cost = e.target.dataset.cost;
+            const cardLimit = e.target.dataset.cardLimit;
 
+            const cardData = {
+                card_id: cardId,
+                card_name: cardName,
+                combo_names: comboNames, // ★ 追記
+                char_ids: charIds,
+                imagepath: imagepath,
+                civilization: civ, // ★修正1で追加した dataset.civ の値が、ここに正確に渡るようになります
+                civ_ids: civ,
+                cost: cost,
+                card_limit: cardLimit
+            };
+
+            // タッチデバイス（スマホ・タブレット）か判定
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            
+            if (isTouchDevice) {
+                // スマホ：シングルタップでデッキに即時追加
+                addCardToDeckFromSearch(cardData);
+            } else {
+                // PC：クリックで従来通り詳細モーダルを表示
+                openCardDetail(cardId, e.target);
+            }
+        }
+    });
+    // ★スマホ対応：検索結果カードを「ダブルタップ」した場合は詳細モーダルを表示
+    let lastTap = 0;
+    resultsDiv.addEventListener('touchend', (e) => {
+        if (e.target.tagName === 'IMG') {
+            const currentTime = new Date().getTime();
+            const tapLength = currentTime - lastTap;
+            if (tapLength < 300 && tapLength > 0) {
+                openCardDetail(e.target.dataset.cardId, e.target);
+                e.preventDefault();
+            }
+            lastTap = currentTime;
+        }
+    });
 
 // --- D. SortableJS 設定 ---
 const deckSortableConfig = {
     group: 'shared', animation: 150,
     onStart: () => trashArea.style.display = 'flex',
     onEnd: () => { trashArea.style.display = 'none'; updateDeckDisplay(); },
-    onAdd: function(evt) {
-        const item = evt.item;
-        const name = item.dataset.cardName;
-        const charIds = (item.dataset.charIds || '').split(',');
+        onAdd: function(evt) {
+            const item = evt.item;
+            const name = item.dataset.cardName;
+            const charIds = (item.dataset.charIds || '').split(',');
+            
+            // 上限値の解決（空またはnullなら 99枚＝無制限）
+            const limitVal = item.dataset.cardLimit;
+            const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
 
-        if (name.includes('ドルマゲドン') || name.includes('零龍')) {
-            const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
-            const slot = document.getElementById(slotId);
-            if (slot.querySelectorAll('img').length > 0) {
-                alert("既に登録されています。");
-                item.remove();
+            if (name.includes('ドルマゲドン') || name.includes('零龍')) {
+                const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
+                const slot = document.getElementById(slotId);
+                if (slot.querySelectorAll('img').length > 0) {
+                    alert("既に登録されています。");
+                    item.remove();
+                    return;
+                }
+                slot.innerHTML = ''; 
+                slot.appendChild(item);
+                slot.classList.add('active');
+                slot.classList.remove('empty');
+                updateSaveButton(slotId, true);
+                updateDeckDisplay();
                 return;
             }
-            slot.innerHTML = ''; 
-            slot.appendChild(item);
-            slot.classList.add('active');
-            slot.classList.remove('empty');
-            updateSaveButton(slotId, true);
-            updateDeckDisplay();
-            return;
-        }
 
-        if (charIds.includes('3') || charIds.includes('6')) {
-            superDimList.appendChild(item);
-            if (!checkLimit(name, 4, superDimList, item, 8, "超次元ゾーン")) {
-                item.remove();
+            const comboNames = item.dataset.comboNames || ''; // ★ 修正
+
+            if (charIds.includes('3') || charIds.includes('6')) {
+                superDimList.appendChild(item);
+                if (!checkLimit(name, nameLimit, superDimList, item, 8, "超次元ゾーン", comboNames)) { // ★ 修正
+                    item.remove();
+                }
+            } else if (charIds.includes('10')) {
+                grList.appendChild(item);
+                if (!checkLimit(name, nameLimit, grList, item, 12, "超GRゾーン", comboNames)) { // ★ 修正
+                    item.remove();
+                }
+            } else {
+                mainList.appendChild(item);
+                if (!checkLimit(name, nameLimit, mainList, item, 60, "メインデッキ", comboNames)) { // ★ 修正
+                    item.remove();
+                }
             }
-        } else if (charIds.includes('10')) {
-            grList.appendChild(item);
-            if (!checkLimit(name, 2, grList, item, 12, "超GRゾーン")) {
-                item.remove();
-            }
-        } else {
-            mainList.appendChild(item);
-            if (!checkLimit(name, 4, mainList, item, 60, "メインデッキ")) {
-                item.remove();
-            }
+            updateDeckDisplay();
         }
-        updateDeckDisplay();
-    }
-};
+    };
 
 new Sortable(mainList, deckSortableConfig);
 new Sortable(superDimList, deckSortableConfig);
@@ -1220,6 +1526,7 @@ document.querySelectorAll('.special-box').forEach(box => {
     new Sortable(box, {
         group: {
             name: 'shared',
+            pull: false, // ★ このスロットからカードをドラッグして取り出すことを禁止します
             put: function (to, from, dragEl) {
                 const cardName = dragEl.dataset.cardName || '';
                 if (to.el.id === 'slot-dolmagedon') {
@@ -1252,14 +1559,20 @@ document.querySelectorAll('.special-box').forEach(box => {
         }
     });
 });
-
-function checkLimit(name, nameLimit, listElement, itemElement, totalLimit, zoneName) {
-    const totalCount = listElement.querySelectorAll('img').length;
+function checkLimit(name, nameLimit, listElement, itemElement, totalLimit, zoneName, comboNames = '') {
+    const isPreAdd = (itemElement === null);
+    
+    const totalCount = listElement.querySelectorAll('img').length + (isPreAdd ? 1 : 0);
     if (totalCount > totalLimit) {
         alert(`${zoneName}は合計${totalLimit}枚までです。`);
         return false;
     }
-    const nameCount = listElement.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`).length;    if (nameCount > nameLimit) {
+    
+    // getCardSelector を用いてツインパクト等の面構成が完全に同一のカードのみをカウントする
+    const selector = getCardSelector(name, comboNames);
+    const nameCount = listElement.querySelectorAll(selector).length + (isPreAdd ? 1 : 0);
+    
+    if (nameCount > nameLimit) {
         alert(`${name} は${zoneName}に最大${nameLimit}枚までです。`);
         return false;
     }
@@ -1319,6 +1632,7 @@ function openCardDetail(cardId, el) {
         });
 }
 
+/* app/Views/deck/create.php 内の renderDetailModal() 関数を差し替え */
 function renderDetailModal() {
     const modal = document.getElementById('cardDetailModal');
     const versionList = document.getElementById('detail-version-list');
@@ -1329,15 +1643,26 @@ function renderDetailModal() {
     const name = selectedCardData.card_name;
     let count = 0;
     
+    // 変更箇所
+    const comboNames = selectedCardData.combo_names || '';
+    const selector = getCardSelector(name, comboNames);
+
     if (name.includes('ドルマゲドン') || name.includes('零龍')) {
         const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
         count = document.getElementById(slotId).classList.contains('active') ? 1 : 0;
     } else {
         const type = determineZoneType(selectedCardData.char_ids);
         let targetList = type === 'super_dimensional' ? superDimList : (type === 'gr' ? grList : mainList);
-        count = targetList.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`).length;
+        count = targetList.querySelectorAll(selector).length; // ★ 修正（selector変数を使用）
     }
+    
+    // 現在の採用枚数の描画
     document.getElementById('detail-qty').innerText = count;
+
+    // ★個別上限（分母）の動的描画（値がない、またはnullの場合は「∞」）
+    const limitVal = selectedCardData.card_limit;
+    const limitText = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? limitVal : "∞";
+    document.getElementById('detail-limit').innerText = limitText;
 
     versionList.innerHTML = '';
     allVersions.forEach(v => {
@@ -1366,7 +1691,11 @@ function adjustQty(diff) {
         const slot = document.getElementById(slotId);
         
         if (diff > 0) {
-            if (!slot.classList.contains('active')) addCardToDeck(selectedCardData, 'special');
+            if (!slot.classList.contains('active')) {
+                addCardToDeck(selectedCardData, 'special');
+            }
+            // ★ 特殊カード追加時にモーダルの数値を「1」に更新します
+            document.getElementById('detail-qty').innerText = "1"; 
         } else {
             removeSpecialCard(slotId);
             document.getElementById('detail-qty').innerText = "0";
@@ -1377,19 +1706,26 @@ function adjustQty(diff) {
     const type = determineZoneType(selectedCardData.char_ids);
     let targetList = mainList, limit = 4, totalLimit = 60, zoneName = "メインデッキ";
 
-    if (type === 'super_dimensional') { targetList = superDimList; totalLimit = 8; zoneName = "超次元ゾーン"; }
-    else if (type === 'gr') { targetList = grList; totalLimit = 12; limit = 2; zoneName = "超GRゾーン"; }
+    const limitVal = selectedCardData.card_limit;
+    limit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
 
-    const count = targetList.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`).length;
+    if (type === 'super_dimensional') { targetList = superDimList; totalLimit = 8; zoneName = "超次元ゾーン"; }
+    else if (type === 'gr') { targetList = grList; totalLimit = 12; zoneName = "超GRゾーン"; }
+
+    const comboNames = selectedCardData.combo_names || '';
+    const selector = getCardSelector(name, comboNames);
+    const count = targetList.querySelectorAll(selector).length;
     const totalCount = targetList.querySelectorAll('img').length;
 
     if (diff > 0) {
-        if (count >= limit) return alert(`${name} は${zoneName}に最大${limit}枚までです。`);
+        if (count >= limit) {
+            return alert(`${name} は${zoneName}に最大${limit}枚までです。`);
+        }
         if (totalCount >= totalLimit) return alert(`${zoneName}は合計${totalLimit}枚までです。`);
         addCardToDeck(selectedCardData);
     } else {
         if (count <= 0) return;
-        const target = targetList.querySelector(`img[data-card-name="${name}"]`);
+        const target = targetList.querySelector(selector);
         if (target) {
             target.remove();
             if (activeClickedElement === target) activeClickedElement = null;
@@ -1397,7 +1733,7 @@ function adjustQty(diff) {
     }
     
     updateDeckDisplay();
-    document.getElementById('detail-qty').innerText = targetList.querySelectorAll(`img[data-card-name="${name}"]`).length;
+    document.getElementById('detail-qty').innerText = targetList.querySelectorAll(selector).length;
 }
 
 function closeDetailModal() { document.getElementById('cardDetailModal').style.display = 'none'; activeClickedElement = null; }
@@ -1479,14 +1815,17 @@ window.addEventListener('resize', adjustMainDeckRows);
  */
 function toggleSearchSection() {
     const searchSection = document.getElementById('search-section');
+    const deckArea = document.getElementById('deck-area');
     const btn = document.getElementById('search-toggle-btn');
     
     const isCollapsed = searchSection.classList.toggle('collapsed');
     
     if (isCollapsed) {
         btn.innerHTML = '▲ カード検索を開く';
+        if (deckArea) deckArea.classList.add('search-collapsed');
     } else {
         btn.innerHTML = '▼ 検索を隠す';
+        if (deckArea) deckArea.classList.remove('search-collapsed');
     }
     
     adjustMainDeckRows();
@@ -1584,9 +1923,11 @@ function fetchAndRender() {
                     img.src = getCardImagePath(card);
                     img.dataset.cardId = card.card_id;
                     img.dataset.cardName = card.card_name;
+                    img.dataset.comboNames = card.combo_names || ''; // ★ 追記：コンビネーション名をデータ属性に格納
                     img.dataset.charIds = card.char_ids;
                     img.dataset.imagepath = card.imagepath;
-                    img.dataset.civ = card.civilization || card.civ || '';
+                    img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : ''; 
+                    img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
                     img.dataset.cost = card.cost !== undefined ? card.cost : '';
                     img.onerror = () => handleImageError(img);
                     resultsDiv.appendChild(img);
@@ -1642,6 +1983,26 @@ function updateTriggerText(type) {
     const trigger = document.getElementById(`${type}-trigger`);
     trigger.innerText = checked.length > 0 ? checked.map(el => el.dataset.name).join(', ') : '選択';
     trigger.style.color = checked.length > 0 ? '#333' : '#666';
+
+    // 選択された項目のバッジ描画処理
+    const badgesContainer = document.getElementById(`${type}-selected-badges`);
+    if (badgesContainer) {
+        badgesContainer.innerHTML = '';
+        if (checked.length === 0) {
+            badgesContainer.style.display = 'none';
+        } else {
+            badgesContainer.style.display = 'flex';
+            checked.forEach(el => {
+                const badge = document.createElement('div');
+                badge.className = 'selected-badge';
+                badge.innerHTML = `
+                    <span>${escapeHTML(el.dataset.name)}</span>
+                    <span class="selected-badge-remove" onclick="removeSubModalSelection('${type}', '${escapeSelectorValue(el.value)}')">×</span>
+                `;
+                badgesContainer.appendChild(badge);
+            });
+        }
+    }
 }
 
 function clearSubSelection(type) {
@@ -1984,7 +2345,7 @@ function compareCardsByKey(a, b, key) {
 }
 
 /**
- * 対象のカードリストを指定された条件で並び替えてDOMを再配置
+ * 対象 of カードリストを指定された条件で並び替えてDOMを再配置
  */
 function sortDeckList(listElement, key, order) {
     const imgs = Array.from(listElement.querySelectorAll('img'));
@@ -2052,5 +2413,75 @@ function escapeSelectorValue(str) {
  */
 function updatePublicValue(val) {
     document.getElementById('save-deck-public').checked = (val === 1);
+}
+/**
+ * 検索結果からタップされたカードを適切なゾーンに自動追加する
+ */
+function addCardToDeckFromSearch(cardData) {
+    const name = cardData.card_name;
+    const charIds = (cardData.char_ids || '').split(',');
+    
+    // 上限値の解決（空またはnullなら 99枚＝無制限）
+    const limitVal = cardData.card_limit;
+    const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
+
+    if (name.includes('ドルマゲドン') || name.includes('零龍')) {
+        const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
+        const slot = document.getElementById(slotId);
+        if (slot && slot.querySelectorAll('img').length > 0) {
+            alert("既に登録されています。");
+            return;
+        }
+        addCardToDeck(cardData, 'special');
+        return;
+    }
+
+    const comboNames = cardData.combo_names || ''; // ★ 修正：cardDataから正確に取得する
+
+    if (charIds.includes('3') || charIds.includes('6')) {
+        if (checkLimit(name, nameLimit, superDimList, null, 8, "超次元ゾーン", comboNames)) { // ★ 修正
+            addCardToDeck(cardData, 'super_dimensional');
+        }
+    } else if (charIds.includes('10')) {
+        if (checkLimit(name, nameLimit, grList, null, 12, "超GRゾーン", comboNames)) { // ★ 修正
+            addCardToDeck(cardData, 'gr');
+        }
+    } else {
+        if (checkLimit(name, nameLimit, mainList, null, 60, "メインデッキ", comboNames)) { // ★ 修正
+            addCardToDeck(cardData, 'main');
+        }
+    }
+}
+/**
+ * バッジの「×」クリック時にチェックボックスの状態を連動して解除する処理
+ */
+function removeSubModalSelection(type, val) {
+    const cb = document.querySelector(`.${type}-check[value="${val}"]`);
+    if (cb) {
+        cb.checked = false;
+        updateTriggerText(type);
+    }
+}
+
+/**
+ * 特殊文字をエスケープするヘルパー関数
+ */
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#39;');
+}
+/**
+ * 同一カードを特定するための属性セレクタを取得
+ * ツインパクトなど（comboNamesがある場合）は全カード名の一致を基準とし、通常カードは上面名一致かつcomboNamesが空を基準とする
+ */
+function getCardSelector(cardName, comboNames) {
+    if (comboNames) {
+        return `img[data-combo-names="${escapeSelectorValue(comboNames)}"]`;
+    }
+    return `img[data-card-name="${escapeSelectorValue(cardName)}"][data-combo-names=""]`;
 }
 </script>

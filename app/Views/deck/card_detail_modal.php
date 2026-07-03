@@ -35,7 +35,6 @@
         border-color: #007bff;
     }
 </style>
-
 <!-- カード詳細・表裏切り替えモーダル（共通HTML） -->
 <div id="cardDetailModal" style="display: none; position: fixed; z-index: 10000; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8);">
     <div class="detail-content" style="background: white; margin: 5vh auto; padding: 25px; border-radius: 12px; position: relative; box-sizing: border-box; width: 850px; max-width: 90%; display: flex; flex-direction: column;">
@@ -55,7 +54,6 @@
         </div>
     </div>
 </div>
-
 <script>
 // --- カード詳細（表裏切り替え付き）の共通制御JavaScript ---
 let currentCombinationCards = [];

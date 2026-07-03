@@ -1,4 +1,11 @@
 <!-- app/Views/deck/index.php -->
+<?php
+try {
+    $pdo_db = \Models\Database::connect();
+} catch (\Exception $e) {
+    $pdo_db = null;
+}
+?>
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -266,45 +273,16 @@
 
     <div class="deck-list">
         <?php if (!empty($decks)): ?>
-            <?php foreach ($decks as $deck): ?>
-                <div class="deck-item">
-                    <!-- 1. デッキ名 -->
-                    <h3><?php echo htmlspecialchars($deck['deck_name']); ?></h3>
-
-                    <!-- 2. サムネイル画像（拡大トリミング） -->
-                    <div class="deck-thumbnail-wrapper">
-                        <?php 
-                            $thumbPath = '/images/card/noimage.webp';
-                            if (!empty($deck['thumbnail_imagepath'])) {
-                                $path = $deck['thumbnail_imagepath'];
-                                $thumbPath = '/images/card' . (str_starts_with($path, '/') ? $path : '/' . $path);
-                            }
-                        ?>
-                        <img src="<?php echo htmlspecialchars($thumbPath); ?>" alt="Thumbnail" class="deck-thumbnail" onerror="this.src='/images/card/noimage.webp'; this.onerror=null;">
-                    </div>
-
-                    <!-- 3. フォーマット 最終更新日 -->
-                    <div class="deck-meta-info">
-                        <span class="format-badge"><?php echo htmlspecialchars($deck['format_name']); ?></span>
-                        <span><?php echo date('Y/m/d', strtotime($deck['updated_at'])); ?></span>
-                    </div>
-
-                    <!-- 4. ボタン群 -->
-                    <div class="btn-group" style="margin-top: auto; padding-top: 5px;">
-                        <button class="btn-view" onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>')">内容表示</button>
-                        <!-- 追加: 画像出力ボタン。引数にデッキ名とフォーマット名を渡します -->
-                        <button class="btn-image" onclick="exportDeckImage(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES); ?>', this)">画像出力</button>
-                        <a href="/decks/edit?deck_id=<?php echo $deck['deck_id']; ?>" class="btn-edit">編集</a>
-                        <button class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
-                    </div>
-                </div>
-            <?php endforeach; ?>
+            <?php 
+            $context = 'index'; // 呼び出し元コンテキストをマイデッキ一覧に指定 
+            foreach ($decks as $deck): 
+                include __DIR__ . '/deck_item.php'; 
+            endforeach; 
+            ?>
         <?php else: ?>
             <p style="grid-column: 1 / -1; text-align: center; color: #666;">デッキが登録されていません。</p>
         <?php endif; ?>
     </div>
-</div>
-
 <!-- デッキ詳細モーダル（共通）の読み込み -->
 <?php include __DIR__ . '/deck_detail_modal.php'; ?>
 <!-- 共通カード詳細モーダルの読み込み -->
@@ -376,15 +354,17 @@ function exportDeckImage(deckId, deckName, formatName, buttonElement) {
             if (card.civ_zero || card.civilization_id == 6) colors.add('zero');
 
             const zone = (card.card_type_in_deck || 'main').toLowerCase();
-            
-            // APIデータが集約（quantityが2以上）されているケースにも対応できるよう、
-            // quantity の数だけ配列に繰り返し追加し、枚数を維持して展開します。
+
             const qty = parseInt(card.quantity || card.qty || 1);
 
             for (let i = 0; i < qty; i++) {
                 if (zone === 'gr') {
                     grCards.push(card);
-                } else if (zone === 'psychic' || zone === 'super_psychic') {
+                } else if (
+                    zone === 'psychic' || 
+                    zone === 'super_psychic' || 
+                    zone === 'super_dimensional' // ★超次元ゾーンの判定に super_dimensional を追加します
+                ) {
                     psychicCards.push(card);
                 } else if (zone === 'special') {
                     specialCards.push(card);

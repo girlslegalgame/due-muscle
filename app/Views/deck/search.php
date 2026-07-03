@@ -375,42 +375,12 @@ try {
     <!-- 検索結果一覧 -->
     <div class="deck-list">
         <?php if (!empty($decks)): ?>
-            <?php foreach ($decks as $deck): ?>
-                <div class="deck-item">
-                    <!-- 1. デッキ名 -->
-                    <h3><?php echo htmlspecialchars($deck['deck_name']); ?></h3>
-
-                    <!-- 2. サムネイル画像 -->
-                    <div class="deck-thumbnail-wrapper">
-                        <?php 
-                            $thumbPath = '/images/card/noimage.webp';
-                            if (!empty($deck['thumbnail_imagepath'])) {
-                                $path = $deck['thumbnail_imagepath'];
-                                $thumbPath = '/images/card' . (str_starts_with($path, '/') ? $path : '/' . $path);
-                            }
-                        ?>
-                        <img src="<?php echo htmlspecialchars($thumbPath); ?>" alt="Thumbnail" class="deck-thumbnail" onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>')" onerror="this.src='/images/card/noimage.webp'; this.onerror=null;">
-                    </div>
-
-                    <!-- 3. 製作者名（サムネの下） -->
-                    <div class="deck-creator">
-                        製作者: <?php echo htmlspecialchars($deck['creator_name']); ?>
-                    </div>
-
-                    <!-- 4. フォーマット 最終更新日 -->
-                    <div class="deck-meta-info">
-                        <span class="format-badge"><?php echo htmlspecialchars($deck['format_name']); ?></span>
-                        <span><?php echo date('Y/m/d', strtotime($deck['updated_at'])); ?></span>
-                    </div>
-
-                    <!-- 5. ボタン群 -->
-                    <div class="btn-group" style="margin-top: auto; padding-top: 5px;">
-                        <button class="btn-view" onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>')">内容表示</button>
-                        <!-- コピーボタン -->
-                        <button class="btn-edit" onclick="copyDeck(<?php echo $deck['deck_id']; ?>)" style="background-color: #ffc107; color: #212529;">コピー</button>
-                    </div>
-                </div>
-            <?php endforeach; ?>
+            <?php 
+            $context = 'search'; // 呼び出し元コンテキストを公開デッキ検索に指定 
+            foreach ($decks as $deck): 
+                include __DIR__ . '/deck_item.php'; 
+            endforeach; 
+            ?>
         <?php else: ?>
             <p style="grid-column: 1 / -1; text-align: center; color: #666;">該当する公開デッキが見つかりませんでした。</p>
         <?php endif; ?>

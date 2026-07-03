@@ -177,19 +177,20 @@ class DeckController {
             ]);
             $newDeckId = $pdo->lastInsertId();
 
-            // 3. コピー元デッキから採用カードリストを抽出
-            $stmtCards = $pdo->prepare("SELECT card_id, quantity, card_type_in_deck FROM deck_cards WHERE deck_id = :did");
+            // 3. コピー元デッキから採用カードリストを抽出（並び順 sort_order を考慮してソート取得）
+            $stmtCards = $pdo->prepare("SELECT card_id, quantity, card_type_in_deck, sort_order FROM deck_cards WHERE deck_id = :did ORDER BY sort_order ASC");
             $stmtCards->execute([':did' => $sourceDeckId]);
             $cards = $stmtCards->fetchAll(PDO::FETCH_ASSOC);
 
-            // 4. 新しく作成したデッキにカードを丸ごとインサート
-            $stmtCardInsert = $pdo->prepare("INSERT INTO deck_cards (deck_id, card_id, quantity, card_type_in_deck) VALUES (:did, :cid, :qty, :type)");
+            // 4. 新しく作成したデッキにカードを丸ごとインサート（sort_orderも完全に引き継ぐ）
+            $stmtCardInsert = $pdo->prepare("INSERT INTO deck_cards (deck_id, card_id, quantity, card_type_in_deck, sort_order) VALUES (:did, :cid, :qty, :type, :order)");
             foreach ($cards as $c) {
                 $stmtCardInsert->execute([
                     ':did' => $newDeckId,
                     ':cid' => $c['card_id'],
                     ':qty' => $c['quantity'],
-                    ':type' => $c['card_type_in_deck']
+                    ':type' => $c['card_type_in_deck'],
+                    ':order' => $c['sort_order'] // 元の並び順を正確に継承
                 ]);
             }
 
@@ -406,5 +407,18 @@ class DeckController {
                 die("テンプレートファイル (app.php) が見つかりません。配置場所を確認してください。");
             }
         }
-    }   
+    }
+/**
+     * ヘルプ・FAQ画面の表示
+     */
+    public function help() {
+        // ヘルプ用ビューの内容をバッファリングして取得
+        ob_start();
+        include __DIR__ . '/../Views/help/index.php'; // Viewsフォルダへの相対パスを環境に合わせて調整してください
+        $content = ob_get_clean();
+
+        // 共通レイアウトに埋め込んで表示
+        include __DIR__ . '/../Views/layouts/app.php';
+    }
+    
 }
