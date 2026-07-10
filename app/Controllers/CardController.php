@@ -44,25 +44,28 @@ class CardController {
             $searchSql = "
                 SELECT DISTINCT 
                     CASE 
-                        WHEN ccb_search.card_id IS NOT NULL THEN c_front.card_name
+                        WHEN ccb_search.card_id IS NOT NULL AND c_search.card_id <> c_front.card_id THEN c_front.card_name
                         ELSE c_search.card_name
-                    END as target_name
+                    END as target_name,
+                    IF(ccb_search.card_id IS NOT NULL, 1, 0) as is_combo
                 FROM card c_search
-                JOIN card_detail cd_search ON c_search.card_id = cd_search.card_id
+                LEFT JOIN card_detail cd_search ON c_search.card_id = cd_search.card_id
                 LEFT JOIN card_combination ccb_search ON c_search.card_id = ccb_search.card_id
                 LEFT JOIN card_combination ccb_front ON ccb_search.combination_id = ccb_front.combination_id AND ccb_front.is_main_side = 1
                 LEFT JOIN card c_front ON ccb_front.card_id = c_front.card_id
-                WHERE 1=1";
-            if ($q !== '') {
+                WHERE 1=1";             
+                if ($q !== '') {
                 // 送信されたキーワードを「カタカナ」と「ひらがな」の両方に変換してバインド用変数を作成
                 $q_kata = mb_convert_kana($q, "C", "UTF-8"); // ひらがな -> カタカナ
                 $q_hira = mb_convert_kana($q, "c", "UTF-8"); // カタカナ -> ひらがな
 
                 $conds = [];
                 if (in_array('name', $scope)) {
-                    // カード名（漢字・ひらがな交じり）は入力された元のワードで検索
-                    $conds[] = "c_search.card_name LIKE :q_name";
+                    // ★ カード名に対し、元のワード、カタカナ版、ひらがな版のすべてで検索し、表記揺れを完全吸収します
+                    $conds[] = "(c_search.card_name LIKE :q_name OR c_search.card_name LIKE :q_name_kata OR c_search.card_name LIKE :q_name_hira)";
                     $params[':q_name'] = "%$q%";
+                    $params[':q_name_kata'] = "%$q_kata%";
+                    $params[':q_name_hira'] = "%$q_hira%";
                 }
                 
                 // 読み仮名検索（DB側がひらがな、またはカタカナのどちらで登録されていてもヒットするようにします）
@@ -260,11 +263,11 @@ class CardController {
 
             // 絞り込みの有無によってSQLクエリを分岐（ソート順はどちらも統一）
             if (!$isFiltered) {
-                // ① 絞り込みがない初期状態：
+                // ① 絞り込みがない初期状態（変更なし）：
                 $sql = "
                     SELECT 
                         c.*, cd.modelnum, cd.imagepath, cd.`limit` as card_limit,
-                        (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids, /* ★ この行を追加 */
+                        (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                         (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                          FROM card_combination cc_ref 
@@ -284,7 +287,7 @@ class CardController {
                 $sql = "
                     SELECT 
                         c.*, cd.modelnum, cd.imagepath, cd.`limit` as card_limit,
-                        (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids, /* ★ この行を追加 */
+                        (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                         (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                          FROM card_combination cc_ref 
@@ -295,7 +298,10 @@ class CardController {
                     FROM card c
                     JOIN card_detail cd ON c.card_id = cd.card_id
                     LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
-                    JOIN ($searchSql) as matched_names ON c.card_name = matched_names.target_name
+                    /* ★ 結合条件を 「代表カード名」かつ「組み合わせ有無(通常orツインパクト)の一致」に変更 */
+                    JOIN ($searchSql) as matched_names ON 
+                        c.card_name = matched_names.target_name 
+                        AND IF(ccb.card_id IS NOT NULL, 1, 0) = matched_names.is_combo
                     WHERE cd.is_primary_version = 1
                     AND (ccb.combination_id IS NULL OR ccb.is_main_side = 1)
                     $orderBy
@@ -351,12 +357,21 @@ class CardController {
 
         try {
             $pdo = \Models\Database::connect();
-            $stmtName = $pdo->prepare("SELECT card_name FROM card WHERE card_id = :id");
-            $stmtName->execute([':id' => $cardId]);
-            $card = $stmtName->fetch();
-            if (!$card) return;
+            
+            // 1. ターゲットとなるカードの名前と、組み合わせ（ツインパクト等）IDを事前に取得します
+            $stmtTarget = $pdo->prepare("
+                SELECT c.card_name, ccb.combination_id 
+                FROM card c 
+                LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id 
+                WHERE c.card_id = :id
+            ");
+            $stmtTarget->execute([':id' => $cardId]);
+            $target = $stmtTarget->fetch();
+            if (!$target) return;
 
-            // SELECT項目に char_ids を追加
+            // 組み合わせIDが空でない場合、ツインパクト（または両面カード）と判定します
+            $isCombo = !empty($target['combination_id']);
+
             $sql = "SELECT c.card_id, c.card_name, c.text, c.pow, c.cost, cd.modelnum, cd.imagepath, cd.release_date, cd.`limit` as card_limit,
                            (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                            (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
@@ -368,13 +383,44 @@ class CardController {
                     FROM card c
                     JOIN card_detail cd ON c.card_id = cd.card_id
                     LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
-                    WHERE c.card_name = :name
-                    ORDER BY cd.release_date ASC";
+                    WHERE c.card_name = :name ";
+
+            // 2. ツインパクト版と通常カード版で取得対象をSQL段階で完全に分岐させます
+            if ($isCombo) {
+                // ツインパクト（組み合わせあり）の場合：
+                // 組み合わせ（ccb.combination_id）が存在し、かつ「構成するカード名の組み合わせ全体（combo_names）」が完全に一致するもののみを取得
+                $sql .= " AND ccb.combination_id IS NOT NULL ";
+                $sql .= " AND (
+                    SELECT GROUP_CONCAT(c_all2.card_name ORDER BY cc_all2.card_id ASC SEPARATOR '|||') 
+                    FROM card_combination cc_ref2 
+                    JOIN card_combination cc_all2 ON cc_ref2.combination_id = cc_all2.combination_id 
+                    JOIN card c_all2 ON cc_all2.card_id = c_all2.card_id 
+                    WHERE cc_ref2.card_id = c.card_id
+                ) = (
+                    SELECT GROUP_CONCAT(c_all3.card_name ORDER BY cc_all3.card_id ASC SEPARATOR '|||') 
+                    FROM card_combination cc_ref3 
+                    JOIN card_combination cc_all3 ON cc_ref3.combination_id = cc_all3.combination_id 
+                    JOIN card c_all3 ON cc_all3.card_id = c_all3.card_id 
+                    WHERE cc_ref3.card_id = :target_id
+                )";
+            } else {
+                // 通常カードの場合：
+                // 組み合わせテーブルに登録されていない（ツインパクトではない）同名カードのみを取得
+                $sql .= " AND ccb.combination_id IS NULL ";
+            }
+
+            $sql .= " ORDER BY cd.release_date ASC";
             
             $stmt = $pdo->prepare($sql);
-            $stmt->execute([':name' => $card['card_name']]);
+            $bindParams = [':name' => $target['card_name']];
+            if ($isCombo) {
+                $bindParams[':target_id'] = $cardId; // ツインパクト時は同一構成チェック用のターゲットIDをバインド
+            }
+            
+            $stmt->execute($bindParams);
             header('Content-Type: application/json');
             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+            
         } catch (\Exception $e) {
             header('Content-Type: application/json', true, 500);
             echo json_encode(['error' => $e->getMessage()]);

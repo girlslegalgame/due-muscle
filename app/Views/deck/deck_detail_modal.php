@@ -1013,8 +1013,12 @@ function confirmModalFaSetup() {
             return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
         });
 
+        const seen = new Set(); // ★ 描画済みのカードIDを追跡するSetを追加します
         mainCards.forEach(card => {
-            if (modalFaSelectedCardIds.has(card.card_id)) {
+            // 選択されたカードであり、かつまだ表示されていない場合のみimg要素を追加
+            if (modalFaSelectedCardIds.has(card.card_id) && !seen.has(card.card_id)) {
+                seen.add(card.card_id); // 描画済みに登録
+                
                 const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
                 const src = '/images/card' + path;
                 const img = document.createElement('img');
