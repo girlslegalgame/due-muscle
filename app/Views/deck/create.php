@@ -651,18 +651,47 @@
         height: auto !important;
     }
 
-    /* 4. 特殊タブ（ドルマゲドン・零龍）のスロット幅調整 */
+    /* 4. 特殊タブ（ドルマゲドン・零龍）の調整（横並び・比率を維持して縮小） */
     #special-deck-list.active {
-        flex-direction: column !important;
+        flex-direction: row !important; /* 横並び（配置）を維持します */
+        justify-content: space-around;
         align-items: center;
-        gap: 15px;
+        gap: 10px;
+        padding: 5px !important;
+    }
+    .special-zone {
+        padding: 5px !important;
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+    .special-label {
+        font-size: 11px !important; /* 文字を小さくして縦幅を抑えます */
+        margin: 0 0 4px 0 !important;
+        text-align: center;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        width: 100%;
+    }
+    .btn-add-special {
+        font-size: 11px !important;
+        padding: 4px 10px !important; /* ボタンサイズを縮小して縦幅を節約します */
+        margin-bottom: 8px !important;
     }
     .special-box {
-        width: 180px !important;
-        height: 250px !important;
+        width: 38vw !important; /* 画面幅に合わせて配置を崩さず自動縮小させます */
+        max-width: 160px !important; /* 縦幅が大きくなりすぎないように最大幅を制限します */
+        height: auto !important; /* 縦幅はアスペクト比から自動で算出します */
+        aspect-ratio: 110 / 154 !important; /* カードと同じ比率（約 1:1.4）を厳密に維持します */
+        border-radius: 6px;
     }
     .special-v-line {
-        display: none;
+        display: block !important; /* 横並びを維持するため、中央の区切り線を表示します */
+        height: 120px; /* 縦幅に合わせて区切り線の長さを縮小します */
+        margin: 5px 0 !important;
     }
 
     /* 5. 検索セクションのコンパクト化 */
@@ -1362,27 +1391,31 @@ function renderFormatSelect(formats) {
 /**
  * デッキリストにカード画像を追加する
  */
-function addCardToDeck(card, forcedType = null) {
+function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     const img = document.createElement('img');
     img.src = getCardImagePath(card);
     img.dataset.cardId = card.card_id;
     img.dataset.cardName = card.card_name;
-    img.dataset.comboNames = card.combo_names || ''; // ★ 追記
+    img.dataset.comboNames = card.combo_names || '';
     img.dataset.charIds = card.char_ids;
     img.dataset.imagepath = card.imagepath;
-    // 個別上限を保持（null または 空の場合は空文字を設定）
     img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : '';
-    // 並び替え用
     img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
     img.dataset.cost = card.cost !== undefined ? card.cost : '';
     img.alt = card.card_name;
     img.onerror = () => handleImageError(img);
 
-    const isSpecial = card.card_name.includes('ドルマゲドン') || card.card_name.includes('零龍');
+    const name = card.card_name;
+    // ドルマゲドンと零龍の判定条件を拡張（別名や関連カード名に対応）
+    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
+    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+    const isSpecial = isDoru || isZero;
+
     const type = forcedType || (isSpecial ? 'special' : determineZoneType(card.char_ids));
 
     if (type === 'special') {
-        const slotId = card.card_name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
+        // 明示的な指定があればそれを使い、なければカード名から判別
+        const slotId = forcedSlotId || (isDoru ? 'slot-dolmagedon' : 'slot-zeroron');
         const slot = document.getElementById(slotId);
         if (slot) {
             slot.innerHTML = ''; 
@@ -1399,6 +1432,7 @@ function addCardToDeck(card, forcedType = null) {
     }
     updateDeckDisplay();
 }
+
 
 /**
  * 特殊タイプIDから適切なゾーン名を判定する補助関数
@@ -1468,7 +1502,7 @@ const deckSortableConfig = {
     group: 'shared', animation: 150,
     onStart: () => trashArea.style.display = 'flex',
     onEnd: () => { trashArea.style.display = 'none'; updateDeckDisplay(); },
-        onAdd: function(evt) {
+onAdd: function(evt) {
             const item = evt.item;
             const name = item.dataset.cardName;
             const charIds = (item.dataset.charIds || '').split(',');
@@ -1477,8 +1511,12 @@ const deckSortableConfig = {
             const limitVal = item.dataset.cardLimit;
             const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
 
-            if (name.includes('ドルマゲドン') || name.includes('零龍')) {
-                const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
+            // 拡張された判定条件
+            const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
+            const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+
+            if (isDoru || isZero) {
+                const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
                 const slot = document.getElementById(slotId);
                 if (slot.querySelectorAll('img').length > 0) {
                     alert("既に登録されています。");
@@ -1494,21 +1532,21 @@ const deckSortableConfig = {
                 return;
             }
 
-            const comboNames = item.dataset.comboNames || ''; // ★ 修正
+            const comboNames = item.dataset.comboNames || '';
 
             if (charIds.includes('3') || charIds.includes('6')) {
                 superDimList.appendChild(item);
-                if (!checkLimit(name, nameLimit, superDimList, item, 8, "超次元ゾーン", comboNames)) { // ★ 修正
+                if (!checkLimit(name, nameLimit, superDimList, item, 8, "超次元ゾーン", comboNames)) {
                     item.remove();
                 }
             } else if (charIds.includes('10')) {
                 grList.appendChild(item);
-                if (!checkLimit(name, nameLimit, grList, item, 12, "超GRゾーン", comboNames)) { // ★ 修正
+                if (!checkLimit(name, nameLimit, grList, item, 12, "超GRゾーン", comboNames)) {
                     item.remove();
                 }
             } else {
                 mainList.appendChild(item);
-                if (!checkLimit(name, nameLimit, mainList, item, 60, "メインデッキ", comboNames)) { // ★ 修正
+                if (!checkLimit(name, nameLimit, mainList, item, 60, "メインデッキ", comboNames)) {
                     item.remove();
                 }
             }
@@ -1647,10 +1685,14 @@ function renderDetailModal() {
     const comboNames = selectedCardData.combo_names || '';
     const selector = getCardSelector(name, comboNames);
 
-    if (name.includes('ドルマゲドン') || name.includes('零龍')) {
-        const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
+    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
+    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+
+    if (isDoru || isZero) {
+        const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
         count = document.getElementById(slotId).classList.contains('active') ? 1 : 0;
-    } else {
+    }
+    else {
         const type = determineZoneType(selectedCardData.char_ids);
         let targetList = type === 'super_dimensional' ? superDimList : (type === 'gr' ? grList : mainList);
         count = targetList.querySelectorAll(selector).length; // ★ 修正（selector変数を使用）
@@ -1684,17 +1726,19 @@ function renderDetailModal() {
 
 function adjustQty(diff) {
     const name = selectedCardData.card_name;
-    const isSpecial = name.includes('ドルマゲドン') || name.includes('零龍');
+    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
+    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+    const isSpecial = isDoru || isZero;
 
     if (isSpecial) {
-        const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
+        const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
         const slot = document.getElementById(slotId);
         
         if (diff > 0) {
             if (!slot.classList.contains('active')) {
-                addCardToDeck(selectedCardData, 'special');
+                // slotIdを明示的に渡して追加します
+                addCardToDeck(selectedCardData, 'special', slotId);
             }
-            // ★ 特殊カード追加時にモーダルの数値を「1」に更新します
             document.getElementById('detail-qty').innerText = "1"; 
         } else {
             removeSpecialCard(slotId);
@@ -2251,7 +2295,8 @@ function fetchSpecialCard(slotId) {
             if (data.length > 0) {
                 const slot = document.getElementById(slotId);
                 slot.innerHTML = '';
-                addCardToDeck(data[0], 'special');
+                // 引数に slotId を追加
+                addCardToDeck(data[0], 'special', slotId);
             }
         });
 }
@@ -2425,29 +2470,32 @@ function addCardToDeckFromSearch(cardData) {
     const limitVal = cardData.card_limit;
     const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
 
-    if (name.includes('ドルマゲドン') || name.includes('零龍')) {
-        const slotId = name.includes('ドルマゲドン') ? 'slot-dolmagedon' : 'slot-zeroron';
+    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
+    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+
+    if (isDoru || isZero) {
+        const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
         const slot = document.getElementById(slotId);
         if (slot && slot.querySelectorAll('img').length > 0) {
             alert("既に登録されています。");
             return;
         }
-        addCardToDeck(cardData, 'special');
+        addCardToDeck(cardData, 'special', slotId); // slotId を渡す
         return;
     }
 
-    const comboNames = cardData.combo_names || ''; // ★ 修正：cardDataから正確に取得する
+    const comboNames = cardData.combo_names || '';
 
     if (charIds.includes('3') || charIds.includes('6')) {
-        if (checkLimit(name, nameLimit, superDimList, null, 8, "超次元ゾーン", comboNames)) { // ★ 修正
+        if (checkLimit(name, nameLimit, superDimList, null, 8, "超次元ゾーン", comboNames)) {
             addCardToDeck(cardData, 'super_dimensional');
         }
     } else if (charIds.includes('10')) {
-        if (checkLimit(name, nameLimit, grList, null, 12, "超GRゾーン", comboNames)) { // ★ 修正
+        if (checkLimit(name, nameLimit, grList, null, 12, "超GRゾーン", comboNames)) {
             addCardToDeck(cardData, 'gr');
         }
     } else {
-        if (checkLimit(name, nameLimit, mainList, null, 60, "メインデッキ", comboNames)) { // ★ 修正
+        if (checkLimit(name, nameLimit, mainList, null, 60, "メインデッキ", comboNames)) {
             addCardToDeck(cardData, 'main');
         }
     }
