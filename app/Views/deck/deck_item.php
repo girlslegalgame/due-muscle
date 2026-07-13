@@ -151,10 +151,27 @@ $deck_colors = [
 
 if (!empty($pdo_db) && !empty($deck['deck_id'])) {
     try {
+        // ツインパクト（twinpactが真）であれば、同じcombination_idを持つすべてのカードの文明も取得する
         $stmt_colors = $pdo_db->prepare("
-            SELECT DISTINCT cc.civilization_id
+            SELECT DISTINCT c_civ.civilization_id
             FROM deck_cards dc
-            JOIN card_civilization cc ON dc.card_id = cc.card_id
+            -- 1. カード詳細テーブルを結合して twinpact フラグを確認
+            JOIN card_detail cd ON dc.card_id = cd.card_id
+            
+            -- 2. デッキのカードに対応する combination_id を取得
+            LEFT JOIN card_combination cc 
+                ON dc.card_id = cc.card_id
+                
+            -- 3. twinpact が true（1）の場合のみ、同じ combination_id に紐づく全ての card_id を結合
+            LEFT JOIN card_combination cc_all 
+                ON cc.combination_id = cc_all.combination_id 
+                AND (cd.twinpact = 1 OR cd.twinpact = 'true' OR cd.twinpact IS TRUE)
+                
+            -- 4. 元の card_id、またはツインパクトの組み合わせに含まれる card_id の文明を取得
+            JOIN card_civilization c_civ 
+                ON c_civ.card_id = dc.card_id 
+                OR c_civ.card_id = cc_all.card_id
+                
             WHERE dc.deck_id = :deck_id
               AND (dc.card_type_in_deck IS NULL OR dc.card_type_in_deck = 'main')
         ");

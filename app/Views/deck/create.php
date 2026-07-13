@@ -1448,54 +1448,13 @@ function determineZoneType(charIdsStr) {
 [mainList, superDimList, grList].forEach(list => list.addEventListener('click', (e) => {
     if (e.target.tagName === 'IMG') openCardDetail(e.target.dataset.cardId, e.target);
 }));
-    resultsDiv.addEventListener('click', (e) => {
-        if (e.target.tagName === 'IMG') {
-            const cardId = e.target.dataset.cardId;
-            const cardName = e.target.dataset.cardName;
-            const comboNames = e.target.dataset.comboNames; // ★ 追記
-            const charIds = e.target.dataset.charIds;
-            const imagepath = e.target.dataset.imagepath;
-            const civ = e.target.dataset.civ;
-            const cost = e.target.dataset.cost;
-            const cardLimit = e.target.dataset.cardLimit;
+resultsDiv.addEventListener('click', (e) => {
+    if (e.target.tagName === 'IMG') {
+        const cardId = e.target.dataset.cardId;
+        openCardDetail(cardId, e.target);
+    }
+});  
 
-            const cardData = {
-                card_id: cardId,
-                card_name: cardName,
-                combo_names: comboNames, // ★ 追記
-                char_ids: charIds,
-                imagepath: imagepath,
-                civilization: civ, // ★修正1で追加した dataset.civ の値が、ここに正確に渡るようになります
-                civ_ids: civ,
-                cost: cost,
-                card_limit: cardLimit
-            };
-
-            // タッチデバイス（スマホ・タブレット）か判定
-            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-            
-            if (isTouchDevice) {
-                // スマホ：シングルタップでデッキに即時追加
-                addCardToDeckFromSearch(cardData);
-            } else {
-                // PC：クリックで従来通り詳細モーダルを表示
-                openCardDetail(cardId, e.target);
-            }
-        }
-    });
-    // ★スマホ対応：検索結果カードを「ダブルタップ」した場合は詳細モーダルを表示
-    let lastTap = 0;
-    resultsDiv.addEventListener('touchend', (e) => {
-        if (e.target.tagName === 'IMG') {
-            const currentTime = new Date().getTime();
-            const tapLength = currentTime - lastTap;
-            if (tapLength < 300 && tapLength > 0) {
-                openCardDetail(e.target.dataset.cardId, e.target);
-                e.preventDefault();
-            }
-            lastTap = currentTime;
-        }
-    });
 
 // --- D. SortableJS 設定 ---
 const deckSortableConfig = {

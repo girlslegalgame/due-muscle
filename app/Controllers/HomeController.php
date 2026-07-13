@@ -7,5 +7,9 @@ class HomeController {
         // より高度なテンプレートエンジンを使うことになります。
         // ここでは簡易的に、後述の layouts/app.php 内に直接Pタグでコンテンツを記述します。
         require_once __DIR__ . '/../Views/layouts/app.php';
+        header('Location: /mydecks');
+        exit;
+        
     }
+    
 }

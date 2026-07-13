@@ -8,6 +8,7 @@ $routes = [
         '/decks/new' => 'DeckController@create',
         '/decks/edit' => 'DeckController@edit',
         '/account' => 'AuthController@showAccountForm', // ★追加：アカウント設定表示
+        '/decks/playtest' => 'DeckController@playtest',
 
 
         '/register' => 'AuthController@showRegisterForm', // 新規追加

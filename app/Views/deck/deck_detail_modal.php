@@ -485,6 +485,7 @@
                         <option value="draw">初手ドロー</option>
                         <option value="first-action">初動チェック</option>
                         <option value="analysis" selected>デッキ分析</option>
+                        <option value="playtest">1人回し（別ページ）</option>
                     </select>
                 </div>
 
@@ -602,6 +603,7 @@
 <script>
 let colorChart = null;
 let manaChart = null;
+let currentDeckId = null; // ★現在開いているデッキID保存用に追加
 
 // モーダル分析側ドロー＆初動変数
 let currentDeckCards = []; // 現在のデッキの全カードデータ退避用
@@ -613,6 +615,8 @@ let modalFaSelectedCardIds = new Set();
 let modalFaHandCount = 5;
 
 function openDeckModal(deckId, deckName) {
+    currentDeckId = deckId; // ★この行を追加（デッキIDを保持）
+
     document.getElementById('modal-deck-title').innerText = deckName;
     const mainList = document.getElementById('modal-main-list');
     mainList.innerHTML = '読み込み中...';
@@ -789,6 +793,16 @@ window.addEventListener('click', (e) => {
    ========================================== */
 function switchModalAnalysisMode() {
     const mode = document.getElementById('modal-analysis-mode-select').value;
+    
+    if (mode === 'playtest') {
+        if (currentDeckId) {
+            window.location.href = '/decks/playtest?deck_id=' + currentDeckId;
+        } else {
+            alert('デッキIDが特定できませんでした。');
+        }
+        return;
+    }
+        
     document.querySelectorAll('.modal-analysis-mode-content').forEach(el => el.style.display = 'none');
     
     if (mode === 'analysis') {

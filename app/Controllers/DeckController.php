@@ -421,4 +421,63 @@ class DeckController {
         include __DIR__ . '/../Views/layouts/app.php';
     }
     
+public function playtest() {
+        $deckId = $_GET['deck_id'] ?? null;
+        if (!$deckId) {
+            header('Location: /mydecks');
+            exit;
+        }
+
+        $db = \Models\Database::connect();
+        
+        // デッキ基本情報
+        $stmt = $db->prepare("SELECT * FROM decks WHERE deck_id = :deck_id");
+        $stmt->execute(['deck_id' => $deckId]);
+        $deck = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        // デッキ内カード情報
+        // card_combination を介して同じグループ内のクリーチャー側（cardtype_id = 1）の画像パスを取得します
+        $stmt_cards = $db->prepare("
+            SELECT 
+                dc.*, 
+                MAX(c.card_name) as card_name, 
+                MAX(cd.imagepath) as imagepath, 
+                MAX(cd.twinpact) as twinpact,
+                MAX(cd_creature.imagepath) as combination_imagepath, -- クリーチャー側の画像パス
+                MAX(cc_self.combination_id) as combination_id,        -- ツインパクト判定用に共通ID
+                GROUP_CONCAT(DISTINCT c_ct.cardtype_id) as cardtype_ids,
+                GROUP_CONCAT(DISTINCT c_ch.characteristics_id) as characteristics_ids,
+                
+                -- ★追加：自カード単体、またはツインパクトで紐づく文明のユニーク総数を集計
+                COUNT(DISTINCT COALESCE(cc_civ.civilization_id, cc_self_civ.civilization_id)) as civ_count
+            FROM deck_cards dc
+            JOIN card c ON dc.card_id = c.card_id
+            LEFT JOIN card_detail cd ON dc.card_id = cd.card_id
+            LEFT JOIN card_cardtype c_ct ON dc.card_id = c_ct.card_id
+            LEFT JOIN card_characteristics c_ch ON dc.card_id = c_ch.card_id
+            
+            -- 自カードのコンビネーション情報を取得
+            LEFT JOIN card_combination cc_self ON dc.card_id = cc_self.card_id
+            -- 同じ combination_id を持つカード群の中から、クリーチャー（cardtype_id = 1）であるものを特定
+            LEFT JOIN card_combination cc_creature ON cc_self.combination_id = cc_creature.combination_id
+            LEFT JOIN card_cardtype ct_creature ON cc_creature.card_id = ct_creature.card_id AND ct_creature.cardtype_id = 1
+            -- 特定したクリーチャー側カードの画像詳細を結合
+            LEFT JOIN card_detail cd_creature ON cc_creature.card_id = cd_creature.card_id
+            
+            -- ★追加：自カード自体の文明を取得
+            LEFT JOIN card_civilization cc_self_civ ON dc.card_id = cc_self_civ.card_id
+            -- ★追加：ツインパクト上面・下面を統合した文明数を集計するための結合
+            LEFT JOIN card_combination cc_group ON cc_self.combination_id = cc_group.combination_id
+            LEFT JOIN card_civilization cc_civ ON cc_group.card_id = cc_civ.card_id
+            
+            WHERE dc.deck_id = :deck_id
+            GROUP BY dc.deck_card_id, dc.sort_order, dc.card_id
+        ");
+        
+        $stmt_cards->execute(['deck_id' => $deckId]);
+        $cards = $stmt_cards->fetchAll(\PDO::FETCH_ASSOC);
+
+        // ビューをロード
+        include __DIR__ . '/../Views/deck/playtest.php';
+    }
 }
