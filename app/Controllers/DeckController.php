@@ -421,7 +421,7 @@ class DeckController {
         include __DIR__ . '/../Views/layouts/app.php';
     }
     
-public function playtest() {
+    public function playtest() {
         $deckId = $_GET['deck_id'] ?? null;
         if (!$deckId) {
             header('Location: /mydecks');
@@ -435,47 +435,58 @@ public function playtest() {
         $stmt->execute(['deck_id' => $deckId]);
         $deck = $stmt->fetch(\PDO::FETCH_ASSOC);
 
-        // デッキ内カード情報
-        // card_combination を介して同じグループ内のクリーチャー側（cardtype_id = 1）の画像パスを取得します
+        // デッキ内カード情報 (サブクエリによる重複排除集計方式)
         $stmt_cards = $db->prepare("
             SELECT 
                 dc.*, 
-                MAX(c.card_name) as card_name, 
-                MAX(cd.imagepath) as imagepath, 
-                MAX(cd.twinpact) as twinpact,
-                MAX(cd_creature.imagepath) as combination_imagepath, -- クリーチャー側の画像パス
-                MAX(cc_self.combination_id) as combination_id,        -- ツインパクト判定用に共通ID
-                GROUP_CONCAT(DISTINCT c_ct.cardtype_id) as cardtype_ids,
-                GROUP_CONCAT(DISTINCT c_ch.characteristics_id) as characteristics_ids,
+                c.card_name, 
+                cd.imagepath, 
+                cd.twinpact,
+                cd_partner.imagepath as combination_imagepath, 
+                cc_self.combination_id,
                 
-                -- ★追加：自カード単体、またはツインパクトで紐づく文明のユニーク総数を集計
-                COUNT(DISTINCT COALESCE(cc_civ.civilization_id, cc_self_civ.civilization_id)) as civ_count
+                -- 各中間テーブルのデータをサブクエリで競合なく確実に取得
+                (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = dc.card_id) as cardtype_ids,
+                (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = dc.card_id) as characteristics_ids,
+                (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = dc.card_id) as ability_ids,
+                
+                -- ツインパクト上面・下面を考慮した文明総数をサブクエリで安全に算出
+                (
+                    SELECT COUNT(DISTINCT cc_civ.civilization_id)
+                    FROM card_combination cc_group
+                    JOIN card_civilization cc_civ ON cc_group.card_id = cc_civ.card_id
+                    WHERE cc_group.combination_id = cc_self.combination_id
+                ) as twin_civ_count,
+                
+                (
+                    SELECT COUNT(DISTINCT cc_self_civ.civilization_id)
+                    FROM card_civilization cc_self_civ
+                    WHERE cc_self_civ.card_id = dc.card_id
+                ) as self_civ_count
+                
             FROM deck_cards dc
             JOIN card c ON dc.card_id = c.card_id
             LEFT JOIN card_detail cd ON dc.card_id = cd.card_id
-            LEFT JOIN card_cardtype c_ct ON dc.card_id = c_ct.card_id
-            LEFT JOIN card_characteristics c_ch ON dc.card_id = c_ch.card_id
             
             -- 自カードのコンビネーション情報を取得
             LEFT JOIN card_combination cc_self ON dc.card_id = cc_self.card_id
-            -- 同じ combination_id を持つカード群の中から、クリーチャー（cardtype_id = 1）であるものを特定
-            LEFT JOIN card_combination cc_creature ON cc_self.combination_id = cc_creature.combination_id
-            LEFT JOIN card_cardtype ct_creature ON cc_creature.card_id = ct_creature.card_id AND ct_creature.cardtype_id = 1
-            -- 特定したクリーチャー側カードの画像詳細を結合
-            LEFT JOIN card_detail cd_creature ON cc_creature.card_id = cd_creature.card_id
-            
-            -- ★追加：自カード自体の文明を取得
-            LEFT JOIN card_civilization cc_self_civ ON dc.card_id = cc_self_civ.card_id
-            -- ★追加：ツインパクト上面・下面を統合した文明数を集計するための結合
-            LEFT JOIN card_combination cc_group ON cc_self.combination_id = cc_group.combination_id
-            LEFT JOIN card_civilization cc_civ ON cc_group.card_id = cc_civ.card_id
+            -- 相方カード（裏表のもう一方）の特定と画像結合
+            LEFT JOIN card_combination cc_partner ON cc_self.combination_id = cc_partner.combination_id AND cc_self.card_id <> cc_partner.card_id
+            LEFT JOIN card_detail cd_partner ON cc_partner.card_id = cd_partner.card_id
             
             WHERE dc.deck_id = :deck_id
-            GROUP BY dc.deck_card_id, dc.sort_order, dc.card_id
+            ORDER BY dc.sort_order ASC
         ");
         
         $stmt_cards->execute(['deck_id' => $deckId]);
-        $cards = $stmt_cards->fetchAll(\PDO::FETCH_ASSOC);
+        $rawCards = $stmt_cards->fetchAll(\PDO::FETCH_ASSOC);
+
+        // 文明カウントの調整（ツインパクト等の一括カウント、または単体カードの文明数に振り分け）
+        $cards = array_map(function($card) {
+            $card['civ_count'] = !empty($card['combination_id']) ? $card['twin_civ_count'] : $card['self_civ_count'];
+            unset($card['twin_civ_count'], $card['self_civ_count']);
+            return $card;
+        }, $rawCards);
 
         // ビューをロード
         include __DIR__ . '/../Views/deck/playtest.php';

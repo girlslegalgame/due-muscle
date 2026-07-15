@@ -438,12 +438,14 @@ class CardController {
         try {
             $pdo = \Models\Database::connect();
             
-            // 1. まず card_combination 経由で同じ combination_id を持つ両面（すべての面）カード情報を取得を試みる
+            // 1. combination_id に紐づく全カードの詳細情報を取得
             $sql = "SELECT 
                         c.card_id, 
                         c.card_name, 
                         c.text, 
-                        cd.imagepath
+                        cd.imagepath,
+                        (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                        (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
                     FROM card_combination cc
                     JOIN card_combination cc_all ON cc.combination_id = cc_all.combination_id
                     JOIN card c ON cc_all.card_id = c.card_id
@@ -455,13 +457,15 @@ class CardController {
             $stmt->execute([':card_id' => $cardId]);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // 2. もし裏表（combinationデータ）が存在しない通常カードだった場合は、そのカード単体を取得して返す
+            // 2. combinationデータが存在しない通常カード用のフォールバック
             if (empty($results)) {
                 $sqlFallback = "SELECT 
                                     c.card_id, 
                                     c.card_name, 
                                     c.text, 
-                                    cd.imagepath
+                                    cd.imagepath,
+                                    (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
                                 FROM card c
                                 JOIN card_detail cd ON c.card_id = cd.card_id
                                 WHERE c.card_id = :card_id

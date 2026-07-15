@@ -794,9 +794,13 @@ window.addEventListener('click', (e) => {
 function switchModalAnalysisMode() {
     const mode = document.getElementById('modal-analysis-mode-select').value;
     
+    // === 【修正】1人回しを選択した際、新しいタブで開くように変更 ===
     if (mode === 'playtest') {
         if (currentDeckId) {
-            window.location.href = '/decks/playtest?deck_id=' + currentDeckId;
+            window.open('/decks/playtest?deck_id=' + currentDeckId, '_blank');
+            
+            // 開いた後に元の画面のドロップダウンの選択状態を「デッキ分析」に戻す
+            document.getElementById('modal-analysis-mode-select').value = 'analysis';
         } else {
             alert('デッキIDが特定できませんでした。');
         }
