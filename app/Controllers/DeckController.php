@@ -436,10 +436,12 @@ class DeckController {
         $deck = $stmt->fetch(\PDO::FETCH_ASSOC);
 
         // デッキ内カード情報 (サブクエリによる重複排除集計方式)
+// デッキ内カード情報 (サブクエリによる重複排除集計方式)
         $stmt_cards = $db->prepare("
             SELECT 
                 dc.*, 
                 c.card_name, 
+                c.cost, -- 【追加】コストの取得
                 cd.imagepath, 
                 cd.twinpact,
                 cd_partner.imagepath as combination_imagepath, 
@@ -447,8 +449,12 @@ class DeckController {
                 
                 -- 各中間テーブルのデータをサブクエリで競合なく確実に取得
                 (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = dc.card_id) as cardtype_ids,
+                -- 【追加】カードタイプIDと名称の紐付けデータを取得
+                (SELECT GROUP_CONCAT(CONCAT(ct.cardtype_id, ':', ct.cardtype_name)) FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = dc.card_id) as cardtype_data,
                 (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = dc.card_id) as characteristics_ids,
                 (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = dc.card_id) as ability_ids,
+                -- 【追加】種族IDと名称の紐付けデータを取得
+                (SELECT GROUP_CONCAT(CONCAT(r.race_id, ':', r.race_name)) FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = dc.card_id) as race_data,
                 
                 -- ツインパクト上面・下面を考慮した文明総数をサブクエリで安全に算出
                 (

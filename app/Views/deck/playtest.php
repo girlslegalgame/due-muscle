@@ -191,7 +191,7 @@
             color: #eee;
             border: 1px solid #444;
             box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
-            z-index: 10000;
+            z-index: 25000; /* 【修正】10000 から 25000 に変更し、モーダル(20000)より前面に表示されるようにします */
             display: none;
             border-radius: 4px;
             padding: 5px 0;
@@ -379,11 +379,11 @@
 <ul id="ptContextMenu" class="context-menu"></ul>
 
 <!-- リスト選択用汎用モーダル -->
-<div id="ptListModal" class="pt-modal" onclick="closePtModal()">
+<div id="ptListModal" class="pt-modal" onclick="ptCloseModalManual()"> <!-- 【変更】 -->
     <div class="pt-modal-content" onclick="event.stopPropagation()">
         <div class="pt-modal-header">
             <h3 id="ptModalTitle">カード選択</h3>
-            <button class="pt-modal-close" onclick="closePtModal()">&times;</button>
+            <button class="pt-modal-close" onclick="ptCloseModalManual()">&times;</button> <!-- 【変更】 -->
         </div>
         <div class="pt-modal-body" id="ptModalBody"></div>
         <div class="pt-modal-footer" id="ptModalFooter"></div>
@@ -392,6 +392,10 @@
 
 <script>
 // PHPからの初期データを展開
+// PHPからの初期データを展開
+let ptBatchMoveQueue = [];        // 【新規】一括移動中のカードIDキュー
+let ptBatchMoveTargetZone = null; // 【新規】一括移動の対象ゾーン（'battle' or 'shield'）
+let ptLastRightClickedCardId = null; // 【追加】最後に右クリックされたカードのID追跡用
 const initialCardsRaw = <?php echo json_encode($cards ?? []); ?>;
 const initialCards = Array.isArray(initialCardsRaw) ? initialCardsRaw : [];
 
@@ -403,6 +407,8 @@ let selectedCards = new Set();
 let isSelectMode = false;
 let ptLookingCards = []; 
 let ptReturnOrder = [];  
+let ptAvailableRaces = {}; // デッキ内に含まれる種族マップ { id: name }
+let ptAvailableTypes = {};
 
 window.onload = function() {
     try {
@@ -426,7 +432,30 @@ window.onload = function() {
 function initPlaytestGame() {
     ptState = { deck: [], hand: [], mana: [], graveyard: [], battle: [], shield: [], psychic: [], gr: [] };
     selectedCards.clear();
-    
+
+    // デッキ内に含まれる種族・カードタイプの事前抽出
+    ptAvailableRaces = {};
+    ptAvailableTypes = {};
+    initialCards.forEach(card => {
+        if (!card) return;
+        if (card.race_data) {
+            card.race_data.split(',').forEach(item => {
+                const parts = item.split(':');
+                if (parts.length >= 2) {
+                    ptAvailableRaces[parseInt(parts[0], 10)] = parts[1];
+                }
+            });
+        }
+        if (card.cardtype_data) {
+            card.cardtype_data.split(',').forEach(item => {
+                const parts = item.split(':');
+                if (parts.length >= 2) {
+                    ptAvailableTypes[parseInt(parts[0], 10)] = parts[1];
+                }
+            });
+        }
+    });
+
     let mainCards = [];
     let hasKindan = false;
     let hasForbiddenStar = false;
@@ -485,6 +514,17 @@ function initPlaytestGame() {
         const characteristicsIds = ptNormalizeIds(characteristicsIdsRaw);
         const abilityIds = ptNormalizeIds(abilityIdsRaw);
 
+        // 種族IDのパース処理
+        let raceIds = [];
+        if (card.race_data) {
+            card.race_data.split(',').forEach(item => {
+                const parts = item.split(':');
+                if (parts.length >= 2) {
+                    raceIds.push(parseInt(parts[0], 10));
+                }
+            });
+        }
+
         for (let i = 0; i < qty; i++) {
             let instance = {
                 id: 'pt_' + Date.now() + '_' + Math.floor(Math.random() * 100000) + '_' + idx + '_' + i,
@@ -500,7 +540,9 @@ function initPlaytestGame() {
                 cardtype_ids: cardtypeIds,               
                 characteristics_ids: characteristicsIds, 
                 ability_ids: abilityIds,
-                underCards: [], tapped: false, inverted: false, faceDown: false, flipped: false
+                underCards: [], tapped: false, inverted: false, faceDown: false, flipped: false,
+                cost: card.cost !== null && card.cost !== undefined ? parseInt(card.cost, 10) : null,
+                race_ids: raceIds
             };
 
             if (instance.name === '終焉の禁断 ドルマゲドンX') {
@@ -772,6 +814,9 @@ function renderPtBoard() {
     try { renderZone('pt-zone-hand', ptState.hand, '手札'); } catch (e) { console.error("Hand zone render error:", e); }
 }
 
+// =========================================================================
+// 【修正】renderZone 関数（個別描画の廃止と重ね合わせカウントの一括差し戻し）
+// =========================================================================
 function renderZone(zoneId, arr, name) {
     const zone = document.getElementById(zoneId);
     zone.innerHTML = `<div class="playtest-zone-title">${name}</div>`;
@@ -800,7 +845,6 @@ function renderZone(zoneId, arr, name) {
             if (card.faceDown) el.classList.add('face-down');
             if (selectedCards.has(card.id)) el.classList.add('selected');
 
-            // GRカードかどうかで裏面を分岐
             const isGR = card.characteristics_ids && card.characteristics_ids.includes(10);
             const backPath = isGR ? '/images/card/gr_backimage.webp' : '/images/card/backimage.webp';
             const displaySrc = card.faceDown ? backPath : card.src;
@@ -869,13 +913,11 @@ function renderZone(zoneId, arr, name) {
         if (card.faceDown) el.classList.add('face-down');
         if (selectedCards.has(card.id)) el.classList.add('selected');
 
-        // GRカードかどうかで裏面を分岐
         const isGR = card.characteristics_ids && card.characteristics_ids.includes(10);
         const backPath = isGR ? '/images/card/gr_backimage.webp' : '/images/card/backimage.webp';
         const displaySrc = card.faceDown ? backPath : card.src;
         el.innerHTML = `<img src="${displaySrc}">`;
         
-        // 零龍カウンターの表示
         if (card.is_zeron && !card.flipped) {
             const counter = document.createElement('div');
             counter.className = 'playtest-zone-center-text'; 
@@ -883,20 +925,7 @@ function renderZone(zoneId, arr, name) {
             el.appendChild(counter);
         }
 
-        const seals = card.underCards ? card.underCards.filter(uc => uc.faceDown) : [];
-        if (seals.length > 0) {
-            seals.forEach((seal, idx) => {
-                const sealImg = document.createElement('img');
-                const isGR = seal.characteristics_ids && seal.characteristics_ids.includes(10);
-                sealImg.src = isGR ? '/images/card/gr_backimage.webp' : '/images/card/backimage.webp';
-                sealImg.className = 'playtest-seal-card';
-                // 複数封印時に枚数がわかるよう、わずかに斜め下（各6px）にずらして一番上に重ねる
-                sealImg.style.top = `${idx * 6}px`;
-                sealImg.style.left = `${idx * 6}px`;
-                el.appendChild(sealImg);
-            });
-        }        
-        // === 【追加・オレガオーラの重ね合わせ個別描画】 ===
+        // === オレガオーラの重ね合わせ個別描画 ===
         const auras = card.underCards ? card.underCards.filter(uc => uc.cardtype_ids && uc.cardtype_ids.includes(8) && !uc.faceDown) : [];
         if (auras.length > 0) {
             el.classList.add('has-aura');
@@ -909,8 +938,11 @@ function renderZone(zoneId, arr, name) {
             });
         }
 
-        // === 【修正】オーラとして描画されなかったカード（裏向き封印状態のオーラ、および進化元や通常の封印等）をカウント ===
-        const regularUnders = card.underCards ? card.underCards.filter(uc => !(uc.cardtype_ids && uc.cardtype_ids.includes(8) && !uc.faceDown)) : [];
+        // === 【修正】表向きオレガ・オーラ以外のすべての重ねられたカード（封印・進化元など）を数字カウンタに合算 ===
+        const regularUnders = card.underCards ? card.underCards.filter(uc => 
+            !(uc.cardtype_ids && uc.cardtype_ids.includes(8) && !uc.faceDown)
+        ) : [];
+        
         if (regularUnders.length > 0) {
             const b = document.createElement('div');
             b.className = 'playtest-under-count';
@@ -952,7 +984,7 @@ function renderZone(zoneId, arr, name) {
                 const isTappableType = (
                     (card.cardtype_ids && card.cardtype_ids.some(id => [1, 9, 10].includes(id))) || 
                     (isDoubleSidedCard(card) && card.flipped) ||
-                    ((card.name === 'FORBIDDEN STAR ～世界最後の日～' || card.name === '禁断 ～封印されしX～') && card.flipped)
+                    ((card.name === 'FORBIDDEN STAR ～世界最後の日～' || card.name === '禁断 ～封印されしX～' || card.name === '終焉の禁断 ドルマゲドンX') && card.flipped)
                 );
                 
                 if (isTappableType) {
@@ -975,6 +1007,7 @@ function renderZone(zoneId, arr, name) {
         zone.appendChild(el);
     });
 }
+
 
 function toggleSelectMode() {
     isSelectMode = !isSelectMode;
@@ -1446,6 +1479,7 @@ function openPtDeckMenu(e) {
         <li onclick="ptViewDeck()">山札を見る (全体)</li>
         <li onclick="ptLookAtDeckTop(1)">山札の上から1枚見る</li>
         <li onclick="ptLookAtDeckTopPrompt()">山札の上から指定枚数見る</li>
+        <li onclick="ptOpenRevealUntilModal()">条件を指定して表向きにする</li> <!-- 【追加】 -->
         <li onclick="ptShuffleDeckAction()">山札をシャッフル</li>
         <hr>
         <li onclick="ptMoveDeckTopTo('mana')">1枚目をマナに置く</li>
@@ -1966,11 +2000,14 @@ function ptExecuteStackOver(baseCardId) {
         let baseCard = ptState.battle[baseCardIndex];
         let newTopCard = ptState[fromZone].splice(newTopIndex, 1)[0];
 
-        newTopCard.underCards = [...baseCard.underCards];
-        baseCard.underCards = [];
-        // 【修正】強制裏向き(true)を廃止し、元の状態（表向きなら表のまま）を維持します
-        baseCard.faceDown = baseCard.faceDown; 
-        newTopCard.underCards.push(baseCard);
+        // 【修正】マナゾーンからの移動時等に備え、表示上の逆さま（inverted）をリセットして正しい上向きにし、表向きに設定
+        newTopCard.inverted = false; 
+        newTopCard.faceDown = false;
+        newTopCard.tapped = baseCard.tapped; // 進化等として元のクリーチャーのタップ状態を継承します
+
+        // 新しく上に重ねたカードの直下に元の親カード（baseCard）が来るように整理
+        newTopCard.underCards = [baseCard, ...baseCard.underCards];
+        baseCard.underCards = []; // 元カード側の参照をクリア
 
         ptState.battle[baseCardIndex] = newTopCard;
     }
@@ -2626,6 +2663,8 @@ function updateReturnOrderUI() {
 }
 
 function renderLookingCardsModal() {
+    ptActiveRevealContext = 'looking'; // 【追加】現在アクティブなモーダルを通常閲覧に設定
+
     const modal = document.getElementById('ptListModal');
     const title = document.getElementById('ptModalTitle');
     const body = document.getElementById('ptModalBody');
@@ -2633,7 +2672,7 @@ function renderLookingCardsModal() {
 
     title.innerText = `山札の上から閲覧中`;
     body.innerHTML = `
-        <p style="margin-bottom:12px;">カードをクリックして「戻す順番（1番目が一番下）」を指定してください。各カード下のボタンから個別移動も可能です。</p>
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">カードを左クリックして「戻す順番（1番目が一番下）」を指定するか、<b>右クリック</b>で個別に別のゾーンへ直接移動できます。</p>
         <div class="pt-grid" id="ptLookingGrid"></div>
     `;
 
@@ -2645,13 +2684,16 @@ function renderLookingCardsModal() {
         itemEl.innerHTML = `
             <img src="${card.src}">
             <div class="card-qty">${card.name}</div>
-            <div style="margin-top:6px; display:flex; gap:3px; justify-content:center;">
-                <button class="btn-pt-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); ptMoveLookingCardDirectly('${card.id}', 'hand')">手札</button>
-                <button class="btn-pt-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); ptMoveLookingCardDirectly('${card.id}', 'mana')">マナ</button>
-                <button class="btn-pt-primary" style="padding:2px 6px; font-size:10px;" onclick="event.stopPropagation(); ptMoveLookingCardDirectly('${card.id}', 'graveyard')">墓地</button>
-            </div>
         `;
+        
         itemEl.onclick = () => selectReturnOrder(card.id);
+        
+        itemEl.oncontextmenu = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            openLookingCardMenu(e, card);
+        };
+        
         grid.appendChild(itemEl);
     });
 
@@ -2666,22 +2708,62 @@ function renderLookingCardsModal() {
     updateReturnOrderUI();
 }
 
+let ptActiveRevealContext = null; // 'looking' (通常閲覧) または 'revealed' (条件捲り)
+
 function ptMoveLookingCardDirectly(cardId, targetZone) {
     const idx = ptLookingCards.findIndex(c => c.id === cardId);
     if (idx === -1) return;
     
     let card = ptLookingCards.splice(idx, 1)[0];
-    
     const oIdx = ptReturnOrder.indexOf(cardId);
     if (oIdx !== -1) ptReturnOrder.splice(oIdx, 1);
     
-    ptState.deck.push(card);
+    ptState.deck.push(card); 
+    ptActiveRevealContext = 'looking'; // 【追加】通常閲覧から起動したことを記録
+
+    if (targetZone === 'shield') {
+        ptOpenShieldDropSelectModal(cardId, 'deck');
+        return;
+    }
+    if (targetZone === 'battle') {
+        ptOpenBattlePlacementSelectModal(cardId, 'deck');
+        return;
+    }
+
     ptMoveCard(cardId, 'deck', targetZone);
     
     if (ptLookingCards.length === 0) {
         closePtModal();
+        ptActiveRevealContext = null;
     } else {
         renderLookingCardsModal();
+    }
+}
+
+function ptMoveRevealedCardDirectly(cardId, targetZone) {
+    const idx = ptRevealedMatchedCards.findIndex(c => c.id === cardId);
+    if (idx === -1) return;
+
+    let card = ptRevealedMatchedCards.splice(idx, 1)[0];
+    ptState.deck.push(card); 
+    ptActiveRevealContext = 'revealed'; // 【追加】条件捲りから起動したことを記録
+
+    if (targetZone === 'shield') {
+        ptOpenShieldDropSelectModal(cardId, 'deck');
+        return;
+    }
+    if (targetZone === 'battle') {
+        ptOpenBattlePlacementSelectModal(cardId, 'deck');
+        return;
+    }
+
+    ptMoveCard(cardId, 'deck', targetZone);
+
+    if (ptRevealedMatchedCards.length === 0 && ptRevealedUnmatchedCards.length === 0) {
+        closePtModal();
+        ptActiveRevealContext = null;
+    } else {
+        renderRevealedUntilModal();
     }
 }
 
@@ -2968,8 +3050,23 @@ function ptExecuteEvolutionPlay(cardId, fromZone) {
     let card = ptState[fromZone].find(c => c.id === cardId);
     if (!card) return;
 
-    // 進化クリーチャーを先にバトルゾーンへ
+    // 【追加】選ばれた進化元の中に「タップされているバトルゾーンのカード」があるか事前に走査します
+    let shouldBeTapped = false;
+    ptEvoSelectedIds.forEach(id => {
+        let bCard = ptState.battle.find(c => c.id === id);
+        if (bCard && bCard.tapped) {
+            shouldBeTapped = true;
+        }
+    });
+
+    // 進化クリーチャー本体を先にバトルゾーンへ移動
     ptMoveCard(cardId, fromZone, 'battle', { skipUnderCheck: true });
+
+    // 【追加】新しく移動した一番上のクリーチャー（card）にタップ状態を正確に引き継がせます
+    let playedCard = ptState.battle.find(c => c.id === cardId);
+    if (playedCard && shouldBeTapped) {
+        playedCard.tapped = true;
+    }
 
     const reversedIds = [...ptEvoSelectedIds].reverse();
     reversedIds.forEach(id => {
@@ -2978,7 +3075,7 @@ function ptExecuteEvolutionPlay(cardId, fromZone) {
             let idx = ptState[foundZone].findIndex(c => c.id === id);
             if (idx !== -1) {
                 let underCard = ptState[foundZone].splice(idx, 1)[0];
-                // 【修正】強制裏向きにせず、シールドから重ねる場合を除き、元の表裏状態を維持します
+                
                 if (foundZone === 'shield') {
                     underCard.faceDown = true; 
                 } else {
@@ -3743,16 +3840,24 @@ function ptSealCardPrompt(cardId) {
 
 // 山札から指定枚数ポップし、裏向きにして対象カードの下敷き（封印）にする
 function ptExecuteSeal(cardId, count) {
-    const card = ptState.battle.find(c => c.id === cardId);
-    if (!card) return;
+    let cardIndex = ptState.battle.findIndex(c => c.id === cardId);
+    if (cardIndex === -1) return;
+
+    let targetCard = ptState.battle[cardIndex];
 
     for (let i = 0; i < count; i++) {
         let deckCard = ptState.deck.pop();
         if (deckCard) {
-            deckCard.faceDown = true; // 封印なので裏向きにする
-            deckCard.tapped = false;
+            deckCard.faceDown = true; // 封印なので裏向き
+            deckCard.tapped = targetCard.tapped; // 元のタップ状態を引き継ぎ
             deckCard.inverted = false;
-            card.underCards.push(deckCard);
+            
+            // 新しい封印カード（deckCard）を代表にし、元のクリーチャー群をすべてその下にスタック
+            deckCard.underCards = [targetCard, ...targetCard.underCards];
+            targetCard.underCards = []; // 参照クリア
+            
+            ptState.battle[cardIndex] = deckCard;
+            targetCard = deckCard; // 2枚目以降を連続してその上に重ねるためにターゲットを更新
         }
     }
 
@@ -3779,7 +3884,6 @@ function ptOpenShieldDropSelectModal(cardId, fromZone) {
 
     let html = `<div style="padding: 10px 0;">`;
 
-    // 1. バトルゾーンの複数枚構成カードを移動させる場合
     if (hasUnder) {
         html += `
             <p style="font-weight: bold; color: #ffc107; margin-bottom: 12px; font-size: 13px;">
@@ -3797,7 +3901,6 @@ function ptOpenShieldDropSelectModal(cardId, fromZone) {
         `;
     }
 
-    // 2. 表向き・裏向きの選択
     html += `
         <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #aaa;">【シールドの表示向き】</p>
         <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; margin-bottom: 15px;">
@@ -3810,7 +3913,6 @@ function ptOpenShieldDropSelectModal(cardId, fromZone) {
         </div>
     `;
 
-    // 3. 配置アクションの選択
     html += `
         <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: bold; color: #aaa;">【配置先の選択】</p>
         <button class="btn-pt-primary" onclick="ptExecuteShieldDrop('${cardId}', '${fromZone}', 'new')" style="width: 100%; padding: 10px; font-weight: bold; margin-bottom: 15px;">
@@ -3841,8 +3943,8 @@ function ptOpenShieldDropSelectModal(cardId, fromZone) {
     html += `</div>`;
     body.innerHTML = html;
 
-    // フッターのボタン設定
-    let footerHtml = `<button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>`;
+    // 【修正】キャンセル時に捲りモーダルに差し戻せるように関数をバインド
+    let footerHtml = `<button class="btn-pt-secondary" onclick="ptCancelShieldPlacement('${cardId}', '${fromZone}')">キャンセル</button>`;
     if (existingShields.length > 0) {
         footerHtml += `
             <button class="btn-pt-primary" id="btnPtShieldDropStack" onclick="ptExecuteShieldDrop('${cardId}', '${fromZone}', 'stack')" disabled style="opacity: 0.5;">
@@ -3888,45 +3990,33 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
 
     let targetCards = [];
 
-    // 移動元データを抽出し配列化
     if (fromZone === 'battle' && card.underCards && card.underCards.length > 0) {
         if (isScatter) {
             let removedCard = ptState[fromZone].splice(cardIdx, 1)[0];
             targetCards.push(removedCard);
-            removedCard.underCards.forEach(uc => {
-                targetCards.push(uc);
-            });
+            removedCard.underCards.forEach(uc => targetCards.push(uc));
             removedCard.underCards = [];
         } else {
-            let removedCard = ptState[fromZone].splice(cardIdx, 1)[0];
-            targetCards.push(removedCard);
+            targetCards.push(ptState[fromZone].splice(cardIdx, 1)[0]);
         }
     } else {
-        let removedCard = ptState[fromZone].splice(cardIdx, 1)[0];
-        targetCards.push(removedCard);
+        targetCards.push(ptState[fromZone].splice(cardIdx, 1)[0]);
     }
 
     if (placementType === 'new') {
-        // 新規シールドとして配置
         targetCards.forEach(c => {
-            // === 【修正】表表向き指定（isFaceDown）を第3引数で渡すように修正 ===
-            if (ptCheckAndReturnSpecialCard(c, 'shield', { faceDown: isFaceDown })) {
-                return;
-            }
+            if (ptCheckAndReturnSpecialCard(c, 'shield', { faceDown: isFaceDown })) return;
             c.faceDown = isFaceDown;
             c.tapped = false;
             c.inverted = false;
             if (isScatter) {
                 c.underCards = [];
             } else {
-                c.underCards.forEach(uc => {
-                    uc.faceDown = isFaceDown;
-                });
+                c.underCards.forEach(uc => uc.faceDown = isFaceDown);
             }
             ptState.shield.push(c);
         });
     } else if (placementType === 'stack') {
-        // 既存シールドの上に重ね合わせ
         if (!ptSelectedDropShieldTargetId) {
             alert("重ねる対象のシールドを選択してください。");
             return;
@@ -3935,10 +4025,7 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
         let baseCard = ptState.shield.find(c => c.id === ptSelectedDropShieldTargetId);
         if (baseCard) {
             targetCards.forEach(c => {
-                // === 【修正】表向き指定（isFaceDown）を第3引数で渡すように修正 ===
-                if (ptCheckAndReturnSpecialCard(c, 'shield', { faceDown: isFaceDown })) {
-                    return;
-                }
+                if (ptCheckAndReturnSpecialCard(c, 'shield', { faceDown: isFaceDown })) return;
                 c.faceDown = isFaceDown;
                 c.tapped = false;
                 c.inverted = false;
@@ -3954,9 +4041,7 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
                         baseCard = c;
                     }
                 } else {
-                    c.underCards.forEach(uc => {
-                        uc.faceDown = isFaceDown;
-                    });
+                    c.underCards.forEach(uc => uc.faceDown = isFaceDown);
                     const originalUnderOfC = [...c.underCards];
                     c.underCards = [...originalUnderOfC, baseCard, ...baseCard.underCards];
                     baseCard.underCards = [];
@@ -3974,6 +4059,9 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
     ptSelectedDropShieldTargetId = null;
     closePtModal();
     renderPtBoard();
+
+    // 【追加】捲りモーダルの表示復帰判定
+    ptReturnToPreviousModal();
 }
 
 /**
@@ -4150,15 +4238,6 @@ if (!document.getElementById('ptAuraStyle')) {
             pointer-events: none;
             z-index: 10;
             box-shadow: 0 -2px 6px rgba(0,0,0,0.5);
-            border-radius: 4px;
-        }
-        .playtest-seal-card {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 18; /* オーラより前面に表示 */
-            box-shadow: 0 2px 6px rgba(0,0,0,0.6);
             border-radius: 4px;
         }
     `;
@@ -4460,6 +4539,643 @@ function ptExitGame() {
     setTimeout(() => {
         window.location.href = '/mydecks';
     }, 150);
+}
+function openLookingCardMenu(e, card) {
+    ptLastRightClickedCardId = card.id;
+    const menu = document.getElementById('ptContextMenu');
+    
+    // 右クリックしたカードがまだ選択（ptReturnOrder）に含まれていない場合は、
+    // 自動的にそのカードも選択リストに追加してバッジを付与します
+    if (!ptReturnOrder.includes(card.id)) {
+        selectReturnOrder(card.id);
+    }
+
+    const count = ptReturnOrder.length;
+    
+    menu.innerHTML = `
+        <li onclick="ptMoveLookingCardsBatch('hand')">選択した ${count} 枚を手札に加える</li>
+        <li onclick="ptMoveLookingCardsBatch('mana')">選択した ${count} 枚をマナに置く</li>
+        <li onclick="ptMoveLookingCardsBatch('graveyard')">選択した ${count} 枚を墓地に置く</li>
+        <li onclick="ptMoveLookingCardsBatch('battle')">選択した ${count} 枚をバトルゾーンに置く</li>
+        <li onclick="ptMoveLookingCardsBatch('shield')">選択した ${count} 枚をシールドに置く</li>
+        <li onclick="ptMoveLookingCardsBatch('psychic')">選択した ${count} 枚を超次元に置く</li>
+    `;
+    menu.style.display = 'block';
+    adjustMenuPosition(e, menu);
+}
+
+// =========================================================================
+// 【新規追加】条件捲り機能関連処理
+// =========================================================================
+let ptRevealedMatchedCards = [];   // 条件に適合したカード
+let ptRevealedUnmatchedCards = []; // 道中で捲れた適合外のカード
+
+// 条件指定モーダルの展開
+function ptOpenRevealUntilModal() {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "条件指定で表向きにする";
+    
+    let raceOptions = '<option value="">指定なし</option>';
+    Object.keys(ptAvailableRaces).sort((a, b) => a - b).forEach(id => {
+        raceOptions += `<option value="${id}">${ptAvailableRaces[id]}</option>`;
+    });
+
+    let typeOptions = '<option value="">指定なし</option>';
+    Object.keys(ptAvailableTypes).sort((a, b) => a - b).forEach(id => {
+        typeOptions += `<option value="${id}">${ptAvailableTypes[id]}</option>`;
+    });
+
+    body.innerHTML = `
+        <div style="padding: 10px 0; display: flex; flex-direction: column; gap: 12px;">
+            <p style="font-size: 13px; color: #aaa; margin: 0;">指定条件に合うカードが指定枚数出るまで、山札の上から表向きに捲ります。</p>
+            
+            <div>
+                <label style="display:block; font-size:12px; margin-bottom:4px; color:#ccc;">目標枚数</label>
+                <input type="number" id="ptRevealTargetQty" min="1" value="1" style="width:100%; padding:6px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+            </div>
+
+            <div>
+                <label style="display:block; font-size:12px; margin-bottom:4px; color:#ccc;">コスト</label>
+                <input type="number" id="ptRevealCost" min="0" placeholder="指定なし" style="width:100%; padding:6px; box-sizing:border-box; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+            </div>
+
+            <div>
+                <label style="display:block; font-size:12px; margin-bottom:4px; color:#ccc;">種族</label>
+                <select id="ptRevealRace" style="width:100%; padding:6px; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+                    ${raceOptions}
+                </select>
+            </div>
+
+            <div>
+                <label style="display:block; font-size:12px; margin-bottom:4px; color:#ccc;">カードタイプ</label>
+                <select id="ptRevealCardType" style="width:100%; padding:6px; background:#222; border:1px solid #444; color:#fff; border-radius:4px;">
+                    ${typeOptions}
+                </select>
+            </div>
+        </div>
+    `;
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
+        <button class="btn-pt-primary" onclick="ptExecuteRevealUntil()">決定して捲る</button>
+    `;
+    modal.style.display = 'flex';
+}
+
+// 捲り処理の実行
+function ptExecuteRevealUntil() {
+    const qtyInput = document.getElementById('ptRevealTargetQty');
+    const costInput = document.getElementById('ptRevealCost');
+    const raceSelect = document.getElementById('ptRevealRace');
+    const typeSelect = document.getElementById('ptRevealCardType');
+
+    const targetQty = parseInt(qtyInput.value, 10) || 1;
+    const searchCost = costInput.value !== '' ? parseInt(costInput.value, 10) : null;
+    const searchRace = raceSelect.value !== '' ? parseInt(raceSelect.value, 10) : null;
+    const searchType = typeSelect.value !== '' ? parseInt(typeSelect.value, 10) : null;
+
+    ptRevealedMatchedCards = [];
+    ptRevealedUnmatchedCards = [];
+
+    let matchCount = 0;
+
+    while (ptState.deck.length > 0 && matchCount < targetQty) {
+        let card = ptState.deck.pop();
+        card.faceDown = false; // 捲るため表向きにする
+
+        let isMatch = true;
+
+        if (searchCost !== null && card.cost !== searchCost) {
+            isMatch = false;
+        }
+        if (searchRace !== null && (!card.race_ids || !card.race_ids.includes(searchRace))) {
+            isMatch = false;
+        }
+        if (searchType !== null && (!card.cardtype_ids || !card.cardtype_ids.includes(searchType))) {
+            isMatch = false;
+        }
+
+        if (isMatch) {
+            matchCount++;
+            ptRevealedMatchedCards.push(card);
+        } else {
+            ptRevealedUnmatchedCards.push(card);
+        }
+    }
+
+    if (ptRevealedMatchedCards.length === 0 && ptRevealedUnmatchedCards.length === 0) {
+        alert("山札にカードが存在しません。");
+        return;
+    }
+
+    renderRevealedUntilModal();
+}
+
+// 捲り結果モーダルの表示
+function renderRevealedUntilModal() {
+    ptActiveRevealContext = 'revealed'; // 【追加】現在アクティブなモーダルを条件捲りに設定
+
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "条件捲り確認";
+    
+    let html = `
+        <div style="display:flex; flex-direction:column; gap:16px; max-height: 60vh; overflow-y: auto;">
+            <div>
+                <h4 style="margin:0 0 8px 0; color:#28a745; border-bottom:1px solid #333; padding-bottom:4px;">🌟 条件合致カード (${ptRevealedMatchedCards.length}枚)</h4>
+                <p style="font-size:11px; color:#aaa; margin:0 0 8px 0;">合致したカードは、それぞれ配置する場所（手札・マナ・墓地・バトル・シールド・超次元）を個別に選んで移動してください。</p>
+                <div class="pt-grid" id="ptRevealMatchedGrid"></div>
+            </div>
+            
+            <div>
+                <h4 style="margin:0 0 8px 0; color:#dc3545; border-bottom:1px solid #333; padding-bottom:4px;">❌ 条件外のカード (${ptRevealedUnmatchedCards.length}枚)</h4>
+                <p style="font-size:11px; color:#aaa; margin:0 0 8px 0;">道中で捲れた適合しないカードです。下部アクションから一括で処理します。</p>
+                <div class="pt-grid" id="ptRevealUnmatchedGrid"></div>
+            </div>
+        </div>
+    `;
+    body.innerHTML = html;
+
+    const matchedGrid = document.getElementById('ptRevealMatchedGrid');
+    if (ptRevealedMatchedCards.length === 0) {
+        matchedGrid.innerHTML = '<div style="font-size:12px; color:#666; padding:10px;">なし</div>';
+    } else {
+        ptRevealedMatchedCards.forEach(card => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'pt-grid-item';
+            itemEl.innerHTML = `
+                <img src="${card.src}">
+                <div class="card-qty">${card.name}</div>
+                <div style="margin-top:6px; display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
+                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'hand')">手札</button>
+                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'mana')">マナ</button>
+                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'graveyard')">墓地</button>
+                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px; background:#28a745;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'battle')">バトル</button>
+                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px; background:#ffc107; color:#000;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'shield')">シールド</button>
+                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px; background:#17a2b8;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'psychic')">超次元</button>
+                </div>
+            `;
+            matchedGrid.appendChild(itemEl);
+        });
+    }
+
+    const unmatchedGrid = document.getElementById('ptRevealUnmatchedGrid');
+    if (ptRevealedUnmatchedCards.length === 0) {
+        unmatchedGrid.innerHTML = '<div style="font-size:12px; color:#666; padding:10px;">なし</div>';
+    } else {
+        ptRevealedUnmatchedCards.forEach(card => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'pt-grid-item';
+            itemEl.innerHTML = `
+                <img src="${card.src}">
+                <div class="card-qty">${card.name}</div>
+            `;
+            unmatchedGrid.appendChild(itemEl);
+        });
+    }
+
+    footer.innerHTML = `
+        <button class="btn-pt-primary" onclick="ptHandleUnmatchedAction('graveyard')" style="background:#dc3545; color:#fff;">残りをすべて墓地に置く</button>
+        <button class="btn-pt-primary" onclick="ptHandleUnmatchedAction('shuffle_all')" style="background:#28a745; color:#fff;">残りを山札に加えシャッフル</button>
+        <button class="btn-pt-primary" onclick="ptHandleUnmatchedAction('shuffle_bottom')" style="background:#17a2b8; color:#fff;">残りをシャッフルし山札の下に置く</button>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+// 適合カードを任意のゾーンへ直接配置
+function ptMoveRevealedCardDirectly(cardId, targetZone) {
+    const idx = ptRevealedMatchedCards.findIndex(c => c.id === cardId);
+    if (idx === -1) return;
+
+    let card = ptRevealedMatchedCards.splice(idx, 1)[0];
+    ptState.deck.push(card); // 一時的に山札の上に戻す
+
+    if (targetZone === 'shield') {
+        ptOpenShieldDropSelectModal(cardId, 'deck');
+        return;
+    }
+    if (targetZone === 'battle') {
+        ptOpenBattlePlacementSelectModal(cardId, 'deck');
+        return;
+    }
+
+    ptMoveCard(cardId, 'deck', targetZone);
+
+    if (ptRevealedMatchedCards.length === 0 && ptRevealedUnmatchedCards.length === 0) {
+        closePtModal();
+    } else {
+        renderRevealedUntilModal();
+    }
+}
+
+// 適合外カードの一括操作
+function ptHandleUnmatchedAction(action) {
+    if (ptRevealedUnmatchedCards.length > 0) {
+        if (action === 'graveyard') {
+            ptRevealedUnmatchedCards.forEach(card => {
+                card.faceDown = false;
+                ptState.graveyard.push(card);
+            });
+        } else if (action === 'shuffle_all') {
+            ptRevealedUnmatchedCards.forEach(card => {
+                card.faceDown = true;
+                ptState.deck.push(card);
+            });
+            ptShuffle(ptState.deck);
+        } else if (action === 'shuffle_bottom') {
+            ptShuffle(ptRevealedUnmatchedCards);
+            ptRevealedUnmatchedCards.forEach(card => {
+                card.faceDown = true;
+                ptState.deck.unshift(card); // 山札の下に追加
+            });
+        }
+        ptRevealedUnmatchedCards = [];
+    }
+
+    // 【修正】適合カードと適合外カードが「両方とも」完全になくなった時のみモーダルを閉じます
+    const hasMatched = ptRevealedMatchedCards && ptRevealedMatchedCards.length > 0;
+    const hasUnmatched = ptRevealedUnmatchedCards && ptRevealedUnmatchedCards.length > 0;
+
+    if (!hasMatched && !hasUnmatched) {
+        closePtModal();
+        ptActiveRevealContext = null;
+    } else {
+        renderRevealedUntilModal();
+    }
+    renderPtBoard();
+}
+// =========================================================================
+// 【新規追加】バトルゾーン配置設定モーダル（単体配置 / 下重ね選択）
+// =========================================================================
+let ptSelectedDropBattleTargetId = null;
+
+function ptOpenBattlePlacementSelectModal(cardId, fromZone) {
+    const card = ptState[fromZone].find(c => c.id === cardId);
+    if (!card) return;
+
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "バトルゾーンへの登場設定";
+    ptSelectedDropBattleTargetId = null;
+    
+    let html = `
+        <div style="padding: 10px 0;">
+            <p style="font-size: 13px; color: #aaa; margin-bottom: 15px;">「${card.name}」をどのようにバトルゾーンに配置しますか？</p>
+            <button class="btn-pt-primary" onclick="ptExecuteBattlePlacement('${cardId}', '${fromZone}', 'new')" style="width: 100%; padding: 10px; font-weight: bold; margin-bottom: 15px;">
+                ⚔️ 単体でバトルゾーンに出す
+            </button>
+    `;
+
+    const existingBattleCards = ptState.battle.filter(c => c.id !== cardId);
+    if (existingBattleCards.length > 0) {
+        html += `
+            <p style="margin: 15px 0 6px 0; font-size: 12px; color: #bbb; border-top: 1px solid #333; padding-top: 10px;">
+                既存カードへ重ね合わせる（対象カードを選択してください）：
+            </p>
+            <div class="pt-grid" id="ptDropBattleTargetGrid" style="max-height: 160px; overflow-y: auto; padding: 5px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+        `;
+        existingBattleCards.forEach(bCard => {
+            // 一番上が裏向き（封印）なら、下にある最初の表向きクリーチャーを探索・参照
+            const targetCard = ptFindFirstFaceupCard(bCard) || bCard;
+            const displayName = bCard.faceDown ? `${targetCard.name} (封印中)` : targetCard.name;
+            const displaySrc = targetCard.src;
+
+            html += `
+                <div class="pt-grid-item" data-battle-id="${bCard.id}" onclick="ptSelectDropBattleTarget(this)" style="padding: 4px; border: 1px solid #444;">
+                    <img src="${displaySrc}" style="width: 55px; height: 77px;">
+                    <div class="card-qty" style="font-size: 9px; line-height: 1.1; margin-top: 4px;">${displayName}</div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+    body.innerHTML = html;
+
+    let footerHtml = `<button class="btn-pt-secondary" onclick="ptCancelBattlePlacement('${cardId}', '${fromZone}')">キャンセル</button>`;
+    if (existingBattleCards.length > 0) {
+        footerHtml += `
+            <button class="btn-pt-primary" id="btnPtBattleDropStackUnder" onclick="ptExecuteBattlePlacement('${cardId}', '${fromZone}', 'stack_under')" disabled style="opacity: 0.5; background:#28a745;">
+                🔽 下に重ねる (表)
+            </button>
+            <button class="btn-pt-primary" id="btnPtBattleDropStackOver" onclick="ptExecuteBattlePlacement('${cardId}', '${fromZone}', 'stack_over_faceup')" disabled style="opacity: 0.5; background:#007bff;">
+                🔼 上に重ねる (表)
+            </button>
+            <button class="btn-pt-primary" id="btnPtBattleDropSeal" onclick="ptExecuteBattlePlacement('${cardId}', '${fromZone}', 'stack_over_facedown')" disabled style="opacity: 0.5; background:#dc3545;">
+                🔒 封印として置く (裏)
+            </button>
+        `;
+    }
+    footer.innerHTML = footerHtml;
+
+    modal.style.display = 'flex';
+}
+
+function ptSelectDropBattleTarget(element) {
+    document.querySelectorAll('#ptDropBattleTargetGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
+    element.classList.add('selected');
+    ptSelectedDropBattleTargetId = element.dataset.battleId;
+    
+    const buttons = ['btnPtBattleDropStackUnder', 'btnPtBattleDropStackOver', 'btnPtBattleDropSeal'];
+    buttons.forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    });
+}
+// バトルゾーン配置決定処理
+function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
+    let cardIdx = ptState[fromZone].findIndex(c => c.id === cardId);
+    if (cardIdx === -1) return;
+
+    let card = ptState[fromZone].splice(cardIdx, 1)[0];
+
+    if (placementType === 'new') {
+        card.faceDown = false;
+        card.tapped = false;
+        card.inverted = false;
+        
+        const charIds = card.characteristics_ids || [];
+        const isEvo = charIds.some(id => [2, 9, 16].includes(id));
+        if (isEvo) {
+            ptState[fromZone].push(card);
+            ptCheckEvolutionAndPlay(cardId, fromZone);
+            return;
+        } else {
+            ptState.battle.push(card);
+        }
+    } else if (placementType === 'stack_under') {
+        let baseCard = ptState.battle.find(c => c.id === ptSelectedDropBattleTargetId);
+        if (baseCard) {
+            card.faceDown = false;
+            card.tapped = false;
+            card.inverted = false;
+            baseCard.underCards.push(card);
+        }
+    } else if (placementType === 'stack_over_faceup') {
+        // 【修正】上に表向きで重ねる（進化）
+        let baseCard = ptState.battle.find(c => c.id === ptSelectedDropBattleTargetId);
+        const baseIdx = ptState.battle.findIndex(c => c.id === ptSelectedDropBattleTargetId);
+        
+        if (baseCard && baseIdx !== -1) {
+            if (!baseCard.faceDown) {
+                // 3-A. 通常のクリーチャーの上に重ねる場合
+                card.faceDown = false;
+                card.tapped = baseCard.tapped;
+                card.inverted = false;
+                
+                card.underCards = [baseCard, ...baseCard.underCards];
+                baseCard.underCards = [];
+                
+                ptState.battle[baseIdx] = card;
+            } else {
+                // 3-B. 封印（裏向きカード）の下にあるクリーチャー本体の上に割り込み進化させる場合
+                let allComps = [baseCard, ...baseCard.underCards];
+                let faceupIdx = allComps.findIndex(c => !c.faceDown); // 最初の表向き本体を探す
+                
+                if (faceupIdx !== -1) {
+                    let foundCard = allComps[faceupIdx];
+                    
+                    card.faceDown = false;
+                    card.tapped = foundCard.tapped; // タップ状態を継承
+                    card.inverted = false;
+                    
+                    // 表向き本体とその下の進化元を新しいカードの下に格納
+                    const remainComps = allComps.slice(faceupIdx);
+                    card.underCards = [...remainComps];
+                    
+                    // 新しいカード（進化先）の上に、元々の封印（裏向きカード群）を再配置
+                    const seals = allComps.slice(0, faceupIdx);
+                    let newParent = seals[0];
+                    newParent.underCards = [...seals.slice(1), card];
+                    
+                    ptState.battle[baseIdx] = newParent;
+                } else {
+                    // 表向きが見つからない場合の安全なフォールバック
+                    card.faceDown = false;
+                    card.tapped = baseCard.tapped;
+                    card.inverted = false;
+                    card.underCards = [baseCard, ...baseCard.underCards];
+                    baseCard.underCards = [];
+                    ptState.battle[baseIdx] = card;
+                }
+            }
+        }
+    } else if (placementType === 'stack_over_facedown') {
+        let baseCard = ptState.battle.find(c => c.id === ptSelectedDropBattleTargetId);
+        const baseIdx = ptState.battle.findIndex(c => c.id === ptSelectedDropBattleTargetId);
+        if (baseCard && baseIdx !== -1) {
+            card.faceDown = true;
+            card.tapped = baseCard.tapped;
+            card.inverted = false;
+            
+            card.underCards = [baseCard, ...baseCard.underCards];
+            baseCard.underCards = [];
+            
+            ptState.battle[baseIdx] = card;
+        }
+    }
+
+    ptSelectedDropBattleTargetId = null;
+    closePtModal();
+    renderPtBoard();
+
+    ptReturnToPreviousModal();
+}
+
+// キャンセル・モーダル差し戻し処理
+function ptCancelShieldPlacement(cardId, fromZone) {
+    ptRevertCardToTemporaryPool(cardId, fromZone);
+    ptBatchMoveQueue = []; // 一括キューをクリアし、処理を中断
+    ptBatchMoveTargetZone = null;
+    closePtModal();
+    ptReturnToPreviousModal();
+}
+
+function ptCancelBattlePlacement(cardId, fromZone) {
+    ptRevertCardToTemporaryPool(cardId, fromZone);
+    ptBatchMoveQueue = []; // 一括キューをクリアし、処理を中断
+    ptBatchMoveTargetZone = null;
+    closePtModal();
+    ptReturnToPreviousModal();
+}
+
+// 一時的にデッキへ戻されていたカードを元の未配置配列に救出する内部関数
+function ptRevertCardToTemporaryPool(cardId, fromZone) {
+    if (fromZone === 'deck') {
+        const cardIdx = ptState.deck.findIndex(c => c.id === cardId);
+        if (cardIdx !== -1) {
+            let card = ptState.deck.splice(cardIdx, 1)[0];
+            
+            // 起動元のコンテキストに合わせて正しい配列へ差し戻す
+            if (ptActiveRevealContext === 'revealed') {
+                ptRevealedMatchedCards.push(card);
+            } else {
+                ptLookingCards.push(card);
+            }
+        }
+    }
+}
+
+// 配置処理完了・キャンセル時に元の閲覧画面へ安全に引き返すための判定関数
+function ptReturnToPreviousModal() {
+    // 一括移動中のキューがまだ残っている場合は、自動的に次のカードの配置画面を起動します
+    if (ptBatchMoveQueue && ptBatchMoveQueue.length > 0) {
+        ptProcessNextBatchMove();
+        return;
+    }
+
+    if (ptActiveRevealContext === 'revealed') {
+        const hasMatched = ptRevealedMatchedCards && ptRevealedMatchedCards.length > 0;
+        const hasUnmatched = ptRevealedUnmatchedCards && ptRevealedUnmatchedCards.length > 0;
+
+        if (hasMatched || hasUnmatched) {
+            renderRevealedUntilModal();
+        } else {
+            closePtModal();
+            ptActiveRevealContext = null;
+        }
+    } else if (ptActiveRevealContext === 'looking') {
+        if (ptLookingCards && ptLookingCards.length > 0) {
+            renderLookingCardsModal();
+        } else {
+            closePtModal();
+            ptActiveRevealContext = null;
+        }
+    } else {
+        closePtModal();
+        ptActiveRevealContext = null;
+    }
+}
+function ptCloseModalManual() {
+    let needRender = false;
+
+    // 捲りや確認中に、ユーザーが手動で画面を閉じた（処理を中断した）場合、
+    // 空中に浮いているカードを安全に山札（deck）に戻してシャッフルし、ゲームの不整合を防ぎます
+    if (ptLookingCards && ptLookingCards.length > 0) {
+        ptLookingCards.forEach(c => {
+            c.faceDown = true;
+            ptState.deck.push(c);
+        });
+        ptLookingCards = [];
+        ptReturnOrder = [];
+        needRender = true;
+    }
+    if (ptRevealedMatchedCards && ptRevealedMatchedCards.length > 0) {
+        ptRevealedMatchedCards.forEach(c => {
+            c.faceDown = true;
+            ptState.deck.push(c);
+        });
+        ptRevealedMatchedCards = [];
+        needRender = true;
+    }
+    if (ptRevealedUnmatchedCards && ptRevealedUnmatchedCards.length > 0) {
+        ptRevealedUnmatchedCards.forEach(c => {
+            c.faceDown = true;
+            ptState.deck.push(c);
+        });
+        ptRevealedUnmatchedCards = [];
+        needRender = true;
+    }
+
+    closePtModal();
+    ptActiveRevealContext = null; // 手動クローズ時にのみコンテキストを完全に消去
+
+    if (needRender) {
+        ptShuffle(ptState.deck); // 山札を元の整合した状態に保つためシャッフル
+        renderPtBoard();
+    }
+}
+function ptMoveLookingCardsBatch(targetZone) {
+    let idsToMove = [...ptReturnOrder];
+    
+    if (idsToMove.length === 0 && ptLastRightClickedCardId) {
+        idsToMove = [ptLastRightClickedCardId];
+    }
+    
+    if (idsToMove.length === 0) return;
+
+    // 選択管理バッファをクリア
+    ptReturnOrder = [];
+    ptLastRightClickedCardId = null;
+
+    if (targetZone === 'battle' || targetZone === 'shield') {
+        // バトル・シールドへの一括配置時はキューに登録して連鎖処理します
+        ptBatchMoveQueue = idsToMove;
+        ptBatchMoveTargetZone = targetZone;
+        
+        ptProcessNextBatchMove(); // 最初の1枚目の処理を開始
+    } else {
+        // 通常のゾーン（手札・マナ・墓地・超次元）へは従来通り一括で移動させます
+        idsToMove.forEach(id => {
+            const idx = ptLookingCards.findIndex(c => c.id === id);
+            if (idx !== -1) {
+                let card = ptLookingCards.splice(idx, 1)[0];
+                ptState.deck.push(card);
+                ptMoveCard(id, 'deck', targetZone);
+            }
+        });
+
+        closePtModal();
+        renderPtBoard();
+
+        if (ptLookingCards && ptLookingCards.length > 0) {
+            renderLookingCardsModal();
+        }
+    }
+}
+function ptProcessNextBatchMove() {
+    if (!ptBatchMoveQueue || ptBatchMoveQueue.length === 0) {
+        // すべてのキューを消化し終えた場合、通常通り前の確認画面に帰還
+        ptBatchMoveTargetZone = null;
+        ptReturnToPreviousModal();
+        return;
+    }
+
+    const cardId = ptBatchMoveQueue.shift(); // 待機キューの先頭から1枚取り出す
+    const idx = ptLookingCards.findIndex(c => c.id === cardId);
+    if (idx === -1) {
+        // 万が一カードが見つからなければスキップして次へ進む
+        ptProcessNextBatchMove();
+        return;
+    }
+
+    let card = ptLookingCards.splice(idx, 1)[0];
+    ptState.deck.push(card); // 一時的に山札の上に戻す
+
+    if (ptBatchMoveTargetZone === 'shield') {
+        ptOpenShieldDropSelectModal(cardId, 'deck');
+    } else if (ptBatchMoveTargetZone === 'battle') {
+        ptOpenBattlePlacementSelectModal(cardId, 'deck');
+    }
+}
+function ptFindFirstFaceupCard(parentCard) {
+    if (!parentCard) return null;
+    if (!parentCard.faceDown) {
+        return parentCard;
+    }
+    // 下敷きがある場合、上（配列の先頭）から順番に走査して表向きを探す
+    if (parentCard.underCards && parentCard.underCards.length > 0) {
+        for (let i = 0; i < parentCard.underCards.length; i++) {
+            let found = ptFindFirstFaceupCard(parentCard.underCards[i]);
+            if (found) return found;
+        }
+    }
+    return null;
 }
 </script>
 </body>
