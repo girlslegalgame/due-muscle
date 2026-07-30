@@ -32,7 +32,7 @@ RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-av
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 RUN a2enmod rewrite
 
-# 一度すべてのMPM設定リンクを物理削除し、preforkのみを手動でリンクする（Apacheコマンド不使用）
+# 【修正箇所】重複するMPMの設定ファイルを物理削除し、preforkのみを手動でリンクする
 RUN rm -f /etc/apache2/mods-enabled/mpm_*
 RUN ln -s /etc/apache2/mods-available/mpm_prefork.load /etc/apache2/mods-enabled/mpm_prefork.load
 RUN ln -s /etc/apache2/mods-available/mpm_prefork.conf /etc/apache2/mods-enabled/mpm_prefork.conf
