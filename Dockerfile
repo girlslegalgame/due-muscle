@@ -13,7 +13,7 @@ RUN npm run build
 # ==========================================
 # ステージ 2: PHP + Apache 環境の構築
 # ==========================================
-FROM php:8.2-apache
+FROM php:8.3-apache
 
 # 必要なシステムパッケージとPHP拡張のインストール
 RUN apt-get update && apt-get install -y \
