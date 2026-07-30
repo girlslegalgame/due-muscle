@@ -4,140 +4,7 @@
  * @var string $context 呼び出し元のコンテキスト ('index' または 'search')
  * @var PDO|null $pdo_db データベース接続オブジェクト
  */
-
-// 最初の1回だけCSSを出力するための制御（HTMLの肥大化を防ぎます）
-static $deck_item_css_rendered = false;
-if (!$deck_item_css_rendered):
-    $deck_item_css_rendered = true;
 ?>
-<style>
-    /* --- デッキカード共通スタイル --- */
-    .deck-item {
-        background: #fff;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 15px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-    .deck-item h3 { 
-        margin: 0; 
-        font-size: 1.1rem; 
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .deck-thumbnail-wrapper {
-        width: 100%;
-        height: 120px;
-        border-radius: 6px;
-        overflow: hidden;
-        border: 1px solid #eee;
-        background-color: #f9f9f9;
-    }
-    .deck-thumbnail {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: center 25%;
-        cursor: pointer !important;
-    }
-    .deck-creator {
-        font-size: 0.85rem;
-        color: #555;
-        font-weight: bold;
-        margin-top: -4px;
-    }
-    .deck-meta-info {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.85rem;
-        color: #666;
-    }
-    .format-badge {
-        font-size: 0.8rem;
-        background: #eee;
-        padding: 2px 6px;
-        border-radius: 4px;
-    }
-
-    /* --- ボタン群 --- */
-    .btn-group { 
-        display: flex; 
-        gap: 5px; 
-        margin-top: 10px; 
-    }
-    .btn-view { 
-        flex: 2; 
-        padding: 10px; 
-        background: #28a745; 
-        color: white; 
-        border: none; 
-        border-radius: 4px; 
-        cursor: pointer; 
-        font-weight: bold; 
-    }
-    .btn-edit { 
-        flex: 1; 
-        padding: 10px; 
-        background: #ffc107; 
-        color: #212529; 
-        border: none; 
-        border-radius: 4px; 
-        cursor: pointer; 
-        font-weight: bold; 
-        text-decoration: none; 
-        text-align: center; 
-        font-size: 0.9rem; 
-    }
-    .btn-delete { 
-        padding: 10px; 
-        background: #dc3545; 
-        color: white; 
-        border: none; 
-        border-radius: 4px; 
-        cursor: pointer; 
-    }
-    .btn-image {
-        flex: 1.5;
-        padding: 10px;
-        background: #17a2b8;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: bold;
-        font-size: 0.9rem;
-    }
-    .btn-image:hover {
-        background: #138496;
-    }
-
-    /* --- デッキ文明バッジ --- */
-    .deck-civ-badges {
-        display: flex;
-        gap: 4px;
-        margin-top: -4px;
-    }
-    .civ-badge {
-        font-size: 0.75rem;
-        font-weight: bold;
-        color: #fff !important;
-        padding: 2px 8px;
-        border-radius: 4px;
-        text-align: center;
-        line-height: 1.2;
-    }
-    .civ-bg-light   { background-color: #e6b800; }
-    .civ-bg-water   { background-color: #1972e6; }
-    .civ-bg-dark    { background-color: #444444; }
-    .civ-bg-fire    { background-color: #e6193c; }
-    .civ-bg-nature  { background-color: #2ca043; }
-</style>
-<?php endif; ?>
 
 <?php
 // 文明の初期化と取得
@@ -200,12 +67,14 @@ if (!empty($deck['thumbnail_imagepath'])) {
 
 <div class="deck-item">
     <!-- 1. デッキ名 -->
-    <h3><?php echo htmlspecialchars($deck['deck_name']); ?></h3>
+    <h3><?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?></h3>
 
     <!-- 2. サムネイル画像 -->
     <div class="deck-thumbnail-wrapper">
-        <img src="<?php echo htmlspecialchars($thumbPath); ?>" alt="Thumbnail" class="deck-thumbnail" 
-             onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>')" 
+        <!-- ★修正: onclick内の引数を文字列から dataset 参照に変更。XSSテスト用テキスト（シングルクォーテーション含む）でも文法を壊さず安全に値を渡せます -->
+        <img src="<?php echo htmlspecialchars($thumbPath, ENT_QUOTES, 'UTF-8'); ?>" alt="Thumbnail" class="deck-thumbnail" 
+             data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
+             onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)" 
              onerror="this.src='/images/card/noimage.webp'; this.onerror=null;">
     </div>
 
@@ -221,13 +90,13 @@ if (!empty($deck['thumbnail_imagepath'])) {
     <!-- 4. 製作者名（検索時、データが存在する場合のみ表示） -->
     <?php if (!empty($deck['creator_name'])): ?>
         <div class="deck-creator">
-            製作者: <?php echo htmlspecialchars($deck['creator_name']); ?>
+            製作者: <?php echo htmlspecialchars($deck['creator_name'], ENT_QUOTES, 'UTF-8'); ?>
         </div>
     <?php endif; ?>
 
     <!-- 5. フォーマット 最終更新日 -->
     <div class="deck-meta-info">
-        <span class="format-badge"><?php echo htmlspecialchars($deck['format_name']); ?></span>
+        <span class="format-badge"><?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?></span>
         <span><?php echo date('Y/m/d', strtotime($deck['updated_at'])); ?></span>
     </div>
 
@@ -235,12 +104,21 @@ if (!empty($deck['thumbnail_imagepath'])) {
     <div class="btn-group" style="margin-top: auto; padding-top: 5px;">
         <?php if ($context === 'search'): ?>
             <!-- 【公開デッキ検索用】ボタン -->
-            <button class="btn-view" onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>')">内容表示</button>
+            <!-- ★修正: onclick内の文字列引数を dataset 参照に変更 -->
+            <button class="btn-view" 
+                    data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                    onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">内容表示</button>
             <button class="btn-edit" onclick="copyDeck(<?php echo $deck['deck_id']; ?>)" style="background-color: #ffc107; color: #212529;">コピー</button>
         <?php elseif ($context === 'index'): ?>
             <!-- 【マイデッキ一覧用】ボタン -->
-            <button class="btn-view" onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>')">内容表示</button>
-            <button class="btn-image" onclick="exportDeckImage(<?php echo $deck['deck_id']; ?>, '<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES); ?>', '<?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES); ?>', this)">画像出力</button>
+            <!-- ★修正: onclick内の文字列引数を dataset 参照に変更 -->
+            <button class="btn-view" 
+                    data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                    onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">内容表示</button>
+            <button class="btn-image" 
+                    data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                    data-format-name="<?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                    onclick="exportDeckImage(<?php echo $deck['deck_id']; ?>, this.dataset.deckName, this.dataset.formatName, this)">画像出力</button>
             <a href="/decks/edit?deck_id=<?php echo $deck['deck_id']; ?>" class="btn-edit">編集</a>
             <button class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
         <?php endif; ?>

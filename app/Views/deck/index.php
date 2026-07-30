@@ -12,133 +12,12 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>マイデッキ一覧</title>
+    <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <style>
-        /* --- 基本レイアウト --- */
-        body {
-            background-color: #f0f0f0;
-            font-family: sans-serif;
-            margin: 0; padding: 0;
-            height: 100vh;          /* ★画面全体の高さを100vhに固定 */
-            max-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .container {
-            max-width: 1000px;
-            width: 100%;
-            margin: 0 auto;
-            padding: 20px;
-            box-sizing: border-box;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;          /* ★flex内の子要素が縮めるようにする設定 */
-        }
-        .container h2 {
-            margin-top: 0;
-            flex-shrink: 0;         /* ★タイトルが潰れないように固定 */
-        }
-        .create-btn {
-            display: inline-block;
-            padding: 12px 24px;
-            background-color: #007bff;
-            color: #fff;
-            text-decoration: none;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-weight: bold;
-            flex-shrink: 0;         /* ★ボタンが潰れないように固定 */
-            align-self: flex-start;
-        }
-
-        /* --- デッキリスト：スマホ1列 / PC3列 --- */
-        .deck-list {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            flex: 1;                /* ★残りの高さをすべて埋める */
-            overflow-y: auto;       /* ★デッキが多い場合はこの中だけでスクロールさせる */
-            padding-right: 5px;
-            align-content: start;   /* ★上詰めで配置 */
-        }
-        @media (min-width: 768px) {
-            .deck-list {
-                grid-template-columns: repeat(3, 1fr);
-            }
-        }
-
-        .deck-item {
-            background: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 15px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: flex;
-            flex-direction: column;  /* 縦並びに固定 */
-            gap: 12px;
-        }
-        .deck-item h3 { 
-            margin: 0; 
-            font-size: 1.1rem; 
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis; /* 長いデッキ名を「...」で省略 */
-        }
-        /* サムネイルを囲う枠（トリミングの基準領域） */
-        .deck-thumbnail-wrapper {
-            width: 100%;
-            height: 120px;           /* トリミング枠の高さ */
-            border-radius: 6px;
-            overflow: hidden;
-            border: 1px solid #eee;
-            background-color: #f9f9f9;
-        }
-        /* 画像を拡大し、カード上部のイラスト付近を中心に切り抜く */
-        .deck-thumbnail {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;       /* アスペクト比を維持したまま拡大・トリミング */
-            object-position: center 25%; /* イラストが位置するカード上部から25%付近を中心に配置 */
-        }
-        .deck-meta-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.85rem;
-            color: #666;
-        }
-        
-        .format-badge {
-            font-size: 0.8rem;
-            background: #eee;
-            padding: 2px 6px;
-            border-radius: 4px;
-        }
-        
-        .btn-group { display: flex; gap: 5px; margin-top: 10px; }
-        .btn-view { flex: 2; padding: 10px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-edit { flex: 1; padding: 10px; background: #ffc107; color: #212529; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; text-decoration: none; text-align: center; font-size: 0.9rem; }
-        .btn-delete { padding: 10px; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; }
-
-/* 2. ボタン用のスタイル追加 */
-.btn-image {
-    flex: 1.5;
-    padding: 10px;
-    background: #17a2b8;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: bold;
-    font-size: 0.9rem;
-}
-.btn-image:hover {
-    background: #138496;
-}
-
-/* 3. 画像出力用の一時的な非表示コンテナのスタイル（1200px固定） */
+    <!-- index.php の <style> 変更後 -->
+<style>
+/* 3. 画像出力用の一時的な非表示コンテナのスタイル（1200px固定）のみ残します */
 #deck-export-container {
     position: absolute;
     left: -9999px;
@@ -204,7 +83,6 @@ try {
     display: flex;
     gap: 30px;
 }
-/* サブデッキ群の有無でグリッド分割比を切り替え */
 .export-body.single-column .export-main-deck-wrapper {
     width: 100%;
 }
@@ -224,16 +102,15 @@ try {
     margin: 0 0 15px 0;
 }
 
-/* カード画像配置用グリッド */
 .export-card-grid {
     display: grid;
     gap: 6px;
 }
 .grid-main {
-    grid-template-columns: repeat(8, 1fr); /* メインは1行8枚 */
+    grid-template-columns: repeat(8, 1fr);
 }
 .grid-sub {
-    grid-template-columns: repeat(4, 1fr);  /* サブは1行4枚 */
+    grid-template-columns: repeat(4, 1fr);
 }
 
 .export-card-item {
@@ -262,7 +139,6 @@ try {
     color: #777;
     letter-spacing: 2px;
 }
-
 </style>
 </head>
 <body>

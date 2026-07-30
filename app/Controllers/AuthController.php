@@ -213,11 +213,11 @@ class AuthController {
         try {
             $pdo = \Models\Database::connect();
 
-            // 重複チェック
+            // ★重複チェック（エラーメッセージをご指定の文言に変更）
             $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = :email");
             $stmt->execute([':email' => $email]);
             if ($stmt->fetch()) {
-                $_SESSION['error'] = 'このメールアドレスは既に登録されています。';
+                $_SESSION['error'] = 'すでに使用されているメールアドレスです。';
                 header('Location: /register');
                 exit;
             }

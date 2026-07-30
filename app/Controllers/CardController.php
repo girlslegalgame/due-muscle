@@ -54,25 +54,37 @@ class CardController {
                 LEFT JOIN card_combination ccb_front ON ccb_search.combination_id = ccb_front.combination_id AND ccb_front.is_main_side = 1
                 LEFT JOIN card c_front ON ccb_front.card_id = c_front.card_id
                 WHERE 1=1";             
-                if ($q !== '') {
+if ($q !== '') {
                 // 送信されたキーワードを「カタカナ」と「ひらがな」の両方に変換してバインド用変数を作成
                 $q_kata = mb_convert_kana($q, "C", "UTF-8"); // ひらがな -> カタカナ
                 $q_hira = mb_convert_kana($q, "c", "UTF-8"); // カタカナ -> ひらがな
 
+                // 比較用として、中黒（・）やスペース（半角・全角）を除去したクエリを作成
+                $q_clean = str_replace(['・', ' ', '　'], '', $q);
+                $q_kata_clean = str_replace(['・', ' ', '　'], '', $q_kata);
+                $q_hira_clean = str_replace(['・', ' ', '　'], '', $q_hira);
+
                 $conds = [];
                 if (in_array('name', $scope)) {
-                    // ★ カード名に対し、元のワード、カタカナ版、ひらがな版のすべてで検索し、表記揺れを完全吸収します
-                    $conds[] = "(c_search.card_name LIKE :q_name OR c_search.card_name LIKE :q_name_kata OR c_search.card_name LIKE :q_name_hira)";
-                    $params[':q_name'] = "%$q%";
-                    $params[':q_name_kata'] = "%$q_kata%";
-                    $params[':q_name_hira'] = "%$q_hira%";
+                    // データベース側のカード名からも中黒・スペースを取り除いて比較します
+                    $conds[] = "(
+                        REPLACE(REPLACE(REPLACE(c_search.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_clean
+                        OR REPLACE(REPLACE(REPLACE(c_search.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_kata_clean
+                        OR REPLACE(REPLACE(REPLACE(c_search.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_hira_clean
+                    )";
+                    $params[':q_name_clean'] = "%$q_clean%";
+                    $params[':q_name_kata_clean'] = "%$q_kata_clean%";
+                    $params[':q_name_hira_clean'] = "%$q_hira_clean%";
                 }
                 
-                // 読み仮名検索（DB側がひらがな、またはカタカナのどちらで登録されていてもヒットするようにします）
+                // 読み仮名検索（同様にスペースを除去して比較）
                 if (in_array('name', $scope) || in_array('reading', $scope)) {
-                    $conds[] = "(c_search.reading LIKE :q_read_kata OR c_search.reading LIKE :q_read_hira)";
-                    $params[':q_read_kata'] = "%$q_kata%";
-                    $params[':q_read_hira'] = "%$q_hira%";
+                    $conds[] = "(
+                        REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
+                        OR REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
+                    )";
+                    $params[':q_read_kata_clean'] = "%$q_kata_clean%";
+                    $params[':q_read_hira_clean'] = "%$q_hira_clean%";
                 }
                 
                 if (in_array('text', $scope)) {
@@ -535,6 +547,7 @@ class CardController {
         $abilities = isset($_GET['abilities']) ? explode(',', $_GET['abilities']) : [];
         $characteristics = isset($_GET['characteristics']) ? explode(',', $_GET['characteristics']) : [];
         $cardtypes = isset($_GET['cardtypes']) ? explode(',', $_GET['cardtypes']) : [];
+        $rarities = isset($_GET['rarities']) ? explode(',', $_GET['rarities']) : []; // ★ 追加
         $goods = isset($_GET['goods']) ? explode(',', $_GET['goods']) : [];
 
         // ページング用パラメータの取得（デフォルト値：100件、0オフセット）
@@ -556,21 +569,28 @@ class CardController {
             
             // キーワード検索（スコープ対応）
             if ($q !== '') {
+                $q_kata = mb_convert_kana($q, "C", "UTF-8");
+                $q_hira = mb_convert_kana($q, "c", "UTF-8");
+
+                // 比較用として、中黒（・）やスペース（半角・全角）を除去したクエリを作成
+                $q_clean = str_replace(['・', ' ', '　'], '', $q);
+                $q_kata_clean = str_replace(['・', ' ', '　'], '', $q_kata);
+                $q_hira_clean = str_replace(['・', ' ', '　'], '', $q_hira);
+
                 $conds = [];
                 if (in_array('name', $scopes)) {
-                    $conds[] = "(c.card_name LIKE :q_name OR c.reading LIKE :q_read)";
-                    $params[':q_name'] = $params[':q_read'] = "%$q%";
-                }
-                if (in_array('text', $scopes)) {
-                    $conds[] = "c.text LIKE :q_text";
-                    $params[':q_text'] = "%$q%";
-                }
-                if (in_array('race', $scopes)) {
-                    $conds[] = "EXISTS (SELECT 1 FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id AND r.race_name LIKE :q_race)";
-                    $params[':q_race'] = "%$q%";
-                }
-                if (!empty($conds)) {
-                    $sql .= " AND (" . implode(' OR ', $conds) . ")";
+                    $conds[] = "(
+                        REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_clean
+                        OR REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_kata_clean
+                        OR REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_hira_clean
+                        OR REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
+                        OR REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
+                    )";
+                    $params[':q_name_clean'] = "%$q_clean%";
+                    $params[':q_name_kata_clean'] = "%$q_kata_clean%";
+                    $params[':q_name_hira_clean'] = "%$q_hira_clean%";
+                    $params[':q_read_kata_clean'] = "%$q_kata_clean%";
+                    $params[':q_read_hira_clean'] = "%$q_hira_clean%";
                 }
             }
 
@@ -659,7 +679,8 @@ class CardController {
                     }
                 } else {
                     $idList = implode(',', array_map('intval', $characteristics));
-                    $sql .= " AND EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c_search.card_id AND c_char.characteristics_id IN ($idList))";
+                    // ★ 修正: c_search.card_id から c.card_id へ変更
+                    $sql .= " AND EXISTS (SELECT 1 FROM card_characteristics c_char WHERE c_char.card_id = c.card_id AND c_char.characteristics_id IN ($idList))";
                 }
             }
 
@@ -679,6 +700,24 @@ class CardController {
                 }
             }
 
+            if (!empty($rarities)) {
+                if (in_array(-1, $rarities)) {
+                    // 「未設定（レコードなし）」が含まれる場合
+                    $otherRarities = array_filter($rarities, function($v) { return $v != -1; });
+                    if (!empty($otherRarities)) {
+                        // 「未設定」または「選択した他のレアリティ」を持つカード
+                        $idList = implode(',', array_map('intval', $otherRarities));
+                        $sql .= " AND (NOT EXISTS (SELECT 1 FROM card_rarity cr_rarity WHERE cr_rarity.card_id = c.card_id) OR EXISTS (SELECT 1 FROM card_rarity cr_rarity WHERE cr_rarity.card_id = c.card_id AND cr_rarity.rarity_id IN ($idList)))";
+                    } else {
+                        // 「未設定」のみ（card_rarityテーブルに紐づくレコードが存在しないカード）
+                        $sql .= " AND NOT EXISTS (SELECT 1 FROM card_rarity cr_rarity WHERE cr_rarity.card_id = c.card_id)";
+                    }
+                } else {
+                    // 通常のレアリティ指定（card_rarityテーブルに合致するレコードが存在するカード）
+                    $idList = implode(',', array_map('intval', $rarities));
+                    $sql .= " AND EXISTS (SELECT 1 FROM card_rarity cr_rarity WHERE cr_rarity.card_id = c.card_id AND cr_rarity.rarity_id IN ($idList))";
+                }
+            }
             // 収録商品絞り込み (未設定対応)
             if (!empty($goods)) {
                 if (in_array(-1, $goods)) {

@@ -109,7 +109,7 @@ if (!isset($_SESSION['user_id']) && empty($_SESSION['logged_in'])) {
 <body>
 
 <div class="search-container">
-    <h2>カード検索（ヘルプ用・仮画面）</h2>
+    <h2>カード検索</h2>
     
     <!-- 検索テキストボックス -->
     <div class="input-group">
@@ -169,6 +169,8 @@ if (!isset($_SESSION['user_id']) && empty($_SESSION['logged_in'])) {
         <button id="trigger-ability" class="filter-btn" onclick="openHelpModal('ability')">特殊能力を選択</button>
         <button id="trigger-characteristic" class="filter-btn" onclick="openHelpModal('characteristic')">特殊タイプを選択</button>
         <button id="trigger-cardtype" class="filter-btn" onclick="openHelpModal('cardtype')">カードタイプを選択</button>
+        <!-- ★ 追加: レアリティ選択ボタン -->
+        <button id="trigger-rarity" class="filter-btn" onclick="openHelpModal('rarity')">レアリティを選択</button>
         <button id="trigger-goods" class="filter-btn" onclick="openHelpModal('goods')">収録商品を選択</button>
     </div>
 
@@ -323,6 +325,7 @@ let activeFilters = {
     ability: [],
     characteristic: [],
     cardtype: [],
+    rarity: [], // ★ 追加: レアリティフィルターの初期状態
     goods: []
 };
 
@@ -441,6 +444,7 @@ function triggerHelpSearch(resetPage) {
     if (activeFilters.ability.length) params.append('abilities', activeFilters.ability.join(','));
     if (activeFilters.characteristic.length) params.append('characteristics', activeFilters.characteristic.join(','));
     if (activeFilters.cardtype.length) params.append('cardtypes', activeFilters.cardtype.join(','));
+    if (activeFilters.rarity.length) params.append('rarities', activeFilters.rarity.join(',')); // ★ 追加
     if (activeFilters.goods.length) params.append('goods', activeFilters.goods.join(','));
 
     // ページングパラメータを追加
@@ -567,6 +571,7 @@ function openHelpModal(type) {
     else if (type === 'ability') { title.innerText = '特殊能力選択'; searchWrapper.style.display = 'block'; }
     else if (type === 'characteristic') { title.innerText = '特殊タイプ選択'; searchWrapper.style.display = 'none'; }
     else if (type === 'cardtype') { title.innerText = 'カードタイプ選択'; searchWrapper.style.display = 'none'; }
+    else if (type === 'rarity') { title.innerText = 'レアリティ選択'; searchWrapper.style.display = 'none'; } // ★ 追加
     else if (type === 'goods') { title.innerText = '収録商品選択'; searchWrapper.style.display = 'block'; }
 
     renderModalList();
@@ -592,9 +597,8 @@ function renderModalList() {
     
     const items = masterData[currentModalType] || [];
     items.forEach(item => {
-        const id = item.race_id || item.ability_id || item.characteristics_id || item.cardtype_id || item.goods_id || item.id;
-        const name = item.race_name || item.ability_name || item.characteristics_name || item.cardtype_name || item.goods_name || item.name;
-        
+        const id = item.race_id || item.ability_id || item.characteristics_id || item.cardtype_id || item.rarity_id || item.goods_id || item.id;
+        const name = item.race_name || item.ability_name || item.characteristics_name || item.cardtype_name || item.rarity_name || item.goods_name || item.name;        
         // ★ 追加：よみがなを取得して検索用キーワードを作成します
         const reading = item.reading || '';
         const searchKeyword = (name + reading).toLowerCase();
@@ -634,7 +638,15 @@ function applyHelpFilter() {
         triggerBtn.style.background = '#007bff';
         triggerBtn.style.color = '#fff';
     } else {
-        const labels = { race: '種族を選択', ability: '特殊能力を選択', characteristic: '特殊タイプを選択', cardtype: 'カードタイプを選択', goods: '収録商品を選択' };
+        const labels = { 
+            race: '種族を選択', 
+            ability: '特殊能力を選択', 
+            characteristic: '特殊タイプを選択', 
+            cardtype: 'カードタイプを選択', 
+            rarity: 'レアリティを選択', // ★ 追加
+            goods: '収録商品を選択' 
+        };
+        
         triggerBtn.innerText = labels[currentModalType];
         triggerBtn.style.background = '#eee';
         triggerBtn.style.color = '#000';

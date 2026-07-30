@@ -3,37 +3,58 @@
     body {
         margin: 0;
         padding: 0;
+        height: 100vh;
+        overflow: hidden; /* body自体にスクロールバーを出さない */
+    }
+
+    /* 
+      親レイアウトのmainタグの設定を上書き同期します。
+    */
+    main {
+        padding-top: 75px !important;    
+        padding-bottom: 20px !important; 
+        height: 100vh;
+        box-sizing: border-box;
+        overflow: hidden;
         display: flex;
         flex-direction: column;
-        height: 100vh;
-        background-color: #f0f0f0;
-        font-family: sans-serif;
-        overflow: hidden;
+        justify-content: center;
+        align-items: center;
     }
 
-    /* 全体のコンテナ幅をレスポンシブにし、縦幅も画面サイズ（100vh）に完全に収める */
+    /* --- 1. 全体のコンテナ（mainの逃げ幅(75px)を引いた内寸いっぱいに完璧にフィット） --- */
     #container { 
         width: 100%; 
-        max-width: 900px; 
-        height: 100vh; 
-        max-height: 100vh; 
-        margin: 0 auto; 
+        max-width: 1280px; 
+        height: 100%;      /* ★ mainのpaddingを除いた内寸100%いっぱいにフィットさせます */
+        max-height: 100%; 
+        margin: 0 auto;    /* ★ main自体がすでに上を避けているため、余分な margin-top は 0（不要）になります */
         display: flex; 
-        flex-direction: column; 
-        flex-grow: 1; 
+        flex-direction: row; 
         box-sizing: border-box;
-        position: relative; /* ★ 浮遊する検索エリアの基準点 */
+        position: relative; 
+        overflow: hidden;
+        background-color: #fff; 
+        box-shadow: 0 0 25px rgba(0,0,0,0.1); 
     }
 
-    /* --- 2. デッキ作成エリア（上部） --- */
+
+    /* 左利き配置切り替え時 */
+    #container.left-handed {
+        flex-direction: row-reverse;
+    }
+
+    /* --- 2. デッキ作成エリア --- */
     #deck-area { 
         flex: 1; 
+        min-width: 0; 
         min-height: 0; 
         display: flex; 
         flex-direction: column; 
-        padding: 10px; 
-        padding-bottom: 220px; /* ★ 初期値：検索エリアの高さ(200px) + 余白(20px) */
+        padding: 15px; 
+        padding-bottom: 15px; 
         box-sizing: border-box;
+        overflow-y: auto;
     }
     #deck-tabs { display: flex; gap: 5px; height: 35px; flex-shrink: 0; }
     .tab { 
@@ -54,33 +75,81 @@
         grid-template-columns: repeat(8, 1fr); 
         background-color: #fff; border: 1px solid #ccc;
         padding: 0; gap: 0; overflow-y: hidden; overflow-x: hidden;
-        margin-bottom: 20px !important; /* ★ 下部に20pxの空間（ゆとり）を強制確保 */
+        margin-bottom: 20px !important; 
     }
     #main-deck-list img { 
         width: 100%; 
-        height: 100%; /* ★ マス目の高さに追従させます */
+        height: 100%; 
         aspect-ratio: 110/154; 
         object-fit: contain; 
         cursor: pointer; 
         display: block; 
     }
-    /* 40枚を超えた時のスタック（縦重なり） */
     #main-deck-list.stacked-mode { grid-auto-rows: 45px; }
 
     /* --- 3. 超次元・GRエリア --- */
     #extra-deck-area { 
-        display: none; flex-direction: row; gap: 15px; padding: 10px; 
-        border: 1px solid #ccc; background: #f9f9f9; 
+        display: none; 
+        flex-direction: row; 
+        gap: 32px; 
+        padding: 20px; 
+        border: 1px solid #ccc; 
+        background: #f9f9f9; 
+        width: 100%;
+        box-sizing: border-box;
+        justify-content: center; 
+        align-items: flex-start;
     }
-    #extra-deck-area.active { display: flex !important; } /* 横並びにするためflex */
+    #extra-deck-area.active { display: flex !important; }
     
-    .extra-side { flex: 1; display: flex; flex-direction: column; align-items: center; }
-    .extra-list { 
-        display: grid !important; grid-template-columns: repeat(4, 90px); 
-        grid-auto-rows: 125px; gap: 5px; background: #fff; border: 1px solid #ddd; padding: 5px;
+    .zone-container { 
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        width: 100%;
+        max-width: 464px; 
+        min-width: 0; 
+        flex: 0 1 auto; 
     }
-    .extra-list img { width: 90px; height: auto; aspect-ratio: 110/154; object-fit: fill; border-radius: 4px; }
-    .v-divider { width: 1px; background: #ccc; align-self: stretch; margin: 10px 0; }
+    .zone-container h4 {
+        width: 100%;
+        text-align: center;
+        font-size: 1.1rem;
+        margin: 0 0 10px 0;
+        padding-bottom: 5px;
+    }
+
+    /* 共通可変リスト設定 */
+    .extra-list { 
+        display: grid !important; 
+        grid-template-columns: repeat(4, 1fr) !important; 
+        gap: 4px; 
+        background: #fff; 
+        border: 1px solid #ddd; 
+        padding: 6px; 
+        box-sizing: border-box;
+        width: 100%; 
+    }
+    .extra-list img { 
+        width: 100% !important; 
+        height: auto !important; 
+        aspect-ratio: 110/154; 
+        object-fit: contain; 
+        border-radius: 6px; 
+        display: block;
+    }
+
+    /* 超GRリスト (最初から縦3×横4枠を維持) */
+    #gr-list {
+        width: 100%;
+        aspect-ratio: 464 / 482; 
+    }
+
+    /* 超次元リスト (最初から縦2×横4枠を維持) */
+    #super-dim-list {
+        width: 100%;
+        aspect-ratio: 464 / 324; 
+    }
 
     /* --- 4. 特殊タブ（ドルマゲドン・零龍） --- */
     #special-deck-list.active {
@@ -94,93 +163,181 @@
     .special-label { margin: 0 0 10px 0; font-size: 15px; font-weight: bold; }
     .btn-add-special { margin-bottom: 20px; padding: 8px 20px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     
+    /* 修正：幅に合わせて比率を維持したまま可変するよう変更 */
     .special-box {
-        width: 280px; height: 390px;
+        width: 80%;                   /* ゾーン幅に対して可変（必要に応じて 100% に近い値に調整してください） */
+        max-width: 280px;             /* 拡大しすぎるのを防ぐ上限値 */
+        aspect-ratio: 110 / 154;      /* カードの縦横比率を維持 */
+        height: auto;                 /* 固定高さ（390px）を解除 */
         border: 2px dashed #bbb;
         display: flex; justify-content: center; align-items: center;
         border-radius: 8px; background: #fff; overflow: hidden;
+        box-sizing: border-box;
     }
     .special-box img {
-        max-width: 100%; max-height: 100%; object-fit: contain; cursor: pointer;
+        width: 100%;
+        height: 100%;
+        object-fit: contain; 
+        cursor: pointer;
     }
     .special-box.active { border: 2px solid #28a745; }
-
-    /* --- 5. 検索セクション（下部） --- */
+    /* --- 5. 検索セクション（右側固定・320px） --- */
     #search-section {
-        position: fixed;      /* ★ 画面最下部に固定（浮遊化） */
-        bottom: 0;
-        left: 50%;
-        transform: translateX(-50%) translateY(0); /* ★ 通常時は表示状態 */
-        transition: transform 0.3s ease; /* ★ スライド閉閉時の滑らかなアニメーション */
-        width: 100%;
-        max-width: 900px;     
-        height: 200px;        
-        z-index: 2000;        
+        position: relative;      
+        width: 320px;            
+        min-width: 320px;
+        height: 100%;        
         box-sizing: border-box;
         background: rgba(249, 249, 249, 0.98); 
-        border-top: 3px solid #333;
-        box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.15); 
-        border-radius: 12px 12px 0 0; 
-        padding: 5px 10px; 
+        border-left: 3px solid #333; 
+        box-shadow: -5px 0 20px rgba(0, 0, 0, 0.15); 
+        padding: 10px; 
         display: flex; 
         flex-direction: column; 
+        gap: 8px;
+        transition: width 0.3s ease, min-width 0.3s ease, padding 0.3s ease;
     }
 
-    /* ★ 検索セクションが閉じている状態（画面外に引っ込める） */
+    #container.left-handed #search-section {
+        border-left: none;
+        border-right: 3px solid #333;
+        box-shadow: 5px 0 20px rgba(0, 0, 0, 0.15);
+    }
+
     #search-section.collapsed {
-        transform: translateX(-50%) translateY(200px); 
+        width: 0px !important;
+        min-width: 0px !important;
+        padding: 0px !important;
+        border: none !important;
+        overflow: hidden;
     }
 
-    /* ★ 検索開閉ボタン（タブ） */
+    /* 開閉トグルボタン */
     #search-toggle-btn {
         position: absolute;
-        top: -32px; /* ★ 検索エリアの上に飛び出させる */
-        right: 20px;
-        height: 32px;
-        padding: 0 15px;
+        top: 50%;
+        right: 320px; 
+        transform: translateY(-50%);
+        width: 32px;
+        height: 64px;
+        padding: 0;
         background: #333;
         color: #fff;
         border: none;
-        border-radius: 8px 8px 0 0;
+        border-radius: 8px 0 0 8px;
         cursor: pointer;
         font-weight: bold;
-        font-size: 13px;
+        font-size: 11px;
         display: flex;
         align-items: center;
-        gap: 5px;
-        box-shadow: 0 -3px 10px rgba(0,0,0,0.15);
-        z-index: 2001;
+        justify-content: center;
+        writing-mode: vertical-rl; 
+        text-orientation: mixed;
+        box-shadow: -3px 0 10px rgba(0,0,0,0.15);
+        z-index: 2001; 
+        transition: right 0.3s ease, left 0.3s ease;
     }
     #search-toggle-btn:hover {
         background: #444;
     }
 
+    /* 検索結果（縦スクロール・横2列グリッド） */
     #search-results { 
-        height: 110px; 
-        display: flex; overflow-x: auto; white-space: nowrap; padding: 3px 0; gap: 8px; align-items: center; 
+        flex: 1; 
+        display: grid; 
+        grid-template-columns: repeat(2, 1fr); 
+        gap: 8px; 
+        padding: 5px 0; 
+        overflow-y: auto; 
+        overflow-x: hidden;
+        align-content: start;
     }
-    #search-results img { height: 100px; cursor: pointer; border: 1px solid #ccc; flex-shrink: 0; }
+    #search-results img { 
+        width: 100%; 
+        height: auto; 
+        aspect-ratio: 110/154; 
+        object-fit: contain; 
+        border: 1px solid #ccc; 
+        border-radius: 6px;
+        box-sizing: border-box;
+        background-color: #fff; 
+        transition: transform 0.15s ease;
+    }
+    #search-results img:hover {
+        transform: scale(1.03);
+    }
     
-    #search-controls-wrapper { display: flex; flex-direction: column; gap: 5px; }
-    #search-controls { display: flex; gap: 10px; height: 45px; align-items: center; }
-    #card-search-input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+    /* 検索コントロール */
+    #search-controls-wrapper { 
+        display: flex; 
+        flex-direction: column; 
+        gap: 8px; 
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 10px;
+    }
+    #search-controls { 
+        display: flex; 
+        flex-direction: row; /* 縦から横並びに変更 */
+        align-items: center;
+        gap: 6px; 
+        height: auto; 
+    }
+    #search-buttons-row {
+        display: flex;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+    #search-buttons-row button {
+        flex: 1;
+    }
+
+    #card-search-input { 
+        flex: 1; 
+        min-width: 0; /* 横幅縮小時の潰れ防止 */
+        padding: 10px 8px; 
+        border: 1px solid #ccc; 
+        border-radius: 4px; 
+        font-size: 14px; 
+    }
     .btn-filter, .btn-sort, .btn-analysis { 
-        padding: 10px 20px; 
+        padding: 10px 8px; 
         color: white; 
         border: none; 
         border-radius: 4px; 
         cursor: pointer; 
         font-weight: bold; 
-        font-size: 14px; /* テキストサイズを統一 */
+        font-size: 13px;
         box-sizing: border-box;
+        text-align: center;
     }
-    /* 個別の背景色定義 */
     .btn-filter { background: #17a2b8; }
     .btn-sort { background: #6c757d; }
     .btn-analysis { background: #28a745; }
     .btn-analysis:hover { background: #218838; }
     
-    .search-scope { display: flex; gap: 15px; font-size: 12px; color: #666; }
+    /* 検索範囲（チェックボックス）を左寄せに変更 */
+    .search-scope { 
+        display: flex; 
+        gap: 15px; 
+        font-size: 12px; 
+        color: #666; 
+        justify-content: flex-start; /* center から左寄せ（flex-start）へ変更 */
+        padding-left: 2px;
+    }
+    /* 利き手スイッチ */
+    .hand-switch-btn {
+        background: #e2e8f0;
+        border: 1px solid #cbd5e1;
+        color: #475569;
+        padding: 6px 12px;
+        font-size: 12px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .hand-switch-btn:hover {
+        background: #cbd5e1;
+    }
 
     /* --- 6. モーダル共通 --- */
     #cardDetailModal, #filterModal, .sub-modal { 
@@ -193,7 +350,7 @@
         border-radius: 12px; position: relative; box-sizing: border-box; 
     }
     
-    /* カード詳細 (PC向けグリッド配置) */
+    /* カード詳細 */
     .detail-content { width: 850px; display: flex; flex-direction: column; }
     .detail-grid { 
         display: grid; 
@@ -247,13 +404,12 @@
     .btn-qty { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #ccc; cursor: pointer; font-size: 1.5rem; background: #fff; }
     .detail-close-btn { position: absolute; right: 20px; top: 15px; cursor: pointer; font-size: 30px; z-index: 10; line-height: 1; }
 
-/* --- 絞り込みモーダル (新スタイル) --- */
+    /* 絞り込みモーダル */
     #filterModal {
         display: none;
         align-items: center;
         justify-content: center;
     }
-    /* モーダル表示時に中央配置にするための調整 */
     #filterModal[style*="display: block"] {
         display: flex !important;
     }
@@ -268,27 +424,26 @@
         max-height: 85vh;
         border: none;
         margin: 0;
-        overflow: hidden;       /* ★角丸でのヘッダー切り抜きを有効化 */
-        padding: 0 !important;  /* ★共通定義の余白を強制リセット */
+        overflow: hidden;       
+        padding: 0 !important;  
     }
-    /* ★ヘッダーを角まで #333 に */
     .filter-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        background: #333;       /* ★背景を#333に設定 */
-        padding: 16px 20px;     /* ★ヘッダー内の適切な余白 */
+        background: #333;       
+        padding: 16px 20px;     
         margin-bottom: 0;
     }
     .filter-header h3 {
         margin: 0;
         font-size: 0.95rem;
-        color: #fff;            /* ★文字色を白に */
+        color: #fff;            
         font-weight: bold;
     }
     .filter-close {
         font-size: 24px;
-        color: #ccc;            /* ★閉じるボタンの色を変更 */
+        color: #ccc;            
         cursor: pointer;
         line-height: 1;
         transition: color 0.2s;
@@ -296,11 +451,10 @@
     .filter-close:hover {
         color: #fff;
     }
-    /* ★スクロールエリア側に個別の内余白を持たせる */
     .filter-scroll { 
         flex: 1;
         overflow-y: auto; 
-        padding: 20px 20px 0 20px; /* 左右と上の余白 */
+        padding: 20px 20px 0 20px; 
         margin-bottom: 0;
     }
     .filter-scroll::-webkit-scrollbar {
@@ -326,17 +480,15 @@
         margin-bottom: 8px;
     }
 
-    /* 文明チップスのスタイル */
+    /* 文明チップス */
     .civ-checkboxes, #filter-exclude-civ-area { 
         display: grid; 
         grid-template-columns: repeat(3, 1fr); 
         gap: 8px; 
     }
-
     .civ-checkboxes {
         margin-bottom: 12px;
     }
-
     .civ-checkboxes label, #filter-exclude-civ-area label {
         display: flex;
         align-items: center;
@@ -353,11 +505,9 @@
         font-weight: normal;
         color: #555;
     }
-    
     .civ-checkboxes input, #filter-exclude-civ-area input {
         margin: 0;
     }
-    /* チェック時のカラーアニメーション (:has セレクタを使用) */
     .civ-checkboxes label:has(input:checked) {
         background: #e6f2ff;
         border-color: #007bff;
@@ -371,7 +521,7 @@
         font-weight: bold;
     }
 
-    /* 範囲指定フォーム（コスト・パワー） */
+    /* 範囲指定 */
     .range-inputs {
         display: flex;
         align-items: center;
@@ -395,7 +545,7 @@
         font-size: 0.9rem;
     }
 
-    /* セレクトトリガー（種族・能力） */
+    /* セレクトトリガー */
     .select-trigger { 
         width: 100% !important; 
         padding: 10px 14px; 
@@ -425,7 +575,7 @@
         color: #8e8e93;
     }
 
-    /* AND / OR 切り替えスイッチ */
+    /* AND / OR 切り替え */
     .logic-switch { 
         display: inline-flex; 
         border: 1px solid #d1d1d6; 
@@ -453,17 +603,16 @@
         display: block; 
         padding: 4px 12px;
         border-radius: 6px;
-        margin: -4px -12px; /* 内部余白調整 */
+        margin: -4px -12px; 
     }
 
-    /* 下部ボタン群 */
+    /* 下部アクション */
     .filter-actions {
         display: flex;
         gap: 12px;
-        padding: 15px 20px 20px 20px; /* 適切な余白 */
+        padding: 15px 20px 20px 20px; 
         background: #fff;
     }
-    
     .btn-filter-apply {
         flex: 2;
         padding: 12px;
@@ -495,7 +644,7 @@
         background: #ffebe6;
     }  
     
-/* --- サブモーダル (種族・特殊能力選択 新スタイル) --- */
+    /* --- サブモーダル --- */
     .sub-modal { 
         display: none; 
         position: fixed; 
@@ -506,7 +655,6 @@
         align-items: center;
         justify-content: center;
     }
-    /* モーダル表示時に中央配置にするための調整 */
     .sub-modal[style*="display: block"] {
         display: flex !important;
     }
@@ -522,10 +670,8 @@
         box-sizing: border-box;
         overflow: hidden; 
         margin: 0;
-        padding: 0 !important;  /* ★共通定義の余白を強制リセット */
+        padding: 0 !important;  
     }
-    
-    /* ★ヘッダーを角まで #333 に */
     .sub-modal-header { 
         padding: 16px 20px; 
         background: #333; 
@@ -534,7 +680,6 @@
         justify-content: space-between; 
         align-items: center;
     }
-    
     .sub-modal-header span {
         font-weight: bold;
         font-size: 0.95rem;
@@ -544,7 +689,6 @@
         overflow-y: auto; 
         padding: 10px 20px; 
     }
-    /* 検索ボックスのスタイリッシュ化 */
     .sub-modal-content input[type="text"] { 
         width: 100% !important; 
         box-sizing: border-box; 
@@ -559,7 +703,6 @@
     .sub-modal-content input[type="text"]:focus {
         border-color: #007bff;
     }
-    /* 選択肢リストのスタイリッシュ化 */
     .list-item { 
         display: flex; 
         align-items: center; 
@@ -578,238 +721,347 @@
         margin: 0;
         cursor: pointer;
     }
-/* --- シンプルなスライドトグルボタン --- */
-.toggle-switch {
-    position: relative;
-    display: inline-block;
-    width: 44px;
-    height: 24px;
-}
-.toggle-switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-.toggle-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: #d1d1d6;
-    transition: .3s;
-    border-radius: 24px;
-}
-.toggle-slider:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: .3s;
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-.toggle-switch input:checked + .toggle-slider {
-    background-color: #28a745; /* ONのときは親しみやすい緑色に */
-}
-.toggle-switch input:checked + .toggle-slider:before {
-    transform: translateX(20px); /* スライダーを右へスライド */
-}
 
-@media (max-width: 768px) {
-    /* 1. デッキエリアのパディング */
-    #deck-area {
-        padding: 8px;
-        /* スマホ時は検索領域が下を塞ぐため、通常時の余白を多めに確保 */
-        padding-bottom: 210px; 
+    /* トグルスイッチ */
+    .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 44px;
+        height: 24px;
     }
-    
-    /* 検索セクションが閉じている場合 */
-    #deck-area.search-collapsed {
-        padding-bottom: 110px;
+    .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+    }
+    .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: #d1d1d6;
+        transition: .3s;
+        border-radius: 24px;
+    }
+    .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 18px;
+        width: 18px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        transition: .3s;
+        border-radius: 50%;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-switch input:checked + .toggle-slider {
+        background-color: #28a745; 
+    }
+    .toggle-switch input:checked + .toggle-slider:before {
+        transform: translateX(20px); 
     }
 
-    /* 2. メインデッキの表示をスマホ幅に最適化 */
-    #main-deck-list {
-        grid-template-columns: repeat(8, 1fr) !important; /* 8列を維持しつつ縮小 */
-        gap: 1px;
-    }
-
-    /* 3. 超次元・GRエリアの横並びを縦並び（もしくは縮小）に */
-    #extra-deck-area {
-        flex-direction: column !important;
-        gap: 10px;
-        overflow-y: auto;
-    }
-    .extra-list {
-        grid-template-columns: repeat(4, 1fr) !important;
-        grid-auto-rows: auto;
-    }
-    .extra-list img {
-        width: 100% !important;
-        height: auto !important;
-    }
-
-    /* 4. 特殊タブ（ドルマゲドン・零龍）の調整（横並び・比率を維持して縮小） */
-    #special-deck-list.active {
-        flex-direction: row !important; /* 横並び（配置）を維持します */
-        justify-content: space-around;
-        align-items: center;
-        gap: 10px;
-        padding: 5px !important;
-    }
-    .special-zone {
-        padding: 5px !important;
-        flex: 1;
-        min-width: 0;
+    /* 選択バッジ */
+    .selected-badges-container {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
-    .special-label {
-        font-size: 11px !important; /* 文字を小さくして縦幅を抑えます */
-        margin: 0 0 4px 0 !important;
-        text-align: center;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        width: 100%;
-    }
-    .btn-add-special {
-        font-size: 11px !important;
-        padding: 4px 10px !important; /* ボタンサイズを縮小して縦幅を節約します */
-        margin-bottom: 8px !important;
-    }
-    .special-box {
-        width: 38vw !important; /* 画面幅に合わせて配置を崩さず自動縮小させます */
-        max-width: 160px !important; /* 縦幅が大きくなりすぎないように最大幅を制限します */
-        height: auto !important; /* 縦幅はアスペクト比から自動で算出します */
-        aspect-ratio: 110 / 154 !important; /* カードと同じ比率（約 1:1.4）を厳密に維持します */
-        border-radius: 6px;
-    }
-    .special-v-line {
-        display: block !important; /* 横並びを維持するため、中央の区切り線を表示します */
-        height: 120px; /* 縦幅に合わせて区切り線の長さを縮小します */
-        margin: 5px 0 !important;
-    }
-
-    /* 5. 検索セクションのコンパクト化 */
-    #search-section {
-        height: 180px; /* スマホでは高さをやや低く */
-    }
-    #search-section.collapsed {
-        transform: translateX(-50%) translateY(180px);
-    }
-    #search-results {
-        height: 95px;
-    }
-    #search-results img {
-        height: 85px;
-    }
-    #search-controls {
-        height: 38px;
-    }
-    #card-search-input {
-        padding: 6px;
-        font-size: 14px;
-    }
-    .btn-filter, .btn-sort, .btn-analysis {
-        padding: 6px 10px;
-        font-size: 12px;
-    }
-    /* カード詳細モーダル スマホ用配置 */
-    .detail-content {
-        width: 92% !important;
-        margin: 3vh auto !important;
-        padding: 15px !important;
-        max-height: 94vh;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 5px;
+        margin-bottom: 10px;
+        max-height: 85px;
         overflow-y: auto;
+        padding: 5px;
+        background: #fdfdfd;
+        border: 1px dashed #ccc;
+        border-radius: 4px;
     }
-    .detail-grid {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 12px !important;
-        margin-bottom: 15px !important;
+    .selected-badge {
+        background-color: #e0f2fe;
+        color: #0369a1;
+        border: 1px solid #bae6fd;
+        border-radius: 16px;
+        padding: 2px 10px;
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: bold;
     }
-    #detail-name {
-        order: 1;
-        font-size: 1.2rem !important;
-        margin: 15px 0 5px 0 !important;
-        padding-bottom: 8px !important;
-        padding-right: 25px; /* ×ボタンと被らないように余白確保 */
+    .selected-badge-remove {
+        cursor: pointer;
+        color: #ef4444;
+        font-weight: bold;
+        font-size: 0.95rem;
+        line-height: 1;
+        display: inline-block;
+        margin-left: 2px;
     }
-    .detail-image {
-        order: 2;
-        width: 100%;
-        max-width: 200px; /* スマホ画面で大きすぎないサイズに調整 */
-        margin: 0 auto !important;
+    .selected-badge-remove:hover {
+        color: #b91c1c;
     }
-    .detail-qty {
-        order: 3;
-    }
-    .qty-controls {
-        margin: 5px 0 !important;
-    }
-    .detail-desc {
-        order: 4;
-        width: 100%;
-    }
-    #detail-text {
-        max-height: 160px !important;
-        padding: 10px !important;
-        font-size: 0.85rem !important;
-    }
-    .detail-close-btn {
-        right: 15px !important;
-        top: 12px !important;
-        font-size: 28px !important;
-    }
-    .version-section h4 {
-        margin: 10px 0 5px 0 !important;
-        font-size: 0.9rem;
-    }
-}
-/* --- 選択済みバッジ用のスタイル --- */
-.selected-badges-container {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 5px;
-    margin-bottom: 10px;
-    max-height: 85px;
-    overflow-y: auto;
-    padding: 5px;
-    background: #fdfdfd;
-    border: 1px dashed #ccc;
-    border-radius: 4px;
-}
-.selected-badge {
-    background-color: #e0f2fe;
-    color: #0369a1;
-    border: 1px solid #bae6fd;
-    border-radius: 16px;
-    padding: 2px 10px;
-    font-size: 0.8rem;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: bold;
-}
-.selected-badge-remove {
-    cursor: pointer;
-    color: #ef4444;
-    font-weight: bold;
-    font-size: 0.95rem;
-    line-height: 1;
-    display: inline-block;
-    margin-left: 2px;
-}
-.selected-badge-remove:hover {
-    color: #b91c1c;
-}
-</style>
 
+    /* --- 7. スマートフォン環境（ボトムシート＆縦並びフォールバック） --- */
+    @media (max-width: 768px) {
+        .hand-switch-btn {
+            display: none !important;
+        }
+
+        #container {
+            flex-direction: column !important; 
+            max-width: 100% !important; 
+            box-shadow: none !important;
+        }
+        
+        #deck-area {
+            padding: 8px;
+            padding-bottom: 210px !important; 
+        }
+        
+        #deck-area.search-collapsed {
+            padding-bottom: 110px !important;
+        }
+
+        #main-deck-list {
+            grid-template-columns: repeat(8, 1fr) !important; 
+            gap: 1px;
+        }
+
+        #extra-deck-area {
+            flex-direction: column !important;
+            gap: 15px;
+            align-items: center;
+            overflow-y: auto;
+        }
+        .zone-container {
+            width: 100%;
+        }
+        
+        /* スマホ時はアスペクト比固定をリセットし、横幅に応じて等倍縮小 */
+        #gr-list, #super-dim-list {
+            width: 100% !important;
+            max-width: 380px; 
+            height: auto !important;
+            aspect-ratio: auto !important;
+            grid-template-columns: repeat(4, 1fr) !important;
+            grid-template-rows: none !important;
+            grid-auto-rows: auto !important;
+        }
+        .extra-list img {
+            width: 100% !important;
+            height: auto !important;
+        }
+
+        /* 特殊タブ */
+        #special-deck-list.active {
+            flex-direction: row !important; 
+            justify-content: space-around;
+            align-items: center;
+            gap: 10px;
+            padding: 5px !important;
+        }
+        .special-zone {
+            padding: 5px !important;
+            flex: 1;
+            min-width: 0;
+        }
+        .special-label {
+            font-size: 11px !important; 
+            margin: 0 0 4px 0 !important;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            width: 100%;
+        }
+        .btn-add-special {
+            font-size: 11px !important;
+            padding: 4px 10px !important; 
+            margin-bottom: 8px !important;
+        }
+        .special-box {
+            width: 38vw !important; 
+            max-width: 160px !important; 
+            height: auto !important; 
+            aspect-ratio: 110 / 154 !important; 
+            border-radius: 6px;
+        }
+        .special-v-line {
+            display: block !important; 
+            height: 120px; 
+            margin: 5px 0 !important;
+        }
+
+        /* 検索セクションボトムシート（配置・順番の再定義） */
+        #search-section {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 50% !important;
+            transform: translateX(-50%) translateY(0) !important;
+            width: 100% !important;
+            max-width: 900px !important;
+            height: 200px !important;
+            border-top: 3px solid #333 !important;
+            border-left: none !important;
+            border-right: none !important;
+            box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.15) !important;
+            padding: 5px 10px !important;
+            transition: transform 0.3s ease !important;
+            display: flex !important;
+            flex-direction: column !important; /* 上下配置 */
+            gap: 4px !important;
+        }
+        #search-section.collapsed {
+            width: 100% !important;
+            min-width: 100% !important;
+            padding: 5px 10px !important;
+            border-top: 3px solid #333 !important;
+            transform: translateX(-50%) translateY(200px) !important;
+        }
+        
+        #search-toggle-btn {
+            position: absolute !important;
+            top: -32px !important;
+            left: auto !important;
+            right: 20px !important;
+            transform: none !important;
+            width: auto !important;
+            height: 32px !important;
+            writing-mode: horizontal-tb !important;
+            border-radius: 8px 8px 0 0 !important;
+            transition: none !important;
+        }
+
+        /* 1. 一番上にカード横並び(横スクロール) */
+        #search-results {
+            display: flex !important;
+            flex-direction: row !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+            white-space: nowrap !important;
+            height: 120px !important; /* ★ 高さを 105px から 120px に拡大 */
+            padding: 2px 0 !important;
+            gap: 8px !important;
+            order: 1 !important; /* 一番上 */
+        }
+        #search-results img {
+            height: 110px !important; 
+            width: auto !important; 
+            aspect-ratio: 110/154 !important; /* カードの比率を維持 */
+            object-fit: contain !important; /* ★ 引き伸ばしを完全に防ぐ */
+            background-color: #fff; /* 余白を白で埋める */
+            flex-shrink: 0;
+        }
+
+        /* コントロール群ラッパー */
+        #search-controls-wrapper {
+            border-bottom: none !important;
+            padding-bottom: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 4px !important;
+            order: 2 !important; /* 二番目 */
+            width: 100% !important;
+        }
+
+        /* 2. その下に検索ボックス、右隣にボタン */
+        #search-controls {
+            display: flex !important;
+            flex-direction: row !important; /* 横並び */
+            align-items: center !important;
+            gap: 6px !important;
+            width: 100% !important;
+            height: auto !important;
+        }
+        
+        #card-search-input {
+            flex: 1 !important; /* 検索ボックスを広めに */
+            padding: 8px !important;
+            font-size: 14px !important;
+            box-sizing: border-box !important;
+        }
+
+        #search-buttons-row {
+            display: flex !important;
+            gap: 4px !important;
+            flex-shrink: 0 !important; /* ボタン幅が潰れないように制限 */
+        }
+
+        .btn-filter, .btn-sort {
+            padding: 8px 12px !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+        }
+
+        /* 3. 一番下にカード名・テキストのチェックボックス（左寄せ） */
+        .search-scope {
+            display: flex !important;
+            justify-content: flex-start !important; /* 左寄せ */
+            align-items: center !important;
+            padding-left: 4px !important;
+            gap: 15px !important;
+            height: auto !important;
+            margin-top: 2px !important;
+        }
+        .search-scope label {
+            font-size: 11px !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 3px !important;
+        }
+
+        /* 詳細モーダル */
+        .detail-content {
+            width: 92% !important;
+            margin: 3vh auto !important;
+            padding: 15px !important;
+            max-height: 94vh;
+            overflow-y: auto;
+        }
+        .detail-grid {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 12px !important;
+            margin-bottom: 15px !important;
+        }
+        #detail-name {
+            order: 1;
+            font-size: 1.2rem !important;
+            margin: 15px 0 5px 0 !important;
+            padding-bottom: 8px !important;
+            padding-right: 25px; 
+        }
+        .detail-image {
+            order: 2;
+            width: 100%;
+            max-width: 200px; 
+            margin: 0 auto !important;
+        }
+        .detail-qty {
+            order: 3;
+        }
+        .qty-controls {
+            margin: 5px 0 !important;
+        }
+        .detail-desc {
+            order: 4;
+            width: 100%;
+        }
+        #detail-text {
+            max-height: 160px !important;
+            padding: 10px !important;
+            font-size: 0.85rem !important;
+        }
+        .detail-close-btn {
+            right: 15px !important;
+            top: 12px !important;
+            font-size: 28px !important;
+        }
+        .version-section h4 {
+            margin: 10px 0 5px 0 !important;
+            font-size: 0.9rem;
+        }
+    }
+</style>
 <!-- 外部ライブラリ読み込み -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
@@ -824,8 +1076,9 @@
         <div id="deck-header">
             <h3>デッキ内容</h3>
             <div style="display: flex; align-items: center; gap: 15px;">
+                <!-- 利き手（検索エリアの左右）切り替えスイッチ -->
                 <button class="btn-analysis" onclick="openAnalysisModal()">分析</button>
-                <button id="save-deck-btn" onclick="openSaveModal()" style="padding: 8px 20px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>                <div id="trash-area">🗑️</div>
+                <button id="save-deck-btn" onclick="openSaveModal()" style="padding: 8px 20px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>
             </div>
         </div>
 
@@ -835,11 +1088,11 @@
         <!-- GR/超次元エリア -->
         <div id="extra-deck-area" class="deck-content" style="display:none; flex-direction:row; gap:20px; padding:10px;">
             <div class="zone-container" style="flex:1;">
-                <h4 style="margin:0 0 5px 0; border-bottom:2px solid #007bff;">超GRゾーン (最大12枚)</h4>
+                <h4 style="margin:0 0 5px 0; border-bottom:2px solid #007bff;">超GR</h4>
                 <div id="gr-list" class="extra-list gr-layout"></div>
             </div>
             <div class="zone-container" style="flex:1;">
-                <h4 style="margin:0 0 5px 0; border-bottom:2px solid #dc3545;">超次元ゾーン (最大8枚)</h4>
+                <h4 style="margin:0 0 5px 0; border-bottom:2px solid #dc3545;">超次元ゾーン</h4>
                 <div id="super-dim-list" class="extra-list dim-layout"></div>
             </div>
         </div>
@@ -859,23 +1112,29 @@
             </div>
         </div>    
     </div>
-
-    <!-- 検索エリア -->
+    <button id="search-toggle-btn" onclick="toggleSearchSection()">◀ 検索を隠す</button>
+    <!-- 検索エリア（右側・左側縦長配置へ変更） -->
     <div id="search-section">
-        <!-- ★ 検索開閉トグルボタンを追加 -->
-        <button id="search-toggle-btn" onclick="toggleSearchSection()">▼ 検索を隠す</button>
-        <div id="search-results"></div>
+        <!-- 開閉トグルボタン（縦型テキスト仕様） -->        
         <div id="search-controls-wrapper">
             <div id="search-controls">
-                <input type="text" id="card-search-input" placeholder="カード名を入力して即時検索..." autocomplete="off">
-                <button class="btn-filter" onclick="toggleFilterModal()">絞り込み</button>
-                <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
+                <!-- 入力フォーム -->
+                <input type="text" id="card-search-input" placeholder="カード名を入力..." autocomplete="off">
+                <!-- 絞り込み & 並び替えボタンの横並び行 -->
+                <div id="search-buttons-row">
+                    <button class="btn-filter" onclick="toggleFilterModal()">絞り込み</button>
+                    <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
+                </div>
             </div>
             <div class="search-scope">
                 <label><input type="checkbox" class="scope-check" value="name" checked> カード名</label>
                 <label><input type="checkbox" class="scope-check" value="text"> テキスト</label>
+                <button class="hand-switch-btn" onclick="toggleSearchPosition()">⇄ 位置切り替え</button>
             </div>
         </div>
+        
+        <!-- カード検索結果（グリッドスクロール表示） -->
+        <div id="search-results"></div>
     </div>
 </div>
 
@@ -1406,9 +1665,9 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     img.onerror = () => handleImageError(img);
 
     const name = card.card_name;
-    // ドルマゲドンと零龍の判定条件を拡張（別名や関連カード名に対応）
-    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
-    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+    // 名前が完全一致する場合のみ特殊カードとして判定
+    const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
+    const isZero = (name === '零龍' || name === '滅亡の起源 零無');
     const isSpecial = isDoru || isZero;
 
     const type = forcedType || (isSpecial ? 'special' : determineZoneType(card.char_ids));
@@ -1457,67 +1716,105 @@ resultsDiv.addEventListener('click', (e) => {
 
 
 // --- D. SortableJS 設定 ---
+// --- D. SortableJS 設定 ---
 const deckSortableConfig = {
-    group: 'shared', animation: 150,
-    onStart: () => trashArea.style.display = 'flex',
-    onEnd: () => { trashArea.style.display = 'none'; updateDeckDisplay(); },
-onAdd: function(evt) {
-            const item = evt.item;
-            const name = item.dataset.cardName;
-            const charIds = (item.dataset.charIds || '').split(',');
-            
-            // 上限値の解決（空またはnullなら 99枚＝無制限）
-            const limitVal = item.dataset.cardLimit;
-            const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
+    group: 'shared', 
+    animation: 150,
+    onStart: () => {
+        // ドラッグ開始時のゴミ箱表示処理（削除）
+    },
+    onEnd: function(evt) {
+        // ドラッグ終了時のカーソル位置を取得
+        const e = evt.originalEvent;
+        if (!e) {
+            updateDeckDisplay();
+            return;
+        }
 
-            // 拡張された判定条件
-            const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
-            const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+        const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
+        const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
 
-            if (isDoru || isZero) {
-                const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
-                const slot = document.getElementById(slotId);
-                if (slot.querySelectorAll('img').length > 0) {
-                    alert("既に登録されています。");
-                    item.remove();
-                    return;
-                }
-                slot.innerHTML = ''; 
-                slot.appendChild(item);
-                slot.classList.add('active');
-                slot.classList.remove('empty');
-                updateSaveButton(slotId, true);
-                updateDeckDisplay();
+        // 有効なドロップ先（メイン・超次元・GRの各リスト）
+        const validLists = [mainList, superDimList, grList];
+        
+        // 特殊エリアのスロット（アクティブ・非アクティブ問わず枠内であれば検知）
+        document.querySelectorAll('.special-box').forEach(box => {
+            validLists.push(box);
+        });
+
+        // いずれかの有効リストの範囲内にドロップされたか判定
+        let isInside = false;
+        for (const list of validLists) {
+            const rect = list.getBoundingClientRect();
+            if (clientX >= rect.left && clientX <= rect.right &&
+                clientY >= rect.top && clientY <= rect.bottom) {
+                isInside = true;
+                break;
+            }
+        }
+
+        // デッキの有効領域（枠内）のいずれにも属さず、かつ検索結果からの新規ドラッグでない場合は削除
+        if (!isInside && evt.from !== resultsDiv) {
+            evt.item.remove();
+        }
+
+        updateDeckDisplay();
+    },
+    onAdd: function(evt) {
+        const item = evt.item;
+        const name = item.dataset.cardName;
+        const charIds = (item.dataset.charIds || '').split(',');
+        
+        const limitVal = item.dataset.cardLimit;
+        const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
+
+        const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
+        const isZero = (name === '零龍' || name === '滅亡の起源 零無');
+
+        if (isDoru || isZero) {
+            const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
+            const slot = document.getElementById(slotId);
+            if (slot.querySelectorAll('img').length > 0) {
+                alert("既に登録されています。");
+                item.remove();
                 return;
             }
-
-            const comboNames = item.dataset.comboNames || '';
-
-            if (charIds.includes('3') || charIds.includes('6')) {
-                superDimList.appendChild(item);
-                if (!checkLimit(name, nameLimit, superDimList, item, 8, "超次元ゾーン", comboNames)) {
-                    item.remove();
-                }
-            } else if (charIds.includes('10')) {
-                grList.appendChild(item);
-                if (!checkLimit(name, nameLimit, grList, item, 12, "超GRゾーン", comboNames)) {
-                    item.remove();
-                }
-            } else {
-                mainList.appendChild(item);
-                if (!checkLimit(name, nameLimit, mainList, item, 60, "メインデッキ", comboNames)) {
-                    item.remove();
-                }
-            }
+            slot.innerHTML = ''; 
+            slot.appendChild(item);
+            slot.classList.add('active');
+            slot.classList.remove('empty');
+            updateSaveButton(slotId, true);
             updateDeckDisplay();
+            return;
         }
-    };
 
+        const comboNames = item.dataset.comboNames || '';
+
+        if (charIds.includes('3') || charIds.includes('6')) {
+            superDimList.appendChild(item);
+            if (!checkLimit(name, nameLimit, superDimList, item, 8, "超次元ゾーン", comboNames)) {
+                item.remove();
+            }
+        } else if (charIds.includes('10')) {
+            grList.appendChild(item);
+            if (!checkLimit(name, nameLimit, grList, item, 12, "超GRゾーン", comboNames)) {
+                item.remove();
+            }
+        } else {
+            mainList.appendChild(item);
+            if (!checkLimit(name, nameLimit, mainList, item, 60, "メインデッキ", comboNames)) {
+                item.remove();
+            }
+        }
+        updateDeckDisplay();
+    }
+};
+
+// 各デッキリストのSortable定義
 new Sortable(mainList, deckSortableConfig);
 new Sortable(superDimList, deckSortableConfig);
 new Sortable(grList, deckSortableConfig);
 new Sortable(resultsDiv, { group: { name: 'shared', pull: 'clone', put: false }, sort: false, animation: 150 });
-new Sortable(trashArea, { group: 'shared', onAdd: (evt) => { evt.item.remove(); updateDeckDisplay(); } });
 
 document.querySelectorAll('.special-box').forEach(box => {
     new Sortable(box, {
@@ -1644,8 +1941,8 @@ function renderDetailModal() {
     const comboNames = selectedCardData.combo_names || '';
     const selector = getCardSelector(name, comboNames);
 
-    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
-    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+    const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
+    const isZero = (name === '零龍' || name === '滅亡の起源 零無');
 
     if (isDoru || isZero) {
         const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
@@ -1685,8 +1982,8 @@ function renderDetailModal() {
 
 function adjustQty(diff) {
     const name = selectedCardData.card_name;
-    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
-    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+    const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
+    const isZero = (name === '零龍' || name === '滅亡の起源 零無');
     const isSpecial = isDoru || isZero;
 
     if (isSpecial) {
@@ -1761,9 +2058,12 @@ function adjustMainDeckRows() {
     const searchSection = document.getElementById('search-section');
     const isSearchCollapsed = searchSection.classList.contains('collapsed');
     
-    const paddingBottom = isSearchCollapsed ? 120 : 220;
+    let paddingBottom = 10;
+    if (window.innerWidth <= 768) {
+        paddingBottom = isSearchCollapsed ? 110 : 210;
+    }
     parent.style.paddingBottom = `${paddingBottom}px`;
-    
+        
     const excludeHeight = 35 + 40 + 10 + 20 + paddingBottom + 10;
     
     const maxContainerHeight = containerHeight - excludeHeight;
@@ -1819,22 +2119,46 @@ window.addEventListener('resize', adjustMainDeckRows);
 function toggleSearchSection() {
     const searchSection = document.getElementById('search-section');
     const deckArea = document.getElementById('deck-area');
-    const btn = document.getElementById('search-toggle-btn');
     
     const isCollapsed = searchSection.classList.toggle('collapsed');
     
     if (isCollapsed) {
-        btn.innerHTML = '▲ カード検索を開く';
         if (deckArea) deckArea.classList.add('search-collapsed');
     } else {
-        btn.innerHTML = '▼ 検索を隠す';
         if (deckArea) deckArea.classList.remove('search-collapsed');
     }
+    
+    // ボタンの位置・テキストを現在の開閉状態に基づいて再計算して同期
+    syncSearchToggleButton();
     
     adjustMainDeckRows();
     setTimeout(adjustMainDeckRows, 300);
 }
 
+function syncSearchToggleButtonText() {
+    const searchSection = document.getElementById('search-section');
+    const container = document.getElementById('container');
+    const btn = document.getElementById('search-toggle-btn');
+    if (!btn) return;
+
+    const isCollapsed = searchSection.classList.contains('collapsed');
+    const isLeftHanded = container.classList.contains('left-handed');
+
+    // スマホ表示時（ウィンドウ幅が768px以下）
+    if (window.innerWidth <= 768) {
+        btn.innerHTML = isCollapsed ? '▲ カード検索を開く' : '▼ 検索を隠す';
+        return;
+    }
+
+    // デスクトップ表示時の左右判定に応じた文字矢印制御
+    if (isLeftHanded) {
+        btn.innerHTML = isCollapsed ? '検索を開く ▶' : '◀ 検索を隠す';
+    } else {
+        btn.innerHTML = isCollapsed ? '◀ 検索を開く' : '検索を隠す ▶';
+    }
+}
+// 画面幅リサイズ時にもボタン表示テキストを最適に更新する
+window.addEventListener('resize', syncSearchToggleButtonText);
 
 // --- G. 検索・無限スクロール ---
 input.addEventListener('input', () => {
@@ -1874,9 +2198,8 @@ function fetchAndRender() {
 
     const p = new URLSearchParams();
     if (currentFilters.q) {
-        // 検索キーワードのひらがなをカタカナに変換してセット
-        const convertedQuery = hiraToKata(currentFilters.q);
-        p.append('q', convertedQuery);
+        // 入力された文字列（生のクエリ）をそのまま送信します
+        p.append('q', currentFilters.q);
     }
     
     p.append('scope', currentFilters.scope.join(',')); 
@@ -1942,11 +2265,19 @@ function fetchAndRender() {
 }
 
 resultsDiv.onscroll = () => { 
-    if (resultsDiv.scrollLeft + resultsDiv.clientWidth >= resultsDiv.scrollWidth - 100) {
-        loadMoreCards();
+    // PCなどの縦スクロール時に末尾（下部）に達したか判定、またはスマホ横スクロール時にも動作するように両対応
+    const isMobile = window.innerWidth <= 768;
+    
+    if (isMobile) {
+        if (resultsDiv.scrollLeft + resultsDiv.clientWidth >= resultsDiv.scrollWidth - 100) {
+            loadMoreCards();
+        }
+    } else {
+        if (resultsDiv.scrollTop + resultsDiv.clientHeight >= resultsDiv.scrollHeight - 100) {
+            loadMoreCards();
+        }
     }
 };
-
 // --- G. 絞り込みモーダル制御 ---
 function toggleFilterModal() { 
     const m = document.getElementById('filterModal'); 
@@ -2429,8 +2760,8 @@ function addCardToDeckFromSearch(cardData) {
     const limitVal = cardData.card_limit;
     const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
 
-    const isDoru = name.includes('ドルマゲドン') || name.includes('FORBIDDEN') || name.includes('Forbidden') || name.includes('世界最後の日') || name.includes('禁断');
-    const isZero = name.includes('零龍') || name.includes('零無') || name.includes('ゼーロン');
+    const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
+    const isZero = (name === '零龍' || name === '滅亡の起源 零無');
 
     if (isDoru || isZero) {
         const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
@@ -2491,4 +2822,65 @@ function getCardSelector(cardName, comboNames) {
     }
     return `img[data-card-name="${escapeSelectorValue(cardName)}"][data-combo-names=""]`;
 }
+// 利き手設定を保持して表示位置（左右）を切り替える
+function toggleSearchPosition() {
+    const container = document.getElementById('container');
+    const isLeftHanded = container.classList.toggle('left-handed');
+    
+    localStorage.setItem('deck_builder_left_handed', isLeftHanded ? 'true' : 'false');
+    
+    // 配置切り替え時にもボタンの位置・テキストを同期
+    syncSearchToggleButton();
+}
+
+// ボタンの位置・テキストを統合制御する処理
+function syncSearchToggleButton() {
+    const searchSection = document.getElementById('search-section');
+    const container = document.getElementById('container');
+    const btn = document.getElementById('search-toggle-btn');
+    if (!btn) return;
+
+    const isCollapsed = searchSection.classList.contains('collapsed');
+    const isLeftHanded = container.classList.contains('left-handed');
+
+    // スマホ表示時（幅768px以下）のスタイル復元
+    if (window.innerWidth <= 768) {
+        btn.style.left = '';
+        btn.style.right = '20px';
+        btn.style.top = '-32px';
+        btn.style.transform = '';
+        btn.style.borderRadius = '8px 8px 0 0';
+        btn.innerHTML = isCollapsed ? '▲ カード検索を開く' : '▼ 検索を隠す';
+        return;
+    }
+
+    // デスクトップ表示時の一括スタイル管理
+    btn.style.top = '50%';
+    btn.style.transform = 'translateY(-50%)';
+
+    if (isLeftHanded) {
+        // 左利き配置時（検索枠が左側）
+        btn.style.right = 'auto';
+        btn.style.left = isCollapsed ? '0px' : '320px'; // 閉じているときは左端(0px)、開いているときは左から320px
+        btn.style.borderRadius = '0 8px 8px 0'; // 角丸を右側に
+        btn.innerHTML = isCollapsed ? '開く ▶' : '◀ 隠す';
+    } else {
+        // 通常配置時（検索枠が右側）
+        btn.style.left = 'auto';
+        btn.style.right = isCollapsed ? '0px' : '320px'; // 閉じているときは右端(0px)、開いているときは右から320px
+        btn.style.borderRadius = '8px 0 0 8px'; // 角丸を左側に
+        btn.innerHTML = isCollapsed ? '◀ 開く' : '隠す ▶';
+    }
+}
+
+// ページ読み込み完了時、リサイズ時にもボタンの状態を常に同期させる
+window.addEventListener('DOMContentLoaded', () => {
+    const isLeftHanded = localStorage.getItem('deck_builder_left_handed') === 'true';
+    if (isLeftHanded) {
+        document.getElementById('container').classList.add('left-handed');
+    }
+    syncSearchToggleButton();
+});
+
+window.addEventListener('resize', syncSearchToggleButton);
 </script>
