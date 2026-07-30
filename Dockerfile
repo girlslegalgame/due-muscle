@@ -26,15 +26,16 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_mysql
 
+# Apacheの設定（ドキュメントルートを /public に変更）
 ENV APACHE_DOCUMENT_ROOT /var/www/html/public
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
 RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
 RUN a2enmod rewrite
 
-# mpm_prefork 以外のすべてのMPM設定（event, worker等）を完全に自動強制削除
-RUN find /etc/apache2/mods-enabled/ -name "mpm_*.load" ! -name "mpm_prefork.load" -delete
-RUN find /etc/apache2/mods-enabled/ -name "mpm_*.conf" ! -name "mpm_prefork.conf" -delete
-RUN a2enmod mpm_prefork || true
+# 強制的に不要なMPMを無効化し、preforkのみを有効化（エラーをごまかさない設定）
+RUN a2dismod mpm_event || echo "mpm_event is already disabled"
+RUN a2dismod mpm_worker || echo "mpm_worker is already disabled"
+RUN a2enmod mpm_prefork
 
 
 # 作業ディレクトリの設定
