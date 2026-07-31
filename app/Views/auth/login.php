@@ -1,6 +1,7 @@
-<?php require_once __DIR__ . '/../layouts/app.php'; ?>
-
-<?php $layoutContent = ob_get_clean(); // ob_start()で取得した内容をクリア ?>
+<?php
+// 1. 最初に出力バッファリングを明示的に開始します
+ob_start();
+?>
 
 <style>
     /* ★共通のフッター（footerタグ、.footerクラス、#footerのID）を非表示にする */
@@ -141,8 +142,10 @@
 </main>
 
 <?php
-$mainContent = ob_get_contents();
-ob_end_clean();
+// 2. これまでにバッファされたHTML（styleタグやmainタグなど）を変数 $content に代入し、バッファを終了します
+$content = ob_get_clean();
+
+// 3. 共通レイアウト（app.php）を読み込みます。
+// app.php 内の <?php echo $content ?? ''; ?> の部分に上記のHTMLが流し込まれます。
 require_once __DIR__ . '/../layouts/app.php';
-echo $mainContent;
 ?>
