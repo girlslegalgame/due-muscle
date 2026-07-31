@@ -15,34 +15,33 @@ class Database {
      */
     public static function connect() {
         if (self::$pdo === null) {
-            // 設定ファイルを読み込む（プロジェクトのディレクトリ構造に合わせる）
-            $configPath = __DIR__ . '/../config/database.php';
             
-            if (!file_exists($configPath)) {
-                throw new PDOException("設定ファイルが見つかりません: " . $configPath);
-            }
+            // 1. Railwayの環境変数(MYSQL...)を最優先し、なければLaravel用(DB_...)やローカルの初期値を使用します
+            $host     = getenv('MYSQLHOST')     ?: (getenv('DB_HOST')     ?: '127.0.0.1');
+            $port     = getenv('MYSQLPORT')     ?: (getenv('DB_PORT')     ?: '3306');
+            $dbname   = getenv('MYSQLDATABASE') ?: (getenv('DB_DATABASE') ?: 'laravel');
+            $user     = getenv('MYSQLUSER')     ?: (getenv('DB_USERNAME') ?: 'root');
+            $password = getenv('MYSQLPASSWORD') ?: (getenv('DB_PASSWORD') ?: '');
+            $charset  = 'utf8mb4';
             
-            self::$config = require $configPath;
+            // 2. DSN（接続文字列）を組み立てます
+            $dsn = "mysql:host={$host};port={$port};dbname={$dbname};charset={$charset}";
             
-            $dsn = "mysql:host=" . self::$config['host'] . 
-                   ";dbname=" . self::$config['dbname'] . 
-                   ";charset=" . self::$config['charset'];
-            
-            $options =[
+            $options = [
                 PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ];
             
             try {
+                // 3. データベースへの接続を実行します
                 self::$pdo = new PDO(
                     $dsn, 
-                    self::$config['user'], 
-                    self::$config['password'], 
+                    $user, 
+                    $password, 
                     $options
                 );
             } catch (PDOException $e) {
-                // エラー発生時はログに出力するなどの対応を推奨
                 throw new PDOException("データベース接続エラー: " . $e->getMessage(), (int)$e->getCode());
             }
         }
