@@ -144,8 +144,5 @@ ob_start();
 <?php
 // 2. これまでにバッファされたHTML（styleタグやmainタグなど）を変数 $content に代入し、バッファを終了します
 $content = ob_get_clean();
-
-// 3. 共通レイアウト（app.php）を読み込みます。
-// app.php 内の <?php echo $content ?? ''; ?> の部分に上記のHTMLが流し込まれます。
 require_once __DIR__ . '/../layouts/app.php';
 ?>
