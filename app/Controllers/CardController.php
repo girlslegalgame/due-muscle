@@ -592,6 +592,11 @@ if ($q !== '') {
                     $params[':q_read_kata_clean'] = "%$q_kata_clean%";
                     $params[':q_read_hira_clean'] = "%$q_hira_clean%";
                 }
+
+                // ★ 追加：構築した条件式をSQL文に結合します
+                if (!empty($conds)) {
+                    $sql .= " AND (" . implode(' OR ', $conds) . ")";
+                }
             }
 
             // 単色・多色による絞り込み

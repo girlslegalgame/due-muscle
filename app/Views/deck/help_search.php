@@ -453,8 +453,19 @@ function triggerHelpSearch(resetPage) {
 
     // APIへリクエスト送信
     fetch('/api/cards/help-search?' + params.toString())
-        .then(res => res.json())
+        .then(res => {
+            // ステータスが正常（200〜299）でない場合はエラーをスローして catch に流す
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            return res.json();
+        })
         .then(cards => {
+            // 受信データが配列であることを確認
+            if (!Array.isArray(cards)) {
+                throw new TypeError("Received data is not an array");
+            }
+
             console.log(`[Help API Response] 正常受信。取得件数: ${cards.length} 件`);
             
             renderSearchResults(cards);
@@ -483,8 +494,15 @@ function triggerHelpSearch(resetPage) {
                 nextBtn.style.opacity = "1";
             }
         })
-        .catch(err => console.error("[Help API Response Error] データの取得に失敗しました:", err));
-}
+        .catch(err => {
+            console.error("[Help API Response Error] データの取得に失敗しました:", err);
+            // エラー時はグリッドにエラーメッセージを表示して処理を停止する
+            const grid = document.getElementById('help-results-grid');
+            if (grid) {
+                grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; color: #dc3545; padding: 40px 0;">データの取得中にエラーが発生しました。</div>';
+            }
+        });
+    }
 
 /**
  * 検索結果（カード画像）の描画
