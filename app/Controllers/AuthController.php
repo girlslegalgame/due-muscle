@@ -113,6 +113,9 @@ class AuthController {
                             // 認証コードをスキップしてログイン状態にする
                             $_SESSION['user_id'] = $user['user_id'];
                             $_SESSION['username'] = $user['username'];
+                            if (function_exists('fastcgi_finish_request')) {
+                                fastcgi_finish_request(); // ブラウザとの接続を先に切断し、メール送信は裏で実行する
+                            }
                             header('Location: /mydecks');
                             exit;
                         }
