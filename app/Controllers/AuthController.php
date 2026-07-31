@@ -40,8 +40,8 @@ class AuthController {
             $mail->Username   = getenv('SMTP_USER') ?: '';            // 送信元メールアドレス
             $mail->Password   = getenv('SMTP_PASS') ?: '';            // 16桁のアプリパスワード
             
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;       // 安全な暗号化通信を指定
-            $mail->Port       = 587;                                  // Gmail SMTP用のポート番号
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;       // STARTTLS から SMTPS に変更
+            $mail->Port       = 465;                                  // Gmail SMTP用のポート番号
 
             // ==========================================
             // 2. 送受信者の設定
