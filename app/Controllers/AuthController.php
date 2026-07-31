@@ -231,6 +231,20 @@ class AuthController {
     }
 
     public function logout() {
+        // ★修正：自動ログイン用のCookie（known_device_から始まるCookie）をクリアする
+        if (isset($_SESSION['user_id'])) {
+            $cookieName = "known_device_" . $_SESSION['user_id'];
+            if (isset($_COOKIE[$cookieName])) {
+                setcookie($cookieName, '', [
+                    'expires' => time() - 3600,
+                    'path' => '/',
+                    'secure' => true,
+                    'httponly' => true,
+                    'samesite' => 'Lax'
+                ]);
+            }
+        }
+
         // すでに開始されているセッションをクリア・破棄します
         session_unset();
         session_destroy();
@@ -535,5 +549,55 @@ class AuthController {
         $expectedToken = $this->generateDeviceToken($user['user_id'], $user['password_hash']);
         // タイミング攻撃を防ぐため hash_equals で比較
         return hash_equals($expectedToken, $_COOKIE[$cookieName]);
+    }
+
+    /**
+     * Cookieからセッションを自動復元、またはアクセス時にCookieの有効期限を30日後に延長する
+     * （共通のログインチェック処理や、認証が必要なページの遷移前に呼び出してください）
+     */
+    public function tryAutoLogin() {
+        // 既にセッションがある場合は、アクセスがあったためCookieの寿命を30日に延長（スライド）する
+        if (isset($_SESSION['user_id'])) {
+            try {
+                $pdo = \Models\Database::connect();
+                $stmt = $pdo->prepare("SELECT password_hash FROM users WHERE user_id = :user_id");
+                $stmt->execute([':user_id' => $_SESSION['user_id']]);
+                $user = $stmt->fetch();
+                if ($user) {
+                    $this->saveDeviceCookie($_SESSION['user_id'], $user['password_hash']);
+                }
+            } catch (\Exception $e) {
+                error_log("Device Cookie Refresh Error: " . $e->getMessage());
+            }
+            return true;
+        }
+
+        // セッションがない場合、ブラウザのCookieから自動ログインを試みる
+        foreach ($_COOKIE as $key => $value) {
+            if (strpos($key, 'known_device_') === 0) {
+                $userId = (int)str_replace('known_device_', '', $key);
+                if ($userId > 0) {
+                    try {
+                        $pdo = \Models\Database::connect();
+                        $stmt = $pdo->prepare("SELECT user_id, username, password_hash FROM users WHERE user_id = :user_id");
+                        $stmt->execute([':user_id' => $userId]);
+                        $user = $stmt->fetch();
+
+                        if ($user && hash_equals($this->generateDeviceToken($user['user_id'], $user['password_hash']), $value)) {
+                            // セッションを復元
+                            $_SESSION['user_id'] = $user['user_id'];
+                            $_SESSION['username'] = $user['username'];
+                            
+                            // Cookieの有効期限をさらに30日後に延長
+                            $this->saveDeviceCookie($user['user_id'], $user['password_hash']);
+                            return true;
+                        }
+                    } catch (\Exception $e) {
+                        error_log("Auto Login Error: " . $e->getMessage());
+                    }
+                }
+            }
+        }
+        return false;
     }
 }
