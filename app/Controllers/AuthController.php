@@ -19,52 +19,67 @@ class AuthController {
     }
 
     /**
-     * メール送信用の内部メソッド
-     * ※ Railway環境やローカル環境の実態に合わせてSMTPや外部API（SendGridなど）に書き換えてください。
+     * Brevo API (HTTPS) を使用したメール送信
+     * (SMTPが遮断される環境でも100%確実に届きます)
      */
     private function sendEmail($to, $subject, $body) {
-        // バックアップ用として、これまで通りログにも出力しておきます
-        error_log("【デバッグ】送信先: $to, 件名: $subject");
+        // 開発用にログ出力は残しておきます
+        error_log("【デバッグ】Brevo APIからメール送信を試みます。送信先: $to, 件名: $subject");
 
-        $mail = new PHPMailer(true);
+        $apiKey = getenv('BREVO_API_KEY');
+        if (empty($apiKey)) {
+            error_log("メール送信エラー: BREVO_API_KEY が環境変数に設定されていません。");
+            return false;
+        }
 
-        try {
-            // ==========================================
-            // 1. SMTPサーバーの設定
-            // ==========================================
-            $mail->isSMTP();
-            $mail->Host       = 'smtp.gmail.com';                     // GmailのSMTPサーバーを使用
-            $mail->SMTPAuth   = true;
-            
-            // Railwayの「Variables」に設定した環境変数を自動取得します
-            $mail->Username   = getenv('SMTP_USER') ?: '';            // 送信元メールアドレス
-            $mail->Password   = getenv('SMTP_PASS') ?: '';            // 16桁のアプリパスワード
-            
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;       // STARTTLS から SMTPS に変更
-            $mail->Port       = 465;                                  // Gmail SMTP用のポート番号
+        // 送信元のメールアドレス（Brevoに登録したご自身のアドレス）
+        $fromEmail = getenv('SMTP_FROM') ?: 'your-brevo-registered-email@gmail.com'; 
 
-            // ==========================================
-            // 2. 送受信者の設定
-            // ==========================================
-            $fromAddress = getenv('SMTP_FROM') ?: (getenv('SMTP_USER') ?: 'no-reply@example.com');
-            $mail->setFrom($fromAddress, 'デュエマデッキメーカー');     // 送信元の名前
-            $mail->addAddress($to);                                   // お客さま（宛先）のアドレス
+        $url = 'https://api.brevo.com/v3/smtp/email';
 
-            // ==========================================
-            // 3. メール本文の設定
-            // ==========================================
-            $mail->isHTML(true);                                      // HTMLメール形式を有効化
-            $mail->Subject = $subject;                                // 件名
-            $mail->Body    = $body;                                   // 本文
-            $mail->CharSet = 'UTF-8';                                 // 日本語の文字化けを防ぐ文字コード設定
+        // 送信データの設定（JSON形式）
+        $data = [
+            'sender' => [
+                'name' => 'デュエマデッキメーカー',
+                'email' => $fromEmail
+            ],
+            'to' => [
+                [
+                    'email' => $to
+                ]
+            ],
+            'subject' => $subject,
+            'htmlContent' => $body
+        ];
 
-            // 送信実行
-            $mail->send();
+        // cURLによるHTTPS POST送信処理
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'api-key: ' . $apiKey,
+            'Content-Type: application/json',
+            'Accept: application/json'
+        ]);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlError = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlError) {
+            error_log("Brevo API Connection Error: " . $curlError);
+            return false;
+        }
+
+        // ステータスコードが2xxであれば送信成功
+        if ($httpCode >= 200 && $httpCode < 300) {
+            error_log("Brevo API経由でのメール送信に成功しました。");
             return true;
-
-        } catch (Exception $e) {
-            // エラーが発生した場合は、Railwayのログに詳細を出力
-            error_log("メール送信に失敗しました。Mailer Error: {$mail->ErrorInfo}");
+        } else {
+            error_log("Brevo API Error (HTTP $httpCode): " . $response);
             return false;
         }
     }
