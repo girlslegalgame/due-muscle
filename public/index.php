@@ -1,5 +1,5 @@
 <?php
-
+require_once __DIR__ . '/../vendor/autoload.php';
 // エラー表示設定 (開発時のみON。本番環境ではOFFにすること)
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
