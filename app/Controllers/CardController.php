@@ -560,13 +560,12 @@ if ($q !== '') {
 
             // ベースとなるSQLクエリ
             $sql = "
-                SELECT DISTINCT c.card_id, c.card_name, cd.imagepath, cd.release_date
+                SELECT DISTINCT c.card_id, c.card_name, cd.imagepath, cd.release_date, c.cost, c.reading
                 FROM card c
                 JOIN card_detail cd ON c.card_id = cd.card_id
                 WHERE cd.imagepath IS NOT NULL 
                 AND cd.imagepath <> ''
-            ";
-            
+            ";            
             // キーワード検索（スコープ対応）
             if ($q !== '') {
                 $q_kata = mb_convert_kana($q, "C", "UTF-8");
