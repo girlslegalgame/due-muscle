@@ -1,5 +1,8 @@
 <?php namespace Controllers;
 
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
 use Models\User;
 use Models\Database;
 
@@ -20,16 +23,52 @@ class AuthController {
      * ※ Railway環境やローカル環境の実態に合わせてSMTPや外部API（SendGridなど）に書き換えてください。
      */
     private function sendEmail($to, $subject, $body) {
-        $headers = "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-        $headers .= "From: no-reply@your-deck-app.com\r\n"; // 送信元アドレス
+        // バックアップ用として、これまで通りログにも出力しておきます
+        error_log("【デバッグ】送信先: $to, 件名: $subject");
 
-        // デバッグ用にPHPのエラーログにもコードを書き出しておきます（開発環境で便利です）
-        error_log("Email to $to: [$subject] $body");
+        $mail = new PHPMailer(true);
 
-        // 標準的なメール送信関数（環境によってはブロックされるため、本番は外部サービス推奨）
-        return mail($to, $subject, $body, $headers);
+        try {
+            // ==========================================
+            // 1. SMTPサーバーの設定
+            // ==========================================
+            $mail->isSMTP();
+            $mail->Host       = 'smtp.gmail.com';                     // GmailのSMTPサーバーを使用
+            $mail->SMTPAuth   = true;
+            
+            // Railwayの「Variables」に設定した環境変数を自動取得します
+            $mail->Username   = getenv('SMTP_USER') ?: '';            // 送信元メールアドレス
+            $mail->Password   = getenv('SMTP_PASS') ?: '';            // 16桁のアプリパスワード
+            
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;       // 安全な暗号化通信を指定
+            $mail->Port       = 587;                                  // Gmail SMTP用のポート番号
+
+            // ==========================================
+            // 2. 送受信者の設定
+            // ==========================================
+            $fromAddress = getenv('SMTP_FROM') ?: (getenv('SMTP_USER') ?: 'no-reply@example.com');
+            $mail->setFrom($fromAddress, 'デュエマデッキメーカー');     // 送信元の名前
+            $mail->addAddress($to);                                   // お客さま（宛先）のアドレス
+
+            // ==========================================
+            // 3. メール本文の設定
+            // ==========================================
+            $mail->isHTML(true);                                      // HTMLメール形式を有効化
+            $mail->Subject = $subject;                                // 件名
+            $mail->Body    = $body;                                   // 本文
+            $mail->CharSet = 'UTF-8';                                 // 日本語の文字化けを防ぐ文字コード設定
+
+            // 送信実行
+            $mail->send();
+            return true;
+
+        } catch (Exception $e) {
+            // エラーが発生した場合は、Railwayのログに詳細を出力
+            error_log("メール送信に失敗しました。Mailer Error: {$mail->ErrorInfo}");
+            return false;
+        }
     }
+
 
     /**
      * ログイン処理（1ステップ目：パスワード検証と認証コード送信）
