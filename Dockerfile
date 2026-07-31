@@ -3,17 +3,15 @@
 # ==========================================
 FROM node:20-alpine AS frontend-builder
 WORKDIR /app
-
-# 依存関係のインストールとビルド
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 
 # ==========================================
-# ステージ 2: PHP + Apache 環境の構築
+# ステージ 2: FrankenPHP（モダンなPHP超高速サーバー）環境の構築
 # ==========================================
-FROM php:8.2-apache
+FROM dunglas/frankenphp:latest-php8.3
 
 # 必要なシステムパッケージとPHP拡張のインストール
 RUN apt-get update && apt-get install -y \
@@ -26,27 +24,20 @@ RUN apt-get update && apt-get install -y \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install gd pdo pdo_mysql
 
-# Apacheの設定（ドキュメントルートを /public に変更）
-ENV APACHE_DOCUMENT_ROOT /var/www/html/public
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf
-RUN sed -ri -e 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
-RUN a2enmod rewrite
+# FrankenPHPの公開ディレクトリ設定（Laravelのpublicを指定）
+ENV FRANKENPHP_DOCUMENT_ROOT=/app/public
 
-# 作業ディレクトリの設定
-WORKDIR /var/www/html
+WORKDIR /app
 
 # プロジェクトファイルのコピー
 COPY . .
 
-# ステージ1でビルドしたアセット（CSS/JSなど）をコピー
+# ステージ1でビルドしたアセットをコピー
 COPY --from=frontend-builder /app/public/build ./public/build
 
 # Composerのインストールと実行
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 RUN composer install --no-dev --optimize-autoloader
 
-# ディレクトリの権限設定（Laravelの書き込み用）
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
-
-# ポートの開放（Apacheのデフォルト）
-EXPOSE 80
+# 権限設定
+RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
