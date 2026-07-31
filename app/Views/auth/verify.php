@@ -94,7 +94,7 @@
         <div class="alert alert-danger"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
     <?php endif; ?>
 
-    <form action="/register/verify" method="POST">
+    <form action="<?php echo htmlspecialchars($action_url ?? '/register/verify'); ?>" method="POST">
         <div class="form-group">
             <!-- 認証コード入力フィールド -->
             <input type="text" id="code" name="code" class="input-code" required placeholder="123456" maxlength="6" pattern="[0-9]{6}" autocomplete="off">

@@ -15,9 +15,27 @@ class AuthController {
         renderView('auth/login.php', ['errors' => $errors]);
     }
 
+    /**
+     * メール送信用の内部メソッド
+     * ※ Railway環境やローカル環境の実態に合わせてSMTPや外部API（SendGridなど）に書き換えてください。
+     */
+    private function sendEmail($to, $subject, $body) {
+        $headers = "MIME-Version: 1.0\r\n";
+        $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "From: no-reply@your-deck-app.com\r\n"; // 送信元アドレス
+
+        // デバッグ用にPHPのエラーログにもコードを書き出しておきます（開発環境で便利です）
+        error_log("Email to $to: [$subject] $body");
+
+        // 標準的なメール送信関数（環境によってはブロックされるため、本番は外部サービス推奨）
+        return mail($to, $subject, $body, $headers);
+    }
+
+    /**
+     * ログイン処理（1ステップ目：パスワード検証と認証コード送信）
+     */
     public function login() {
         try {
-            // すべての処理を try ブロックで囲み、エラーを監視します
             if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $email = $_POST['email'] ?? '';
                 $password = $_POST['password'] ?? '';
@@ -34,10 +52,31 @@ class AuthController {
 
                     $user = $userModel->findByEmail($email);
 
+                    // パスワード確認
                     if ($user && password_verify($password, $user['password_hash'])) {
-                        $_SESSION['user_id'] = $user['user_id'];
-                        $_SESSION['username'] = $user['username'];
-                        header('Location: /mydecks');
+                        // 6桁の認証コード生成
+                        $code = sprintf('%06d', mt_rand(0, 999999));
+                        $expiresAt = time() + 600; // 10分有効
+
+                        // ログイン一時情報をセッションに保持
+                        $_SESSION['temp_login'] = [
+                            'user_id' => $user['user_id'],
+                            'username' => $user['username'],
+                            'email' => $user['email'],
+                            'code' => $code,
+                            'expires_at' => $expiresAt
+                        ];
+
+                        // ログイン用認証コードを送信
+                        $subject = "【デュエマデッキメーカー】ログイン認証コード";
+                        $body = "<p>ログインを完了するには、制限時間内に以下の認証コードを入力してください。</p>";
+                        $body .= "<h2 style='color:#007bff; letter-spacing:2px;'>{$code}</h2>";
+                        $body .= "<p>有効期限: 10分間</p>";
+                        
+                        $this->sendEmail($user['email'], $subject, $body);
+
+                        $_SESSION['success'] = 'メールアドレスにログイン用の認証コードを送信しました。';
+                        header('Location: /login/verify');
                         exit;
                     } else {
                         $errors[] = 'メールアドレスまたはパスワードが間違っています。';
@@ -51,25 +90,235 @@ class AuthController {
             }
 
         } catch (\Throwable $e) {
-            // ★ルーターによる404丸め込みを阻止し、真のエラーを画面に直接出力します
             echo "<h3>[デバッグ] ログイン処理中にエラーが発生しました</h3>";
             echo "<strong>エラーメッセージ:</strong> " . htmlspecialchars($e->getMessage()) . "<br>";
             echo "<strong>発生場所:</strong> " . htmlspecialchars($e->getFile()) . " の " . $e->getLine() . "行目<br>";
-            echo "<h4>スタックトレース:</h4>";
-            echo "<pre>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
-            exit; // 処理をここで強制停止して表示
+            exit;
         }
     }
 
+    /**
+     * ログイン認証コード入力画面の表示
+     */
+    public function showLoginVerifyForm() {
+        if (!isset($_SESSION['temp_login'])) {
+            $_SESSION['error'] = 'ログイン情報のセッションが切れました。最初からログインし直してください。';
+            header('Location: /login');
+            exit;
+        }
+
+        renderView('auth/verify.php', ['action_url' => '/login/verify']);
+    }
+
+    /**
+     * ログイン認証コードの確認処理
+     */
+    public function verifyLogin() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /login');
+            exit;
+        }
+
+        $inputCode = trim($_POST['code'] ?? '');
+
+        if (!isset($_SESSION['temp_login'])) {
+            $_SESSION['error'] = 'セッションが存在しません。ログインをやり直してください。';
+            header('Location: /login');
+            exit;
+        }
+
+        $tempLogin = $_SESSION['temp_login'];
+
+        // 有効期限検証
+        if (time() > $tempLogin['expires_at']) {
+            unset($_SESSION['temp_login']);
+            $_SESSION['error'] = '認証コードの期限が切れました。ログインを最初からやり直してください。';
+            header('Location: /login');
+            exit;
+        }
+
+        // コード一致検証
+        if ($inputCode !== $tempLogin['code']) {
+            $_SESSION['error'] = '認証コードが正しくありません。';
+            header('Location: /login/verify');
+            exit;
+        }
+
+        // 正式ログイン完了
+        $_SESSION['user_id'] = $tempLogin['user_id'];
+        $_SESSION['username'] = $tempLogin['username'];
+        
+        unset($_SESSION['temp_login']); // 一時データの消去
+
+        header('Location: /mydecks');
+        exit;
+    }
+
     public function logout() {
-        session_start();
+        // すでに開始されているセッションをクリア・破棄します
         session_unset();
         session_destroy();
         header('Location: /login');
         exit;
     }
 
-// --- AuthController.php への追加メソッド ---
+    /**
+     * 新規登録処理（1ステップ目：入力検証と認証コード送信）
+     */
+    public function sendVerificationCode() {
+        $username = trim($_POST['username'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $passwordConfirm = $_POST['password_confirm'] ?? '';
+
+        if (empty($username) || empty($email) || empty($password)) {
+            $_SESSION['error'] = 'すべての項目を入力してください。';
+            header('Location: /register');
+            exit;
+        }
+
+        if ($password !== $passwordConfirm) {
+            $_SESSION['error'] = '確認用のパスワードが一致しません。';
+            header('Location: /register');
+            exit;
+        }
+
+        if (strlen($password) < 8) {
+            $_SESSION['error'] = 'パスワードは8文字以上で設定してください。';
+            header('Location: /register');
+            exit;
+        }
+
+        try {
+            $pdo = \Models\Database::connect();
+
+            // 重複チェック
+            $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = :email");
+            $stmt->execute([':email' => $email]);
+            if ($stmt->fetch()) {
+                $_SESSION['error'] = 'すでに使用されているメールアドレスです。';
+                header('Location: /register');
+                exit;
+            }
+
+            // 6桁の認証コード生成
+            $code = sprintf('%06d', mt_rand(0, 999999));
+            $expiresAt = time() + 600; // 10分有効
+
+            // 登録データをセッションに一時保存（パスワードはハッシュ化）
+            $_SESSION['temp_register'] = [
+                'username' => $username,
+                'email' => $email,
+                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'code' => $code,
+                'expires_at' => $expiresAt
+            ];
+
+            // 新規登録用認証コードを送信
+            $subject = "【デュエマデッキメーカー】アカウント新規作成 認証コード";
+            $body = "<p>アカウント登録を完了するには、制限時間内に以下の認証コードを入力してください。</p>";
+            $body .= "<h2 style='color:#007bff; letter-spacing:2px;'>{$code}</h2>";
+            $body .= "<p>有効期限: 10分間</p>";
+
+            $this->sendEmail($email, $subject, $body);
+
+            $_SESSION['success'] = 'メールアドレスに新規登録用の認証コードを送信しました。';
+            header('Location: /register/verify');
+            exit;
+
+        } catch (\Exception $e) {
+            $_SESSION['error'] = '登録処理中にエラーが発生しました: ' . $e->getMessage();
+            header('Location: /register');
+            exit;
+        }
+    }
+
+    /**
+     * 新規登録用認証コード入力画面の表示
+     */
+    public function showVerifyForm() {
+        if (!isset($_SESSION['temp_register'])) {
+            $_SESSION['error'] = '登録の有効期限が切れたか、無効なアクセスです。';
+            header('Location: /register');
+            exit;
+        }
+
+        renderView('auth/verify.php', ['action_url' => '/register/verify']);
+    }
+
+    /**
+     * 新規登録用認証コードの確認処理（本登録）
+     */
+    public function verifyRegister() {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: /register');
+            exit;
+        }
+
+        $inputCode = trim($_POST['code'] ?? '');
+
+        if (!isset($_SESSION['temp_register'])) {
+            $_SESSION['error'] = '登録情報のセッションが切れました。最初から登録し直してください。';
+            header('Location: /register');
+            exit;
+        }
+
+        $tempUser = $_SESSION['temp_register'];
+
+        // 有効期限検証
+        if (time() > $tempUser['expires_at']) {
+            unset($_SESSION['temp_register']);
+            $_SESSION['error'] = '認証コードの期限（10分）が切れています。最初からやり直してください。';
+            header('Location: /register');
+            exit;
+        }
+
+        // コード一致検証
+        if ($inputCode !== $tempUser['code']) {
+            $_SESSION['error'] = '認証コードが正しくありません。';
+            header('Location: /register/verify');
+            exit;
+        }
+
+        try {
+            $pdo = \Models\Database::connect();
+
+            // 最終重複チェック（送信中に同一アドレスで登録された場合のケア）
+            $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = :email");
+            $stmt->execute([':email' => $tempUser['email']]);
+            if ($stmt->fetch()) {
+                unset($_SESSION['temp_register']);
+                $_SESSION['error'] = 'すでに登録されているメールアドレスです。';
+                header('Location: /register');
+                exit;
+            }
+
+            // DBに正式登録
+            $stmtInsert = $pdo->prepare("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (:name, :email, :pass, NOW(), NOW())");
+            $stmtInsert->execute([
+                ':name' => $tempUser['username'],
+                ':email' => $tempUser['email'],
+                ':pass' => $tempUser['password_hash']
+            ]);
+
+            $userId = $pdo->lastInsertId();
+
+            // ログインセッションの確立
+            $_SESSION['user_id'] = $userId;
+            $_SESSION['username'] = $tempUser['username'];
+
+            unset($_SESSION['temp_register']); // 一時データの消去
+
+            $_SESSION['success'] = 'アカウント登録が完了しました！';
+            header('Location: /mydecks');
+            exit;
+
+        } catch (\Exception $e) {
+            $_SESSION['error'] = '登録完了処理中にエラーが発生しました: ' . $e->getMessage();
+            header('Location: /register');
+            exit;
+        }
+    }
 
     /**
      * アカウント設定画面の表示
@@ -81,15 +330,9 @@ class AuthController {
         }
 
         $pdo = \Models\Database::connect();
-        // 1. SQLをプレペア
         $stmt = $pdo->prepare("SELECT username, email FROM users WHERE user_id = :user_id");
-        
-        // 2. bindValueで型を明示して安全にパラメータを割り当て（128行目付近のエラーを回避）
         $stmt->bindValue(':user_id', $_SESSION['user_id'], \PDO::PARAM_INT);
-        
-        // 3. パラメータなしで実行
         $stmt->execute();
-        
         $user = $stmt->fetch(\PDO::FETCH_ASSOC);
 
         if (!$user) {
@@ -97,7 +340,6 @@ class AuthController {
             exit;
         }
 
-        // ビューヘルパーを使ってレンダリング
         renderView('auth/account.php', ['user' => $user]);
     }
 
@@ -125,7 +367,6 @@ class AuthController {
         try {
             $pdo = \Models\Database::connect();
 
-            // 1. 重複チェック（bindValueを使い、プレースホルダーとバインドを完全に統一）
             $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = :email AND user_id != :user_id");
             $stmt->bindValue(':email', $email, \PDO::PARAM_STR);
             $stmt->bindValue(':user_id', $userId, \PDO::PARAM_INT);
@@ -137,9 +378,7 @@ class AuthController {
                 exit;
             }
 
-            // 2. 基本情報の更新
             if (!empty($password)) {
-                // パスワードを変更する場合
                 if ($password !== $passwordConfirm) {
                     $_SESSION['error'] = '新しいパスワードと確認用入力が一致しません。';
                     header('Location: /account');
@@ -153,7 +392,6 @@ class AuthController {
 
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 
-                // すべて \PDO::PARAM_ 型指定を行い、プレースホルダー名も統一
                 $stmt = $pdo->prepare("UPDATE users SET username = :name, email = :email, password_hash = :pass, updated_at = NOW() WHERE user_id = :user_id");
                 $stmt->bindValue(':name', $username, \PDO::PARAM_STR);
                 $stmt->bindValue(':email', $email, \PDO::PARAM_STR);
@@ -161,7 +399,6 @@ class AuthController {
                 $stmt->bindValue(':user_id', $userId, \PDO::PARAM_INT);
                 $stmt->execute();
             } else {
-                // パスワードを変更しない場合
                 $stmt = $pdo->prepare("UPDATE users SET username = :name, email = :email, updated_at = NOW() WHERE user_id = :user_id");
                 $stmt->bindValue(':name', $username, \PDO::PARAM_STR);
                 $stmt->bindValue(':email', $email, \PDO::PARAM_STR);
@@ -179,73 +416,4 @@ class AuthController {
             exit;
         }
     }  
-
-    /**
-     * 1. 登録情報を受け取り、認証コードを送信して一時保存する
-     */
-    public function sendVerificationCode() {
-        $username = trim($_POST['username'] ?? '');
-        $email = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        $passwordConfirm = $_POST['password_confirm'] ?? '';
-
-        // 入力値の必須チェック
-        if (empty($username) || empty($email) || empty($password)) {
-            $_SESSION['error'] = 'すべての項目を入力してください。';
-            header('Location: /register');
-            exit;
-        }
-
-        // パスワード確認チェック
-        if ($password !== $passwordConfirm) {
-            $_SESSION['error'] = '確認用のパスワードが一致しません。';
-            header('Location: /register');
-            exit;
-        }
-
-        // パスワード文字数チェック
-        if (strlen($password) < 8) {
-            $_SESSION['error'] = 'パスワードは8文字以上で設定してください。';
-            header('Location: /register');
-            exit;
-        }
-
-        try {
-            $pdo = \Models\Database::connect();
-
-            // ★重複チェック（エラーメッセージをご指定の文言に変更）
-            $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = :email");
-            $stmt->execute([':email' => $email]);
-            if ($stmt->fetch()) {
-                $_SESSION['error'] = 'すでに使用されているメールアドレスです。';
-                header('Location: /register');
-                exit;
-            }
-
-            // 直接本登録（usersテーブルにインサート）
-            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
-            $stmtInsert = $pdo->prepare("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (:name, :email, :pass, NOW(), NOW())");
-            $stmtInsert->execute([
-                ':name' => $username,
-                ':email' => $email,
-                ':pass' => $passwordHash
-            ]);
-
-            $userId = $pdo->lastInsertId();
-
-            // 登録したユーザー情報でそのままセッションログイン
-            $_SESSION['user_id'] = $userId;
-            $_SESSION['username'] = $username;
-
-            $_SESSION['success'] = 'アカウント登録が完了しました！';
-            header('Location: /mydecks');
-            exit;
-
-        } catch (\Exception $e) {
-            $_SESSION['error'] = '登録処理中にエラーが発生しました: ' . $e->getMessage();
-            header('Location: /register');
-            exit;
-        }
-    }
-    
 }

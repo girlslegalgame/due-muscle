@@ -7,13 +7,13 @@ $routes = [
         '/search' => 'DeckController@search',
         '/decks/new' => 'DeckController@create',
         '/decks/edit' => 'DeckController@edit',
-        '/account' => 'AuthController@showAccountForm', // ★追加：アカウント設定表示
+        '/account' => 'AuthController@showAccountForm',
         '/decks/playtest' => 'DeckController@playtest',
 
-
-        '/register' => 'AuthController@showRegisterForm', // 新規追加
-        '/register/verify' => 'AuthController@showVerifyForm', // ★追加：認証コード入力画面の表示
-        '/login' => 'AuthController@showLoginForm',       // 新規追加
+        '/register' => 'AuthController@showRegisterForm',
+        '/register/verify' => 'AuthController@showVerifyForm', // 新規登録用：認証コード入力画面の表示
+        '/login' => 'AuthController@showLoginForm',
+        '/login/verify' => 'AuthController@showLoginVerifyForm', // ★追加：ログイン用：認証コード入力画面の表示
 
         // APIエンドポイント (GETリクエスト)
         '/api/mydecks' => 'DeckController@myDecksApi',
@@ -39,16 +39,15 @@ $routes = [
                 
         '/help' => 'DeckController@help',
         '/help/search' => 'DeckController@helpSearch',
-        '/api/cards/help-search' => 'CardController@helpSearchApi',
-        '/api/cards/help-detail' => 'CardController@helpDetailApi',
-        '/api/master-data-extended' => 'CardController@masterDataExtendedApi',
     ],
     'POST' => [
-        '/register' => 'AuthController@sendVerificationCode', // ★修正：最初に登録情報を受け取ってコードを送信
-        '/register/verify' => 'AuthController@register',      // ★修正：認証コードを検証して本登録する処理        '/login' => 'AuthController@login',       // 新規追加
-        '/login' => 'AuthController@login',
-        '/logout' => 'AuthController@logout',     // 新規追加 (POSTリクエストでログアウト処理)
-        '/account' => 'AuthController@updateAccount', // ★追加：アカウント情報の更新処理
+        '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信
+        '/register/verify' => 'AuthController@verifyRegister', // ★変更：DBへ本登録するメソッド名を verifyRegister に統一
+        '/login' => 'AuthController@login',                    // ログイン：認証コード送信処理へ
+        '/login/verify' => 'AuthController@verifyLogin',       // ★追加：ログイン：入力されたコードの検証処理
+        '/logout' => 'AuthController@logout',
+        '/account' => 'AuthController@updateAccount',
+        
         // APIエンドポイント (POSTリクエスト)
         '/api/decks' => 'DeckController@storeDeckApi',
         '/api/decks/copy' => 'DeckController@copyDeckApi',
@@ -57,9 +56,9 @@ $routes = [
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',
         '/api/decks/set_public' => 'DeckController@setDeckPublicApi',
-        '/decks/edit' => 'DeckController@edit', // 追加：編集画面用
+        '/decks/edit' => 'DeckController@edit',
     ],
     'DELETE' => [
-            '/api/decks' => 'DeckController@deleteDeckApi',
+        '/api/decks' => 'DeckController@deleteDeckApi',
     ],
 ];
