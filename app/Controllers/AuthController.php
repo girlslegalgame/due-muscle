@@ -52,13 +52,21 @@ class AuthController {
 
                     $user = $userModel->findByEmail($email);
 
-                    // パスワード確認
                     if ($user && password_verify($password, $user['password_hash'])) {
-                        // 6桁の認証コード生成
+                        
+                        // ★修正：既知の端末（Cookieあり）であるかチェック
+                        if ($this->isKnownDevice($user)) {
+                            // 認証コードをスキップしてログイン状態にする
+                            $_SESSION['user_id'] = $user['user_id'];
+                            $_SESSION['username'] = $user['username'];
+                            header('Location: /mydecks');
+                            exit;
+                        }
+
+                        // 未知の端末の場合は、これまで通り認証コードを生成して送信
                         $code = sprintf('%06d', mt_rand(0, 999999));
                         $expiresAt = time() + 600; // 10分有効
 
-                        // ログイン一時情報をセッションに保持
                         $_SESSION['temp_login'] = [
                             'user_id' => $user['user_id'],
                             'username' => $user['username'],
@@ -67,7 +75,6 @@ class AuthController {
                             'expires_at' => $expiresAt
                         ];
 
-                        // ログイン用認証コードを送信
                         $subject = "【デュエマデッキメーカー】ログイン認証コード";
                         $body = "<p>ログインを完了するには、制限時間内に以下の認証コードを入力してください。</p>";
                         $body .= "<h2 style='color:#007bff; letter-spacing:2px;'>{$code}</h2>";
@@ -129,7 +136,6 @@ class AuthController {
 
         $tempLogin = $_SESSION['temp_login'];
 
-        // 有効期限検証
         if (time() > $tempLogin['expires_at']) {
             unset($_SESSION['temp_login']);
             $_SESSION['error'] = '認証コードの期限が切れました。ログインを最初からやり直してください。';
@@ -137,7 +143,6 @@ class AuthController {
             exit;
         }
 
-        // コード一致検証
         if ($inputCode !== $tempLogin['code']) {
             $_SESSION['error'] = '認証コードが正しくありません。';
             header('Location: /login/verify');
@@ -147,8 +152,22 @@ class AuthController {
         // 正式ログイン完了
         $_SESSION['user_id'] = $tempLogin['user_id'];
         $_SESSION['username'] = $tempLogin['username'];
+
+        // ★修正：認証に成功したため、この端末（ブラウザ）を30日間記憶する
+        try {
+            $pdo = \Models\Database::connect();
+            $stmt = $pdo->prepare("SELECT password_hash FROM users WHERE user_id = :user_id");
+            $stmt->execute([':user_id' => $tempLogin['user_id']]);
+            $user = $stmt->fetch();
+            if ($user) {
+                $this->saveDeviceCookie($tempLogin['user_id'], $user['password_hash']);
+            }
+        } catch (\Exception $e) {
+            // Cookie保存時の軽微なエラーでログイン自体が失敗するのを防ぐため、エラーはログに留める
+            error_log("Device Cookie Save Error: " . $e->getMessage());
+        }
         
-        unset($_SESSION['temp_login']); // 一時データの消去
+        unset($_SESSION['temp_login']);
 
         header('Location: /mydecks');
         exit;
@@ -307,6 +326,12 @@ class AuthController {
             $_SESSION['user_id'] = $userId;
             $_SESSION['username'] = $tempUser['username'];
 
+            // ==========================================
+            // ★【追加箇所】登録を行ったこの端末を「既知の端末」として保存します
+            // ==========================================
+            $this->saveDeviceCookie($userId, $tempUser['password_hash']);
+            // ==========================================
+
             unset($_SESSION['temp_register']); // 一時データの消去
 
             $_SESSION['success'] = 'アカウント登録が完了しました！';
@@ -415,5 +440,43 @@ class AuthController {
             header('Location: /account');
             exit;
         }
-    }  
+    }
+    /**
+     * ユーザーIDとパスワードハッシュからセキュアな端末識別用トークンを生成
+     */
+    private function generateDeviceToken($userId, $passwordHash) {
+        $salt = "dm_deck_app_device_salt_9876"; // 任意のソルト文字列
+        return hash_hmac('sha256', $userId . '_' . $salt, $passwordHash);
+    }
+
+    /**
+     * 端末識別用Cookieをブラウザに保存する（30日間有効）
+     */
+    private function saveDeviceCookie($userId, $passwordHash) {
+        $token = $this->generateDeviceToken($userId, $passwordHash);
+        $cookieName = "known_device_" . $userId;
+        
+        // 30日間有効。HttpOnly属性によりJavaScriptからの盗み見を防止
+        setcookie($cookieName, $token, [
+            'expires' => time() + (30 * 24 * 60 * 60),
+            'path' => '/',
+            'secure' => true,      // HTTPS環境（Railwayなど）で機能
+            'httponly' => true,    // セキュリティ対策（XSS防止）
+            'samesite' => 'Lax'
+        ]);
+    }
+
+    /**
+     * この端末が「既知の端末」であるかチェックする
+     */
+    private function isKnownDevice($user) {
+        $cookieName = "known_device_" . $user['user_id'];
+        if (!isset($_COOKIE[$cookieName])) {
+            return false;
+        }
+        
+        $expectedToken = $this->generateDeviceToken($user['user_id'], $user['password_hash']);
+        // タイミング攻撃を防ぐため hash_equals で比較
+        return hash_equals($expectedToken, $_COOKIE[$cookieName]);
+    }
 }
