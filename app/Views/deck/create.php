@@ -1818,7 +1818,8 @@ new Sortable(grList, deckSortableConfig);
 const searchSortable = new Sortable(resultsDiv, { 
     group: { name: 'shared', pull: 'clone', put: false }, 
     sort: false, 
-    animation: 150 
+    animation: 150,
+    touchStartThreshold: 15 // ★重要：判定前にSortableが先走るのを防止します
 });
 
 // 2. スマホ時のスワイプ角度判定用ロジックを追加
@@ -1848,13 +1849,15 @@ resultsDiv.addEventListener('touchmove', (e) => {
     if (Math.abs(diffX) > 5 || Math.abs(diffY) > 5) {
         isTouchDetermined = true;
 
-        // 【角度判定】X軸（横方向）の移動量が、Y軸（縦方向）の移動量より大きい場合＝「横スワイプ」とみなす
-        if (Math.abs(diffX) > Math.abs(diffY)) {
-            // ドラッグ機能を一時的に「無効」にし、ブラウザ標準の横スクロールを優先させます
-            searchSortable.option('disabled', true);
+        // 【判定の緩和】
+        // 縦方向の動き(Y)が、横方向の動き(X)の「1.5倍」を超えている場合のみを垂直ドラッグと判定します。
+        // これにより、斜めスワイプや少しブレた横スワイプはすべて「スクロール優先」になります。
+        const isVerticalDrag = Math.abs(diffY) > (Math.abs(diffX) * 1.5);
+
+        if (!isVerticalDrag) {
+            searchSortable.option('disabled', true); // スクロールを優先（ドラッグ無効化）
         } else {
-            // 縦方向に引っ張り出すジェスチャーの場合はドラッグを「有効」のままにします
-            searchSortable.option('disabled', false);
+            searchSortable.option('disabled', false); // 垂直に近い引き上げのみドラッグを許可
         }
     }
 }, { passive: true });
