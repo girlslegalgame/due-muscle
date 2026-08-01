@@ -1720,9 +1720,9 @@ resultsDiv.addEventListener('click', (e) => {
 const deckSortableConfig = {
     group: 'shared', 
     animation: 150,
-    onStart: () => {
-        // ドラッグ開始時のゴミ箱表示処理（削除）
-    },
+    delay: 300,             // タッチデバイス時、ドラッグ開始までに必要な長押し時間（ミリ秒）
+    delayOnTouchOnly: true,  // 遅延（長押し）をタッチ操作のみに適用し、PCは即時ドラッグ可能にする
+    touchStartThreshold: 10, 
     onEnd: function(evt) {
         // ドラッグ終了時のカーソル位置を取得
         const e = evt.originalEvent;
@@ -1814,8 +1814,14 @@ const deckSortableConfig = {
 new Sortable(mainList, deckSortableConfig);
 new Sortable(superDimList, deckSortableConfig);
 new Sortable(grList, deckSortableConfig);
-new Sortable(resultsDiv, { group: { name: 'shared', pull: 'clone', put: false }, sort: false, animation: 150 });
-
+new Sortable(resultsDiv, { 
+    group: { name: 'shared', pull: 'clone', put: false }, 
+    sort: false, 
+    animation: 150,
+    delay: 300,             // タッチデバイス時、ドラッグ開始までに必要な長押し時間（ミリ秒）
+    delayOnTouchOnly: true,  // PCでの操作時は即時ドラッグ、タッチデバイスのみ長押しを必須化
+    touchStartThreshold: 10 // 指が少し動いただけではドラッグを起動させず、横スクロールを優先
+});
 document.querySelectorAll('.special-box').forEach(box => {
     new Sortable(box, {
         group: {
