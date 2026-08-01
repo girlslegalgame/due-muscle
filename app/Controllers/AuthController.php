@@ -210,6 +210,8 @@ class AuthController {
         $_SESSION['user_id'] = $tempLogin['user_id'];
         $_SESSION['username'] = $tempLogin['username'];
 
+        header('Location: /mydecks');
+
         // ★修正：認証に成功したため、この端末（ブラウザ）を30日間記憶する
         try {
             $pdo = \Models\Database::connect();
@@ -587,6 +589,8 @@ class AuthController {
                             // セッションを復元
                             $_SESSION['user_id'] = $user['user_id'];
                             $_SESSION['username'] = $user['username'];
+
+                            header('Location: /mydecks');
                             
                             // Cookieの有効期限をさらに30日後に延長
                             $this->saveDeviceCookie($user['user_id'], $user['password_hash']);
