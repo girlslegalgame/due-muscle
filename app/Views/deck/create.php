@@ -184,8 +184,8 @@
     /* --- 5. 検索セクション（右側固定・320px） --- */
     #search-section {
         position: relative;      
-        width: 320px;            
-        min-width: 320px;
+        width: 340px;            /* ★ 320px から 340px へ変更 */
+        min-width: 340px;        /* ★ 320px から 340px へ変更 */
         height: 100%;        
         box-sizing: border-box;
         background: rgba(249, 249, 249, 0.98); 
@@ -216,7 +216,7 @@
     #search-toggle-btn {
         position: absolute;
         top: 50%;
-        right: 320px; 
+        right: 340px; 
         transform: translateY(-50%);
         width: 32px;
         height: 64px;
@@ -318,22 +318,25 @@
     /* 検索範囲（チェックボックス）を左寄せに変更 */
     .search-scope { 
         display: flex; 
-        gap: 15px; 
+        gap: 10px;               /* ★ 15px から 10px に縮小して余白を稼ぎます */
         font-size: 12px; 
         color: #666; 
-        justify-content: flex-start; /* center から左寄せ（flex-start）へ変更 */
+        justify-content: flex-start; 
         padding-left: 2px;
+        align-items: center;     /* ★ 縦方向の中央揃えを追加 */
+        flex-wrap: nowrap;       /* ★ 絶対に改行させない指定を追加 */
     }
     /* 利き手スイッチ */
     .hand-switch-btn {
         background: #e2e8f0;
         border: 1px solid #cbd5e1;
         color: #475569;
-        padding: 6px 12px;
-        font-size: 12px;
+        padding: 4px 8px;        /* ★ 6px 12px から 4px 8px にしてコンパクトにします */
+        font-size: 11px;         /* ★ 12px から 11px に微減 */
         border-radius: 4px;
         cursor: pointer;
         font-weight: bold;
+        white-space: nowrap;     /* ★ ボタン内の文字が折り返すのを防ぎます */
     }
     .hand-switch-btn:hover {
         background: #cbd5e1;
@@ -1423,7 +1426,7 @@
                     <input type="checkbox" id="era-shobu" class="era-check" value="shobu"> 勝舞編
                 </label>
                 <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
-                    <input type="checkbox" id="era-katta" class="era-check" value="katta"> 勝太編 (125~218)
+                    <input type="checkbox" id="era-katta" class="era-check" value="katta"> 勝太編
                 </label>
                 <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
                     <input type="checkbox" id="era-joe" class="era-check" value="joe"> ジョー編
@@ -2903,13 +2906,13 @@ function syncSearchToggleButton() {
     if (isLeftHanded) {
         // 左利き配置時（検索枠が左側）
         btn.style.right = 'auto';
-        btn.style.left = isCollapsed ? '0px' : '320px'; // 閉じているときは左端(0px)、開いているときは左から320px
+        btn.style.left = isCollapsed ? '0px' : '340px'; // ★ 320px から 340px へ変更
         btn.style.borderRadius = '0 8px 8px 0'; // 角丸を右側に
         btn.innerHTML = isCollapsed ? '開く ▶' : '◀ 隠す';
     } else {
         // 通常配置時（検索枠が右側）
         btn.style.left = 'auto';
-        btn.style.right = isCollapsed ? '0px' : '320px'; // 閉じているときは右端(0px)、開いているときは右から320px
+        btn.style.right = isCollapsed ? '0px' : '340px'; // ★ 320px から 340px へ変更
         btn.style.borderRadius = '8px 0 0 8px'; // 角丸を左側に
         btn.innerHTML = isCollapsed ? '◀ 開く' : '隠す ▶';
     }
