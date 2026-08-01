@@ -91,6 +91,20 @@ if ($q !== '') {
                     $conds[] = "c_search.text LIKE :q_text";
                     $params[':q_text'] = "%$q%";
                 }
+                // ★追加：種族スコープが選択されている場合の抽出処理
+                if (in_array('race', $scope)) {
+                    $conds[] = "c_search.card_id IN (
+                        SELECT cr_search.card_id 
+                        FROM card_race cr_search
+                        JOIN race r_search ON cr_search.race_id = r_search.race_id
+                        WHERE REPLACE(REPLACE(REPLACE(r_search.race_name, '・', ''), ' ', ''), '　', '') LIKE :q_race_clean
+                           OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_kata_clean
+                           OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_hira_clean
+                    )";
+                    $params[':q_race_clean'] = "%$q_clean%";
+                    $params[':q_race_read_kata_clean'] = "%$q_kata_clean%";
+                    $params[':q_race_read_hira_clean'] = "%$q_hira_clean%";
+                }
                 if (!empty($conds)) {
                     $searchSql .= " AND (" . implode(' OR ', $conds) . ")";
                 }

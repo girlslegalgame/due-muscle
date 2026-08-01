@@ -1136,6 +1136,8 @@
             <div class="search-scope">
                 <label><input type="checkbox" class="scope-check" value="name" checked> カード名</label>
                 <label><input type="checkbox" class="scope-check" value="text"> テキスト</label>
+                <!-- ★追加：種族のチェックボックス -->
+                <label><input type="checkbox" class="scope-check" value="race"> 種族</label>
                 <button class="hand-switch-btn" onclick="toggleSearchPosition()">⇄ 位置切り替え</button>
             </div>
         </div>
@@ -1418,16 +1420,16 @@
             <span style="font-size: 11px; color: #666; font-weight: bold; display: block; margin-bottom: 8px;">シリーズで一括選択</span>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
                 <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
-                    <input type="checkbox" id="era-shobu" class="era-check" value="shobu"> 勝舞編 (1~124)
+                    <input type="checkbox" id="era-shobu" class="era-check" value="shobu"> 勝舞編
                 </label>
                 <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
                     <input type="checkbox" id="era-katta" class="era-check" value="katta"> 勝太編 (125~218)
                 </label>
                 <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
-                    <input type="checkbox" id="era-joe" class="era-check" value="joe"> ジョー編 (219~325, 340)
+                    <input type="checkbox" id="era-joe" class="era-check" value="joe"> ジョー編
                 </label>
                 <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
-                    <input type="checkbox" id="era-win" class="era-check" value="win"> ウィン編 (326~)
+                    <input type="checkbox" id="era-win" class="era-check" value="win"> ウィン編
                 </label>
             </div>
         </div>
