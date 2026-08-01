@@ -184,8 +184,8 @@
     /* --- 5. 検索セクション（右側固定・320px） --- */
     #search-section {
         position: relative;      
-        width: 340px;            /* ★ 320px から 340px へ変更 */
-        min-width: 340px;        /* ★ 320px から 340px へ変更 */
+        width: 380px;            /* ★ 320px から 380px へ変更 */
+        min-width: 380px;        /* ★ 320px から 380px へ変更 */
         height: 100%;        
         box-sizing: border-box;
         background: rgba(249, 249, 249, 0.98); 
@@ -216,7 +216,7 @@
     #search-toggle-btn {
         position: absolute;
         top: 50%;
-        right: 340px; 
+        right: 380px; 
         transform: translateY(-50%);
         width: 32px;
         height: 64px;
@@ -318,13 +318,13 @@
     /* 検索範囲（チェックボックス）を左寄せに変更 */
     .search-scope { 
         display: flex; 
-        gap: 10px;               /* ★ 15px から 10px に縮小して余白を稼ぎます */
+        gap: 12px;               /* 各項目の間隔に少し余裕を持たせます */
         font-size: 12px; 
         color: #666; 
         justify-content: flex-start; 
         padding-left: 2px;
-        align-items: center;     /* ★ 縦方向の中央揃えを追加 */
-        flex-wrap: nowrap;       /* ★ 絶対に改行させない指定を追加 */
+        align-items: center;     
+        flex-wrap: nowrap;       /* 親要素の改行を禁止 */
     }
     /* 利き手スイッチ */
     .hand-switch-btn {
@@ -1013,10 +1013,12 @@
             margin-top: 2px !important;
         }
         .search-scope label {
-            font-size: 11px !important;
-            display: flex !important;
-            align-items: center !important;
-            gap: 3px !important;
+            white-space: nowrap;     /* ★文字とチェックボックスが絶対に途中で折り返さないようにします */
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin: 0;
+            cursor: pointer;
         }
 
         /* 詳細モーダル */
@@ -2194,9 +2196,17 @@ function syncSearchToggleButtonText() {
 
     // デスクトップ表示時の左右判定に応じた文字矢印制御
     if (isLeftHanded) {
-        btn.innerHTML = isCollapsed ? '検索を開く ▶' : '◀ 検索を隠す';
+        // 左利き配置時（検索枠が左側）
+        btn.style.right = 'auto';
+        btn.style.left = isCollapsed ? '0px' : '380px'; // ★ 340px から 380px へ変更
+        btn.style.borderRadius = '0 8px 8px 0'; // 角丸を右側に
+        btn.innerHTML = isCollapsed ? '開く ▶' : '◀ 隠す';
     } else {
-        btn.innerHTML = isCollapsed ? '◀ 検索を開く' : '検索を隠す ▶';
+        // 通常配置時（検索枠が右側）
+        btn.style.left = 'auto';
+        btn.style.right = isCollapsed ? '0px' : '380px'; // ★ 340px から 380px へ変更
+        btn.style.borderRadius = '8px 0 0 8px'; // 角丸を左側に
+        btn.innerHTML = isCollapsed ? '◀ 開く' : '隠す ▶';
     }
 }
 // 画面幅リサイズ時にもボタン表示テキストを最適に更新する
