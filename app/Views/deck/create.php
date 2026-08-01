@@ -1821,8 +1821,9 @@ const searchSortable = new Sortable(resultsDiv, {
     group: { name: 'shared', pull: 'clone', put: false }, 
     sort: false, 
     animation: 150,
-    forceFallback: true,      // モバイル端末等でHTML5ドラッグではなくフォールバック動作を強制
-    fallbackTolerance: 20     // 指が20px以上移動するまでドラッグを開始しない（これにより横スクロールが100%優先されます）
+    forceFallback: true,      // モバイル端末等でフォールバック動作を強制
+    fallbackTolerance: 10,    // しきい値を少し下げてレスポンスを向上（10px動くまではスクロール優先）
+    fallbackOnBody: true      // ★追加：ドラッグ中の要素をbody直下に配置し、エリア外へのドロップ制限を解除
 });
 
 document.querySelectorAll('.special-box').forEach(box => {
