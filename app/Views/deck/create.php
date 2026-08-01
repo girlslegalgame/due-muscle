@@ -1815,60 +1815,15 @@ new Sortable(mainList, deckSortableConfig);
 new Sortable(superDimList, deckSortableConfig);
 new Sortable(grList, deckSortableConfig);
 
+// 検索結果エリアのSortable設定
+// ※以前追加した touchstart / touchmove 等のカスタムイベントリスナーはすべて削除してください。
 const searchSortable = new Sortable(resultsDiv, { 
     group: { name: 'shared', pull: 'clone', put: false }, 
     sort: false, 
     animation: 150,
-    touchStartThreshold: 15 // ★重要：判定前にSortableが先走るのを防止します
+    forceFallback: true,      // モバイル端末等でHTML5ドラッグではなくフォールバック動作を強制
+    fallbackTolerance: 20     // 指が20px以上移動するまでドラッグを開始しない（これにより横スクロールが100%優先されます）
 });
-
-// 2. スマホ時のスワイプ角度判定用ロジックを追加
-let touchStartX = 0;
-let touchStartY = 0;
-let isTouchDetermined = false;
-
-resultsDiv.addEventListener('touchstart', (e) => {
-    const touch = e.touches[0];
-    touchStartX = touch.clientX;
-    touchStartY = touch.clientY;
-    isTouchDetermined = false;
-    
-    // 操作開始時はドラッグを有効に戻しておく
-    searchSortable.option('disabled', false);
-}, { passive: true });
-
-resultsDiv.addEventListener('touchmove', (e) => {
-    // 判定済みの場合は何もしない
-    if (isTouchDetermined) return;
-
-    const touch = e.touches[0];
-    const diffX = touch.clientX - touchStartX;
-    const diffY = touch.clientY - touchStartY;
-
-    // 誤動作防止のため、指が一定距離（5px以上）動いたタイミングで角度判定を行う
-    if (Math.abs(diffX) > 5 || Math.abs(diffY) > 5) {
-        isTouchDetermined = true;
-
-        // 【判定の緩和】
-        // 縦方向の動き(Y)が、横方向の動き(X)の「1.5倍」を超えている場合のみを垂直ドラッグと判定します。
-        // これにより、斜めスワイプや少しブレた横スワイプはすべて「スクロール優先」になります。
-        const isVerticalDrag = Math.abs(diffY) > (Math.abs(diffX) * 100000000000);
-
-        if (!isVerticalDrag) {
-            searchSortable.option('disabled', true); // スクロールを優先（ドラッグ無効化）
-        } else {
-            searchSortable.option('disabled', false); // 垂直に近い引き上げのみドラッグを許可
-        }
-    }
-}, { passive: true });
-
-// 指を離した時、またはタッチ操作がキャンセルされた時に、無効状態を解除する
-const resetDragStatus = () => {
-    searchSortable.option('disabled', false);
-};
-
-resultsDiv.addEventListener('touchend', resetDragStatus, { passive: true });
-resultsDiv.addEventListener('touchcancel', resetDragStatus, { passive: true });
 
 document.querySelectorAll('.special-box').forEach(box => {
     new Sortable(box, {
