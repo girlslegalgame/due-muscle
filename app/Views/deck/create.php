@@ -2916,13 +2916,13 @@ function syncSearchToggleButton() {
     if (isLeftHanded) {
         // 左利き配置時（検索枠が左側）
         btn.style.right = 'auto';
-        btn.style.left = isCollapsed ? '0px' : '340px'; // ★ 320px から 340px へ変更
+        btn.style.left = isCollapsed ? '0px' : '380px'; // ★ 320px から 340px へ変更
         btn.style.borderRadius = '0 8px 8px 0'; // 角丸を右側に
         btn.innerHTML = isCollapsed ? '開く ▶' : '◀ 隠す';
     } else {
         // 通常配置時（検索枠が右側）
         btn.style.left = 'auto';
-        btn.style.right = isCollapsed ? '0px' : '340px'; // ★ 320px から 340px へ変更
+        btn.style.right = isCollapsed ? '0px' : '380px'; // ★ 320px から 340px へ変更
         btn.style.borderRadius = '8px 0 0 8px'; // 角丸を左側に
         btn.innerHTML = isCollapsed ? '◀ 開く' : '隠す ▶';
     }
