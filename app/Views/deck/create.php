@@ -1413,6 +1413,26 @@
             <span>収録商品選択</span>
             <span onclick="closeSubModal('goods')" style="cursor:pointer; font-size: 20px;">&times;</span>
         </div>
+        <!-- ★追加：シリーズ一括選択エリア -->
+        <div style="padding: 12px 15px; border-bottom: 1px solid #f2f2f7; background-color: #fafafa;">
+            <span style="font-size: 11px; color: #666; font-weight: bold; display: block; margin-bottom: 8px;">シリーズで一括選択</span>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                    <input type="checkbox" id="era-shobu" class="era-check" value="shobu"> 勝舞編 (1~124)
+                </label>
+                <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                    <input type="checkbox" id="era-katta" class="era-check" value="katta"> 勝太編 (125~218)
+                </label>
+                <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                    <input type="checkbox" id="era-joe" class="era-check" value="joe"> ジョー編 (219~325, 340)
+                </label>
+                <label style="font-size: 13px; font-weight: normal; color: #333; display: flex; align-items: center; gap: 6px; margin: 0; cursor: pointer;">
+                    <input type="checkbox" id="era-win" class="era-check" value="win"> ウィン編 (326~)
+                </label>
+            </div>
+        </div>
+        <!-- ここまで -->
+         
         <div style="padding:10px;">
             <input type="text" id="goods-list-search" placeholder="商品を検索..." style="width:100%; padding:8px; margin-bottom:5px;">
             <div id="goods-selected-badges" class="selected-badges-container" style="display: none;"></div>
@@ -2358,9 +2378,12 @@ function updateTriggerText(type) {
 
 function clearSubSelection(type) {
     document.querySelectorAll(`.${type}-check`).forEach(el => el.checked = false);
+    // ★追加：商品クリア時にシリーズチェックボックスも解除
+    if (type === 'goods') {
+        document.querySelectorAll('.era-check').forEach(el => el.checked = false);
+    }
     updateTriggerText(type);
 }
-
 /**
  * ★ 新設：文明の「単色/多色」の変更による除外エリアの表示制御
  */
@@ -2900,4 +2923,64 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('resize', syncSearchToggleButton);
+// ★追加：シリーズ一括選択（勝舞・勝太・ジョー・ウィン）のコントロール
+document.querySelectorAll('.era-check').forEach(el => {
+    el.addEventListener('change', function() {
+        const era = this.value;
+        const isChecked = this.checked;
+
+        if (isChecked) {
+            // 1. 他のシリーズチェックボックスをすべて解除（排他制御）
+            document.querySelectorAll('.era-check').forEach(other => {
+                if (other !== this) other.checked = false;
+            });
+
+            // 2. それまでにチェックされていた商品のチェックボックスをすべてクリア
+            document.querySelectorAll('.goods-check').forEach(g => {
+                g.checked = false;
+            });
+
+            // 3. 選択されたシリーズの範囲に合致する商品を一括でチェック
+            document.querySelectorAll('.goods-check').forEach(g => {
+                const goodsId = parseInt(g.value, 10);
+                if (isNaN(goodsId)) return;
+
+                let shouldCheck = false;
+                if (era === 'shobu') {
+                    shouldCheck = (goodsId >= 1 && goodsId <= 124);
+                } else if (era === 'katta') {
+                    shouldCheck = (goodsId >= 125 && goodsId <= 218);
+                } else if (era === 'joe') {
+                    shouldCheck = (goodsId >= 219 && goodsId <= 325) || goodsId === 340;
+                } else if (era === 'win') {
+                    shouldCheck = (goodsId >= 326);
+                }
+
+                if (shouldCheck) {
+                    g.checked = true;
+                }
+            });
+        } else {
+            // シリーズチェックボックス自体が手動で解除された場合、すべての商品を一括解除
+            document.querySelectorAll('.goods-check').forEach(g => {
+                g.checked = false;
+            });
+        }
+
+        // バッジ表示とセレクト表示（トリガーテキスト）の更新
+        updateTriggerText('goods');
+    });
+});
+
+// ★追加：ユーザーが商品を個別でチェック操作した場合、シリーズの選択を連動して解除する設定
+const goodsContainer = document.getElementById('goods-list-container');
+if (goodsContainer) {
+    goodsContainer.addEventListener('change', function(e) {
+        if (e.target.classList.contains('goods-check')) {
+            document.querySelectorAll('.era-check').forEach(el => {
+                el.checked = false;
+            });
+        }
+    });
+}
 </script>
