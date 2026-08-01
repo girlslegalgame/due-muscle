@@ -113,9 +113,9 @@ class AuthController {
                             // 認証コードをスキップしてログイン状態にする
                             $_SESSION['user_id'] = $user['user_id'];
                             $_SESSION['username'] = $user['username'];
-                            if (function_exists('fastcgi_finish_request')) {
-                                fastcgi_finish_request(); // ブラウザとの接続を先に切断し、メール送信は裏で実行する
-                            }
+                            
+                            // 修正箇所：既知の端末でのログイン時はメールを送信しないため、
+                            // fastcgi_finish_request() は使用せず、即座にリダイレクトします。
                             header('Location: /mydecks');
                             exit;
                         }
@@ -210,7 +210,7 @@ class AuthController {
         $_SESSION['user_id'] = $tempLogin['user_id'];
         $_SESSION['username'] = $tempLogin['username'];
 
-        header('Location: /mydecks');
+        // 修正箇所：ここではまだリダイレクトせず、クッキー設定処理などを完了させます
 
         // ★修正：認証に成功したため、この端末（ブラウザ）を30日間記憶する
         try {
@@ -228,6 +228,7 @@ class AuthController {
         
         unset($_SESSION['temp_login']);
 
+        // すべての準備が整った段階でリダイレクトします
         header('Location: /mydecks');
         exit;
     }
