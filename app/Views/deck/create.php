@@ -938,18 +938,25 @@
             overflow-x: auto !important;
             overflow-y: hidden !important;
             white-space: nowrap !important;
-            height: 120px !important; /* ★ 高さを 105px から 120px に拡大 */
+            height: 120px !important; 
             padding: 2px 0 !important;
             gap: 8px !important;
-            order: 1 !important; /* 一番上 */
+            order: 1 !important; 
+            
+            /* ★追加：ブラウザに横スクロールを最優先で処理させ、滑らかな動き（慣性）を強制します */
+            touch-action: pan-x;
+            -webkit-overflow-scrolling: touch; 
         }
         #search-results img {
             height: 110px !important; 
             width: auto !important; 
-            aspect-ratio: 110/154 !important; /* カードの比率を維持 */
-            object-fit: contain !important; /* ★ 引き伸ばしを完全に防ぐ */
-            background-color: #fff; /* 余白を白で埋める */
+            aspect-ratio: 110/154 !important; 
+            object-fit: contain !important; 
+            background-color: #fff; 
             flex-shrink: 0;
+            
+            /* ★追加：画像単体にも横スワイプ時はスクロールを優先させます */
+            touch-action: pan-x; 
         }
 
         /* コントロール群ラッパー */
@@ -1821,9 +1828,9 @@ const searchSortable = new Sortable(resultsDiv, {
     group: { name: 'shared', pull: 'clone', put: false }, 
     sort: false, 
     animation: 150,
-    forceFallback: true,      // モバイル端末等でフォールバック動作を強制
-    fallbackTolerance: 10,    // しきい値を少し下げてレスポンスを向上（10px動くまではスクロール優先）
-    fallbackOnBody: true      // ★追加：ドラッグ中の要素をbody直下に配置し、エリア外へのドロップ制限を解除
+    forceFallback: true,      
+    fallbackTolerance: 20,    // ★ 20px 程度に設定し、ちょっとした斜めブレを完全に許容します
+    fallbackOnBody: true      
 });
 
 document.querySelectorAll('.special-box').forEach(box => {
