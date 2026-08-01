@@ -1852,7 +1852,7 @@ resultsDiv.addEventListener('touchmove', (e) => {
         // 【判定の緩和】
         // 縦方向の動き(Y)が、横方向の動き(X)の「1.5倍」を超えている場合のみを垂直ドラッグと判定します。
         // これにより、斜めスワイプや少しブレた横スワイプはすべて「スクロール優先」になります。
-        const isVerticalDrag = Math.abs(diffY) > (Math.abs(diffX) * 1.5);
+        const isVerticalDrag = Math.abs(diffY) > (Math.abs(diffX) * 2);
 
         if (!isVerticalDrag) {
             searchSortable.option('disabled', true); // スクロールを優先（ドラッグ無効化）
