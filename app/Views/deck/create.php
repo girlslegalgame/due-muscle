@@ -1098,6 +1098,18 @@
             font-size: 0.9rem;
         }
     }
+    /* デッキ内および検索結果の画像単体における、ブラウザ標準のドラッグ＆選択操作を徹底的に無効化 */
+    #main-deck-list img, 
+    .extra-list img, 
+    .special-box img, 
+    #search-results img {
+        -webkit-user-drag: none !important; /* Safari, Chromeでの画像ドラッグを無効化 */
+        user-drag: none !important;         /* 標準の画像ドラッグを無効化 */
+        user-select: none !important;       /* テキストや画像選択を無効化 */
+        -webkit-user-select: none !important;
+        -moz-user-select: none !important;
+        -ms-user-select: none !important;
+    }
 </style>
 <!-- 外部ライブラリ読み込み -->
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -1724,6 +1736,7 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     cardCache[card.card_id] = card;
     const img = document.createElement('img');
     img.src = getCardImagePath(card);
+    img.draggable = false; // ★追加：ブラウザ標準の画像ドラッグを禁止する
     img.dataset.cardId = card.card_id;
     img.dataset.cardName = card.card_name;
     img.dataset.comboNames = card.combo_names || '';
@@ -2424,6 +2437,7 @@ function fetchAndRender() {
                     cardCache[card.card_id] = card; // ★追加：検索結果のカードをキャッシュに格納
                     const img = document.createElement('img');
                     img.src = getCardImagePath(card);
+                    img.draggable = false; // ★追加：ブラウザ標準の画像ドラッグを禁止する
                     img.dataset.cardId = card.card_id;
                     img.dataset.cardName = card.card_name;
                     img.dataset.comboNames = card.combo_names || ''; // ★ 追記：コンビネーション名をデータ属性に格納
