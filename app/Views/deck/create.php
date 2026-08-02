@@ -805,21 +805,46 @@
 
     /* --- 7. スマートフォン環境（ボトムシート＆縦並びフォールバック） --- */
     @media (max-width: 768px) {
-        .hand-switch-btn {
-            display: none !important;
+        /* タブバー自体の高さ制限を解除し、要素を均等幅にして改行を防ぐ */
+        #deck-tabs {
+            height: auto !important;
+            gap: 4px !important;
+        }
+        .tab {
+            font-size: 11px !important;
+            padding: 6px 4px !important;
+            white-space: nowrap !important; /* 改行を絶対に防止 */
+            flex: 1; /* 横幅いっぱいに3等分で均等配置 */
+            text-align: center;
         }
 
-        #container {
-            flex-direction: column !important; 
-            max-width: 100% !important; 
-            box-shadow: none !important;
+        /* スマホ時も分析・保存ボタンを右寄せに維持 */
+        #deck-header {
+            height: auto !important;
+            margin: 8px 0 !important;
+            display: flex !important;
+            justify-content: flex-end !important; /* 右寄せにする */
+        }
+        #deck-header h3 {
+            display: none !important; /* ボタンとの衝突を防ぐため非表示 */
+        }
+        #deck-header > div {
+            justify-content: flex-end !important; /* 右寄せを維持 */
+            gap: 8px !important;
         }
         
+        /* ボタンを横に引き伸ばさず、コンパクトに右端へ配置 */
+        .btn-analysis, #save-deck-btn {
+            flex: none !important; /* 引き伸ばさない */
+            font-size: 12px !important;
+            padding: 6px 12px !important;
+        }
+        
+        /* 既存の個別スタイル（padding-bottom）の競合を調整 */
         #deck-area {
             padding: 8px;
             padding-bottom: 210px !important; 
         }
-        
         #deck-area.search-collapsed {
             padding-bottom: 110px !important;
         }
@@ -1993,17 +2018,22 @@ function updateDeckDisplay() {
     const mCount = mainList.querySelectorAll('img').length;
     const gCount = grList.querySelectorAll('img').length;
     const sCount = superDimList.querySelectorAll('img').length;
+
+    // ★改善：画面幅が狭いスマホ時は、文字をコンパクトにして改行によるレイアウト崩れを防ぐ
+    const isMobile = window.innerWidth <= 768;
     document.getElementById('tab-main').innerText = `メイン ${mCount}`;
-    document.getElementById('tab-extra').innerText = `GR ${gCount}/12 超次元 ${sCount}/8`;
+    if (isMobile) {
+        document.getElementById('tab-extra').innerText = `GR/次元 ${gCount}/${sCount}`;
+    } else {
+        document.getElementById('tab-extra').innerText = `GR ${gCount}/12 超次元 ${sCount}/8`;
+    }
 
     adjustMainDeckRows();
 
-    // ★追加：状態が変わるたびにローカルに自動保存する
+    // 状態が変わるたびにローカルに自動保存する（既存処理）
     saveDraftToLocalStorage();
 }
 
-// --- F. カード詳細モーダル ---
-// --- F. カード詳細モーダル ---
 // --- F. カード詳細モーダル ---
 function openCardDetail(cardId, el) {
     activeClickedElement = el;
