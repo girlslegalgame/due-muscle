@@ -1770,13 +1770,12 @@ const deckSortableConfig = {
         put: true 
     }, 
     animation: 150,
-    delay: 300,             // デッキ内の「並び替え」時のみ、縦スクロールとの競合を防ぐためタッチディレイを残します
-    delayOnTouchOnly: true,  
+    // ★ 長押し設定（delayおよびdelayOnTouchOnly）を排除し、即座に掴めるようにしました
     touchStartThreshold: 10, 
     
     // Fallbackの設定を検索エリア側と同期させてドロップを可能にします
     forceFallback: true,      
-    fallbackTolerance: 5,     // 許容値を下げることで、掴んだ瞬間に即反応するよう調整
+    fallbackTolerance: 5,     // わずかな動きでもドラッグを開始させます
     fallbackOnBody: true,
 
     onEnd: function(evt) {
@@ -1787,11 +1786,12 @@ const deckSortableConfig = {
             return;
         }
 
+        // スマホの指を離した瞬間の座標を取得（changedTouchesも参照するよう補正）
         const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
         const clientX = e.clientX || (touch ? touch.clientX : 0);
         const clientY = e.clientY || (touch ? touch.clientY : 0);
 
-        // ドロップ座標が検索セクションの上であれば削除
+        // ドロップ座標が検索セクション（#search-section）の上であれば、その場で削除を実行
         const searchSection = document.getElementById('search-section');
         if (searchSection) {
             const sRect = searchSection.getBoundingClientRect();
@@ -1808,7 +1808,7 @@ const deckSortableConfig = {
         // 有効なドロップ先（メイン・超次元・GRの各リスト）
         const validLists = [mainList, superDimList, grList];
         
-        // 特殊エリアのスロット
+        // 特殊エリアのスロット（アクティブ・非アクティブ問わず枠内であれば検知）
         document.querySelectorAll('.special-box').forEach(box => {
             validLists.push(box);
         });
