@@ -550,6 +550,13 @@ if ($q !== '') {
     public function helpSearchApi() {
         header('Content-Type: application/json; charset=utf-8');
         
+        // 管理者・開発者以外のアクセスをブロック
+        if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'この操作を行う権限がありません。']);
+            exit;
+        }
+        
         $q = $_GET['q'] ?? '';
         $scopes = isset($_GET['scope']) ? explode(',', $_GET['scope']) : ['name'];
         $civType = $_GET['civ_type'] ?? '';
@@ -776,6 +783,13 @@ if ($q !== '') {
     public function helpDetailApi() {
         header('Content-Type: application/json; charset=utf-8');
         
+        // 管理者・開発者以外のアクセスをブロック
+        if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'この操作を行う権限がありません。']);
+            exit;
+        }
+        
         $cardId = $_GET['card_id'] ?? null;
         if (!$cardId) {
             http_response_code(400);
@@ -834,6 +848,13 @@ if ($q !== '') {
      */
     public function helpUpdateApi() {
         header('Content-Type: application/json; charset=utf-8');
+
+        // 管理者・開発者以外のアクセスをブロック
+        if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
+            http_response_code(403);
+            echo json_encode(['error' => 'この操作を行う権限がありません。']);
+            exit;
+        }
 
         $input = json_decode(file_get_contents('php://input'), true);
         if (!$input || empty($input['card_id'])) {

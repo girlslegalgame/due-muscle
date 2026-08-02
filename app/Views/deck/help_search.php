@@ -1,14 +1,12 @@
-<!-- app/Views/deck/help_search.php -->
 <?php
 // セッションが開始されていない場合は開始する
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// ログイン状態（セッション）のチェック
-// ※ プロジェクトで設定しているログインセッションのキー名（例: 'user_id' や 'user' など）に合わせて適宜変更してください
-if (!isset($_SESSION['user_id']) && empty($_SESSION['logged_in'])) {
-    // ログインしていない場合はログイン画面（例: /login）へリダイレクト
+// ログイン状態および管理者・開発者権限のチェック
+if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
+    // 権限がない場合はログイン画面（例: /login）へリダイレクト
     header("Location: /login");
     exit;
 }
@@ -336,7 +334,7 @@ let masterData = {
     characteristic: [],
     cardtype: [],
     goods: [],
-    rarity: [] // ★追記
+    rarity: []
 };
 
 // ページ読み込み完了時の初期化
@@ -359,13 +357,12 @@ window.addEventListener('keydown', (e) => {
 function handleCivTypeChange() {
     const isMulti = document.getElementById('civ-multi').checked;
     const excludeArea = document.getElementById('exclude-civ-area');
-    // 多色がONの時のみ、含まれない文明の除外オプションを表示
     excludeArea.style.display = isMulti ? 'flex' : 'none';
     triggerHelpSearch(true);
 }
 
 /**
- * 検索入力のデバウンス（タイピング時の過剰アクセス防止）
+ * 検索入力のデバウンス
  */
 function debounceSearch() {
     clearTimeout(searchTimeout);
@@ -375,20 +372,15 @@ function debounceSearch() {
 }
 
 /**
- * ページ変更処理（競合・バブリング防止版）
+ * ページ変更処理
  */
 function changeHelpPage(diff) {
     if (window.event) {
         window.event.stopPropagation();
     }
-    
-    console.log("[Help Paging] ボタンクリック。移動前のページ:", helpCurrentPage, "方向:", diff);
-    
     helpCurrentPage += diff;
     if (helpCurrentPage < 1) helpCurrentPage = 1;
-    
-    console.log("[Help Paging] 移動後の目標ページ:", helpCurrentPage);
-    triggerHelpSearch(false); // falseを指定してページ数をリセットせずに検索
+    triggerHelpSearch(false);
 }
 
 /**
@@ -678,8 +670,23 @@ function applyHelpFilter() {
  * カード詳細表示モーダルを開く
  */
 function openHelpDetail(cardId) {
-    // モーダルを開く前に、種族と特殊能力の全チェックリストを動的に生成します
-    renderEditRacesAndAbilities();
+    const modal = document.getElementById('helpDetailModal');
+    
+    // 【改善：体感速度向上】
+    // データを取得する前に即座にモーダルを表示し、読み込み中であることを視覚的に伝える
+    modal.style.display = 'block';
+    document.getElementById('detail-card-image').src = '/images/card/noimage.webp';
+    document.getElementById('info-id').innerText = '読み込み中...';
+    document.getElementById('edit-name').value = '読み込み中...';
+    document.getElementById('edit-reading').value = '読み込み中...';
+    document.getElementById('edit-power').value = '';
+    document.getElementById('edit-cost').value = '';
+    document.getElementById('edit-text').value = '';
+    document.getElementById('edit-flavor').value = '';
+    document.getElementById('info-goods').innerText = '';
+
+    // すべての入力チェック群を事前に一度リセット（DOM操作を最小化）
+    document.querySelectorAll('.edit-civ-check, .edit-race-check, .edit-ability-check, .edit-rarity-check, .edit-characteristic-check, .edit-cardtype-check').forEach(el => el.checked = false);
 
     fetch('/api/cards/help-detail?card_id=' + cardId)
         .then(res => res.json())
@@ -687,7 +694,6 @@ function openHelpDetail(cardId) {
             const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
             document.getElementById('detail-card-image').src = '/images/card' + path;
             
-            // 編集フォームに入力値をセット
             document.getElementById('edit-card-id').value = card.card_id;
             document.getElementById('info-id').innerText = card.card_id;
             document.getElementById('edit-name').value = card.card_name || '';
@@ -699,7 +705,6 @@ function openHelpDetail(cardId) {
             document.getElementById('info-goods').innerText = card.goods_name || 'なし';
 
             // 1. 文明チェックボックスの復元
-            document.querySelectorAll('.edit-civ-check').forEach(el => el.checked = false);
             if (card.civilizations_ids) {
                 const civIds = card.civilizations_ids.split(',').map(Number);
                 civIds.forEach(id => {
@@ -709,7 +714,6 @@ function openHelpDetail(cardId) {
             }
 
             // 2. 種族チェックボックスの復元
-            document.querySelectorAll('.edit-race-check').forEach(el => el.checked = false);
             if (card.race_ids) {
                 const raceIds = card.race_ids.split(',').map(Number);
                 raceIds.forEach(id => {
@@ -719,7 +723,6 @@ function openHelpDetail(cardId) {
             }
 
             // 3. 特殊能力チェックボックスの復元
-            document.querySelectorAll('.edit-ability-check').forEach(el => el.checked = false);
             if (card.ability_ids) {
                 const abilityIds = card.ability_ids.split(',').map(Number);
                 abilityIds.forEach(id => {
@@ -727,8 +730,8 @@ function openHelpDetail(cardId) {
                     if (chk) chk.checked = true;
                 });
             }
-// 4. レアリティチェックボックスの復元 (card.rarity_ids がカンマ区切りで返る、または card.rarity_id が単一で返るケース双方に対応)
-            document.querySelectorAll('.edit-rarity-check').forEach(el => el.checked = false);
+
+            // 4. レアリティチェックボックスの復元
             if (card.rarity_ids) {
                 const rarityIds = card.rarity_ids.split(',').map(Number);
                 rarityIds.forEach(id => {
@@ -741,7 +744,6 @@ function openHelpDetail(cardId) {
             }
 
             // 5. 特殊タイプチェックボックスの復元
-            document.querySelectorAll('.edit-characteristic-check').forEach(el => el.checked = false);
             if (card.characteristic_ids) {
                 const charIds = card.characteristic_ids.split(',').map(Number);
                 charIds.forEach(id => {
@@ -751,7 +753,6 @@ function openHelpDetail(cardId) {
             }
 
             // 6. カードタイプチェックボックスの復元
-            document.querySelectorAll('.edit-cardtype-check').forEach(el => el.checked = false);
             if (card.cardtype_ids) {
                 const typeIds = card.cardtype_ids.split(',').map(Number);
                 typeIds.forEach(id => {
@@ -762,13 +763,15 @@ function openHelpDetail(cardId) {
 
             updateSelectedBadges('race');
             updateSelectedBadges('ability');
-            updateSelectedBadges('rarity');          // ★追記
-            updateSelectedBadges('characteristic');  // ★追記
+            updateSelectedBadges('rarity');
+            updateSelectedBadges('characteristic');
             updateSelectedBadges('cardtype'); 
-
-            document.getElementById('helpDetailModal').style.display = 'block';
         })
-        .catch(err => console.error(err));
+        .catch(err => {
+            console.error("カード詳細の取得に失敗しました:", err);
+            closeHelpDetailModal();
+            alert("カードデータの取得に失敗しました。");
+        });
 }
 
 function closeHelpDetailModal() {
@@ -779,6 +782,9 @@ function closeHelpDetailModal() {
  */
 // renderEditRacesAndAbilities() 関数を以下に差し替え
 
+/**
+ * ページ初期化時に、種族、特殊能力、その他のチェックボックスリストをあらかじめ動的に出力する
+ */
 function renderEditRacesAndAbilities() {
     // 1. 種族チェックボックスの生成
     const raceContainer = document.getElementById('edit-races-area');
@@ -810,7 +816,7 @@ function renderEditRacesAndAbilities() {
         abilityContainer.appendChild(lbl);
     });
 
-    // 3. レアリティチェックボックスの生成 (ID -1は除外)
+    // 3. レアリティチェックボックスの生成
     const rarityContainer = document.getElementById('edit-rarities-area');
     rarityContainer.innerHTML = '';
     const rarities = masterData.rarity || [];
@@ -824,7 +830,7 @@ function renderEditRacesAndAbilities() {
         rarityContainer.appendChild(lbl);
     });
 
-    // 4. 特殊タイプチェックボックスの生成 (ID -1は除外)
+    // 4. 特殊タイプチェックボックスの生成
     const charContainer = document.getElementById('edit-characteristics-area');
     charContainer.innerHTML = '';
     const chars = masterData.characteristic || [];
@@ -838,7 +844,7 @@ function renderEditRacesAndAbilities() {
         charContainer.appendChild(lbl);
     });
 
-    // 5. カードタイプチェックボックスの生成 (ID -1は除外)
+    // 5. カードタイプチェックボックスの生成
     const typeContainer = document.getElementById('edit-cardtypes-area');
     typeContainer.innerHTML = '';
     const types = masterData.cardtype || [];
@@ -862,7 +868,6 @@ function renderEditRacesAndAbilities() {
 // updateSelectedBadges(type) 関数を以下に差し替え
 
 function updateSelectedBadges(type) {
-    // typeに応じたバッジエリア要素のIDマッピング
     const areaMap = {
         race: 'edit-selected-races',
         ability: 'edit-selected-abilities',
@@ -920,7 +925,6 @@ function setupModalSearchFilter(type) {
         const labels = document.querySelectorAll(`#edit-${type === 'race' ? 'races' : 'abilities'}-area .edit-checkbox-label`);
         
         labels.forEach(lbl => {
-            // ★ 修正：よみがなが含まれる data-search 属性からマッチング判定します
             const searchKey = lbl.dataset.search || '';
             lbl.style.display = searchKey.includes(q) ? 'block' : 'none';
         });
@@ -936,10 +940,13 @@ function saveHelpDetail() {
     const cardId = document.getElementById('edit-card-id').value;
     if (!cardId) return;
 
+    const cardNameInput = document.getElementById('edit-name').value.trim();
+    const readingInput = document.getElementById('edit-reading').value.trim();
+
     const data = {
         card_id: cardId,
-        card_name: document.getElementById('edit-name').value.trim(),
-        reading: document.getElementById('edit-reading').value.trim(),
+        card_name: cardNameInput,
+        reading: readingInput,
         pow: document.getElementById('edit-power').value,
         cost: document.getElementById('edit-cost').value,
         text: document.getElementById('edit-text').value.trim(), 
@@ -947,8 +954,6 @@ function saveHelpDetail() {
         civilizations: Array.from(document.querySelectorAll('.edit-civ-check:checked')).map(el => parseInt(el.value, 10)),
         races: Array.from(document.querySelectorAll('.edit-race-check:checked')).map(el => parseInt(el.value, 10)),
         abilities: Array.from(document.querySelectorAll('.edit-ability-check:checked')).map(el => parseInt(el.value, 10)),
-        
-        // ★追記: 追加3項目の選択状態を送信データに追加
         rarities: Array.from(document.querySelectorAll('.edit-rarity-check:checked')).map(el => parseInt(el.value, 10)),
         characteristics: Array.from(document.querySelectorAll('.edit-characteristic-check:checked')).map(el => parseInt(el.value, 10)),
         cardtypes: Array.from(document.querySelectorAll('.edit-cardtype-check:checked')).map(el => parseInt(el.value, 10))
@@ -958,7 +963,13 @@ function saveHelpDetail() {
         return alert("カード名は必須です。");
     }
 
-    // データベース更新APIを呼び出し
+    // 更新中ボタンの活性／非活性化（二重送信の防止）
+    const updateBtn = document.querySelector('button[onclick="saveHelpDetail()"]');
+    if (updateBtn) {
+        updateBtn.disabled = true;
+        updateBtn.innerText = "更新中...";
+    }
+
     fetch('/api/cards/help-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -967,9 +978,18 @@ function saveHelpDetail() {
     .then(res => res.json())
     .then(resData => {
         if (resData.success) {
-            alert("カード情報を更新しました！");
+            // 【改善：高速化のための重要変更】
+            // 重い全体の再検索「triggerHelpSearch」を行わず、変更された該当カードのデータを
+            // フロントエンド(DOM)上で部分的に即時書き換えます。これにより遅延を感じさせず完了します。
+            const targetImg = document.getElementById(`card-img-${cardId}`);
+            if (targetImg) {
+                targetImg.alt = cardNameInput;
+                targetImg.dataset.cardName = cardNameInput;
+                targetImg.dataset.reading = readingInput;
+            }
+
             closeHelpDetailModal();
-            triggerHelpSearch(false); // ページ数を維持したまま再検索して画面をリフレッシュ
+            alert("カード情報を更新しました！");
         } else {
             alert("更新に失敗しました: " + resData.error);
         }
@@ -977,6 +997,12 @@ function saveHelpDetail() {
     .catch(err => {
         console.error("更新エラー:", err);
         alert("通信中にエラーが発生しました。");
+    })
+    .finally(() => {
+        if (updateBtn) {
+            updateBtn.disabled = false;
+            updateBtn.innerText = "更新する";
+        }
     });
 }
 </script>

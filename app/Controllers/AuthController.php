@@ -113,6 +113,7 @@ class AuthController {
                             // 認証コードをスキップしてログイン状態にする
                             $_SESSION['user_id'] = $user['user_id'];
                             $_SESSION['username'] = $user['username'];
+                            $_SESSION['role'] = $user['role'] ?? 'user'; // ★追加: ロール情報を保持
                             
                             // 修正箇所：既知の端末でのログイン時はメールを送信しないため、
                             // fastcgi_finish_request() は使用せず、即座にリダイレクトします。
@@ -129,7 +130,8 @@ class AuthController {
                             'username' => $user['username'],
                             'email' => $user['email'],
                             'code' => $code,
-                            'expires_at' => $expiresAt
+                            'expires_at' => $expiresAt,
+                            'role' => $user['role'] ?? 'user' // ★追加: 一時領域にロールを保持
                         ];
 
                         $subject = "【デュエマデッキメーカー】ログイン認証コード";
@@ -209,6 +211,7 @@ class AuthController {
         // 正式ログイン完了
         $_SESSION['user_id'] = $tempLogin['user_id'];
         $_SESSION['username'] = $tempLogin['username'];
+        $_SESSION['role'] = $tempLogin['role'] ?? 'user'; // ★追加: 正式ログイン時にロールを保持
 
         // 修正箇所：ここではまだリダイレクトせず、クッキー設定処理などを完了させます
 
@@ -386,7 +389,7 @@ class AuthController {
                 exit;
             }
 
-            // DBに正式登録
+            // DBに正式登録（新規登録時は role の初期値 'user' が適用されます）
             $stmtInsert = $pdo->prepare("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (:name, :email, :pass, NOW(), NOW())");
             $stmtInsert->execute([
                 ':name' => $tempUser['username'],
@@ -399,6 +402,7 @@ class AuthController {
             // ログインセッションの確立
             $_SESSION['user_id'] = $userId;
             $_SESSION['username'] = $tempUser['username'];
+            $_SESSION['role'] = 'user'; // ★追加: 新規登録時は一律で 'user'
 
             // ==========================================
             // ★【追加箇所】登録を行ったこの端末を「既知の端末」として保存します
@@ -582,7 +586,7 @@ class AuthController {
                 if ($userId > 0) {
                     try {
                         $pdo = \Models\Database::connect();
-                        $stmt = $pdo->prepare("SELECT user_id, username, password_hash FROM users WHERE user_id = :user_id");
+                        $stmt = $pdo->prepare("SELECT user_id, username, password_hash, role FROM users WHERE user_id = :user_id"); // ★修正: roleも取得
                         $stmt->execute([':user_id' => $userId]);
                         $user = $stmt->fetch();
 
@@ -590,6 +594,7 @@ class AuthController {
                             // セッションを復元
                             $_SESSION['user_id'] = $user['user_id'];
                             $_SESSION['username'] = $user['username'];
+                            $_SESSION['role'] = $user['role'] ?? 'user'; // ★追加: 自動ログイン成功時にロールを保持
 
                             header('Location: /mydecks');
                             
@@ -604,5 +609,46 @@ class AuthController {
             }
         }
         return false;
+    }
+
+    /**
+     * ★追加機能：現在ログインしているユーザーが管理者（admin）または開発者（developer）であるか検証する。
+     * ビューファイルや他のコントローラーから静的（static）に呼び出せるように定義します。
+     * 
+     * @return bool
+     */
+    public static function checkAdminOrDeveloper() {
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        if (!isset($_SESSION['user_id'])) {
+            return false;
+        }
+
+        // すでにセッションにロールが格納されている場合はそれを利用
+        $userRole = $_SESSION['role'] ?? null;
+
+        // セッションにロールがない場合、データベースにアクセスして最新のロールを取得しキャッシュする
+        if (!$userRole) {
+            try {
+                $pdo = \Models\Database::connect();
+                $stmt = $pdo->prepare("SELECT role FROM users WHERE user_id = :user_id LIMIT 1");
+                $stmt->execute([':user_id' => $_SESSION['user_id']]);
+                $user = $stmt->fetch(\PDO::FETCH_ASSOC);
+                
+                if ($user) {
+                    $userRole = $user['role'] ?? 'user';
+                    $_SESSION['role'] = $userRole; // セッションに保存して次回以降のクエリを防止
+                } else {
+                    return false;
+                }
+            } catch (\Exception $e) {
+                error_log("AuthController::checkAdminOrDeveloper verification error: " . $e->getMessage());
+                return false;
+            }
+        }
+
+        return ($userRole === 'admin' || $userRole === 'developer');
     }
 }
