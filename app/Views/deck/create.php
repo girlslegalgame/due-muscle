@@ -1892,7 +1892,7 @@ const searchSortable = new Sortable(resultsDiv, {
     group: { 
         name: 'shared', 
         pull: 'clone', 
-        put: false // ドロップ判定はデッキ側の座標検知で行うため、Sortableとしては拒否に設定
+        put: false // ドロップ判定はデッキ側の座標検知で行うため、拒否に設定
     }, 
     sort: false, 
     animation: 150,
@@ -1900,7 +1900,7 @@ const searchSortable = new Sortable(resultsDiv, {
     delay: window.innerWidth <= 768 ? 300 : 0,
     delayOnTouchOnly: true,
     forceFallback: true,      
-    fallbackTolerance: 20,    // 20px程度のブレを許容
+    fallbackTolerance: 20,    
     fallbackOnBody: true      
 });
 
