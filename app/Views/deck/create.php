@@ -1669,6 +1669,13 @@ const deckArea = document.getElementById('deck-area');
 
     // ★ 追記：画面を開いた直後に自動で発売日が新しいカードを表示する
     searchCards();
+    const nameInput = document.getElementById('save-deck-name');
+    const formatSelect = document.getElementById('save-deck-format');
+    if (nameInput) nameInput.addEventListener('input', saveDraftToLocalStorage);
+    if (formatSelect) formatSelect.addEventListener('change', saveDraftToLocalStorage);
+
+    // ★追加：マスタ取得や描画が少し落ち着いたタイミングで復元チェックを実行
+    setTimeout(checkAndRestoreDraft, 250);
 });
 /**
  * フォーマットのドロップダウンオプションのレンダリング
@@ -1770,8 +1777,24 @@ const deckSortableConfig = {
             return;
         }
 
-        const clientX = e.clientX || (e.touches && e.touches[0] ? e.touches[0].clientX : 0);
-        const clientY = e.clientY || (e.touches && e.touches[0] ? e.touches[0].clientY : 0);
+        // スマホの指を離した瞬間の座標を取得（changedTouchesも参照するよう補正）
+        const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+        const clientX = e.clientX || (touch ? touch.clientX : 0);
+        const clientY = e.clientY || (touch ? touch.clientY : 0);
+
+        // 【改善】ドロップ座標が検索セクション（#search-section）の上であれば、その場で削除を実行
+        const searchSection = document.getElementById('search-section');
+        if (searchSection) {
+            const sRect = searchSection.getBoundingClientRect();
+            const isOverSearch = (clientX >= sRect.left && clientX <= sRect.right &&
+                                  clientY >= sRect.top && clientY <= sRect.bottom);
+            
+            if (isOverSearch && evt.from !== resultsDiv) {
+                evt.item.remove();
+                updateDeckDisplay();
+                return;
+            }
+        }
 
         // 有効なドロップ先（メイン・超次元・GRの各リスト）
         const validLists = [mainList, superDimList, grList];
@@ -1859,24 +1882,16 @@ const searchSortable = new Sortable(resultsDiv, {
     group: { 
         name: 'shared', 
         pull: 'clone', 
-        put: function (to, from) {
-            // デッキ（メイン、超GR、超次元等）から検索エリアへのドロップのみを許容します
-            // 検索エリア内での自己ループは防ぎます
-            return from.el !== resultsDiv;
-        } 
+        put: false // ドロップ判定はデッキ側の座標検知で行うため、Sortableとしては拒否に設定
     }, 
     sort: false, 
     animation: 150,
+    // スマホ（768px以下）では300ms長押しするまでドラッグを開始しない（スワイプによる通常スクロールを優先）
+    delay: window.innerWidth <= 768 ? 300 : 0,
+    delayOnTouchOnly: true,
     forceFallback: true,      
-    fallbackTolerance: 20,    // ★ 20px 程度に設定し、ちょっとした斜めブレを完全に許容します
-    fallbackOnBody: true,
-    onAdd: function(evt) {
-        // デッキから検索エリアにドラッグ＆ドロップされたカードを削除します
-        if (evt.item) {
-            evt.item.remove();
-        }
-        updateDeckDisplay();
-    }
+    fallbackTolerance: 20,    // 20px程度のブレを許容
+    fallbackOnBody: true      
 });
 
 document.querySelectorAll('.special-box').forEach(box => {
@@ -1975,6 +1990,9 @@ function updateDeckDisplay() {
     document.getElementById('tab-extra').innerText = `GR ${gCount}/12 超次元 ${sCount}/8`;
 
     adjustMainDeckRows();
+
+    // ★追加：状態が変わるたびにローカルに自動保存する
+    saveDraftToLocalStorage();
 }
 
 // --- F. カード詳細モーダル ---
@@ -2685,6 +2703,9 @@ function submitDeckSave() {
     }))
     .then(data => {
         if (data.success) { 
+            // ★追加：保存に成功したため、ローカルの下書きデータを消去
+            localStorage.removeItem('unsaved_deck_draft');
+
             alert("保存が完了しました！"); 
             window.location.href = '/mydecks'; 
         } else { 
@@ -3067,5 +3088,142 @@ if (goodsContainer) {
             });
         }
     });
+}
+// --- オートセーブ（下書き保存・復元）ロジック ---
+
+/**
+ * デッキの現在の構成カードをシリアライズして配列で取得
+ */
+function getSerializedCards() {
+    const cards = [];
+    const serializeImg = (img, type) => {
+        const cardId = img.dataset.cardId;
+        const cached = cardCache[cardId];
+        return {
+            card_id: cardId,
+            card_name: img.dataset.cardName || (cached ? cached.card_name : ''),
+            combo_names: img.dataset.comboNames || (cached ? cached.combo_names : ''),
+            char_ids: img.dataset.charIds || (cached ? cached.char_ids : ''),
+            imagepath: img.dataset.imagepath || (cached ? cached.imagepath : ''),
+            card_limit: img.dataset.cardLimit || (cached ? cached.card_limit : ''),
+            civilization: img.dataset.civ || (cached ? cached.civilization : ''),
+            cost: img.dataset.cost || (cached ? cached.cost : ''),
+            card_type_in_deck: type
+        };
+    };
+
+    mainList.querySelectorAll('img').forEach(img => cards.push(serializeImg(img, 'main')));
+    superDimList.querySelectorAll('img').forEach(img => cards.push(serializeImg(img, 'super_dimensional')));
+    grList.querySelectorAll('img').forEach(img => cards.push(serializeImg(img, 'gr')));
+    document.querySelectorAll('.special-box.active img').forEach(img => {
+        const item = serializeImg(img, 'special');
+        item.slotId = img.parentNode.id; // スロットID（ドルマゲドンか零龍か）を保持
+        cards.push(item);
+    });
+
+    return cards;
+}
+
+/**
+ * ローカルストレージに下書きを保存
+ */
+function saveDraftToLocalStorage() {
+    const cards = getSerializedCards();
+    const nameEl = document.getElementById('save-deck-name');
+    const formatEl = document.getElementById('save-deck-format');
+    const deckName = nameEl ? nameEl.value : '';
+    const formatId = formatEl ? formatEl.value : null;
+
+    // デッキにカードが1枚もない場合は、古い下書きをクリーンアップ
+    if (cards.length === 0) {
+        localStorage.removeItem('unsaved_deck_draft');
+        return;
+    }
+
+    const draft = {
+        deckId: deckId, // グローバル変数deckId（新規はnull、編集は数値）
+        deckName: deckName,
+        formatId: formatId,
+        cards: cards,
+        updatedAt: Date.now()
+    };
+    localStorage.setItem('unsaved_deck_draft', JSON.stringify(draft));
+}
+
+/**
+ * 起動時に自動セーブされた下書きの存在を確認し、復元を打診
+ */
+function checkAndRestoreDraft() {
+    const draftStr = localStorage.getItem('unsaved_deck_draft');
+    if (!draftStr) return;
+
+    try {
+        const draft = JSON.parse(draftStr);
+        // 現在開いているデッキ（新規同士、あるいは同じデッキIDの編集同士）と一致するか判定
+        const isSameDeck = (draft.deckId === deckId);
+
+        if (isSameDeck && draft.cards && draft.cards.length > 0) {
+            const confirmRestore = confirm("前回の未保存データが見つかりました。\n途中から作成・編集を再開しますか？");
+            if (confirmRestore) {
+                restoreDraft(draft);
+            } else {
+                // 不要と判断された場合は下書きをクリア
+                localStorage.removeItem('unsaved_deck_draft');
+            }
+        }
+    } catch (e) {
+        console.error("ドラフトの復元処理中にエラーが発生しました", e);
+    }
+}
+
+/**
+ * 下書きからカードおよび入力フォームの値を復元
+ */
+function restoreDraft(draft) {
+    // 現在の各スロットをクリア
+    mainList.innerHTML = '';
+    superDimList.innerHTML = '';
+    grList.innerHTML = '';
+    document.querySelectorAll('.special-box').forEach(slot => {
+        slot.innerHTML = '';
+        slot.classList.remove('active');
+        slot.classList.add('empty');
+        updateSaveButton(slot.id, false);
+    });
+
+    // カードの再配置
+    draft.cards.forEach(card => {
+        const reconstructedCard = {
+            card_id: card.card_id,
+            card_name: card.card_name,
+            combo_names: card.combo_names,
+            char_ids: card.char_ids,
+            imagepath: card.imagepath,
+            card_limit: card.card_limit,
+            civilization: card.civilization,
+            cost: card.cost
+        };
+        
+        cardCache[card.card_id] = reconstructedCard;
+
+        if (card.card_type_in_deck === 'special') {
+            addCardToDeck(reconstructedCard, 'special', card.slotId);
+        } else {
+            addCardToDeck(reconstructedCard, card.card_type_in_deck);
+        }
+    });
+
+    // デッキ名、フォーマットの復元
+    if (draft.deckName) {
+        const nameInput = document.getElementById('save-deck-name');
+        if (nameInput) nameInput.value = draft.deckName;
+    }
+    if (draft.formatId) {
+        const formatSelect = document.getElementById('save-deck-format');
+        if (formatSelect) formatSelect.value = draft.formatId;
+    }
+
+    updateDeckDisplay();
+    alert("未保存の作業データを復元しました。");
 }
 </script>
