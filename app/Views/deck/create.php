@@ -1855,14 +1855,28 @@ new Sortable(superDimList, deckSortableConfig);
 new Sortable(grList, deckSortableConfig);
 
 // 検索結果エリアのSortable設定
-// ※以前追加した touchstart / touchmove 等のカスタムイベントリスナーはすべて削除してください。
 const searchSortable = new Sortable(resultsDiv, { 
-    group: { name: 'shared', pull: 'clone', put: false }, 
+    group: { 
+        name: 'shared', 
+        pull: 'clone', 
+        put: function (to, from) {
+            // デッキ（メイン、超GR、超次元等）から検索エリアへのドロップのみを許容します
+            // 検索エリア内での自己ループは防ぎます
+            return from.el !== resultsDiv;
+        } 
+    }, 
     sort: false, 
     animation: 150,
     forceFallback: true,      
     fallbackTolerance: 20,    // ★ 20px 程度に設定し、ちょっとした斜めブレを完全に許容します
-    fallbackOnBody: true      
+    fallbackOnBody: true,
+    onAdd: function(evt) {
+        // デッキから検索エリアにドラッグ＆ドロップされたカードを削除します
+        if (evt.item) {
+            evt.item.remove();
+        }
+        updateDeckDisplay();
+    }
 });
 
 document.querySelectorAll('.special-box').forEach(box => {
