@@ -4,10 +4,40 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// ログイン状態および管理者・開発者権限のチェック
-if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
-    // 権限がない場合はログイン画面（例: /login）へリダイレクト
+// 1. 未ログインの場合は、ログイン画面（例: /login）へリダイレクト
+if (!isset($_SESSION['user_id'])) {
     header("Location: /login");
+    exit;
+}
+
+// 2. ログインはしているが、管理者（admin）または開発者（developer）の権限を持たない場合
+if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
+    // 403 Forbidden のHTTPステータスコードを返却
+    http_response_code(403);
+    ?>
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <title>アクセス権限エラー</title>
+        <style>
+            body { font-family: sans-serif; background: #f0f0f0; margin: 0; padding: 50px 20px; display: flex; justify-content: center; align-items: center; min-height: 50vh; }
+            .error-box { background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 450px; width: 100%; }
+            h2 { color: #dc3545; margin-top: 0; font-size: 22px; }
+            p { color: #555; font-size: 14px; line-height: 1.6; margin-bottom: 25px; }
+            .btn-back { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; font-weight: bold; font-size: 14px; transition: background 0.2s; }
+            .btn-back:hover { background: #0056b3; }
+        </style>
+    </head>
+    <body>
+        <div class="error-box">
+            <h2>アクセス権限エラー</h2>
+            <p>このページ（カード情報の検索・編集）を閲覧、または操作するための権限がありません。管理者または開発者アカウントでログインし直してください。</p>
+            <a href="/mydecks" class="btn-back">マイページ（マイデッキ）へ戻る</a>
+        </div>
+    </body>
+    </html>
+    <?php
     exit;
 }
 ?>
