@@ -1542,6 +1542,9 @@ const initialDeckName = <?php echo isset($deck['deck_name']) ? json_encode($deck
 const initialCards = <?php echo !empty($initialCards) ? json_encode($initialCards) : '[]'; ?>;
 const currentSort = { key: null, order: 'asc' };
 
+const cardCache = {};
+
+
 // Controllerからビューに渡されたフォーマット情報を取得
 const formatsFromPhp = <?php echo isset($formats) ? json_encode($formats) : '[]'; ?>;
 
@@ -1592,6 +1595,7 @@ window.addEventListener('DOMContentLoaded', () => {
     // 編集モード：既存デッキ読み込み
     if (isEdit && initialCards.length > 0) {
         initialCards.forEach(card => { 
+            cardCache[card.card_id] = card; // ★追加：既存カードをキャッシュに格納
             const qty = parseInt(card.quantity, 10) || 1;
             for (let i = 0; i < qty; i++) {
                 addCardToDeck(card, card.card_type_in_deck); 
@@ -1685,6 +1689,7 @@ function renderFormatSelect(formats) {
  * デッキリストにカード画像を追加する
  */
 function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
+    cardCache[card.card_id] = card;
     const img = document.createElement('img');
     img.src = getCardImagePath(card);
     img.dataset.cardId = card.card_id;
@@ -1959,14 +1964,64 @@ function updateDeckDisplay() {
 }
 
 // --- F. カード詳細モーダル ---
+// --- F. カード詳細モーダル ---
+// --- F. カード詳細モーダル ---
 function openCardDetail(cardId, el) {
     activeClickedElement = el;
+    
+    // 1. キャッシュの取得、またはクリックされたDOM（img）のデータ属性から基本情報をその場で復元（0ms化）
+    let cachedCard = cardCache[cardId];
+    
+    // キャッシュがない、またはキャッシュ内に詳細テキスト(text)情報が不足している場合
+    if ((!cachedCard || !cachedCard.text) && el && el.dataset) {
+        cachedCard = {
+            card_id: cardId,
+            card_name: el.dataset.cardName || '',
+            combo_names: el.dataset.comboNames || '',
+            char_ids: el.dataset.charIds || '',
+            imagepath: el.dataset.imagepath || '',
+            card_limit: el.dataset.cardLimit || '',
+            civilization: el.dataset.civ || '',
+            cost: el.dataset.cost || '',
+            // テキスト情報のみバックグラウンド通信で更新されるまで「読み込み中」にしておく
+            text: cachedCard && cachedCard.text ? cachedCard.text : "詳細効果を読み込み中..."
+        };
+        cardCache[cardId] = cachedCard;
+    }
+
+    if (cachedCard) {
+        // キャッシュ（または自己復元データ）を使って瞬時にモーダルを描画（0ms表示）
+        selectedCardData = cachedCard;
+        allVersions = [cachedCard]; // バージョン取得までは自身のみを表示
+        renderDetailModal();
+        
+        // バージョン切り替えエリアを一時的にローディング表示にする
+        document.getElementById('detail-version-list').innerHTML = '<span style="font-size:12px;color:#999;padding:5px;">読み込み中...</span>';
+    } else {
+        // 万が一データが全く取得できない場合のフォールバック表示
+        document.getElementById('detail-name').innerText = "読み込み中...";
+        document.getElementById('detail-text').innerText = "";
+        document.getElementById('cardDetailModal').style.display = 'block';
+    }
+
+    // 2. 非同期で完全な詳細情報（全バージョン情報）をバックグラウンド取得して上書き
     fetch('/api/cards/versions?card_id=' + cardId)
         .then(res => res.json())
         .then(versions => {
             allVersions = versions;
-            selectedCardData = versions.find(v => v.card_id == cardId);
+            
+            // 完全な情報をキャッシュにマージ・更新
+            const freshData = versions.find(v => v.card_id == cardId);
+            if (freshData) {
+                selectedCardData = freshData;
+                cardCache[cardId] = freshData;
+            }
+            
+            // バージョン画像を含めて再描画
             renderDetailModal();
+        })
+        .catch(err => {
+            console.error("詳細情報のバックグラウンド取得に失敗しました:", err);
         });
 }
 
@@ -2297,6 +2352,7 @@ function fetchAndRender() {
             } else {
                 if (data.length < 50) hasMoreCards = false;
                 data.forEach(card => {
+                    cardCache[card.card_id] = card; // ★追加：検索結果のカードをキャッシュに格納
                     const img = document.createElement('img');
                     img.src = getCardImagePath(card);
                     img.dataset.cardId = card.card_id;
