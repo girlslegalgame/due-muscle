@@ -1881,12 +1881,13 @@ const deckSortableConfig = {
     }
 };
 
-// 各デッキリストのSortable定義
+// 各デッキリストのSortable定義（1回のみ記述します）
 new Sortable(mainList, deckSortableConfig);
 new Sortable(superDimList, deckSortableConfig);
 new Sortable(grList, deckSortableConfig);
 
 // 検索結果エリアのSortable設定
+// ★ 長押しなしで瞬時にドラッグできるようディレイ（delay）を排除した設定のみを残します
 const searchSortable = new Sortable(resultsDiv, { 
     group: { 
         name: 'shared', 
@@ -1895,31 +1896,8 @@ const searchSortable = new Sortable(resultsDiv, {
     }, 
     sort: false, 
     animation: 150,
-    // ★ 検索枠からの追加をノーストレスで行うため、長押しディレイ（delay）を完全に排除しました
     forceFallback: true,      
-    fallbackTolerance: 5,     // わずかな動きでもすぐに反応してドラッグを開始させます
-    fallbackOnBody: true      
-});
-
-// 各デッキリストのSortable定義
-new Sortable(mainList, deckSortableConfig);
-new Sortable(superDimList, deckSortableConfig);
-new Sortable(grList, deckSortableConfig);
-
-// 検索結果エリアのSortable設定
-const searchSortable = new Sortable(resultsDiv, { 
-    group: { 
-        name: 'shared', 
-        pull: 'clone', 
-        put: false // ドロップ判定はデッキ側の座標検知で行うため、拒否に設定
-    }, 
-    sort: false, 
-    animation: 150,
-    // スマホ（768px以下）では300ms長押しするまでドラッグを開始しない（スワイプによる通常スクロールを優先）
-    delay: window.innerWidth <= 768 ? 300 : 0,
-    delayOnTouchOnly: true,
-    forceFallback: true,      
-    fallbackTolerance: 20,    
+    fallbackTolerance: 5,     // わずかな動きでもドラッグを開始させる設定
     fallbackOnBody: true      
 });
 
