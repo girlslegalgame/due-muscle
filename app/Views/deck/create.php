@@ -1762,13 +1762,23 @@ resultsDiv.addEventListener('click', (e) => {
 
 
 // --- D. SortableJS 設定 ---
-// --- D. SortableJS 設定 ---
 const deckSortableConfig = {
-    group: 'shared', 
+    // グループ名を明示的なオブジェクト形式で検索側と統一
+    group: { 
+        name: 'shared', 
+        pull: true, 
+        put: true 
+    },
     animation: 150,
     delay: 300,             // タッチデバイス時、ドラッグ開始までに必要な長押し時間（ミリ秒）
     delayOnTouchOnly: true,  // 遅延（長押し）をタッチ操作のみに適用し、PCは即時ドラッグ可能にする
-    touchStartThreshold: 10, 
+    touchStartThreshold: 10,
+    
+    // ★ 検索側とFallbackの設定を同期（これによって相互ドラッグ＆ドロップを可能にします）
+    forceFallback: true,      
+    fallbackTolerance: 20,    
+    fallbackOnBody: true,
+
     onEnd: function(evt) {
         // ドラッグ終了時のカーソル位置を取得
         const e = evt.originalEvent;
@@ -1782,7 +1792,7 @@ const deckSortableConfig = {
         const clientX = e.clientX || (touch ? touch.clientX : 0);
         const clientY = e.clientY || (touch ? touch.clientY : 0);
 
-        // 【改善】ドロップ座標が検索セクション（#search-section）の上であれば、その場で削除を実行
+        // ドロップ座標が検索セクション（#search-section）の上であれば、その場で削除を実行
         const searchSection = document.getElementById('search-section');
         if (searchSection) {
             const sRect = searchSection.getBoundingClientRect();
