@@ -1763,20 +1763,20 @@ resultsDiv.addEventListener('click', (e) => {
 
 // --- D. SortableJS 設定 ---
 const deckSortableConfig = {
-    // グループ名を明示的なオブジェクト形式で検索側と統一
+    // グループ形式をオブジェクトで明示し、検索側と完全に同期
     group: { 
         name: 'shared', 
         pull: true, 
         put: true 
-    },
+    }, 
     animation: 150,
-    delay: 300,             // タッチデバイス時、ドラッグ開始までに必要な長押し時間（ミリ秒）
-    delayOnTouchOnly: true,  // 遅延（長押し）をタッチ操作のみに適用し、PCは即時ドラッグ可能にする
-    touchStartThreshold: 10,
+    delay: 300,             // デッキ内の「並び替え」時のみ、縦スクロールとの競合を防ぐためタッチディレイを残します
+    delayOnTouchOnly: true,  
+    touchStartThreshold: 10, 
     
-    // ★ 検索側とFallbackの設定を同期（これによって相互ドラッグ＆ドロップを可能にします）
+    // Fallbackの設定を検索エリア側と同期させてドロップを可能にします
     forceFallback: true,      
-    fallbackTolerance: 20,    
+    fallbackTolerance: 5,     // 許容値を下げることで、掴んだ瞬間に即反応するよう調整
     fallbackOnBody: true,
 
     onEnd: function(evt) {
@@ -1787,12 +1787,11 @@ const deckSortableConfig = {
             return;
         }
 
-        // スマホの指を離した瞬間の座標を取得（changedTouchesも参照するよう補正）
         const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
         const clientX = e.clientX || (touch ? touch.clientX : 0);
         const clientY = e.clientY || (touch ? touch.clientY : 0);
 
-        // ドロップ座標が検索セクション（#search-section）の上であれば、その場で削除を実行
+        // ドロップ座標が検索セクションの上であれば削除
         const searchSection = document.getElementById('search-section');
         if (searchSection) {
             const sRect = searchSection.getBoundingClientRect();
@@ -1809,7 +1808,7 @@ const deckSortableConfig = {
         // 有効なドロップ先（メイン・超次元・GRの各リスト）
         const validLists = [mainList, superDimList, grList];
         
-        // 特殊エリアのスロット（アクティブ・非アクティブ問わず枠内であれば検知）
+        // 特殊エリアのスロット
         document.querySelectorAll('.special-box').forEach(box => {
             validLists.push(box);
         });
@@ -1881,6 +1880,26 @@ const deckSortableConfig = {
         updateDeckDisplay();
     }
 };
+
+// 各デッキリストのSortable定義
+new Sortable(mainList, deckSortableConfig);
+new Sortable(superDimList, deckSortableConfig);
+new Sortable(grList, deckSortableConfig);
+
+// 検索結果エリアのSortable設定
+const searchSortable = new Sortable(resultsDiv, { 
+    group: { 
+        name: 'shared', 
+        pull: 'clone', 
+        put: false 
+    }, 
+    sort: false, 
+    animation: 150,
+    // ★ 検索枠からの追加をノーストレスで行うため、長押しディレイ（delay）を完全に排除しました
+    forceFallback: true,      
+    fallbackTolerance: 5,     // わずかな動きでもすぐに反応してドラッグを開始させます
+    fallbackOnBody: true      
+});
 
 // 各デッキリストのSortable定義
 new Sortable(mainList, deckSortableConfig);
