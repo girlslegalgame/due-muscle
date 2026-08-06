@@ -555,8 +555,8 @@ function renderSearchResults(cards) {
 // loadAllMasterData() 関数を以下に差し替え
 
 function loadAllMasterData() {
-    // 種族と特殊能力をロード
-    fetch('/api/master-data')
+    // 1. 種族と特殊能力をロード
+    const p1 = fetch('/api/master-data')
         .then(res => res.json())
         .then(data => {
             const racesList = data.races || [];
@@ -567,8 +567,8 @@ function loadAllMasterData() {
         })
         .catch(err => console.error("種族・能力マスタ取得エラー:", err));
 
-    // カードタイプ、特殊タイプ、収録商品、レアリティを一括ロード
-    fetch('/api/master-data-extended')
+    // 2. カードタイプ、特殊タイプ、収録商品、レアリティを一括ロード
+    const p2 = fetch('/api/master-data-extended')
         .then(res => res.json())
         .then(data => {
             // カードタイプ：IDの昇順
@@ -586,13 +586,20 @@ function loadAllMasterData() {
                 const sorted = data.goods.sort((a, b) => b.goods_id - a.goods_id);
                 masterData.goods = [{ goods_id: -1, goods_name: "（未設定 / なし）" }, ...sorted];
             }
-            // レアリティ：IDの昇順でロード (APIがraritiesを返却する想定)
+            // レアリティ：IDの昇順でロード
             if (data.rarities) {
                 const sorted = data.rarities.sort((a, b) => a.rarity_id - b.rarity_id);
                 masterData.rarity = [{ rarity_id: -1, rarity_name: "（未設定 / なし）" }, ...sorted];
             }
         })
         .catch(err => console.error("拡張マスタデータ取得エラー:", err));
+
+    // 両方のAPI通信が完了した段階で、詳細モーダル内のHTML要素を動的に生成する
+    Promise.all([p1, p2])
+        .then(() => {
+            renderEditRacesAndAbilities();
+        })
+        .catch(err => console.error("マスタデータの初期描画に失敗しました:", err));
 }
 /**
  * 絞り込みモーダルを開く
