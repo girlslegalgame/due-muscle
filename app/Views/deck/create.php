@@ -1399,6 +1399,11 @@
     <div style="padding:15px; background:#333; color:#fff; display:flex; justify-content:space-between;"><span>種族選択</span><span onclick="closeSubModal('race')" style="cursor:pointer;">&times;</span></div>
     <div style="padding:10px;">
         <input type="text" id="race-list-search" placeholder="検索..." style="width:100%; padding:8px; margin-bottom:5px;">
+        <!-- 一括操作ボタンエリアを追加 -->
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <button type="button" onclick="bulkSelectVisible('race')" style="flex: 1; padding: 6px; font-size: 12px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">表示中を一括選択</button>
+            <button type="button" onclick="clearSubSelection('race')" style="flex: 1; padding: 6px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">全選択解除</button>
+        </div>
         <div id="race-selected-badges" class="selected-badges-container" style="display: none;"></div>
     </div>
     <div id="race-list-container" class="sub-modal-body"></div>
@@ -1410,6 +1415,11 @@
     <div style="padding:15px; background:#333; color:#fff; display:flex; justify-content:space-between;"><span>特殊能力選択</span><span onclick="closeSubModal('ability')" style="cursor:pointer;">&times;</span></div>
     <div style="padding:10px;">
         <input type="text" id="ability-list-search" placeholder="検索..." style="width:100%; padding:8px; margin-bottom:5px;">
+        <!-- 一括操作ボタンエリアを追加 -->
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+            <button type="button" onclick="bulkSelectVisible('ability')" style="flex: 1; padding: 6px; font-size: 12px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">表示中を一括選択</button>
+            <button type="button" onclick="clearSubSelection('ability')" style="flex: 1; padding: 6px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">全選択解除</button>
+        </div>
         <div id="ability-selected-badges" class="selected-badges-container" style="display: none;"></div>
     </div>
     <div id="ability-list-container" class="sub-modal-body"></div>
@@ -1479,6 +1489,11 @@
          
         <div style="padding:10px;">
             <input type="text" id="goods-list-search" placeholder="商品を検索..." style="width:100%; padding:8px; margin-bottom:5px;">
+            <!-- 一括操作ボタンエリアを追加 -->
+            <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                <button type="button" onclick="bulkSelectVisible('goods')" style="flex: 1; padding: 6px; font-size: 12px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">表示中を一括選択</button>
+                <button type="button" onclick="clearSubSelection('goods')" style="flex: 1; padding: 6px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">全選択解除</button>
+            </div>
             <div id="goods-selected-badges" class="selected-badges-container" style="display: none;"></div>
         </div>
         <div id="goods-list-container" class="sub-modal-body"></div>
@@ -3276,5 +3291,31 @@ function restoreDraft(draft) {
 
     updateDeckDisplay();
     alert("未保存の作業データを復元しました。");
+}
+/**
+ * 検索ボックスの入力によって現在表示されている（非表示にされていない）
+ * 項目のみをすべて選択状態にする処理
+ */
+function bulkSelectVisible(type) {
+    const visibleItems = document.querySelectorAll(`#${type}-list-container .list-item`);
+    visibleItems.forEach(el => {
+        // display: none でない、現在リストに表示されているものだけを対象とする
+        if (el.style.display !== 'none') {
+            const checkbox = el.querySelector(`.${type}-check`);
+            if (checkbox) {
+                checkbox.checked = true;
+            }
+        }
+    });
+
+    // 収録商品一括選択時は、シリーズ一括チェック側の整合性を保つためリセット
+    if (type === 'goods') {
+        document.querySelectorAll('.era-check').forEach(el => {
+            el.checked = false;
+        });
+    }
+
+    // バッジおよびトリガー表示を最新状態に更新
+    updateTriggerText(type);
 }
 </script>
