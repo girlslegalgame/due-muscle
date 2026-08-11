@@ -570,6 +570,7 @@ if ($q !== '') {
         $cardtypes = isset($_GET['cardtypes']) ? explode(',', $_GET['cardtypes']) : [];
         $rarities = isset($_GET['rarities']) ? explode(',', $_GET['rarities']) : []; // ★ 追加
         $goods = isset($_GET['goods']) ? explode(',', $_GET['goods']) : [];
+        $oldestOnly = isset($_GET['oldest_only']) && $_GET['oldest_only'] === '1';
 
         // ページング用パラメータの取得（デフォルト値：100件、0オフセット）
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 100;
@@ -586,7 +587,20 @@ if ($q !== '') {
                 JOIN card_detail cd ON c.card_id = cd.card_id
                 WHERE cd.imagepath IS NOT NULL 
                 AND cd.imagepath <> ''
-            ";            
+            ";   
+            // ★ 追加：同名カードの中から最古のリリース日（かつ、一意に絞るため最小ID）のもののみを抽出する条件
+            if ($oldestOnly) {
+                $sql .= " AND c.card_id = (
+                    SELECT c2.card_id
+                    FROM card c2
+                    JOIN card_detail cd2 ON c2.card_id = cd2.card_id
+                    WHERE c2.card_name = c.card_name
+                    AND cd2.imagepath IS NOT NULL AND cd2.imagepath <> ''
+                    ORDER BY cd2.release_date ASC, c2.card_id ASC
+                    LIMIT 1
+                )";
+            }
+            
             // キーワード検索（スコープ対応）
             if ($q !== '') {
                 $q_kata = mb_convert_kana($q, "C", "UTF-8");

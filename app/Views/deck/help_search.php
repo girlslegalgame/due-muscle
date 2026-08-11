@@ -150,6 +150,10 @@ if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
         <label><input type="checkbox" class="scope-check" value="reading" checked> カード名の読み</label>
         <label><input type="checkbox" class="scope-check" value="race" checked> 種族</label>
         <label><input type="checkbox" class="scope-check" value="text" checked> テキスト</label>
+        <!-- ★ 追加：最古バージョンのみ表示 -->
+        <label style="margin-left: 15px; font-weight: bold; color: #333;">
+            <input type="checkbox" id="oldest-only-check" onchange="triggerHelpSearch(true)"> 同名カードは最古のバージョンのみ
+        </label>
     </div>
 
 <!-- 修正対象：文明設定エリア -->
@@ -469,9 +473,15 @@ function triggerHelpSearch(resetPage) {
     if (activeFilters.rarity.length) params.append('rarities', activeFilters.rarity.join(',')); // ★ 追加
     if (activeFilters.goods.length) params.append('goods', activeFilters.goods.join(','));
 
+    // 最古バージョンフラグの取得
+    const oldestOnly = document.getElementById('oldest-only-check').checked;
+
     // ページングパラメータを追加
     params.append('limit', helpPageLimit);
     params.append('offset', offset);
+    if (oldestOnly) {
+        params.append('oldest_only', '1');
+    }
 
     // APIへリクエスト送信
     fetch('/api/cards/help-search?' + params.toString())
