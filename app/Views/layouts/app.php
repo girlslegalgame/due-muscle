@@ -143,7 +143,7 @@
         <?php echo $content ?? ''; ?>
     </main>
 
-    <script src="/js/main.js"></script>
+<script src="/js/main.js"></script>
     
     <script>
         // スマホ用ナビゲーションメニューのトグル開閉制御
@@ -164,6 +164,53 @@
                     navMenu.classList.remove('active');
                 }
             });
+        });
+
+        // ==========================================================
+        // ★追加: 未ログインで保存しようとしてログインした直後、どのページに着地しても
+        //         自動でデッキ保存APIを叩いて保存を完結させる共通スクリプト
+        // ==========================================================
+        window.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('pending_deck_save') === 'true') {
+                const savedPayloadStr = localStorage.getItem('pending_deck_payload');
+                if (savedPayloadStr) {
+                    try {
+                        const payload = JSON.parse(savedPayloadStr);
+                        console.log("ログイン完了を検知しました。デッキの自動保存をバックグラウンドで実行します...");
+
+                        fetch('/api/decks', {
+                            method: payload.deck_id ? 'PUT' : 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            // 処理が終わったらフラグをすべてクリア
+                            localStorage.removeItem('pending_deck_save');
+                            localStorage.removeItem('pending_deck_payload');
+                            localStorage.removeItem('unsaved_deck_draft');
+                            
+                            if (data.success) {
+                                alert("ログインが完了し、作成していたデッキの保存に成功しました！");
+                                // もし現在マイデッキ一覧等にいるなら、保存されたデッキを反映するために /mydecks に強制移動またはリロード
+                                window.location.href = '/mydecks';
+                            } else {
+                                alert("ログインは成功しましたが、デッキの自動保存に失敗しました: " + (data.error || '不明なエラー'));
+                            }
+                        })
+                        .catch(err => {
+                            console.error(err);
+                            alert("自動保存中に通信エラーが発生しました。");
+                            localStorage.removeItem('pending_deck_save');
+                            localStorage.removeItem('pending_deck_payload');
+                        });
+                    } catch (e) {
+                        console.error(e);
+                        localStorage.removeItem('pending_deck_save');
+                        localStorage.removeItem('pending_deck_payload');
+                    }
+                }
+            }
         });
     </script>
 </body>
