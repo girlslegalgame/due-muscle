@@ -1767,15 +1767,49 @@ const deckArea = document.getElementById('deck-area');
     // ★追加：マスタ取得や描画が少し落ち着いたタイミングで復元チェックを実行
     setTimeout(checkAndRestoreDraft, 250);
 
-        setTimeout(() => {
+        // ページ読み込み完了時、ログイン後に保存待ちデータ（pending_deck_save）があるかチェック
+    setTimeout(() => {
         if (localStorage.getItem('pending_deck_save') === 'true') {
-            if (confirm("ログインが完了しました。\n先ほど作成していたデッキを自動で保存しますか？")) {
-                submitDeckSave();
-            } else {
-                localStorage.removeItem('pending_deck_save');
+            const savedPayloadStr = localStorage.getItem('pending_deck_payload');
+            if (savedPayloadStr) {
+                try {
+                    const payload = JSON.parse(savedPayloadStr);
+                    
+                    // ユーザーに確認せず、または「ログイン完了しました。デッキを保存しています...」と表示して自動保存を実行
+                    console.log("ログイン後の自動保存を実行します...");
+                    
+                    fetch('/api/decks', {
+                        method: payload.deck_id ? 'PUT' : 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        localStorage.removeItem('pending_deck_save');
+                        localStorage.removeItem('pending_deck_payload');
+                        localStorage.removeItem('unsaved_deck_draft');
+                        
+                        if (data.success) {
+                            alert("ログインが完了し、デッキの保存に成功しました！");
+                            window.location.href = '/mydecks';
+                        } else {
+                            alert("ログインは成功しましたが、デッキの自動保存に失敗しました: " + data.error);
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert("自動保存中に通信エラーが発生しました。");
+                        localStorage.removeItem('pending_deck_save');
+                        localStorage.removeItem('pending_deck_payload');
+                    });
+                } catch (e) {
+                    console.error(e);
+                    localStorage.removeItem('pending_deck_save');
+                    localStorage.removeItem('pending_deck_payload');
+                }
             }
         }
-    }, 500);
+    }, 400);
 });
 /**
  * フォーマットのドロップダウンオプションのレンダリング
@@ -2866,14 +2900,14 @@ function submitDeckSave() {
         body: JSON.stringify(payload)
     })
     .then(res => {
-        // ★追加: 未ログイン（401 Unauthorized またはログイン要求）の場合のハンドリング
+        // 未ログイン（401 Unauthorized）の場合
         if (res.status === 401) {
-            if (confirm("デッキを保存するにはログインが必要です。\nログイン画面に移動しますか？（作成中のデータは自動で保持されます）")) {
-                // 現在の入力内容をドラフトとして確実にローカルストレージに保存
-                saveDraftToLocalStorage();
-                // ログイン後に自動で保存処理を再開するためのフラグをセット
+            if (confirm("デッキを保存するにはログインが必要です。\nログイン画面に移動しますか？（作成中のデータは自動で保持され、ログイン後に自動保存されます）")) {
+                // ペイロード（送信データ）そのものを丸ごとlocalStorageに保存
+                localStorage.setItem('pending_deck_payload', JSON.stringify(payload));
                 localStorage.setItem('pending_deck_save', 'true');
-                // ログイン画面へリダイレクト（AuthController側で referer や redirect_url が保持されます）
+                
+                // ログイン後のリダイレクト先として、作成画面（/decks/new）を指定してセッション等に保持させる、またはログイン画面へ
                 window.location.href = '/login';
             }
             throw new Error("UNAUTHORIZED");
@@ -2888,6 +2922,7 @@ function submitDeckSave() {
         if (data.success) { 
             localStorage.removeItem('unsaved_deck_draft');
             localStorage.removeItem('pending_deck_save');
+            localStorage.removeItem('pending_deck_payload');
             alert("保存が完了しました！"); 
             window.location.href = '/mydecks'; 
         } else { 
