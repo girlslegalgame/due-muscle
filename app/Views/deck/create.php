@@ -2858,7 +2858,7 @@ function submitDeckSave() {
         body: JSON.stringify(payload)
     })
     .then(res => {
-        // ★修正: 未ログイン（401）の場合、余計なアラートを出さずにデータを保持してログイン画面へ直行
+        // ★修正: 未ログイン（401）の場合、エラーアラートを出さずにデータを保持し、即座にログイン画面へ直行する
         if (res.status === 401) {
             localStorage.setItem('pending_deck_payload', JSON.stringify(payload));
             localStorage.setItem('pending_deck_save', 'true');
