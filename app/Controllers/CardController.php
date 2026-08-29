@@ -399,9 +399,9 @@ if ($q !== '') {
             $isCombo = !empty($target['combination_id']);
 
             $sql = "SELECT c.card_id, 
-                           /* カード名：ツインパクト（名前が異なる組み合わせ）の場合は 小 / 大 を連結 */
+                           /* カード名：twinpactがtrue かつ 構成名が異なる場合のみスラッシュ区切りで結合 */
                            CASE 
-                               WHEN ccb.combination_id IS NOT NULL AND (
+                               WHEN ccb.combination_id IS NOT NULL AND cd.twinpact = 1 AND (
                                    SELECT COUNT(DISTINCT c_sub.card_name) 
                                    FROM card_combination cc_sub 
                                    JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
@@ -415,9 +415,9 @@ if ($q !== '') {
                                ELSE c.card_name 
                            END as card_name,
 
-                           /* テキスト：ツインパクトは改行を挟んで両面結合、ハイパーモードはハイパー時のみ、通常はそのまま */
+                           /* テキスト：twinpactがtrueの場合のみ連結（ツインパクトは改行結合、ハイパーモードはハイパー時テキスト） */
                            CASE 
-                               WHEN ccb.combination_id IS NOT NULL AND (
+                               WHEN ccb.combination_id IS NOT NULL AND cd.twinpact = 1 AND (
                                    SELECT COUNT(DISTINCT c_sub.card_name) 
                                    FROM card_combination cc_sub 
                                    JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
@@ -428,7 +428,7 @@ if ($q !== '') {
                                    JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
                                    WHERE cc_sub.combination_id = ccb.combination_id
                                )
-                               WHEN ccb.combination_id IS NOT NULL AND (
+                               WHEN ccb.combination_id IS NOT NULL AND cd.twinpact = 1 AND (
                                    SELECT COUNT(DISTINCT c_sub.card_name) 
                                    FROM card_combination cc_sub 
                                    JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
