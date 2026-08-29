@@ -147,55 +147,60 @@
     
 <script>
         // ==========================================================
-        // ログイン完了直後の自動保存スクリプト
+        // ログイン完了直後の自動保存スクリプト（完全二重実行防止ロック付き）
         // ==========================================================
-        window.addEventListener('DOMContentLoaded', () => {
-            const currentPath = window.location.pathname;
-            const authPaths = ['/login', '/register', '/login/verify', '/register/verify', '/logout'];
-            if (authPaths.includes(currentPath)) {
-                return; 
-            }
+        (function() {
+            // このスクリプトブロック自体が同一ページ内で2回読み込まれても、
+            // ウィンドウ全体で一度だけ実行されるようにロックフラグを立てます
+            if (window._deckAutoSaveExecuted) return;
+            window._deckAutoSaveExecuted = true;
 
-            // まだ保存待ちフラグが立っているかチェック
-            if (localStorage.getItem('pending_deck_save') === 'true') {
-                const savedPayloadStr = localStorage.getItem('pending_deck_payload');
-                
-                // ★超重要: ほかのイベントやリスナーとの競合（2回走る現象）を防ぐため、
-                //         読み込んだ瞬間に「即座に」localStorageのフラグを削除します！
-                localStorage.removeItem('pending_deck_save');
-                localStorage.removeItem('pending_deck_payload');
-                localStorage.removeItem('unsaved_deck_draft');
+            window.addEventListener('DOMContentLoaded', () => {
+                const currentPath = window.location.pathname;
+                const authPaths = ['/login', '/register', '/login/verify', '/register/verify', '/logout'];
+                if (authPaths.includes(currentPath)) {
+                    return; 
+                }
 
-                if (savedPayloadStr) {
-                    try {
-                        const payload = JSON.parse(savedPayloadStr);
-                        console.log("ログイン完了後の自動保存を実行します（重複防止ガード適用済み）...");
+                // 保存待ちフラグがあるかチェック
+                if (localStorage.getItem('pending_deck_save') === 'true') {
+                    const savedPayloadStr = localStorage.getItem('pending_deck_payload');
+                    
+                    // 即座にフラグを消去して重複を防ぐ
+                    localStorage.removeItem('pending_deck_save');
+                    localStorage.removeItem('pending_deck_payload');
+                    localStorage.removeItem('unsaved_deck_draft');
 
-                        // バックグラウンドで保存APIを叩く
-                        fetch('/api/decks', {
-                            method: payload.deck_id ? 'PUT' : 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data && data.success) {
-                                alert("ログインが完了し、作成していたデッキの自動保存に成功しました！");
-                                window.location.replace('/mydecks');
-                            } else {
-                                alert("ログインは完了しましたが、デッキの自動保存に失敗しました: " + (data ? data.error : '不明なエラー'));
-                            }
-                        })
-                        .catch(err => {
-                            console.error(err);
-                            alert("自動保存中に通信エラーが発生しました。");
-                        });
-                    } catch (e) {
-                        console.error(e);
+                    if (savedPayloadStr) {
+                        try {
+                            const payload = JSON.parse(savedPayloadStr);
+                            console.log("ログイン完了後の自動保存を実行します（二重ガード適用）...");
+
+                            fetch('/api/decks', {
+                                method: payload.deck_id ? 'PUT' : 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data && data.success) {
+                                    alert("ログインが完了し、作成していたデッキの自動保存に成功しました！");
+                                    window.location.replace('/mydecks');
+                                } else {
+                                    alert("ログインは完了しましたが、デッキの自動保存に失敗しました: " + (data ? data.error : '不明なエラー'));
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                alert("自動保存中に通信エラーが発生しました。");
+                            });
+                        } catch (e) {
+                            console.error(e);
+                        }
                     }
                 }
-            }
-        });
+            });
+        })();
     </script>
 </body>
 </html>
