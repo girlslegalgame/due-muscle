@@ -11,8 +11,8 @@ body {
 }
 
 header {
-    background-color: #fff; /* 背景を白に */
-    color: #333;            /* 文字色を黒に */
+    background-color: #000; /* 背景を黒に */
+    color: #fff;            /* 文字色を白に */
     padding: 0 20px;
     display: flex;
     justify-content: space-between;
@@ -24,7 +24,7 @@ header {
     z-index: 2000 !important;
     box-sizing: border-box;
     height: 60px;
-    border-bottom: 1px solid #ddd; /* 下部の境界線を追加 */
+    border-bottom: 1px solid #333; /* 下部の境界線を暗い色に */
 }
 
 header h1 {
@@ -33,7 +33,7 @@ header h1 {
 }
 
 header h1 a {
-    color: #333; /* ロゴの文字色を黒に */
+    color: #fff; /* ロゴの文字色を白に */
     text-decoration: none;
 }
 
@@ -46,7 +46,7 @@ header h1 a {
 header a,
 header a:link,
 header a:visited {
-    color: #333 !important; /* リンクの文字色を黒に */
+    color: #fff !important; /* リンクの文字色を白に強制 */
     text-decoration: none !important;
     font-size: 0.95rem;
 }
