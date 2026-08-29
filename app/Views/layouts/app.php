@@ -149,8 +149,7 @@
         // ==========================================================
         // ログイン完了直後の自動保存スクリプト
         // ==========================================================
-window.addEventListener('DOMContentLoaded', () => {
-            // ★追加: 現在のURLパスを取得し、ログインや新規登録などの認証系ページにいる場合は自動保存をスキップする
+        window.addEventListener('DOMContentLoaded', () => {
             const currentPath = window.location.pathname;
             const authPaths = ['/login', '/register', '/login/verify', '/register/verify', '/logout'];
             if (authPaths.includes(currentPath)) {
@@ -162,8 +161,9 @@ window.addEventListener('DOMContentLoaded', () => {
                 if (savedPayloadStr) {
                     try {
                         const payload = JSON.parse(savedPayloadStr);
-                        console.log("ログイン完了後の着地を検知しました。デッキの自動保存を実行します...");
+                        console.log("ログイン完了後の着地を検知しました。バックグラウンドでデッキの自動保存を実行します...");
 
+                        // バックグラウンドで即座に保存APIを叩く
                         fetch('/api/decks', {
                             method: payload.deck_id ? 'PUT' : 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -171,14 +171,15 @@ window.addEventListener('DOMContentLoaded', () => {
                         })
                         .then(res => res.json())
                         .then(data => {
-                            // 処理が終わったらフラグを必ずクリア
+                            // 処理が終わったらフラグを確実にクリア
                             localStorage.removeItem('pending_deck_save');
                             localStorage.removeItem('pending_deck_payload');
                             localStorage.removeItem('unsaved_deck_draft');
                             
                             if (data && data.success) {
-                                alert("ログインが完了し、作成していたデッキの自動保存に成功しました！");
-                                window.location.href = '/mydecks';
+                                // ★修正: デッキ作成画面（/decks/new）を経由せず、直接 /mydecks へ遷移します
+                                alert("ログインが完了し、作成していたデッキの保存に成功しました！");
+                                window.location.replace('/mydecks'); // historyに履歴を残さず綺麗に /mydecks へ移動
                             } else {
                                 alert("ログインは完了しましたが、デッキの自動保存に失敗しました: " + (data ? data.error : '不明なエラー'));
                             }
