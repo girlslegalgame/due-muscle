@@ -443,7 +443,7 @@ class AuthController {
      */
     public function showAccountForm() {
         if (!isset($_SESSION['user_id'])) {
-            header('Location: /login');
+            header('Location: /register');
             exit;
         }
 

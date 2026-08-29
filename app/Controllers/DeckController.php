@@ -7,22 +7,20 @@ use PDO;
 require_once __DIR__ . '/../Views/view_helper.php';
 
 class DeckController {
-    public function myDecks() {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: /login');
-            exit;
-        }
-
-        $pdo = Database::connect();
-        $deckModel = new Deck($pdo);
+public function myDecks() {
+        // ★修正: 未ログインでもアクセスできるようにリダイレクトを解除し、セッションにuser_idがなければ空の配列を渡す
+        $myDecks = [];
         
-        // ログインユーザーのデッキを取得
-        $myDecks = $deckModel->getByUserId($_SESSION['user_id']);
+        if (isset($_SESSION['user_id'])) {
+            $pdo = Database::connect();
+            $deckModel = new Deck($pdo);
+            // ログインユーザーのデッキを取得
+            $myDecks = $deckModel->getByUserId($_SESSION['user_id']);
+        }
 
         // 取得したデータを 'decks' という名前でビューに渡す
         renderView('deck/index.php', ['decks' => $myDecks]);
     }
-
     /**
      * 公開デッキ検索画面
      */
@@ -206,10 +204,6 @@ class DeckController {
     }
 
     public function create() {
-        if (!isset($_SESSION['user_id'])) {
-            header('Location: /login');
-            exit;
-        }
 
         // formatテーブルから昇順で取得
         $pdo = Database::connect();
@@ -225,8 +219,11 @@ class DeckController {
 // --- storeDeckApi (新規保存) の修正箇所 ---
     public function storeDeckApi() {
         $input = json_decode(file_get_contents('php://input'), true);
-        if (!isset($_SESSION['user_id'])) { echo json_encode(['success' => false, 'error' => 'ログインが必要']); return; }
-
+        if (!isset($_SESSION['user_id'])) { 
+            header('Content-Type: application/json', true, 401); // ★ステータス401を明示
+            echo json_encode(['success' => false, 'error' => 'ログインが必要です']); 
+            return; 
+        }
         try {
             $pdo = \Models\Database::connect();
             $pdo->beginTransaction();

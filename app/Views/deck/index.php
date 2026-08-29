@@ -156,7 +156,16 @@ try {
             endforeach; 
             ?>
         <?php else: ?>
-            <p style="grid-column: 1 / -1; text-align: center; color: #666;">デッキが登録されていません。</p>
+            <!-- ★追加: 未ログイン、またはデッキが1件もない場合の表示切り替え -->
+            <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: #fff; border-radius: 8px; border: 1px solid #ddd;">
+                <?php if (!isset($_SESSION['user_id'])): ?>
+                    <p style="font-size: 1.1rem; color: #333; font-weight: bold; margin-bottom: 10px;">アカウントを作成すると、デッキを保存できます。</p>
+                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 25px;">作成したデッキをクラウドに保存して、いつでも編集や公開ができるようになります。</p>
+                    <a href="/register" style="display: inline-block; padding: 12px 30px; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;">アカウントを作成する</a>
+                <?php else: ?>
+                    <p style="color: #666;">デッキが登録されていません。</p>
+                <?php endif; ?>
+            </div>
         <?php endif; ?>
     </div>
 <!-- デッキ詳細モーダル（共通）の読み込み -->

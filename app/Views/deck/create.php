@@ -1766,6 +1766,16 @@ const deckArea = document.getElementById('deck-area');
 
     // ★追加：マスタ取得や描画が少し落ち着いたタイミングで復元チェックを実行
     setTimeout(checkAndRestoreDraft, 250);
+
+        setTimeout(() => {
+        if (localStorage.getItem('pending_deck_save') === 'true') {
+            if (confirm("ログインが完了しました。\n先ほど作成していたデッキを自動で保存しますか？")) {
+                submitDeckSave();
+            } else {
+                localStorage.removeItem('pending_deck_save');
+            }
+        }
+    }, 500);
 });
 /**
  * フォーマットのドロップダウンオプションのレンダリング
@@ -2829,7 +2839,6 @@ function submitDeckSave() {
     if (!name) {
         return alert("デッキ名を入力してください。");
     }
-    // ★ フォーマットの選択バリデーションを追加
     if (!formatId || isNaN(parseInt(formatId, 10))) {
         return alert("有効なフォーマットを選択してください。");
     }
@@ -2842,34 +2851,54 @@ function submitDeckSave() {
     const allCards = [...mainCards, ...superDimCards, ...grCards, ...specialCards];    
     if (!allCards.length) return alert("カードを1枚以上入れてください。");
 
+    const payload = { 
+        deck_id: deckId, 
+        deck_name: name, 
+        cards: allCards, 
+        format_id: parseInt(formatId, 10),
+        thumbnail_card_id: thumbnailCardId ? parseInt(thumbnailCardId, 10) : null,
+        is_public: isPublic
+    };
+
     fetch('/api/decks', {
         method: isEdit ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-            deck_id: deckId, 
-            deck_name: name, 
-            cards: allCards, 
-            format_id: parseInt(formatId, 10),
-            thumbnail_card_id: thumbnailCardId ? parseInt(thumbnailCardId, 10) : null,
-            is_public: isPublic
-        })
+        body: JSON.stringify(payload)
     })
-    .then(res => res.text().then(text => {
-        try { return JSON.parse(text); } 
-        catch (e) { throw new Error("サーバー側でエラーが発生しました。"); }
-    }))
+    .then(res => {
+        // ★追加: 未ログイン（401 Unauthorized またはログイン要求）の場合のハンドリング
+        if (res.status === 401) {
+            if (confirm("デッキを保存するにはログインが必要です。\nログイン画面に移動しますか？（作成中のデータは自動で保持されます）")) {
+                // 現在の入力内容をドラフトとして確実にローカルストレージに保存
+                saveDraftToLocalStorage();
+                // ログイン後に自動で保存処理を再開するためのフラグをセット
+                localStorage.setItem('pending_deck_save', 'true');
+                // ログイン画面へリダイレクト（AuthController側で referer や redirect_url が保持されます）
+                window.location.href = '/login';
+            }
+            throw new Error("UNAUTHORIZED");
+        }
+        return res.text().then(text => {
+            try { return JSON.parse(text); } 
+            catch (e) { throw new Error("サーバー側でエラーが発生しました。"); }
+        });
+    })
     .then(data => {
+        if (!data) return;
         if (data.success) { 
-            // ★追加：保存に成功したため、ローカルの下書きデータを消去
             localStorage.removeItem('unsaved_deck_draft');
-
+            localStorage.removeItem('pending_deck_save');
             alert("保存が完了しました！"); 
             window.location.href = '/mydecks'; 
         } else { 
             alert("保存に失敗しました: " + data.error); 
         }
     })
-    .catch(err => alert(err.message));
+    .catch(err => {
+        if (err.message !== "UNAUTHORIZED") {
+            alert(err.message);
+        }
+    });
 }
 
 
