@@ -149,15 +149,21 @@
         // ==========================================================
         // ログイン完了直後の自動保存スクリプト
         // ==========================================================
-        window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => {
+            // ★追加: 現在のURLパスを取得し、ログインや新規登録などの認証系ページにいる場合は自動保存をスキップする
+            const currentPath = window.location.pathname;
+            const authPaths = ['/login', '/register', '/login/verify', '/register/verify', '/logout'];
+            if (authPaths.includes(currentPath)) {
+                return; // ログイン画面や登録画面では何もしない
+            }
+
             if (localStorage.getItem('pending_deck_save') === 'true') {
                 const savedPayloadStr = localStorage.getItem('pending_deck_payload');
                 if (savedPayloadStr) {
                     try {
                         const payload = JSON.parse(savedPayloadStr);
-                        console.log("ログイン完了を検知しました。デッキの自動保存を実行します...");
+                        console.log("ログイン完了後の着地を検知しました。デッキの自動保存を実行します...");
 
-                        // すでにログイン状態になっているはずなので、ここで保存APIを叩く
                         fetch('/api/decks', {
                             method: payload.deck_id ? 'PUT' : 'POST',
                             headers: { 'Content-Type': 'application/json' },
