@@ -8,6 +8,42 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
     
     <style>
+        /* --- 全体 & ヘッダーのダークテーマ（黒背景・白文字） --- */
+        body {
+            background-color: #121212 !important;
+            color: #ffffff !important;
+        }
+
+        header {
+            background-color: #1a1a1a !important;
+            color: #ffffff !important;
+            border-bottom: 1px solid #333333 !important;
+        }
+
+        /* ロゴ画像 */
+        .header-logo-link {
+            display: flex;
+            align-items: center;
+            text-decoration: none;
+        }
+        .header-logo-img {
+            height: 38px;
+            width: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        /* ヘッダーリンク（PC） */
+        .header-right a,
+        .header-right a:link,
+        .header-right a:visited {
+            color: #ffffff !important;
+            transition: color 0.2s ease;
+        }
+        .header-right a:hover {
+            color: #007bff !important;
+        }
+
         /* --- ハンバーガーメニュー用のデフォルト非表示設定 --- */
         .menu-toggle {
             display: none;
@@ -15,7 +51,7 @@
 
         /* --- スマートフォン環境（レスポンシブ） --- */
         @media (max-width: 768px) {
-            /* ハンバーガーボタン（三本線）の表示 */
+            /* ハンバーガーボタン（白線） */
             .menu-toggle {
                 display: flex;
                 flex-direction: column;
@@ -31,7 +67,7 @@
             .menu-toggle span {
                 width: 100%;
                 height: 2px;
-                background-color: #333;
+                background-color: #ffffff;
                 transition: all 0.3s ease;
             }
 
@@ -46,20 +82,20 @@
                 transform: translateY(-8px) rotate(-45deg);
             }
 
-            /* スマホ時のメニュー展開エリアの設定（縦並びのドロップダウン形式） */
+            /* スマホ時のメニュー展開エリア（黒背景） */
             .header-right {
-                display: none !important; /* 通常時は非表示（!importantでstyle.cssのflexを上書き） */
+                display: none !important;
                 position: fixed;
-                top: 60px; /* ヘッダーの高さに合わせる */
+                top: 60px;
                 left: 0;
                 width: 100%;
-                background-color: #fff;
-                border-bottom: 1px solid #ddd;
+                background-color: #1a1a1a;
+                border-bottom: 1px solid #333333;
                 flex-direction: column;
                 align-items: center;
                 gap: 0 !important;
                 padding: 0;
-                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
                 z-index: 1999;
             }
 
@@ -68,14 +104,15 @@
                 display: flex !important;
             }
 
-            /* メニュー内のリンク要素をブロック化してタップ領域を拡張 */
+            /* メニュー内のリンク要素 */
             .header-right a {
                 display: block;
                 width: 100%;
                 text-align: center;
                 padding: 16px 0;
-                border-bottom: 1px solid #f2f2f7;
+                border-bottom: 1px solid #2a2a2a;
                 box-sizing: border-box;
+                color: #ffffff !important;
             }
             .header-right a:last-child {
                 border-bottom: none;
@@ -86,7 +123,9 @@
 <body>
     <header>
         <div class="header-left">
-            <h1><a href="/mydecks">DECK MAKER</a></h1>
+            <a href="/" class="header-logo-link">
+                <img src="/images/logo.webp" alt="ロゴ" class="header-logo-img">
+            </a>
         </div>
         
         <!-- スマホ用ハンバーガーメニューボタン -->
