@@ -1216,6 +1216,11 @@
             </div>
         </div>
         
+        <div id="combination-section" style="display: none; margin-bottom: 15px;">
+            <h4 style="margin: 5px 0 8px 0; font-size: 0.9rem;">面の切り替え（両面・関連面）</h4>
+            <div id="detail-combination-list" class="version-list"></div>
+        </div>
+
         <div class="version-section">
             <h4>バージョン切り替え</h4>
             <div id="detail-version-list" class="version-list"></div>
@@ -2063,13 +2068,12 @@ function updateDeckDisplay() {
 }
 
 // --- F. カード詳細モーダル ---
+let currentCombinationSides = []; // 各面の情報を保持
+
 function openCardDetail(cardId, el) {
     activeClickedElement = el;
     
-    // 1. キャッシュの取得、またはクリックされたDOM（img）のデータ属性から基本情報をその場で復元（0ms化）
     let cachedCard = cardCache[cardId];
-    
-    // キャッシュがない、またはキャッシュ内に詳細テキスト(text)情報が不足している場合
     if ((!cachedCard || !cachedCard.text) && el && el.dataset) {
         cachedCard = {
             card_id: cardId,
@@ -2080,46 +2084,63 @@ function openCardDetail(cardId, el) {
             card_limit: el.dataset.cardLimit || '',
             civilization: el.dataset.civ || '',
             cost: el.dataset.cost || '',
-            // テキスト情報のみバックグラウンド通信で更新されるまで「読み込み中」にしておく
             text: cachedCard && cachedCard.text ? cachedCard.text : "詳細効果を読み込み中..."
         };
         cardCache[cardId] = cachedCard;
     }
 
     if (cachedCard) {
-        // キャッシュ（または自己復元データ）を使って瞬時にモーダルを描画（0ms表示）
         selectedCardData = cachedCard;
-        allVersions = [cachedCard]; // バージョン取得までは自身のみを表示
+        allVersions = [cachedCard];
         renderDetailModal();
-        
-        // バージョン切り替えエリアを一時的にローディング表示にする
         document.getElementById('detail-version-list').innerHTML = '<span style="font-size:12px;color:#999;padding:5px;">読み込み中...</span>';
-    } else {
-        // 万が一データが全く取得できない場合のフォールバック表示
-        document.getElementById('detail-name').innerText = "読み込み中...";
-        document.getElementById('detail-text').innerText = "";
-        document.getElementById('cardDetailModal').style.display = 'block';
     }
 
-    // 2. 非同期で完全な詳細情報（全バージョン情報）をバックグラウンド取得して上書き
+    // 1. バージョン情報の取得
     fetch('/api/cards/versions?card_id=' + cardId)
         .then(res => res.json())
         .then(versions => {
             allVersions = versions;
-            
-            // 完全な情報をキャッシュにマージ・更新
-            const freshData = versions.find(v => v.card_id == cardId);
+            const freshData = versions.find(v => v.card_id == cardId) || versions[0];
             if (freshData) {
                 selectedCardData = freshData;
                 cardCache[cardId] = freshData;
             }
-            
-            // バージョン画像を含めて再描画
             renderDetailModal();
-        })
-        .catch(err => {
-            console.error("詳細情報のバックグラウンド取得に失敗しました:", err);
         });
+
+    // 2. ★追加：構成面（combination）の取得とツインパクト以外の複数面切り替え表示
+    const comboSection = document.getElementById('combination-section');
+    const comboList = document.getElementById('detail-combination-list');
+    comboSection.style.display = 'none';
+    comboList.innerHTML = '';
+
+    fetch('/api/cards/combination?card_id=' + cardId)
+        .then(res => res.json())
+        .then(sides => {
+            currentCombinationSides = sides;
+            // 2面以上存在し、かつ twinpact が false（0）の場合に面の切り替えを表示
+            if (sides.length > 1 && (!sides[0].twinpact || sides[0].twinpact == 0)) {
+                comboSection.style.display = 'block';
+                sides.forEach(side => {
+                    const sideImg = document.createElement('img');
+                    sideImg.src = getCardImagePath(side);
+                    sideImg.title = side.card_name;
+                    if (side.card_id == selectedCardData.card_id) sideImg.className = 'selected';
+                    
+                    sideImg.onclick = () => {
+                        // クリックされた面の情報（名前・画像・テキスト）に表示を切り替え
+                        document.getElementById('detail-name').innerText = side.card_name;
+                        document.getElementById('detail-text').innerText = side.text || "効果なし";
+                        document.getElementById('detail-main-img').src = getCardImagePath(side);
+                        comboList.querySelectorAll('img').forEach(img => img.classList.remove('selected'));
+                        sideImg.classList.add('selected');
+                    };
+                    comboList.appendChild(sideImg);
+                });
+            }
+        })
+        .catch(err => console.error("構成面の取得に失敗しました:", err));
 }
 
 /* app/Views/deck/create.php 内の renderDetailModal() 関数を差し替え */

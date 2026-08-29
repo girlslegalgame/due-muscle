@@ -444,7 +444,7 @@ if ($q !== '') {
                                ELSE c.text 
                            END as text,
 
-                           c.pow, c.cost, cd.modelnum, cd.imagepath, cd.release_date, cd.`limit` as card_limit,
+                           c.pow, c.cost, cd.twinpact, cd.modelnum, cd.imagepath, cd.release_date, cd.`limit` as card_limit,
                            (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                            (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                             FROM card_combination cc_ref 
@@ -498,7 +498,7 @@ if ($q !== '') {
         }
     }
 
-    public function cardCombinationApi() {
+public function cardCombinationApi() {
         $cardId = $_GET['card_id'] ?? null;
         if (!$cardId) {
             header('Content-Type: application/json', true, 400);
@@ -515,6 +515,7 @@ if ($q !== '') {
                         c.card_name, 
                         c.text, 
                         cd.imagepath,
+                        cd.twinpact,
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                         (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
                     FROM card_combination cc
@@ -535,6 +536,7 @@ if ($q !== '') {
                                     c.card_name, 
                                     c.text, 
                                     cd.imagepath,
+                                    cd.twinpact,
                                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
                                 FROM card c
