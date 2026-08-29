@@ -1768,48 +1768,6 @@ const deckArea = document.getElementById('deck-area');
     setTimeout(checkAndRestoreDraft, 250);
 
         // ページ読み込み完了時、ログイン後に保存待ちデータ（pending_deck_save）があるかチェック
-    setTimeout(() => {
-        if (localStorage.getItem('pending_deck_save') === 'true') {
-            const savedPayloadStr = localStorage.getItem('pending_deck_payload');
-            if (savedPayloadStr) {
-                try {
-                    const payload = JSON.parse(savedPayloadStr);
-                    
-                    // ユーザーに確認せず、または「ログイン完了しました。デッキを保存しています...」と表示して自動保存を実行
-                    console.log("ログイン後の自動保存を実行します...");
-                    
-                    fetch('/api/decks', {
-                        method: payload.deck_id ? 'PUT' : 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    })
-                    .then(res => res.json())
-                    .then(data => {
-                        localStorage.removeItem('pending_deck_save');
-                        localStorage.removeItem('pending_deck_payload');
-                        localStorage.removeItem('unsaved_deck_draft');
-                        
-                        if (data.success) {
-                            alert("ログインが完了し、デッキの保存に成功しました！");
-                            window.location.href = '/mydecks';
-                        } else {
-                            alert("ログインは成功しましたが、デッキの自動保存に失敗しました: " + data.error);
-                        }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        alert("自動保存中に通信エラーが発生しました。");
-                        localStorage.removeItem('pending_deck_save');
-                        localStorage.removeItem('pending_deck_payload');
-                    });
-                } catch (e) {
-                    console.error(e);
-                    localStorage.removeItem('pending_deck_save');
-                    localStorage.removeItem('pending_deck_payload');
-                }
-            }
-        }
-    }, 400);
 });
 /**
  * フォーマットのドロップダウンオプションのレンダリング
