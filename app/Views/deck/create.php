@@ -352,15 +352,39 @@
         background: white; margin: 5vh auto; padding: 25px; 
         border-radius: 12px; position: relative; box-sizing: border-box; 
     }
-    
+
+    #cardDetailModal {
+        display: none;
+        position: fixed;
+        z-index: 3000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        overflow-y: auto; /* 万が一はみ出る場合のスクロールを保証 */
+    }    
     /* カード詳細 */
-    .detail-content { width: 850px; display: flex; flex-direction: column; }
+    .detail-content {
+        width: 90%;
+        max-width: 850px;
+        max-height: 90vh; /* 画面高さの90%以内に収める */
+        overflow-y: auto; /* 中身が多い場合はモーダル内スクロール */
+        display: flex;
+        flex-direction: column;
+        background: white;
+        margin: 5vh auto;
+        padding: 25px;
+        border-radius: 12px;
+        position: relative;
+        box-sizing: border-box;
+    }
     .detail-grid { 
         display: grid; 
-        grid-template-columns: 280px 1fr; 
+        grid-template-columns: 260px 1fr; 
         grid-template-rows: auto auto 1fr; 
         gap: 0 25px; 
-        margin-bottom: 20px; 
+        margin-bottom: 15px; 
     }
     #detail-name { 
         grid-column: 2 / 3; 
@@ -370,13 +394,22 @@
         border-bottom: 2px solid #eee; 
         padding-bottom: 10px; 
     }
+    /* 画像表示エリア（画像の最大高さを制限して枠内にフィット） */
     .detail-image { 
         grid-column: 1 / 2; 
         grid-row: 1 / 3; 
         text-align: center; 
+        display: flex;
+        justify-content: center;
+        align-items: center;
     }
     .detail-image img { 
-        width: 100%; 
+        max-width: 100%; 
+        max-height: 360px; /* 巨大な画像でも縦360px以内に抑える */
+        height: auto;
+        width: auto;
+        aspect-ratio: 110 / 154;
+        object-fit: contain;
         border-radius: 8px; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
     }
@@ -397,7 +430,7 @@
         border-radius: 5px; 
         font-size: 0.95rem; 
         line-height: 1.6; 
-        max-height: 250px; 
+        max-height: 220px; /* テキストエリアの高さ制限 */
         overflow-y: auto; 
     }
     .version-list { display: flex; overflow-x: auto; gap: 12px; padding: 10px 5px; }
