@@ -2858,22 +2858,16 @@ function submitDeckSave() {
         body: JSON.stringify(payload)
     })
     .then(res => {
-        // 未ログイン（401 Unauthorized）の場合
+        // ★修正: 未ログイン（401）の場合、余計なアラートを出さずにデータを保持してログイン画面へ直行
         if (res.status === 401) {
-            if (confirm("デッキを保存するにはログインが必要です。\nログイン画面に移動しますか？（作成中のデータは自動で保持され、ログイン後に自動保存されます）")) {
-                // ペイロード（送信データ）そのものを丸ごとlocalStorageに保存
-                localStorage.setItem('pending_deck_payload', JSON.stringify(payload));
-                localStorage.setItem('pending_deck_save', 'true');
-                
-                // ログイン後のリダイレクト先として、作成画面（/decks/new）を指定してセッション等に保持させる、またはログイン画面へ
-                window.location.href = '/login';
-            }
-            throw new Error("UNAUTHORIZED");
+            localStorage.setItem('pending_deck_payload', JSON.stringify(payload));
+            localStorage.setItem('pending_deck_save', 'true');
+            
+            alert("デッキを保存するにはログインが必要です。ログイン画面に移動します。\n（ログイン完了後、自動的に保存されます）");
+            window.location.href = '/login';
+            throw new Error("REDIRECTED_TO_LOGIN");
         }
-        return res.text().then(text => {
-            try { return JSON.parse(text); } 
-            catch (e) { throw new Error("サーバー側でエラーが発生しました。"); }
-        });
+        return res.json();
     })
     .then(data => {
         if (!data) return;
@@ -2888,8 +2882,8 @@ function submitDeckSave() {
         }
     })
     .catch(err => {
-        if (err.message !== "UNAUTHORIZED") {
-            alert(err.message);
+        if (err.message !== "REDIRECTED_TO_LOGIN") {
+            console.error(err);
         }
     });
 }

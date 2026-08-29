@@ -145,30 +145,9 @@
 
 <script src="/js/main.js"></script>
     
-    <script>
-        // スマホ用ナビゲーションメニューのトグル開閉制御
-        function toggleMobileMenu() {
-            const toggleBtn = document.querySelector('.menu-toggle');
-            const navMenu = document.querySelector('.header-right');
-            toggleBtn.classList.toggle('active');
-            navMenu.classList.toggle('active');
-        }
-
-        // リンクをクリックした際にメニューを自動で閉じる処理
-        document.querySelectorAll('.header-right a').forEach(link => {
-            link.addEventListener('click', () => {
-                const toggleBtn = document.querySelector('.menu-toggle');
-                const navMenu = document.querySelector('.header-right');
-                if (toggleBtn.classList.contains('active')) {
-                    toggleBtn.classList.remove('active');
-                    navMenu.classList.remove('active');
-                }
-            });
-        });
-
+<script>
         // ==========================================================
-        // ★追加: 未ログインで保存しようとしてログインした直後、どのページに着地しても
-        //         自動でデッキ保存APIを叩いて保存を完結させる共通スクリプト
+        // ログイン完了直後の自動保存スクリプト
         // ==========================================================
         window.addEventListener('DOMContentLoaded', () => {
             if (localStorage.getItem('pending_deck_save') === 'true') {
@@ -176,8 +155,9 @@
                 if (savedPayloadStr) {
                     try {
                         const payload = JSON.parse(savedPayloadStr);
-                        console.log("ログイン完了を検知しました。デッキの自動保存をバックグラウンドで実行します...");
+                        console.log("ログイン完了を検知しました。デッキの自動保存を実行します...");
 
+                        // すでにログイン状態になっているはずなので、ここで保存APIを叩く
                         fetch('/api/decks', {
                             method: payload.deck_id ? 'PUT' : 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -185,17 +165,16 @@
                         })
                         .then(res => res.json())
                         .then(data => {
-                            // 処理が終わったらフラグをすべてクリア
+                            // 処理が終わったらフラグを必ずクリア
                             localStorage.removeItem('pending_deck_save');
                             localStorage.removeItem('pending_deck_payload');
                             localStorage.removeItem('unsaved_deck_draft');
                             
-                            if (data.success) {
-                                alert("ログインが完了し、作成していたデッキの保存に成功しました！");
-                                // もし現在マイデッキ一覧等にいるなら、保存されたデッキを反映するために /mydecks に強制移動またはリロード
+                            if (data && data.success) {
+                                alert("ログインが完了し、作成していたデッキの自動保存に成功しました！");
                                 window.location.href = '/mydecks';
                             } else {
-                                alert("ログインは成功しましたが、デッキの自動保存に失敗しました: " + (data.error || '不明なエラー'));
+                                alert("ログインは完了しましたが、デッキの自動保存に失敗しました: " + (data ? data.error : '不明なエラー'));
                             }
                         })
                         .catch(err => {
