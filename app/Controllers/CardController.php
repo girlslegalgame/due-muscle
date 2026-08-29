@@ -398,9 +398,36 @@ if ($q !== '') {
             // 組み合わせIDが空でない場合、ツインパクト（またはハイパーモード等）と判定します
             $isCombo = !empty($target['combination_id']);
 
-            $sql = "SELECT c.card_id, c.card_name, 
-                           /* ハイパーモード（同一組み合わせ内のカード名がすべて同じ）の場合は最大card_idのテキストを取得 */
+            $sql = "SELECT c.card_id, 
+                           /* カード名：ツインパクト（名前が異なる組み合わせ）の場合は 小 / 大 を連結 */
                            CASE 
+                               WHEN ccb.combination_id IS NOT NULL AND (
+                                   SELECT COUNT(DISTINCT c_sub.card_name) 
+                                   FROM card_combination cc_sub 
+                                   JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
+                                   WHERE cc_sub.combination_id = ccb.combination_id
+                               ) > 1 THEN (
+                                   SELECT GROUP_CONCAT(c_sub.card_name ORDER BY cc_sub.card_id ASC SEPARATOR ' / ') 
+                                   FROM card_combination cc_sub 
+                                   JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
+                                   WHERE cc_sub.combination_id = ccb.combination_id
+                               )
+                               ELSE c.card_name 
+                           END as card_name,
+
+                           /* テキスト：ツインパクトは改行を挟んで両面結合、ハイパーモードはハイパー時のみ、通常はそのまま */
+                           CASE 
+                               WHEN ccb.combination_id IS NOT NULL AND (
+                                   SELECT COUNT(DISTINCT c_sub.card_name) 
+                                   FROM card_combination cc_sub 
+                                   JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
+                                   WHERE cc_sub.combination_id = ccb.combination_id
+                               ) > 1 THEN (
+                                   SELECT GROUP_CONCAT(c_sub.text ORDER BY cc_sub.card_id ASC SEPARATOR '\n\n') 
+                                   FROM card_combination cc_sub 
+                                   JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
+                                   WHERE cc_sub.combination_id = ccb.combination_id
+                               )
                                WHEN ccb.combination_id IS NOT NULL AND (
                                    SELECT COUNT(DISTINCT c_sub.card_name) 
                                    FROM card_combination cc_sub 
@@ -416,6 +443,7 @@ if ($q !== '') {
                                )
                                ELSE c.text 
                            END as text,
+
                            c.pow, c.cost, cd.modelnum, cd.imagepath, cd.release_date, cd.`limit` as card_limit,
                            (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                            (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
