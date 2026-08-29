@@ -392,49 +392,6 @@ function exportDeckImage(deckId, deckName, formatName, buttonElement) {
                   .replace(/'/g, '&#39;');
     }
 }
-// ★追加: ログイン・新規登録後にマイデッキ一覧に戻ってきた際、保存待ちのデッキデータがあれば自動で保存を実行する
-window.addEventListener('DOMContentLoaded', () => {
-    if (localStorage.getItem('pending_deck_save') === 'true') {
-        const savedPayloadStr = localStorage.getItem('pending_deck_payload');
-        if (savedPayloadStr) {
-            try {
-                const payload = JSON.parse(savedPayloadStr);
-                console.log("ログイン完了を検知しました。デッキの自動保存を直ちに実行します...");
-
-                fetch('/api/decks', {
-                    method: payload.deck_id ? 'PUT' : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    // 保存処理が終わったらフラグをすべてクリア
-                    localStorage.removeItem('pending_deck_save');
-                    localStorage.removeItem('pending_deck_payload');
-                    localStorage.removeItem('unsaved_deck_draft');
-                    
-                    if (data.success) {
-                        alert("ログインが完了し、作成していたデッキの保存に成功しました！");
-                        // マイデッキ一覧をリロードして最新の保存されたデッキを表示
-                        location.reload();
-                    } else {
-                        alert("ログインは成功しましたが、デッキの自動保存に失敗しました: " + (data.error || '不明なエラー'));
-                    }
-                })
-                .catch(err => {
-                    console.error(err);
-                    alert("自動保存中に通信エラーが発生しました。");
-                    localStorage.removeItem('pending_deck_save');
-                    localStorage.removeItem('pending_deck_payload');
-                });
-            } catch (e) {
-                console.error(e);
-                localStorage.removeItem('pending_deck_save');
-                localStorage.removeItem('pending_deck_payload');
-            }
-        }
-    }
-});
 </script>
 
 </body>
