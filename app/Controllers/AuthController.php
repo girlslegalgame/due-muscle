@@ -14,10 +14,22 @@ class AuthController {
         renderView('auth/register.php', ['errors' => $errors]);
     }
 
-    public function showLoginForm($errors =[]) {
+    public function showLoginForm($errors = []) {
+        // ★追加: ログイン画面にアクセスされた際、もし直前のURLがログインページや認証ページでなければ、
+        //       「行きたかったURL」としてセッションに保持する（すでに保持していなければ上書きしない）
+        if (!isset($_SESSION['redirect_url']) && isset($_SERVER['HTTP_REFERER'])) {
+            $referer = $_SERVER['HTTP_REFERER'];
+            $path = parse_url($referer, PHP_URL_PATH);
+            
+            // ログイン、新規登録、認証などのページでなければ保存する
+            $excludePaths = ['/login', '/login/verify', '/register', '/register/verify', '/logout'];
+            if ($path && !in_array($path, $excludePaths)) {
+                $_SESSION['redirect_url'] = $referer;
+            }
+        }
+
         renderView('auth/login.php', ['errors' => $errors]);
     }
-
     /**
      * Brevo API (HTTPS) を使用したメール送信
      * (SMTPが遮断される環境でも100%確実に届きます)
@@ -232,7 +244,9 @@ class AuthController {
         unset($_SESSION['temp_login']);
 
         // すべての準備が整った段階でリダイレクトします
-        header('Location: /mydecks');
+        $redirectTo = $_SESSION['redirect_url'] ?? '/mydecks';
+        unset($_SESSION['redirect_url']);
+        header('Location: ' . $redirectTo);
         exit;
     }
 
@@ -413,9 +427,10 @@ class AuthController {
             unset($_SESSION['temp_register']); // 一時データの消去
 
             $_SESSION['success'] = 'アカウント登録が完了しました！';
-            header('Location: /mydecks');
+            $redirectTo = $_SESSION['redirect_url'] ?? '/mydecks';
+            unset($_SESSION['redirect_url']);
+            header('Location: ' . $redirectTo);
             exit;
-
         } catch (\Exception $e) {
             $_SESSION['error'] = '登録完了処理中にエラーが発生しました: ' . $e->getMessage();
             header('Location: /register');
