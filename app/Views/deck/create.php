@@ -2070,6 +2070,41 @@ function updateDeckDisplay() {
 // --- F. カード詳細モーダル ---
 let currentCombinationSides = []; // 各面の情報を保持
 
+// ★ 構成面（両面・関連面）を取得・描画する共通関数
+function loadCombinationSides(cardId) {
+    const comboSection = document.getElementById('combination-section');
+    const comboList = document.getElementById('detail-combination-list');
+    comboSection.style.display = 'none';
+    comboList.innerHTML = '';
+
+    fetch('/api/cards/combination?card_id=' + cardId)
+        .then(res => res.json())
+        .then(sides => {
+            currentCombinationSides = sides;
+            // 2面以上存在し、かつ twinpact が false（0）の場合に面の切り替えを表示
+            if (sides.length > 1 && (!sides[0].twinpact || sides[0].twinpact == 0)) {
+                comboSection.style.display = 'block';
+                sides.forEach(side => {
+                    const sideImg = document.createElement('img');
+                    sideImg.src = getCardImagePath(side);
+                    sideImg.title = side.card_name;
+                    if (side.card_id == selectedCardData.card_id) sideImg.className = 'selected';
+                    
+                    sideImg.onclick = () => {
+                        // 各面の情報（名前・画像・テキスト）に切り替え
+                        document.getElementById('detail-name').innerText = side.card_name;
+                        document.getElementById('detail-text').innerText = side.text || "効果なし";
+                        document.getElementById('detail-main-img').src = getCardImagePath(side);
+                        comboList.querySelectorAll('img').forEach(img => img.classList.remove('selected'));
+                        sideImg.classList.add('selected');
+                    };
+                    comboList.appendChild(sideImg);
+                });
+            }
+        })
+        .catch(err => console.error("構成面の取得に失敗しました:", err));
+}
+
 function openCardDetail(cardId, el) {
     activeClickedElement = el;
     
@@ -2191,6 +2226,8 @@ function renderDetailModal() {
                 activeClickedElement.dataset.cardId = v.card_id;
             }
             renderDetailModal();
+            // ★ バージョン切り替え時にも、そのバージョンの別面情報を再取得して更新
+            loadCombinationSides(v.card_id);
         };
         versionList.appendChild(vImg);
     });
