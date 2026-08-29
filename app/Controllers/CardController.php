@@ -395,10 +395,28 @@ if ($q !== '') {
             $target = $stmtTarget->fetch();
             if (!$target) return;
 
-            // 組み合わせIDが空でない場合、ツインパクト（または両面カード）と判定します
+            // 組み合わせIDが空でない場合、ツインパクト（またはハイパーモード等）と判定します
             $isCombo = !empty($target['combination_id']);
 
-            $sql = "SELECT c.card_id, c.card_name, c.text, c.pow, c.cost, cd.modelnum, cd.imagepath, cd.release_date, cd.`limit` as card_limit,
+            $sql = "SELECT c.card_id, c.card_name, 
+                           /* ハイパーモード（同一組み合わせ内のカード名がすべて同じ）の場合は最大card_idのテキストを取得 */
+                           CASE 
+                               WHEN ccb.combination_id IS NOT NULL AND (
+                                   SELECT COUNT(DISTINCT c_sub.card_name) 
+                                   FROM card_combination cc_sub 
+                                   JOIN card c_sub ON cc_sub.card_id = c_sub.card_id 
+                                   WHERE cc_sub.combination_id = ccb.combination_id
+                               ) = 1 THEN (
+                                   SELECT c_max.text 
+                                   FROM card_combination cc_max 
+                                   JOIN card c_max ON cc_max.card_id = c_max.card_id 
+                                   WHERE cc_max.combination_id = ccb.combination_id 
+                                   ORDER BY cc_max.card_id DESC 
+                                   LIMIT 1
+                               )
+                               ELSE c.text 
+                           END as text,
+                           c.pow, c.cost, cd.modelnum, cd.imagepath, cd.release_date, cd.`limit` as card_limit,
                            (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                            (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                             FROM card_combination cc_ref 
@@ -411,11 +429,11 @@ if ($q !== '') {
                     LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
                     WHERE c.card_name = :name ";
 
-            // 2. ツインパクト版と通常カード版で取得対象をSQL段階で完全に分岐させます
+            // 2. ツインパクト/ハイパーモード版と通常カード版で取得対象を分岐
             if ($isCombo) {
-                // ツインパクト（組み合わせあり）の場合：
-                // 組み合わせ（ccb.combination_id）が存在し、かつ「構成するカード名の組み合わせ全体（combo_names）」が完全に一致するもののみを取得
+                // メイン面（通常時）のみに絞り込み、重複表示を防止
                 $sql .= " AND ccb.combination_id IS NOT NULL ";
+                $sql .= " AND ccb.is_main_side = 1 ";
                 $sql .= " AND (
                     SELECT GROUP_CONCAT(c_all2.card_name ORDER BY cc_all2.card_id ASC SEPARATOR '|||') 
                     FROM card_combination cc_ref2 
@@ -430,8 +448,7 @@ if ($q !== '') {
                     WHERE cc_ref3.card_id = :target_id
                 )";
             } else {
-                // 通常カードの場合：
-                // 組み合わせテーブルに登録されていない（ツインパクトではない）同名カードのみを取得
+                // 通常カードの場合
                 $sql .= " AND ccb.combination_id IS NULL ";
             }
 
@@ -440,7 +457,7 @@ if ($q !== '') {
             $stmt = $pdo->prepare($sql);
             $bindParams = [':name' => $target['card_name']];
             if ($isCombo) {
-                $bindParams[':target_id'] = $cardId; // ツインパクト時は同一構成チェック用のターゲットIDをバインド
+                $bindParams[':target_id'] = $cardId;
             }
             
             $stmt->execute($bindParams);
