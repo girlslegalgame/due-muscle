@@ -8,40 +8,31 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
     
     <style>
-        /* --- 全体 & ヘッダーのダークテーマ（黒背景・白文字） --- */
-        body {
-            background-color: #121212 !important;
-            color: #ffffff !important;
-        }
-
+        /* --- ヘッダーを黒背景・白文字に変更 --- */
         header {
-            background-color: #1a1a1a !important;
-            color: #ffffff !important;
-            border-bottom: 1px solid #333333 !important;
+            background-color: #000 !important;
+            color: #fff !important;
+            border-bottom: 1px solid #333 !important;
         }
 
-        /* ロゴ画像 */
-        .header-logo-link {
+        header h1 a {
+            color: #fff !important;
             display: flex;
             align-items: center;
-            text-decoration: none;
-        }
-        .header-logo-img {
-            height: 38px;
-            width: auto;
-            object-fit: contain;
-            display: block;
         }
 
-        /* ヘッダーリンク（PC） */
-        .header-right a,
-        .header-right a:link,
-        .header-right a:visited {
-            color: #ffffff !important;
-            transition: color 0.2s ease;
+        /* ロゴ画像のサイズ調整（必要に応じて調整してください） */
+        .header-logo {
+            height: 35px;
+            width: auto;
+            object-fit: contain;
         }
-        .header-right a:hover {
-            color: #007bff !important;
+
+        /* リンクの文字色を白に変更 */
+        header a,
+        header a:link,
+        header a:visited {
+            color: #fff !important;
         }
 
         /* --- ハンバーガーメニュー用のデフォルト非表示設定 --- */
@@ -51,7 +42,7 @@
 
         /* --- スマートフォン環境（レスポンシブ） --- */
         @media (max-width: 768px) {
-            /* ハンバーガーボタン（白線） */
+            /* ハンバーガーボタン（三本線）の表示（スマホ時は白） */
             .menu-toggle {
                 display: flex;
                 flex-direction: column;
@@ -67,7 +58,7 @@
             .menu-toggle span {
                 width: 100%;
                 height: 2px;
-                background-color: #ffffff;
+                background-color: #fff; /* スマホ時は白に */
                 transition: all 0.3s ease;
             }
 
@@ -82,15 +73,15 @@
                 transform: translateY(-8px) rotate(-45deg);
             }
 
-            /* スマホ時のメニュー展開エリア（黒背景） */
+            /* スマホ時のメニュー展開エリアの設定（スマホ時は黒ベースまたは白ベース：ここでは統一して黒背景） */
             .header-right {
                 display: none !important;
                 position: fixed;
                 top: 60px;
                 left: 0;
                 width: 100%;
-                background-color: #1a1a1a;
-                border-bottom: 1px solid #333333;
+                background-color: #000; /* スマホ展開時も黒背景に */
+                border-bottom: 1px solid #333;
                 flex-direction: column;
                 align-items: center;
                 gap: 0 !important;
@@ -104,15 +95,15 @@
                 display: flex !important;
             }
 
-            /* メニュー内のリンク要素 */
+            /* メニュー内のリンク要素をブロック化 */
             .header-right a {
                 display: block;
                 width: 100%;
                 text-align: center;
                 padding: 16px 0;
-                border-bottom: 1px solid #2a2a2a;
+                border-bottom: 1px solid #222;
                 box-sizing: border-box;
-                color: #ffffff !important;
+                color: #fff !important;
             }
             .header-right a:last-child {
                 border-bottom: none;
@@ -123,9 +114,12 @@
 <body>
     <header>
         <div class="header-left">
-            <a href="/" class="header-logo-link">
-                <img src="/images/logo.webp" alt="ロゴ" class="header-logo-img">
-            </a>
+            <!-- ロゴ画像を配置し、トップ画面（/）へリンク -->
+            <h1>
+                <a href="/">
+                    <img src="/images/logo.webp" alt="DECK MAKER" class="header-logo">
+                </a>
+            </h1>
         </div>
         
         <!-- スマホ用ハンバーガーメニューボタン -->

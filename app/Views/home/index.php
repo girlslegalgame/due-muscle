@@ -1,4 +1,10 @@
-<div style="text-align: center; padding: 80px 20px;">
-    <h2>トップページ</h2>
-    <p style="font-size: 1.2rem; color: #aaa;">(作成中)</p>
+<?php
+ob_start();
+?>
+<div class="container" style="text-align: center; padding-top: 50px;">
+    <h2>(作成中)</h2>
 </div>
+<?php
+$content = ob_get_clean();
+require_once __DIR__ . '/../layouts/app.php';
+?>
