@@ -1037,10 +1037,23 @@ function saveHelpDetail() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
     })
-    .then(res => res.json())
+    .then(async res => {
+        // ★ 追加：レスポンスのテキストを一度文字列として取得し、空でないか確認する
+        const text = await res.text();
+        if (!text) {
+            // 空の場合は成功とみなす（または適宜調整）
+            return { success: true };
+        }
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            console.error("Server raw response:", text);
+            throw new Error("サーバーからのレスポンスが不正なJSONです。");
+        }
+    })
     .then(resData => {
         if (resData.success) {
-            // DOM更新処理...
+            // DOM更新処理
             const targetImg = document.getElementById(`card-img-${cardId}`);
             if (targetImg) {
                 targetImg.alt = cardNameInput;
@@ -1048,11 +1061,10 @@ function saveHelpDetail() {
                 targetImg.dataset.reading = readingInput;
             }
 
-            // ★ 追加：編集モーダル内の検索テキストボックスをクリアする
+            // 検索テキストボックスのクリア
             const raceSearch = document.getElementById('edit-race-search');
             if (raceSearch) {
                 raceSearch.value = '';
-                // 検索で非表示になっていたラベルをすべて再表示させるためイベントを発火
                 raceSearch.dispatchEvent(new Event('input'));
             }
             const abilitySearch = document.getElementById('edit-ability-search');
@@ -1064,26 +1076,7 @@ function saveHelpDetail() {
             closeHelpDetailModal();
             alert("カード情報を更新しました！");
         } else {
-            alert("更新に失敗しました: " + resData.error);
-        }
-    })
-    .then(res => res.json())
-    .then(resData => {
-        if (resData.success) {
-            // 【改善：高速化のための重要変更】
-            // 重い全体の再検索「triggerHelpSearch」を行わず、変更された該当カードのデータを
-            // フロントエンド(DOM)上で部分的に即時書き換えます。これにより遅延を感じさせず完了します。
-            const targetImg = document.getElementById(`card-img-${cardId}`);
-            if (targetImg) {
-                targetImg.alt = cardNameInput;
-                targetImg.dataset.cardName = cardNameInput;
-                targetImg.dataset.reading = readingInput;
-            }
-
-            closeHelpDetailModal();
-            alert("カード情報を更新しました！");
-        } else {
-            alert("更新に失敗しました: " + resData.error);
+            alert("更新に失敗しました: " + (resData.error || '不明なエラー'));
         }
     })
     .catch(err => {
