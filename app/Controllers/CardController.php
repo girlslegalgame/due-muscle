@@ -606,6 +606,7 @@ public function cardCombinationApi() {
         
         $q = $_GET['q'] ?? '';
         $scopes = isset($_GET['scope']) ? explode(',', $_GET['scope']) : ['name'];
+        $sort = $_GET['sort'] ?? 'newest'; // ★ ここを追加してください
         $civType = $_GET['civ_type'] ?? '';
         $civs = isset($_GET['civs']) ? explode(',', $_GET['civs']) : [];
         $excludeCivs = isset($_GET['exclude_civs']) ? explode(',', $_GET['exclude_civs']) : [];
