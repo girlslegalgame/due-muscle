@@ -659,19 +659,48 @@ public function cardCombinationApi() {
                 $q_hira_clean = str_replace(['・', ' ', '　'], '', $q_hira);
 
                 $conds = [];
+                // カード名
                 if (in_array('name', $scopes)) {
                     $conds[] = "(
                         REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_clean
                         OR REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_kata_clean
                         OR REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_hira_clean
-                        OR REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
-                        OR REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
                     )";
                     $params[':q_name_clean'] = "%$q_clean%";
                     $params[':q_name_kata_clean'] = "%$q_kata_clean%";
                     $params[':q_name_hira_clean'] = "%$q_hira_clean%";
+                }
+
+                // ★ 修正：カード名の読み
+                if (in_array('reading', $scopes)) {
+                    $conds[] = "(
+                        REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
+                        OR REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
+                    )";
                     $params[':q_read_kata_clean'] = "%$q_kata_clean%";
                     $params[':q_read_hira_clean'] = "%$q_hira_clean%";
+                }
+
+                // ★ 修正：種族
+                if (in_array('race', $scopes)) {
+                    $conds[] = "EXISTS (
+                        SELECT 1 FROM card_race cr_s 
+                        JOIN race r_s ON cr_s.race_id = r_s.race_id 
+                        WHERE cr_s.card_id = c.card_id AND (
+                            REPLACE(REPLACE(REPLACE(r_s.race_name, '・', ''), ' ', ''), '　', '') LIKE :q_race_clean
+                            OR REPLACE(REPLACE(r_s.reading, ' ', ''), '　', '') LIKE :q_race_read_kata_clean
+                            OR REPLACE(REPLACE(r_s.reading, ' ', ''), '　', '') LIKE :q_race_read_hira_clean
+                        )
+                    )";
+                    $params[':q_race_clean'] = "%$q_clean%";
+                    $params[':q_race_read_kata_clean'] = "%$q_kata_clean%";
+                    $params[':q_race_read_hira_clean'] = "%$q_hira_clean%";
+                }
+
+                // ★ 修正：テキスト
+                if (in_array('text', $scopes)) {
+                    $conds[] = "c.text LIKE :q_text";
+                    $params[':q_text'] = "%$q%";
                 }
 
                 // ★ 追加：構築した条件式をSQL文に結合します
@@ -821,7 +850,8 @@ public function cardCombinationApi() {
             }
 
             // 発売日の新しい順に並び替え
-            $sql .= " ORDER BY cd.release_date DESC, c.cost ASC, c.reading ASC LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
+            $orderDirection = ($sort === 'oldest') ? 'ASC' : 'DESC';
+            $sql .= " ORDER BY cd.release_date {$orderDirection}, c.cost ASC, c.reading ASC LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
 
             $stmt = $pdo->prepare($sql);
             foreach ($params as $key => $val) {

@@ -156,6 +156,15 @@ if (!\Controllers\AuthController::checkAdminOrDeveloper()) {
         </label>
     </div>
 
+    <!-- ★ 追加：並び順選択セレクトボックス -->
+    <div class="input-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+        <label style="font-weight: bold; font-size: 14px; color: #333;">並び順:</label>
+        <select id="help-sort-select" class="input-text" style="width: auto; padding: 6px 12px;" onchange="triggerHelpSearch(true)">
+            <option value="newest" selected>発売日が新しい順</option>
+            <option value="oldest">発売日が古い順</option>
+        </select>
+    </div>
+
 <!-- 修正対象：文明設定エリア -->
     <div class="civ-filter-box">
         <strong>文明設定</strong>
@@ -447,6 +456,12 @@ function triggerHelpSearch(resetPage) {
     if (q) {
         params.append('q', q);
         params.append('scope', scopes.join(','));
+    }
+
+    // triggerHelpSearch 関数内、パラメータ構築部分に追加
+    const sortOrder = document.getElementById('help-sort-select').value;
+    if (sortOrder) {
+        params.append('sort', sortOrder);
     }
     
     // 単色・多色
