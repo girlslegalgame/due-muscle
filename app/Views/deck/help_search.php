@@ -1040,6 +1040,36 @@ function saveHelpDetail() {
     .then(res => res.json())
     .then(resData => {
         if (resData.success) {
+            // DOM更新処理...
+            const targetImg = document.getElementById(`card-img-${cardId}`);
+            if (targetImg) {
+                targetImg.alt = cardNameInput;
+                targetImg.dataset.cardName = cardNameInput;
+                targetImg.dataset.reading = readingInput;
+            }
+
+            // ★ 追加：編集モーダル内の検索テキストボックスをクリアする
+            const raceSearch = document.getElementById('edit-race-search');
+            if (raceSearch) {
+                raceSearch.value = '';
+                // 検索で非表示になっていたラベルをすべて再表示させるためイベントを発火
+                raceSearch.dispatchEvent(new Event('input'));
+            }
+            const abilitySearch = document.getElementById('edit-ability-search');
+            if (abilitySearch) {
+                abilitySearch.value = '';
+                abilitySearch.dispatchEvent(new Event('input'));
+            }
+
+            closeHelpDetailModal();
+            alert("カード情報を更新しました！");
+        } else {
+            alert("更新に失敗しました: " + resData.error);
+        }
+    })
+    .then(res => res.json())
+    .then(resData => {
+        if (resData.success) {
             // 【改善：高速化のための重要変更】
             // 重い全体の再検索「triggerHelpSearch」を行わず、変更された該当カードのデータを
             // フロントエンド(DOM)上で部分的に即時書き換えます。これにより遅延を感じさせず完了します。
