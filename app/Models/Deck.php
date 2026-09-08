@@ -30,7 +30,7 @@ class Deck {
     }
 
     /**
-     * 特定のデッキに含まれるカードリストを取得する（モーダル表示用）
+     * 特定のデッキに含まれるカードリストを取得する（モーダル表示用・ZIP出力用）
      * 
      * @param int $deckId
      * @return array
@@ -40,6 +40,8 @@ class Deck {
                     c.card_id, 
                     c.card_name, 
                     c.cost, 
+                    c.pow,
+                    c.text,
                     cd.modelnum, 
                     cd.imagepath,
                     dc.quantity,
@@ -47,14 +49,17 @@ class Deck {
                     -- 特殊タイプIDの取得
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                     -- 文明IDをカンマ区切りで取得
-                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids
+                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
+                    -- カードタイプ名をカンマ区切りで取得
+                    (SELECT GROUP_CONCAT(ct.cardtype_name SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as cardtype_names,
+                    -- 種族名をカンマ区切りで取得
+                    (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                 FROM deck_cards dc 
                 JOIN card c ON dc.card_id = c.card_id 
                 JOIN card_detail cd ON c.card_id = cd.card_id 
                 WHERE dc.deck_id = :deck_id
                 ORDER BY dc.sort_order ASC";
         
-        // コンストラクタで注入された $this->pdo を使用するように統一しています
         $stmt = $this->pdo->prepare($sql);
         $stmt->execute([':deck_id' => $deckId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
