@@ -1,4 +1,3 @@
-<!-- app/Views/deck/index.php -->
 <?php
 try {
     $pdo_db = \Models\Database::connect();
@@ -157,7 +156,6 @@ try {
             endforeach; 
             ?>
         <?php else: ?>
-            <!-- ★追加: 未ログイン、またはデッキが1件もない場合の表示切り替え -->
             <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: #fff; border-radius: 8px; border: 1px solid #ddd;">
                 <?php if (!isset($_SESSION['user_id'])): ?>
                     <p style="font-size: 1.1rem; color: #333; font-weight: bold; margin-bottom: 10px;">アカウントを作成すると、デッキを保存できます。</p>
@@ -169,13 +167,12 @@ try {
             </div>
         <?php endif; ?>
     </div>
-<!-- デッキ詳細モーダル（共通）の読み込み -->
+</div>
+
 <?php include __DIR__ . '/deck_detail_modal.php'; ?>
-<!-- 共通カード詳細モーダルの読み込み -->
 <?php include __DIR__ . '/card_detail_modal.php'; ?>
-<!-- ========================================== -->
+
 <!-- デッキ出力方法選択モーダル -->
-<!-- ========================================== -->
 <div id="deck-export-choice-modal" class="sub-modal" style="display: none;">
     <div class="sub-modal-content" style="max-width: 400px;">
         <div class="sub-modal-header">
@@ -211,8 +208,6 @@ function deleteDeck(deckId) {
     })
     .catch(() => alert('通信エラーが発生しました'));
 }
-
-/* <script> の末尾に追加 */
 
 let currentExportDeckId = null;
 let currentExportDeckName = null;
@@ -278,7 +273,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
 
         const zip = new JSZip();
         
-        // 1. public/images/.token ファイルの取得を試みる（失敗時は空またはデフォルト）
         try {
             const tokenRes = await fetch('/images/.token');
             if (tokenRes.ok) {
@@ -291,11 +285,9 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             zip.file('.token', '');
         }
 
-        // 2. デッキ内のカード画像収集と __data.json 用データの構築
         const itemsObj = {};
         const resourcesObj = {};
         
-        // ランダムなID生成ヘルパー
         function generateId(length = 20) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
             let result = '';
@@ -305,18 +297,11 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             return result;
         }
 
-        // カードの枚数を考慮して展開（またはユニークにするかはお好みですが、今回は要望に合わせて枚数分展開または個別アイテム化）
-        let index = 0;
-// カードの枚数を考慮して展開
-        let index = 0;
         for (const card of cards) {
             const path = card.imagepath || '';
             if (!path) continue;
 
-            // 例: /images/card/dm26ex3-006a.webp からファイル名を正しく抽出
             let filename = path.split('/').pop() || 'noimage.webp';
-            
-            // サーバー上の実際の画像パスを構築
             const fullImagePath = '/images/card' + (path.startsWith('/') ? path : '/' + path);
 
             try {
@@ -324,7 +309,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                 if (imgRes.ok) {
                     const imgBlob = await imgRes.blob();
                     
-                    // 【重要】Blobの実際のMimeTypeから正確な拡張子を補正する場合
                     let ext = filename.split('.').pop().toLowerCase();
                     if (imgBlob.type === 'image/jpeg' && ext !== 'jpg' && ext !== 'jpeg') {
                         filename = filename.substring(0, filename.lastIndexOf('.')) + '.jpeg';
@@ -334,7 +318,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                         filename = filename.substring(0, filename.lastIndexOf('.')) + '.webp';
                     }
 
-                    // ZIPのルート直下に直接ファイルを追加する
                     zip.file(filename, imgBlob);
 
                     const itemId = generateId();
@@ -350,8 +333,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             } catch (err) {
                 console.warn(`画像取得失敗: ${fullImagePath}`, err);
             }
-
-            index++;
         }
 
         const deckRandomId = generateId();
@@ -384,10 +365,8 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             "resources": resourcesObj
         };
 
-        // 3. __data.json をZIPに追加
         zip.file('__data.json', JSON.stringify(dataJson, null, 2));
 
-        // 4. ZIPファイルを生成してダウンロード
         const content = await zip.generateAsync({ type: 'blob' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(content);
@@ -410,7 +389,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
 }
 
 /**
- * 従来の画像出力処理（関数名を rename）
+ * 従来の画像出力処理
  */
 function executeImageExport(deckId, deckName, formatName, buttonElement) {
     if (buttonElement) {
@@ -428,7 +407,6 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
             return;
         }
 
-        // 1. 保存された並び順（sort_order）を維持するため、明示的にソートを行う
         cards.sort((a, b) => {
             const orderA = a.sort_order !== undefined ? parseInt(a.sort_order) : (a.order !== undefined ? parseInt(a.order) : 0);
             const orderB = b.sort_order !== undefined ? parseInt(b.sort_order) : (b.order !== undefined ? parseInt(b.order) : 0);
@@ -441,9 +419,7 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
         const specialCards = [];
         const colors = new Set();
 
-        // 2. ゾーン分けおよび文明情報のチェック、枚数の再現展開
         cards.forEach(card => {
-            // 文明色判定
             if (card.civ_fire || card.civilization_id == 4) colors.add('fire');
             if (card.civ_water || card.civilization_id == 2) colors.add('water');
             if (card.civ_light || card.civilization_id == 1) colors.add('light');
@@ -452,7 +428,6 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
             if (card.civ_zero || card.civilization_id == 6) colors.add('zero');
 
             const zone = (card.card_type_in_deck || 'main').toLowerCase();
-
             const qty = parseInt(card.quantity || card.qty || 1);
 
             for (let i = 0; i < qty; i++) {
@@ -461,7 +436,7 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
                 } else if (
                     zone === 'psychic' || 
                     zone === 'super_psychic' || 
-                    zone === 'super_dimensional' // ★超次元ゾーンの判定に super_dimensional を追加します
+                    zone === 'super_dimensional'
                 ) {
                     psychicCards.push(card);
                 } else if (zone === 'special') {
@@ -474,11 +449,9 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
 
         const hasSubDeck = (grCards.length > 0 || psychicCards.length > 0 || specialCards.length > 0);
 
-        // 3. 一時出力用DOMの構築
         const exportContainer = document.createElement('div');
         exportContainer.id = 'deck-export-container';
 
-        // 文明バッジ
         const colorLabels = { fire: '火', water: '水', light: '光', dark: '闇', nature: '自然', zero: 'ゼロ' };
         let colorHtml = '';
         ['fire', 'water', 'light', 'dark', 'nature', 'zero'].forEach(c => {
@@ -496,12 +469,10 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
                 </div>
             </div>
             <div class="export-body ${hasSubDeck ? 'two-column' : 'single-column'}">
-                <!-- メインデッキ (1列8枚) -->
                 <div class="export-main-deck-wrapper">
                     <h2 class="export-section-title">メインデッキ</h2>
                     <div class="export-card-grid grid-main" id="export-main-grid"></div>
                 </div>
-                <!-- サブデッキ (1列4枚) -->
                 ${hasSubDeck ? `
                     <div class="export-sub-decks-wrapper">
                         ${grCards.length > 0 ? `
@@ -530,7 +501,6 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
 
         document.body.appendChild(exportContainer);
 
-        // カード画像配置処理
         const renderGrid = (cardsArray, gridId) => {
             const grid = document.getElementById(gridId);
             if (!grid) return;
@@ -551,7 +521,6 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
         if (psychicCards.length > 0) renderGrid(psychicCards, 'export-psychic-grid');
         if (specialCards.length > 0) renderGrid(specialCards, 'export-special-grid');
 
-        // 画像ロードの完了を待機してからレンダリング
         const images = exportContainer.querySelectorAll('img');
         const promises = Array.from(images).map(img => {
             return new Promise(resolve => {
@@ -566,7 +535,7 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
         Promise.all(promises).then(() => {
             html2canvas(exportContainer, {
                 useCORS: true,
-                scale: 2 // 高画質化
+                scale: 2
             }).then(canvas => {
                 const link = document.createElement('a');
                 link.download = `${deckName}.png`;
@@ -591,7 +560,7 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
 
     function resetBtn() {
         if (buttonElement) {
-            buttonElement.innerText = '画像出力';
+            buttonElement.innerText = 'デッキ出力';
             buttonElement.disabled = false;
         }
     }
