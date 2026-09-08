@@ -288,6 +288,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
         const itemsObj = {};
         const resourcesObj = {};
         
+        // 正しいフォーマットと同じランダムID生成関数 (英字大文字小文字+数字の20文字)
         function generateId(length = 20) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
             let result = '';
@@ -297,6 +298,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             return result;
         }
 
+        // デッキ内の全カードを展開（枚数が複数ある場合も考慮して1枚ずつアイテムとして登録）
         for (const card of cards) {
             const path = card.imagepath || '';
             if (!path) continue;
@@ -318,16 +320,20 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                         filename = filename.substring(0, filename.lastIndexOf('.')) + '.webp';
                     }
 
+                    // ZIPのルートに直接格納
                     zip.file(filename, imgBlob);
 
                     const itemId = generateId();
+                    
+                    // 正しいデータ構造に合わせて itemsObj に追加
                     itemsObj[itemId] = {
-                        imageUrl: filename,
-                        memo: ""
+                        "imageUrl": filename,
+                        "memo": ""
                     };
 
+                    // 正しいデータ構造に合わせて resourcesObj に追加
                     resourcesObj[filename] = {
-                        type: imgBlob.type || "image/webp"
+                        "type": imgBlob.type || "image/webp"
                     };
                 }
             } catch (err) {
@@ -337,7 +343,9 @@ async function executeZipExport(deckId, deckName, buttonElement) {
 
         const deckRandomId = generateId();
         const dataJson = {
-            "meta": { "version": "1.1.0" },
+            "meta": {
+                "version": "1.1.0"
+            },
             "entities": {
                 "room": {},
                 "items": {},
@@ -365,6 +373,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             "resources": resourcesObj
         };
 
+        // __data.json をZIPに追加
         zip.file('__data.json', JSON.stringify(dataJson, null, 2));
 
         const content = await zip.generateAsync({ type: 'blob' });
