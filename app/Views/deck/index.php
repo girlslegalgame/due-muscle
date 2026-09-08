@@ -15,6 +15,7 @@ try {
     <link rel="stylesheet" href="/css/style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <!-- index.php の <style> 変更後 -->
 <style>
 /* 3. 画像出力用の一時的な非表示コンテナのスタイル（1200px固定）のみ残します */
@@ -172,6 +173,24 @@ try {
 <?php include __DIR__ . '/deck_detail_modal.php'; ?>
 <!-- 共通カード詳細モーダルの読み込み -->
 <?php include __DIR__ . '/card_detail_modal.php'; ?>
+<!-- ========================================== -->
+<!-- デッキ出力方法選択モーダル -->
+<!-- ========================================== -->
+<div id="deck-export-choice-modal" class="sub-modal" style="display: none;">
+    <div class="sub-modal-content" style="max-width: 400px;">
+        <div class="sub-modal-header">
+            <span>デッキ出力</span>
+            <button type="button" onclick="closeExportChoiceModal()" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">×</button>
+        </div>
+        <div class="sub-modal-body" style="padding: 30px; text-align: center;">
+            <p style="margin-top: 0; margin-bottom: 25px; font-weight: bold; color: #333;">出力形式を選択してください</p>
+            <div style="display: flex; gap: 15px; justify-content: center;">
+                <button type="button" id="btn-export-image" style="flex: 1; padding: 12px; background: #17a2b8; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">画像で出力</button>
+                <button type="button" id="btn-export-zip" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">ZIPで出力</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 <script>
 /**
@@ -195,15 +214,194 @@ function deleteDeck(deckId) {
 
 /* <script> の末尾に追加 */
 
+let currentExportDeckId = null;
+let currentExportDeckName = null;
+let currentExportFormatName = null;
+let currentExportButton = null;
+
 /**
- * デッキ画像の出力および保存処理
+ * デッキ出力ボタン押下時（モーダルを表示）
  */
 function exportDeckImage(deckId, deckName, formatName, buttonElement) {
+    currentExportDeckId = deckId;
+    currentExportDeckName = deckName;
+    currentExportFormatName = formatName;
+    currentExportButton = buttonElement;
+
+    const modal = document.getElementById('deck-export-choice-modal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeExportChoiceModal() {
+    const modal = document.getElementById('deck-export-choice-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+// モーダルのイベントリスナー設定
+document.addEventListener('DOMContentLoaded', () => {
+    const btnImage = document.getElementById('btn-export-image');
+    const btnZip = document.getElementById('btn-export-zip');
+
+    if (btnImage) {
+        btnImage.addEventListener('click', () => {
+            closeExportChoiceModal();
+            executeImageExport(currentExportDeckId, currentExportDeckName, currentExportFormatName, currentExportButton);
+        });
+    }
+
+    if (btnZip) {
+        btnZip.addEventListener('click', () => {
+            closeExportChoiceModal();
+            executeZipExport(currentExportDeckId, currentExportDeckName, currentExportButton);
+        });
+    }
+});
+
+/**
+ * ZIPファイル形式での出力処理
+ */
+async function executeZipExport(deckId, deckName, buttonElement) {
+    if (buttonElement) {
+        buttonElement.innerText = 'ZIP生成中...';
+        buttonElement.disabled = true;
+    }
+
+    try {
+        const res = await fetch(`/api/decks/view?deck_id=${deckId}`);
+        const cards = await res.json();
+
+        if (!Array.isArray(cards) || cards.length === 0) {
+            alert('デッキ情報の取得に失敗しました。');
+            resetBtn();
+            return;
+        }
+
+        const zip = new JSZip();
+        
+        // 1. public/images/.token ファイルの取得を試みる（失敗時は空またはデフォルト）
+        try {
+            const tokenRes = await fetch('/images/.token');
+            if (tokenRes.ok) {
+                const tokenBlob = await tokenRes.blob();
+                zip.file('.token', tokenBlob);
+            } else {
+                zip.file('.token', '');
+            }
+        } catch (e) {
+            zip.file('.token', '');
+        }
+
+        // 2. デッキ内のカード画像収集と __data.json 用データの構築
+        const itemsObj = {};
+        const resourcesObj = {};
+        
+        // ランダムなID生成ヘルパー
+        function generateId(length = 20) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        // カードの枚数を考慮して展開（またはユニークにするかはお好みですが、今回は要望に合わせて枚数分展開または個別アイテム化）
+        let index = 0;
+        for (const card of cards) {
+            const path = card.imagepath || '';
+            if (!path) continue;
+
+            // ファイル名抽出 (例: /images/card/abc.webp -> abc.webp またはファイル名部分)
+            const filename = path.split('/').pop() || 'noimage.webp';
+            const fullImagePath = '/images/card' + (path.startsWith('/') ? path : '/' + path);
+
+            // 画像データをfetchしてZIPに追加
+            try {
+                const imgRes = await fetch(fullImagePath);
+                if (imgRes.ok) {
+                    const imgBlob = await imgRes.blob();
+                    zip.file(filename, imgBlob);
+                }
+            } catch (err) {
+                console.warn(`画像取得失敗: ${fullImagePath}`);
+            }
+
+            const itemId = generateId();
+            itemsObj[itemId] = {
+                imageUrl: filename,
+                memo: ""
+            };
+
+            resourcesObj[filename] = {
+                type: "image/webp"
+            };
+
+            index++;
+        }
+
+        const deckRandomId = generateId();
+        const dataJson = {
+            "meta": { "version": "1.1.0" },
+            "entities": {
+                "room": {},
+                "items": {},
+                "decks": {
+                    [deckRandomId]: {
+                        "x": -2,
+                        "y": -3,
+                        "z": 99,
+                        "zIndex": 1,
+                        "width": 4,
+                        "height": 6,
+                        "locked": false,
+                        "freezed": false,
+                        "coverImageUrl": null,
+                        "items": itemsObj
+                    }
+                },
+                "notes": {},
+                "characters": {},
+                "effects": {},
+                "scenes": {},
+                "savedatas": {},
+                "snapshots": {}
+            },
+            "resources": resourcesObj
+        };
+
+        // 3. __data.json をZIPに追加
+        zip.file('__data.json', JSON.stringify(dataJson, null, 2));
+
+        // 4. ZIPファイルを生成してダウンロード
+        const content = await zip.generateAsync({ type: 'blob' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = `${deckName}.zip`;
+        link.click();
+
+        resetBtn();
+    } catch (err) {
+        console.error(err);
+        alert('ZIP作成中にエラーが発生しました。');
+        resetBtn();
+    }
+
+    function resetBtn() {
+        if (buttonElement) {
+            buttonElement.innerText = 'デッキ出力';
+            buttonElement.disabled = false;
+        }
+    }
+}
+
+/**
+ * 従来の画像出力処理（関数名を rename）
+ */
+function executeImageExport(deckId, deckName, formatName, buttonElement) {
     if (buttonElement) {
         buttonElement.innerText = '生成中...';
         buttonElement.disabled = true;
     }
-
     const apiEndpoint = `/api/decks/view?deck_id=${deckId}`;
 
     fetch(apiEndpoint)

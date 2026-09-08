@@ -118,7 +118,7 @@ if (!empty($deck['thumbnail_imagepath'])) {
             <button class="btn-image" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-format-name="<?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    onclick="exportDeckImage(<?php echo $deck['deck_id']; ?>, this.dataset.deckName, this.dataset.formatName, this)">画像出力</button>
+                    onclick="exportDeckImage(<?php echo $deck['deck_id']; ?>, this.dataset.deckName, this.dataset.formatName, this)">デッキ出力</button>
             <a href="/decks/edit?deck_id=<?php echo $deck['deck_id']; ?>" class="btn-edit">編集</a>
             <button class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
         <?php endif; ?>

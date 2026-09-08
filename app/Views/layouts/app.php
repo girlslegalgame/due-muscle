@@ -201,6 +201,16 @@
                 }
             });
         })();
+
+        /* ハンバーガーメニューの開閉処理 */
+        function toggleMobileMenu() {
+            const menuToggle = document.querySelector('.menu-toggle');
+            const headerRight = document.querySelector('.header-right');
+            if (menuToggle && headerRight) {
+                menuToggle.classList.toggle('active');
+                headerRight.classList.toggle('active');
+            }
+        }
     </script>
 </body>
 </html>
