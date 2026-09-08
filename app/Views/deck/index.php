@@ -225,15 +225,17 @@ function deleteDeck(deckId) {
 let currentExportDeckId = null;
 let currentExportDeckName = null;
 let currentExportFormatName = null;
+let currentExportThumbnailId = null;
 let currentExportButton = null;
 
 /**
  * デッキ出力ボタン押下時（モーダルを表示）
  */
-function exportDeckImage(deckId, deckName, formatName, buttonElement) {
+function exportDeckImage(deckId, deckName, formatName, thumbnailId, buttonElement) {
     currentExportDeckId = deckId;
     currentExportDeckName = deckName;
     currentExportFormatName = formatName;
+    currentExportThumbnailId = thumbnailId;
     currentExportButton = buttonElement;
 
     const modal = document.getElementById('deck-export-choice-modal');
@@ -260,15 +262,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnZip) {
         btnZip.addEventListener('click', () => {
             closeExportChoiceModal();
-            executeZipExport(currentExportDeckId, currentExportDeckName, currentExportButton);
+            executeZipExport(currentExportDeckId, currentExportDeckName, currentExportFormatName, currentExportThumbnailId, currentExportButton);
         });
     }
 });
 
 /**
- * ZIPファイル形式での出力処理（デュエパーティ・パートナー独立対応）
+ * ZIPファイル形式での出力処理（thumbnail_card_id を用いたパートナー分離対応）
  */
-async function executeZipExport(deckId, deckName, buttonElement) {
+async function executeZipExport(deckId, deckName, formatName, thumbnailId, buttonElement) {
     const includeText = document.getElementById('zip-include-text')?.checked || false;
     const separatePartner = document.getElementById('zip-separate-partner')?.checked || false;
 
@@ -278,32 +280,14 @@ async function executeZipExport(deckId, deckName, buttonElement) {
     }
 
     try {
-        // 1. デッキの基本情報（thumbnail_card_id を取得するため）とカードリストを並行取得
-        const [deckInfoRes, cardsRes] = await Promise.all([
-            fetch(`/api/decks/view?deck_id=${deckId}`), // デッキ基本情報またはカード一覧
-            fetch(`/api/decks/view?deck_id=${deckId}`)
-        ]);
-        
-        // ※バックエンドの仕様に合わせて /api/decks/view がカード一覧を返す場合は、
-        // デッキ基本情報用に別のエンドポイント、あるいはデッキ詳細情報を取得する処理を行ってください。
-        // ここではAPIから取得したcardsの中にサムネイル判定用IDが含まれているか、
-        // あるいはデッキ詳細情報APIがない場合はカードリストの最初や指定方法に合わせます。
-        const cards = await cardsRes.json();
+        const res = await fetch(`/api/decks/view?deck_id=${deckId}`);
+        const cards = await res.json();
 
         if (!Array.isArray(cards) || cards.length === 0) {
             alert('デッキ情報の取得に失敗しました。');
             resetBtn();
             return;
         }
-
-        // デッキ基本情報（thumbnail_card_id）を取得するために、必要に応じてデッキ情報を取得
-        let thumbnailCardId = null;
-        try {
-            // 例として、デッキ一覧APIや個別取得APIがあればそこから取得
-            // ここでは簡易的に、デッキの最初のエントリ、または属性から推定、あるいは別途フェッチ
-            const detailRes = await fetch(`/api/decks?deck_id=${deckId}`); // ※必要に応じてエンドポイント調整
-            // 代替として、グローバル変数やDOMからサムネイルIDを持っている場合はそれを利用できます
-        } catch (e) {}
 
         const zip = new JSZip();
         
@@ -320,7 +304,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
         }
 
         const deckItemsObj = {};
-        const standaloneItemsObj = {}; // デッキから独立したパートナー用
+        const standaloneItemsObj = {};
         const resourcesObj = {};
         
         function generateId(length = 20) {
@@ -340,7 +324,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             return hashHex;
         }
 
-        // テキスト生成ヘルパー
         function createMemoText(card) {
             let line1Parts = [];
             const cardName = card.card_name ? card.card_name.trim() : '';
@@ -379,9 +362,8 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             return memoLines.join('\n');
         }
 
-        // サムネイル判定：もしデッキデータに thumbnail_card_id があればそれを使用、
-        // なければリストの最初のカードをパートナー（サムネイル）とみなす等のフォールバック
-        let partnerCardId = window._currentThumbnailCardId || (cards[0] ? cards[0].card_id : null);
+        // 最初にヒットしたパートナーカードを1枚だけ独立させるためのフラグ
+        let partnerExtracted = false;
 
         for (const card of cards) {
             const path = card.imagepath || '';
@@ -419,8 +401,8 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                     const memoText = includeText ? createMemoText(card) : "";
                     const itemId = generateId();
 
-                    // パートナー分離が有効かつ、このカードがサムネイル（パートナー）の場合
-                    if (separatePartner && String(card.card_id) === String(partnerCardId)) {
+                    // パートナー分離が有効、かつ未抽出で、カードIDが thumbnailId と一致する場合
+                    if (separatePartner && !partnerExtracted && thumbnailId && String(card.card_id) === String(thumbnailId)) {
                         standaloneItemsObj[itemId] = {
                             "x": -6,
                             "y": -3,
@@ -442,9 +424,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                             "clickAction": null,
                             "order": 1
                         };
-                        // 一度パートナーとして処理したら、デッキの通常カードリストには含めない
-                        // ※もし同名カードが複数あって区別したい場合は card_id だけでなくユニークな判定が必要ですが通常はこれで動作します
-                        partnerCardId = null; // 重複してパートナー指定されないようにクリア
+                        partnerExtracted = true; // 2枚目以降の同一カードはデッキ側に含めるためフラグを立てる
                     } else {
                         deckItemsObj[itemId] = {
                             "imageUrl": hashedFilename,
@@ -464,7 +444,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             },
             "entities": {
                 "room": {},
-                "items": standaloneItemsObj, // 独立したパートナーオブジェクトをここに配置
+                "items": standaloneItemsObj,
                 "decks": {
                     [deckRandomId]: {
                         "x": -2,
