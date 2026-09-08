@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * ZIPファイル形式での出力処理（SHA-256ハッシュファイル名対応）
+ * ZIPファイル形式での出力処理（特定の禁断カードを除外＆メインデッキ限定）
  */
 async function executeZipExport(deckId, deckName, buttonElement) {
     if (buttonElement) {
@@ -297,7 +297,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             return result;
         }
 
-        // BlobからSHA-256ハッシュ文字列を計算する関数
         async function calculateSha256(blob) {
             const buffer = await blob.arrayBuffer();
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -310,6 +309,18 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             const path = card.imagepath || '';
             if (!path) continue;
 
+            // 1. ゾーンの判定 (メインデッキのみ対象)
+            const zone = (card.card_type_in_deck || 'main').toLowerCase();
+            if (zone !== 'main') {
+                continue; // メインデッキ以外（超次元、GRなど）は除外
+            }
+
+            // 2. 除外するカード名の判定
+            const cardName = card.card_name ? card.card_name.trim() : '';
+            if (cardName === '禁断 ～封印されしX～' || cardName === '伝説の禁断 ドキンダムX') {
+                continue; // 指定された禁断カードは除外
+            }
+
             const fullImagePath = '/images/card' + (path.startsWith('/') ? path : '/' + path);
 
             try {
@@ -317,28 +328,26 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                 if (imgRes.ok) {
                     const imgBlob = await imgRes.blob();
                     
-                    // 1. 画像のバイナリからSHA-256ハッシュを計算
                     const sha256Hash = await calculateSha256(imgBlob);
                     
-                    // 2. 拡張子を決定 (基本はwebp、必要に応じてimgBlob.typeから判定)
                     let ext = 'webp';
                     if (imgBlob.type === 'image/jpeg') ext = 'jpeg';
                     else if (imgBlob.type === 'image/png') ext = 'png';
 
-                    // 3. ハッシュ化されたファイル名を生成 (例: b3fa17c0f14d78...webp)
                     const hashedFilename = `${sha256Hash}.${ext}`;
 
-                    // 4. ハッシュ名でZIPにファイルを追加
-                    zip.file(hashedFilename, imgBlob);
+                    // 重複追加を防ぐため、すでに同じリソースがなければ追加
+                    if (!resourcesObj[hashedFilename]) {
+                        zip.file(hashedFilename, imgBlob);
+                        resourcesObj[hashedFilename] = {
+                            "type": imgBlob.type || "image/webp"
+                        };
+                    }
 
                     const itemId = generateId();
                     itemsObj[itemId] = {
                         "imageUrl": hashedFilename,
                         "memo": ""
-                    };
-
-                    resourcesObj[hashedFilename] = {
-                        "type": imgBlob.type || "image/webp"
                     };
                 }
             } catch (err) {
