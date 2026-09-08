@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * ZIPファイル形式での出力処理
+ * ZIPファイル形式での出力処理（SHA-256ハッシュファイル名対応）
  */
 async function executeZipExport(deckId, deckName, buttonElement) {
     if (buttonElement) {
@@ -288,7 +288,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
         const itemsObj = {};
         const resourcesObj = {};
         
-        // 正しいフォーマットと同じランダムID生成関数 (英字大文字小文字+数字の20文字)
         function generateId(length = 20) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
             let result = '';
@@ -298,12 +297,19 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             return result;
         }
 
-        // デッキ内の全カードを展開（枚数が複数ある場合も考慮して1枚ずつアイテムとして登録）
+        // BlobからSHA-256ハッシュ文字列を計算する関数
+        async function calculateSha256(blob) {
+            const buffer = await blob.arrayBuffer();
+            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            return hashHex;
+        }
+
         for (const card of cards) {
             const path = card.imagepath || '';
             if (!path) continue;
 
-            let filename = path.split('/').pop() || 'noimage.webp';
             const fullImagePath = '/images/card' + (path.startsWith('/') ? path : '/' + path);
 
             try {
@@ -311,28 +317,27 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                 if (imgRes.ok) {
                     const imgBlob = await imgRes.blob();
                     
-                    let ext = filename.split('.').pop().toLowerCase();
-                    if (imgBlob.type === 'image/jpeg' && ext !== 'jpg' && ext !== 'jpeg') {
-                        filename = filename.substring(0, filename.lastIndexOf('.')) + '.jpeg';
-                    } else if (imgBlob.type === 'image/png' && ext !== 'png') {
-                        filename = filename.substring(0, filename.lastIndexOf('.')) + '.png';
-                    } else if (imgBlob.type === 'image/webp' && ext !== 'webp') {
-                        filename = filename.substring(0, filename.lastIndexOf('.')) + '.webp';
-                    }
+                    // 1. 画像のバイナリからSHA-256ハッシュを計算
+                    const sha256Hash = await calculateSha256(imgBlob);
+                    
+                    // 2. 拡張子を決定 (基本はwebp、必要に応じてimgBlob.typeから判定)
+                    let ext = 'webp';
+                    if (imgBlob.type === 'image/jpeg') ext = 'jpeg';
+                    else if (imgBlob.type === 'image/png') ext = 'png';
 
-                    // ZIPのルートに直接格納
-                    zip.file(filename, imgBlob);
+                    // 3. ハッシュ化されたファイル名を生成 (例: b3fa17c0f14d78...webp)
+                    const hashedFilename = `${sha256Hash}.${ext}`;
+
+                    // 4. ハッシュ名でZIPにファイルを追加
+                    zip.file(hashedFilename, imgBlob);
 
                     const itemId = generateId();
-                    
-                    // 正しいデータ構造に合わせて itemsObj に追加
                     itemsObj[itemId] = {
-                        "imageUrl": filename,
+                        "imageUrl": hashedFilename,
                         "memo": ""
                     };
 
-                    // 正しいデータ構造に合わせて resourcesObj に追加
-                    resourcesObj[filename] = {
+                    resourcesObj[hashedFilename] = {
                         "type": imgBlob.type || "image/webp"
                     };
                 }
@@ -373,7 +378,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             "resources": resourcesObj
         };
 
-        // __data.json をZIPに追加
         zip.file('__data.json', JSON.stringify(dataJson, null, 2));
 
         const content = await zip.generateAsync({ type: 'blob' });
