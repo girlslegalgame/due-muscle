@@ -307,34 +307,49 @@ async function executeZipExport(deckId, deckName, buttonElement) {
 
         // カードの枚数を考慮して展開（またはユニークにするかはお好みですが、今回は要望に合わせて枚数分展開または個別アイテム化）
         let index = 0;
+// カードの枚数を考慮して展開
+        let index = 0;
         for (const card of cards) {
             const path = card.imagepath || '';
             if (!path) continue;
 
-            // ファイル名抽出 (例: /images/card/abc.webp -> abc.webp またはファイル名部分)
-            const filename = path.split('/').pop() || 'noimage.webp';
+            // 例: /images/card/dm26ex3-006a.webp からファイル名を正しく抽出
+            let filename = path.split('/').pop() || 'noimage.webp';
+            
+            // サーバー上の実際の画像パスを構築
             const fullImagePath = '/images/card' + (path.startsWith('/') ? path : '/' + path);
 
-            // 画像データをfetchしてZIPに追加
             try {
                 const imgRes = await fetch(fullImagePath);
                 if (imgRes.ok) {
                     const imgBlob = await imgRes.blob();
+                    
+                    // 【重要】Blobの実際のMimeTypeから正確な拡張子を補正する場合
+                    let ext = filename.split('.').pop().toLowerCase();
+                    if (imgBlob.type === 'image/jpeg' && ext !== 'jpg' && ext !== 'jpeg') {
+                        filename = filename.substring(0, filename.lastIndexOf('.')) + '.jpeg';
+                    } else if (imgBlob.type === 'image/png' && ext !== 'png') {
+                        filename = filename.substring(0, filename.lastIndexOf('.')) + '.png';
+                    } else if (imgBlob.type === 'image/webp' && ext !== 'webp') {
+                        filename = filename.substring(0, filename.lastIndexOf('.')) + '.webp';
+                    }
+
+                    // ZIPのルート直下に直接ファイルを追加する
                     zip.file(filename, imgBlob);
+
+                    const itemId = generateId();
+                    itemsObj[itemId] = {
+                        imageUrl: filename,
+                        memo: ""
+                    };
+
+                    resourcesObj[filename] = {
+                        type: imgBlob.type || "image/webp"
+                    };
                 }
             } catch (err) {
-                console.warn(`画像取得失敗: ${fullImagePath}`);
+                console.warn(`画像取得失敗: ${fullImagePath}`, err);
             }
-
-            const itemId = generateId();
-            itemsObj[itemId] = {
-                imageUrl: filename,
-                memo: ""
-            };
-
-            resourcesObj[filename] = {
-                type: "image/webp"
-            };
 
             index++;
         }
