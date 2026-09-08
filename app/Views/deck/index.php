@@ -172,18 +172,29 @@ try {
 <?php include __DIR__ . '/deck_detail_modal.php'; ?>
 <?php include __DIR__ . '/card_detail_modal.php'; ?>
 
+<!-- ========================================== -->
 <!-- デッキ出力方法選択モーダル -->
+<!-- ========================================== -->
 <div id="deck-export-choice-modal" class="sub-modal" style="display: none;">
-    <div class="sub-modal-content" style="max-width: 400px;">
+    <div class="sub-modal-content" style="max-width: 420px;">
         <div class="sub-modal-header">
             <span>デッキ出力</span>
             <button type="button" onclick="closeExportChoiceModal()" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">×</button>
         </div>
-        <div class="sub-modal-body" style="padding: 30px; text-align: center;">
-            <p style="margin-top: 0; margin-bottom: 25px; font-weight: bold; color: #333;">出力形式を選択してください</p>
-            <div style="display: flex; gap: 15px; justify-content: center;">
+        <div class="sub-modal-body" style="padding: 25px; text-align: center;">
+            <p style="margin-top: 0; margin-bottom: 15px; font-weight: bold; color: #333;">出力形式を選択してください</p>
+            
+            <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px;">
                 <button type="button" id="btn-export-image" style="flex: 1; padding: 12px; background: #17a2b8; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">画像で出力</button>
                 <button type="button" id="btn-export-zip" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">ZIPで出力</button>
+            </div>
+
+            <!-- ★追加: ZIP出力時のテキスト付与オプション -->
+            <div id="zip-options-wrapper" style="border-top: 1px solid #ddd; padding-top: 15px; text-align: left;">
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: #444;">
+                    <input type="checkbox" id="zip-include-text" style="width: 16px; height: 16px;">
+                    ZIP出力時にカードテキストを含める (memoに記載)
+                </label>
             </div>
         </div>
     </div>
@@ -253,9 +264,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * ZIPファイル形式での出力処理（特定の禁断カードを除外＆メインデッキ限定）
+ * ZIPファイル形式での出力処理（テキスト付与オプション対応）
  */
 async function executeZipExport(deckId, deckName, buttonElement) {
+    const includeText = document.getElementById('zip-include-text')?.checked || false;
+
     if (buttonElement) {
         buttonElement.innerText = 'ZIP生成中...';
         buttonElement.disabled = true;
@@ -309,16 +322,12 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             const path = card.imagepath || '';
             if (!path) continue;
 
-            // 1. ゾーンの判定 (メインデッキのみ対象)
             const zone = (card.card_type_in_deck || 'main').toLowerCase();
-            if (zone !== 'main') {
-                continue; // メインデッキ以外（超次元、GRなど）は除外
-            }
+            if (zone !== 'main') continue;
 
-            // 2. 除外するカード名の判定
             const cardName = card.card_name ? card.card_name.trim() : '';
             if (cardName === '禁断 ～封印されしX～' || cardName === '伝説の禁断 ドキンダムX') {
-                continue; // 指定された禁断カードは除外
+                continue;
             }
 
             const fullImagePath = '/images/card' + (path.startsWith('/') ? path : '/' + path);
@@ -336,7 +345,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
 
                     const hashedFilename = `${sha256Hash}.${ext}`;
 
-                    // 重複追加を防ぐため、すでに同じリソースがなければ追加
                     if (!resourcesObj[hashedFilename]) {
                         zip.file(hashedFilename, imgBlob);
                         resourcesObj[hashedFilename] = {
@@ -344,10 +352,80 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                         };
                     }
 
+                    // memoの構築処理
+                    let memoText = "";
+                    if (includeText) {
+                        let line1Parts = [];
+                        
+                        // 1. カード名
+                        if (cardName) line1Parts.push(cardName);
+
+                        // 2. 文明名 (ID昇順ソートして / 区切り + 「文明」)
+                        // ※API等で civilization_data や civ_ids が渡されている前提、あるいは cardオブジェクトの構造に合わせて調整
+                        let civs = [];
+                        if (card.civilizations && Array.isArray(card.civilizations)) {
+                            civs = card.civilizations;
+                        } else if (card.civ_ids) {
+                            // civ_ids がカンマ区切りの場合
+                            civs = card.civ_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                        }
+                        
+                        // 文明IDと名称のマッピング
+                        const civNamesMap = { 1: '光', 2: '水', 3: '闇', 4: '火', 5: '自然', 6: 'ゼロ' };
+                        if (civs.length > 0) {
+                            // ID昇順にソート
+                            civs.sort((a, b) => a - b);
+                            let civStr = civs.map(id => civNamesMap[id]).filter(Boolean).join('/');
+                            if (civStr) line1Parts.push(civStr + '文明');
+                        }
+
+                        // 3. コスト ((数値))
+                        if (card.cost !== null && card.cost !== undefined && card.cost !== '') {
+                            line1Parts.push(`(${card.cost})`);
+                        }
+
+                        let line1 = line1Parts.join(' ');
+
+                        // 4. カードタイプ：種族
+                        let line2Parts = [];
+                        if (card.cardtype_name || card.cardtype) {
+                            line2Parts.push(card.cardtype_name || card.cardtype);
+                        }
+                        if (card.race_names || card.races) {
+                            let races = card.race_names || card.races;
+                            if (Array.isArray(races)) {
+                                line2Parts.push(races.join('/'));
+                            } else {
+                                line2Parts.push(races);
+                            }
+                        }
+
+                        let line2Head = line2Parts.join('：');
+                        let line2Pow = (card.pow !== null && card.pow !== undefined && card.pow !== '') ? card.pow : '';
+                        
+                        let line2 = "";
+                        if (line2Head && line2Pow) {
+                            line2 = `${line2Head}　${line2Pow}`;
+                        } else {
+                            line2 = line2Head || line2Pow;
+                        }
+
+                        // 5. テキスト
+                        let text = card.text ? card.text.trim() : '';
+
+                        // 結合
+                        let memoLines = [];
+                        if (line1) memoLines.push(line1);
+                        if (line2) memoLines.push(line2);
+                        if (text) memoLines.push(text);
+
+                        memoText = memoLines.join('\n');
+                    }
+
                     const itemId = generateId();
                     itemsObj[itemId] = {
                         "imageUrl": hashedFilename,
-                        "memo": ""
+                        "memo": memoText
                     };
                 }
             } catch (err) {
