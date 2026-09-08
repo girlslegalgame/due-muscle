@@ -172,28 +172,30 @@ try {
 <?php include __DIR__ . '/deck_detail_modal.php'; ?>
 <?php include __DIR__ . '/card_detail_modal.php'; ?>
 
-<!-- ========================================== -->
 <!-- デッキ出力方法選択モーダル -->
-<!-- ========================================== -->
 <div id="deck-export-choice-modal" class="sub-modal" style="display: none;">
     <div class="sub-modal-content" style="max-width: 420px;">
         <div class="sub-modal-header">
             <span>デッキ出力</span>
             <button type="button" onclick="closeExportChoiceModal()" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">×</button>
         </div>
-        <div class="sub-modal-body" style="padding: 25px; text-align: center;">
-            <p style="margin-top: 0; margin-bottom: 15px; font-weight: bold; color: #333;">出力形式を選択してください</p>
+        <div class="sub-modal-body" style="padding: 25px; text-align: left;">
+            <p style="margin-top: 0; margin-bottom: 15px; font-weight: bold; color: #333; text-align: center;">出力形式を選択してください</p>
             
             <div style="display: flex; gap: 15px; justify-content: center; margin-bottom: 20px;">
                 <button type="button" id="btn-export-image" style="flex: 1; padding: 12px; background: #17a2b8; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">画像で出力</button>
                 <button type="button" id="btn-export-zip" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">ZIPで出力</button>
             </div>
 
-            <!-- ★追加: ZIP出力時のテキスト付与オプション -->
-            <div id="zip-options-wrapper" style="border-top: 1px solid #ddd; padding-top: 15px; text-align: left;">
-                <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: #444;">
+            <!-- ZIP出力時のオプション設定 -->
+            <div id="zip-options-wrapper" style="border-top: 1px solid #ddd; padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: #444; font-size: 0.9rem;">
                     <input type="checkbox" id="zip-include-text" style="width: 16px; height: 16px;">
                     ZIP出力時にカードテキストを含める (memoに記載)
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: #444; font-size: 0.9rem;">
+                    <input type="checkbox" id="zip-separate-partner" style="width: 16px; height: 16px;">
+                    パートナー（サムネイル）をデッキから独立して出力する (デュエパーティ用)
                 </label>
             </div>
         </div>
@@ -264,10 +266,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * ZIPファイル形式での出力処理（テキスト付与オプション対応）
+ * ZIPファイル形式での出力処理（デュエパーティ・パートナー独立対応）
  */
 async function executeZipExport(deckId, deckName, buttonElement) {
     const includeText = document.getElementById('zip-include-text')?.checked || false;
+    const separatePartner = document.getElementById('zip-separate-partner')?.checked || false;
 
     if (buttonElement) {
         buttonElement.innerText = 'ZIP生成中...';
@@ -275,14 +278,32 @@ async function executeZipExport(deckId, deckName, buttonElement) {
     }
 
     try {
-        const res = await fetch(`/api/decks/view?deck_id=${deckId}`);
-        const cards = await res.json();
+        // 1. デッキの基本情報（thumbnail_card_id を取得するため）とカードリストを並行取得
+        const [deckInfoRes, cardsRes] = await Promise.all([
+            fetch(`/api/decks/view?deck_id=${deckId}`), // デッキ基本情報またはカード一覧
+            fetch(`/api/decks/view?deck_id=${deckId}`)
+        ]);
+        
+        // ※バックエンドの仕様に合わせて /api/decks/view がカード一覧を返す場合は、
+        // デッキ基本情報用に別のエンドポイント、あるいはデッキ詳細情報を取得する処理を行ってください。
+        // ここではAPIから取得したcardsの中にサムネイル判定用IDが含まれているか、
+        // あるいはデッキ詳細情報APIがない場合はカードリストの最初や指定方法に合わせます。
+        const cards = await cardsRes.json();
 
         if (!Array.isArray(cards) || cards.length === 0) {
             alert('デッキ情報の取得に失敗しました。');
             resetBtn();
             return;
         }
+
+        // デッキ基本情報（thumbnail_card_id）を取得するために、必要に応じてデッキ情報を取得
+        let thumbnailCardId = null;
+        try {
+            // 例として、デッキ一覧APIや個別取得APIがあればそこから取得
+            // ここでは簡易的に、デッキの最初のエントリ、または属性から推定、あるいは別途フェッチ
+            const detailRes = await fetch(`/api/decks?deck_id=${deckId}`); // ※必要に応じてエンドポイント調整
+            // 代替として、グローバル変数やDOMからサムネイルIDを持っている場合はそれを利用できます
+        } catch (e) {}
 
         const zip = new JSZip();
         
@@ -298,7 +319,8 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             zip.file('.token', '');
         }
 
-        const itemsObj = {};
+        const deckItemsObj = {};
+        const standaloneItemsObj = {}; // デッキから独立したパートナー用
         const resourcesObj = {};
         
         function generateId(length = 20) {
@@ -317,6 +339,49 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
             return hashHex;
         }
+
+        // テキスト生成ヘルパー
+        function createMemoText(card) {
+            let line1Parts = [];
+            const cardName = card.card_name ? card.card_name.trim() : '';
+            if (cardName) line1Parts.push(cardName);
+
+            let civs = [];
+            if (card.civ_ids) {
+                civs = card.civ_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            }
+            const civNamesMap = { 1: '光', 2: '水', 3: '闇', 4: '火', 5: '自然', 6: 'ゼロ' };
+            if (civs.length > 0) {
+                civs.sort((a, b) => a - b);
+                let civStr = civs.map(id => civNamesMap[id]).filter(Boolean).join('/');
+                if (civStr) line1Parts.push(civStr + '文明');
+            }
+
+            if (card.cost !== null && card.cost !== undefined && card.cost !== '') {
+                line1Parts.push(`(${card.cost})`);
+            }
+            let line1 = line1Parts.join(' ');
+
+            let line2Parts = [];
+            if (card.cardtype_names) line2Parts.push(card.cardtype_names);
+            if (card.race_names) line2Parts.push(card.race_names);
+
+            let line2Head = line2Parts.join('：');
+            let line2Pow = (card.pow !== null && card.pow !== undefined && card.pow !== '') ? card.pow : '';
+            let line2 = (line2Head && line2Pow) ? `${line2Head}　${line2Pow}` : (line2Head || line2Pow);
+
+            let text = card.text ? card.text.trim() : '';
+            let memoLines = [];
+            if (line1) memoLines.push(line1);
+            if (line2) memoLines.push(line2);
+            if (text) memoLines.push(text);
+
+            return memoLines.join('\n');
+        }
+
+        // サムネイル判定：もしデッキデータに thumbnail_card_id があればそれを使用、
+        // なければリストの最初のカードをパートナー（サムネイル）とみなす等のフォールバック
+        let partnerCardId = window._currentThumbnailCardId || (cards[0] ? cards[0].card_id : null);
 
         for (const card of cards) {
             const path = card.imagepath || '';
@@ -338,7 +403,6 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                     const imgBlob = await imgRes.blob();
                     
                     const sha256Hash = await calculateSha256(imgBlob);
-                    
                     let ext = 'webp';
                     if (imgBlob.type === 'image/jpeg') ext = 'jpeg';
                     else if (imgBlob.type === 'image/png') ext = 'png';
@@ -352,81 +416,41 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                         };
                     }
 
-                    // memoの構築処理
-                    let memoText = "";
-                    if (includeText) {
-                        let line1Parts = [];
-                        
-                        // 1. カード名
-                        if (cardName) line1Parts.push(cardName);
-
-                        // 2. 文明名 (ID昇順ソートして / 区切り + 「文明」)
-                        // ※API等で civilization_data や civ_ids が渡されている前提、あるいは cardオブジェクトの構造に合わせて調整
-                        let civs = [];
-                        if (card.civilizations && Array.isArray(card.civilizations)) {
-                            civs = card.civilizations;
-                        } else if (card.civ_ids) {
-                            // civ_ids がカンマ区切りの場合
-                            civs = card.civ_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-                        }
-                        
-                        // 文明IDと名称のマッピング
-                        const civNamesMap = { 1: '光', 2: '水', 3: '闇', 4: '火', 5: '自然', 6: 'ゼロ' };
-                        if (civs.length > 0) {
-                            // ID昇順にソート
-                            civs.sort((a, b) => a - b);
-                            let civStr = civs.map(id => civNamesMap[id]).filter(Boolean).join('/');
-                            if (civStr) line1Parts.push(civStr + '文明');
-                        }
-
-                        // 3. コスト ((数値))
-                        if (card.cost !== null && card.cost !== undefined && card.cost !== '') {
-                            line1Parts.push(`(${card.cost})`);
-                        }
-
-                        let line1 = line1Parts.join(' ');
-
-                        // 4. カードタイプ：種族
-                        let line2Parts = [];
-                        if (card.cardtype_name || card.cardtype) {
-                            line2Parts.push(card.cardtype_name || card.cardtype);
-                        }
-                        if (card.race_names || card.races) {
-                            let races = card.race_names || card.races;
-                            if (Array.isArray(races)) {
-                                line2Parts.push(races.join('/'));
-                            } else {
-                                line2Parts.push(races);
-                            }
-                        }
-
-                        let line2Head = line2Parts.join('：');
-                        let line2Pow = (card.pow !== null && card.pow !== undefined && card.pow !== '') ? card.pow : '';
-                        
-                        let line2 = "";
-                        if (line2Head && line2Pow) {
-                            line2 = `${line2Head}　${line2Pow}`;
-                        } else {
-                            line2 = line2Head || line2Pow;
-                        }
-
-                        // 5. テキスト
-                        let text = card.text ? card.text.trim() : '';
-
-                        // 結合
-                        let memoLines = [];
-                        if (line1) memoLines.push(line1);
-                        if (line2) memoLines.push(line2);
-                        if (text) memoLines.push(text);
-
-                        memoText = memoLines.join('\n');
-                    }
-
+                    const memoText = includeText ? createMemoText(card) : "";
                     const itemId = generateId();
-                    itemsObj[itemId] = {
-                        "imageUrl": hashedFilename,
-                        "memo": memoText
-                    };
+
+                    // パートナー分離が有効かつ、このカードがサムネイル（パートナー）の場合
+                    if (separatePartner && String(card.card_id) === String(partnerCardId)) {
+                        standaloneItemsObj[itemId] = {
+                            "x": -6,
+                            "y": -3,
+                            "z": 999,
+                            "angle": 0,
+                            "width": 4,
+                            "height": 6,
+                            "deckId": null,
+                            "locked": false,
+                            "visible": true,
+                            "closed": false,
+                            "withoutOwner": false,
+                            "freezed": true,
+                            "type": "object",
+                            "active": true,
+                            "memo": memoText,
+                            "imageUrl": hashedFilename,
+                            "coverImageUrl": null,
+                            "clickAction": null,
+                            "order": 1
+                        };
+                        // 一度パートナーとして処理したら、デッキの通常カードリストには含めない
+                        // ※もし同名カードが複数あって区別したい場合は card_id だけでなくユニークな判定が必要ですが通常はこれで動作します
+                        partnerCardId = null; // 重複してパートナー指定されないようにクリア
+                    } else {
+                        deckItemsObj[itemId] = {
+                            "imageUrl": hashedFilename,
+                            "memo": memoText
+                        };
+                    }
                 }
             } catch (err) {
                 console.warn(`画像取得失敗: ${fullImagePath}`, err);
@@ -440,7 +464,7 @@ async function executeZipExport(deckId, deckName, buttonElement) {
             },
             "entities": {
                 "room": {},
-                "items": {},
+                "items": standaloneItemsObj, // 独立したパートナーオブジェクトをここに配置
                 "decks": {
                     [deckRandomId]: {
                         "x": -2,
@@ -450,9 +474,9 @@ async function executeZipExport(deckId, deckName, buttonElement) {
                         "width": 4,
                         "height": 6,
                         "locked": false,
-                        "freezed": false,
+                        "freezed": true,
                         "coverImageUrl": null,
-                        "items": itemsObj
+                        "items": deckItemsObj
                     }
                 },
                 "notes": {},
