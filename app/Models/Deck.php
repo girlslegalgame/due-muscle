@@ -44,8 +44,10 @@ class Deck {
                     c.text,
                     cd.modelnum, 
                     cd.imagepath,
+                    cd.twinpact,
                     dc.quantity,
                     dc.card_type_in_deck,
+                    cc.combination_id,
                     -- 特殊タイプIDの取得
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                     -- 文明IDをカンマ区切りで取得
@@ -57,6 +59,7 @@ class Deck {
                 FROM deck_cards dc 
                 JOIN card c ON dc.card_id = c.card_id 
                 JOIN card_detail cd ON c.card_id = cd.card_id 
+                LEFT JOIN card_combination cc ON c.card_id = cc.card_id
                 WHERE dc.deck_id = :deck_id
                 ORDER BY dc.sort_order ASC";
         

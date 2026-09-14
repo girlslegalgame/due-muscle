@@ -324,14 +324,17 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return hashHex;
         }
 
-        function createMemoText(card) {
+// 単一カードのテキスト行を組み立てるヘルパー
+        function buildCardMemo(cardData) {
             let line1Parts = [];
-            const cardName = card.card_name ? card.card_name.trim() : '';
+            const cardName = cardData.card_name ? cardData.card_name.trim() : '';
             if (cardName) line1Parts.push(cardName);
 
             let civs = [];
-            if (card.civ_ids) {
-                civs = card.civ_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            if (cardData.civ_ids) {
+                civs = cardData.civ_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            } else if (cardData.civilizations_ids) {
+                civs = cardData.civilizations_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             }
             const civNamesMap = { 1: '光', 2: '水', 3: '闇', 4: '火', 5: '自然', 6: 'ゼロ' };
             if (civs.length > 0) {
@@ -340,26 +343,58 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 if (civStr) line1Parts.push(civStr + '文明');
             }
 
-            if (card.cost !== null && card.cost !== undefined && card.cost !== '') {
-                line1Parts.push(`(${card.cost})`);
+            if (cardData.cost !== null && cardData.cost !== undefined && cardData.cost !== '') {
+                line1Parts.push(`(${cardData.cost})`);
             }
-            let line1 = line1Parts.join(' ');
+            let line1 = line1Parts.join('　');
 
             let line2Parts = [];
-            if (card.cardtype_names) line2Parts.push(card.cardtype_names);
-            if (card.race_names) line2Parts.push(card.race_names);
+            if (cardData.cardtype_names) line2Parts.push(cardData.cardtype_names);
+            else if (cardData.cardtype_ids) line2Parts.push(cardData.cardtype_ids); // 必要に応じて変換
+
+            if (cardData.race_names) line2Parts.push(cardData.race_names);
 
             let line2Head = line2Parts.join('：');
-            let line2Pow = (card.pow !== null && card.pow !== undefined && card.pow !== '') ? card.pow : '';
+            let line2Pow = (cardData.pow !== null && cardData.pow !== undefined && cardData.pow !== '') ? cardData.pow : '';
             let line2 = (line2Head && line2Pow) ? `${line2Head}　${line2Pow}` : (line2Head || line2Pow);
 
-            let text = card.text ? card.text.trim() : '';
+            let text = cardData.text ? cardData.text.trim() : '';
             let memoLines = [];
             if (line1) memoLines.push(line1);
             if (line2) memoLines.push(line2);
             if (text) memoLines.push(text);
 
             return memoLines.join('\n');
+        }
+
+        // ツインパクト対応のメモ生成関数（非同期）
+        async function createMemoText(card) {
+            const isTwinpact = card.twinpact == 1 || card.twinpact === '1' || card.twinpact === true;
+            
+            if (isTwinpact && card.combination_id) {
+                try {
+                    const res = await fetch(`/api/cards/combination?card_id=${card.card_id}`);
+                    const combinationCards = await res.json();
+                    
+                    if (Array.isArray(combinationCards) && combinationCards.length >= 2) {
+                        // card_id の昇順でソート (小さい方=上面、大きい方=下面)
+                        combinationCards.sort((a, b) => parseInt(a.card_id) - parseInt(b.card_id));
+                        
+                        const topCard = combinationCards[0]; // 小さい方
+                        const bottomCard = combinationCards[1]; // 大きい方
+                        
+                        const topMemo = buildCardMemo(topCard);
+                        const bottomMemo = buildCardMemo(bottomCard);
+                        
+                        return `${topMemo}\n\n${bottomMemo}`;
+                    }
+                } catch (e) {
+                    console.warn('ツインパクト情報の取得に失敗しました', e);
+                }
+            }
+            
+            // 通常カードの場合
+            return buildCardMemo(card);
         }
 
         // 最初にヒットしたパートナーカードを1枚だけ独立させるためのフラグ
@@ -398,7 +433,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         };
                     }
 
-                    const memoText = includeText ? createMemoText(card) : "";
+                    const memoText = includeText ? await createMemoText(card) : "";
                     const itemId = generateId();
 
                     // パートナー分離が有効、かつ未抽出で、カードIDが thumbnailId と一致する場合
