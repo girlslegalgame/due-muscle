@@ -350,37 +350,39 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             if (cardData.cost !== null && cardData.cost !== undefined && cardData.cost !== '') {
                 line1Parts.push(`(${cardData.cost})`);
             }
-            // 1行目の各要素間を全角スペースで結合
             let line1 = line1Parts.join('　');
 
             // 4. カードタイプと種族の判定
-            // cardtype_ids が存在するか確認 (カンマ区切りまたは単一ID)
-            let typeIds = [];
+            let cardTypeStr = cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
+            let raceStr = cardData.race_names || cardData.race_name || '';
+            
+            // cardtype_ids や race_ids を配列として取得できる場合を考慮
+            let cardTypeIds = [];
             if (cardData.cardtype_ids) {
-                typeIds = cardData.cardtype_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+                cardTypeIds = cardData.cardtype_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            }
+            
+            let raceIds = [];
+            if (cardData.race_ids) {
+                raceIds = cardData.race_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             }
 
-            let cardTypeStr = cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
-            let line2Head = '';
-
-            // cardtype_id に '1' (またはクリーチャーに該当するID) が含まれているかどうか
-            const isCreatureType = typeIds.length === 0 || typeIds.includes(1);
-
-            if (isCreatureType) {
-                // クリーチャー等の場合：カードタイプ：種族
-                let raceStr = cardData.race_names || cardData.race_name || '';
-                if (!raceStr) {
+            // 条件判定: cardtype_id が 1 ではない、かつ race_id が 1 である場合
+            let isNonCreatureWithNoRace = (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) && (raceIds.length === 1 && raceIds[0] === 1);
+            
+            let line2Head = "";
+            if (isNonCreatureWithNoRace) {
+                // 種族なし＆クリーチャー以外の場合はカードタイプのみ表示（「：」もなし）
+                line2Head = cardTypeStr;
+            } else {
+                // 通常の表示
+                if (!raceStr && cardTypeIds.length > 0 && !cardTypeIds.includes(1)) {
                     raceStr = '(種族なし)';
                 }
-                line2Head = cardTypeStr ? `${cardTypeStr}：${raceStr}` : raceStr;
-            } else {
-                // 呪文などの場合（cardtype_id が 1 でない）：カードタイプのみ（「：」や種族はなし）
-                line2Head = cardTypeStr;
+                line2Head = (cardTypeStr && raceStr) ? `${cardTypeStr}：${raceStr}` : (cardTypeStr || raceStr);
             }
 
             let line2Pow = (cardData.pow !== null && cardData.pow !== undefined && cardData.pow !== '') ? cardData.pow : '';
-            
-            // カードタイプ（及種族） と パワー の間を全角スペースで結合
             let line2 = (line2Head && line2Pow) ? `${line2Head}　${line2Pow}` : (line2Head || line2Pow);
 
             // 5. テキスト
