@@ -509,15 +509,27 @@ public function cardCombinationApi() {
         try {
             $pdo = \Models\Database::connect();
             
-            // 1. combination_id に紐づく全カードの詳細情報を取得
+            // 1. combination_id に紐づく全カードの詳細情報と各種中間データを取得
             $sql = "SELECT 
                         c.card_id, 
                         c.card_name, 
-                        c.text, 
+                        c.cost,
+                        c.pow,
+                        c.text,
                         cd.imagepath,
                         cd.twinpact,
+                        -- 文明ID
+                        (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
+                        -- 特殊タイプID
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
-                        (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
+                        -- カードタイプID
+                        (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
+                        -- カードタイプ名
+                        (SELECT GROUP_CONCAT(ct.cardtype_name SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as cardtype_names,
+                        -- 種族ID
+                        (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
+                        -- 種族名
+                        (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                     FROM card_combination cc
                     JOIN card_combination cc_all ON cc.combination_id = cc_all.combination_id
                     JOIN card c ON cc_all.card_id = c.card_id
@@ -534,11 +546,17 @@ public function cardCombinationApi() {
                 $sqlFallback = "SELECT 
                                     c.card_id, 
                                     c.card_name, 
-                                    c.text, 
+                                    c.cost,
+                                    c.pow,
+                                    c.text,
                                     cd.imagepath,
                                     cd.twinpact,
+                                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
-                                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
+                                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
+                                    (SELECT GROUP_CONCAT(ct.cardtype_name SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as cardtype_names,
+                                    (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
+                                    (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                                 FROM card c
                                 JOIN card_detail cd ON c.card_id = cd.card_id
                                 WHERE c.card_id = :card_id
