@@ -325,7 +325,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
         }
 
 // 単一カードのテキスト行を組み立てるヘルパー
-// 単一カードのテキスト行を組み立てるヘルパー
         function buildCardMemo(cardData) {
             let line1Parts = [];
             
@@ -353,7 +352,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             }
             let line1 = line1Parts.join('　');
 
-            // 4. カードタイプと種族の取得 (typename および cardtype_names の両方に対応)
+            // 4. カードタイプと種族の取得
             let cardTypeStr = cardData.typename || cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
             let raceStr = cardData.race_names || cardData.race_name || '';
             
@@ -367,12 +366,12 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 raceIds = cardData.race_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             }
 
-            // 条件判定: cardtype_id が 1 ではない、かつ race_id が 1 である場合
+            // ★条件判定: cardtype_id が 1 ではない（クリーチャー以外）、かつ race_id が 1 である場合
             let isNonCreatureWithNoRace = (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) && (raceIds.length === 1 && raceIds[0] === 1);
             
             let line2Head = "";
             if (isNonCreatureWithNoRace) {
-                // 種族なし＆クリーチャー以外の場合はカードタイプのみ表示（「：」もなし）
+                // 種族なし＆クリーチャー以外の場合はカードタイプのみ表示（「：」も種族名もなし）
                 line2Head = cardTypeStr;
             } else {
                 if (!raceStr && cardTypeIds.length > 0 && !cardTypeIds.includes(1)) {
