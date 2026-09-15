@@ -324,7 +324,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return hashHex;
         }
 
-// 単一カードのテキスト行を組み立てるヘルパー
+    // 単一カードのテキスト行を組み立てるヘルパー
         function buildCardMemo(cardData) {
             let line1Parts = [];
             
@@ -352,7 +352,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             }
             let line1 = line1Parts.join('　');
 
-            // 4. カードタイプと種族の取得
+            // 4. カードタイプと種族の取得 (typename を最優先)
             let cardTypeStr = cardData.typename || cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
             let raceStr = cardData.race_names || cardData.race_name || '';
             
