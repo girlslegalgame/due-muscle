@@ -498,7 +498,7 @@ if ($q !== '') {
         }
     }
 
-public function cardCombinationApi() {
+    public function cardCombinationApi() {
         $cardId = $_GET['card_id'] ?? null;
         if (!$cardId) {
             header('Content-Type: application/json', true, 400);
@@ -509,7 +509,6 @@ public function cardCombinationApi() {
         try {
             $pdo = \Models\Database::connect();
             
-            // 1. combination_id に紐づく全カードの詳細情報と各種中間データを取得
             $sql = "SELECT 
                         c.card_id, 
                         c.card_name, 
@@ -518,17 +517,12 @@ public function cardCombinationApi() {
                         c.text,
                         cd.imagepath,
                         cd.twinpact,
-                        -- 文明ID
                         (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
-                        -- 特殊タイプID
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
-                        -- カードタイプID
                         (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
-                        -- カードタイプ名
-                        (SELECT GROUP_CONCAT(ct.cardtype_name SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as cardtype_names,
-                        -- 種族ID
+                        -- cardtypeテーブルの typename を取得
+                        (SELECT GROUP_CONCAT(ct.typename SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as cardtype_names,
                         (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
-                        -- 種族名
                         (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                     FROM card_combination cc
                     JOIN card_combination cc_all ON cc.combination_id = cc_all.combination_id
@@ -541,7 +535,6 @@ public function cardCombinationApi() {
             $stmt->execute([':card_id' => $cardId]);
             $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // 2. combinationデータが存在しない通常カード用のフォールバック
             if (empty($results)) {
                 $sqlFallback = "SELECT 
                                     c.card_id, 
@@ -554,7 +547,7 @@ public function cardCombinationApi() {
                                     (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
-                                    (SELECT GROUP_CONCAT(ct.cardtype_name SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as cardtype_names,
+                                    (SELECT GROUP_CONCAT(ct.typename SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as cardtype_names,
                                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
                                     (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                                 FROM card c
