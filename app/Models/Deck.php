@@ -47,21 +47,19 @@ class Deck {
                     cd.twinpact,
                     dc.quantity,
                     dc.card_type_in_deck,
-                    cc.combination_id,
+                    -- ツインパクト等の combination_id を確実に取り出す
+                    (SELECT combination_id FROM card_combination WHERE card_id = c.card_id LIMIT 1) as combination_id,
                     -- 特殊タイプIDの取得
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                     -- 文明IDをカンマ区切りで取得
                     (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
-                    -- カードタイプID
-                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
-                    -- card_cardtype テーブルから直接 typename を取得
+                    -- card_cardtype テーブルから typename を取得
                     (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,
                     -- 種族名をカンマ区切りで取得
                     (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                 FROM deck_cards dc 
                 JOIN card c ON dc.card_id = c.card_id 
                 JOIN card_detail cd ON c.card_id = cd.card_id 
-                LEFT JOIN card_combination cc ON c.card_id = cc.card_id
                 WHERE dc.deck_id = :deck_id
                 ORDER BY dc.sort_order ASC";
         
