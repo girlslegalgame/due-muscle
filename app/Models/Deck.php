@@ -54,8 +54,8 @@ class Deck {
                     (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                     -- カードタイプID
                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
-                    -- カードタイプ名 (typename)
-                    (SELECT GROUP_CONCAT(t.typename SEPARATOR '/') FROM card_cardtype ct JOIN cardtype t ON ct.cardtype_id = t.cardtype_id WHERE ct.card_id = c.card_id) as typename,
+                    -- card_cardtype テーブルから直接 typename を取得
+                    (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,
                     -- 種族名をカンマ区切りで取得
                     (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                 FROM deck_cards dc 
