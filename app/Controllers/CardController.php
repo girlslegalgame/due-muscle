@@ -920,7 +920,7 @@ if ($q !== '') {
                     (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = c.card_id) as ability_ids,
                     (SELECT GROUP_CONCAT(rarity_id) FROM card_rarity WHERE card_id = c.card_id) as rarity_ids,
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as characteristic_ids,
-                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids
+                    (SELECT GROUP_CONCAT(t.typename SEPARATOR '/') FROM card_cardtype ct JOIN cardtype t ON ct.cardtype_id = t.cardtype_id WHERE ct.card_id = c.card_id) as typename
                 FROM card c
                 JOIN card_detail cd ON c.card_id = cd.card_id
                 LEFT JOIN goods g ON cd.goods_id = g.goods_id
