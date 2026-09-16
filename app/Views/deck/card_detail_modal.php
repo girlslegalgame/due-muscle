@@ -226,10 +226,19 @@
 let currentCombinationCards = [];
 
 function openCardDetail(cardId) {
-    // APIから表裏（combination）に紐づくカード群を一括取得
     fetch('/api/cards/combination?card_id=' + cardId)
-        .then(res => res.json())
-        .then(data => {
+        .then(async res => {
+            const data = await res.json();
+            if (!res.ok) {
+                // サーバーから返ってきた具体的なエラー内容を表示
+                console.error('APIエラー詳細:', data);
+                alert('APIエラー: ' + (data.error || JSON.stringify(data)));
+                return;
+            }
+            if (!Array.isArray(data) || data.length === 0) {
+                alert('カードデータが見つかりませんでした。');
+                return;
+            }
             currentCombinationCards = data;
             const target = data.find(c => c.card_id == cardId) || data[0];
             renderCardDetail(target);

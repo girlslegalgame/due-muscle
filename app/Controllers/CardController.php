@@ -503,7 +503,7 @@ if ($q !== '') {
         if (!$cardId) {
             header('Content-Type: application/json', true, 400);
             echo json_encode(['error' => 'Card ID is missing']);
-            return;
+            exit;
         }
 
         try {
@@ -521,7 +521,7 @@ if ($q !== '') {
                         (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                         (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
-                        (SELECT GROUP_CONCAT(ct.typename SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as typename,
+                        (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,
                         (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
                         (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                     FROM card_combination cc
@@ -548,7 +548,7 @@ if ($q !== '') {
                                     (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
-                                    (SELECT GROUP_CONCAT(ct.typename SEPARATOR '/') FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = c.card_id) as typename,
+                                    (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,
                                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
                                     (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names
                                 FROM card c
@@ -562,10 +562,12 @@ if ($q !== '') {
 
             header('Content-Type: application/json; charset=utf-8');
             echo json_encode($results, JSON_UNESCAPED_UNICODE);
+            exit;
             
         } catch (\Exception $e) {
             header('Content-Type: application/json', true, 500);
             echo json_encode(['error' => $e->getMessage()]);
+            exit;
         }
     }
 
