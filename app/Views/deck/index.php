@@ -327,17 +327,14 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
     // 単一カードのテキスト行を組み立てるヘルパー
         function buildCardMemo(cardData) {
             let line1Parts = [];
-            
-            // 1. カード名
             const cardName = cardData.card_name ? cardData.card_name.trim() : '';
             if (cardName) line1Parts.push(cardName);
 
-            // 2. 文明名 (ID昇順ソートして / 区切り + 「文明」)
             let civs = [];
             if (cardData.civ_ids) {
                 civs = cardData.civ_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-            } else if (cardData.civilization_ids) {
-                civs = cardData.civilization_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+            } else if (cardData.civilizations_ids) {
+                civs = cardData.civilizations_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             }
             const civNamesMap = { 1: '光', 2: '水', 3: '闇', 4: '火', 5: '自然', 6: 'ゼロ' };
             if (civs.length > 0) {
@@ -346,16 +343,12 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 if (civStr) line1Parts.push(civStr + '文明');
             }
 
-            // 3. コスト ((3) のように半角括弧)
             if (cardData.cost !== null && cardData.cost !== undefined && cardData.cost !== '') {
                 line1Parts.push(`(${cardData.cost})`);
             }
             let line1 = line1Parts.join('　');
 
-            // 4. カードタイプと種族の取得 (typename を最優先)
-            let cardTypeStr = cardData.typename || cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
-            let raceStr = cardData.race_names || cardData.race_name || '';
-            
+            // カードタイプと種族のID解析
             let cardTypeIds = [];
             if (cardData.cardtype_ids) {
                 cardTypeIds = cardData.cardtype_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
@@ -366,24 +359,31 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 raceIds = cardData.race_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             }
 
-            // ★条件判定: cardtype_id が 1 ではない（クリーチャー以外）、かつ race_id が 1 である（または種族なし）場合
+            let cardTypeStr = cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
+            let raceStr = cardData.race_names || cardData.race_name || '';
+
+            // ★条件判定: cardtype_id が 1 ではない（クリーチャー以外）、かつ race_id が 1 である場合
             let isNonCreatureWithNoRace = (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) && (raceIds.length === 0 || (raceIds.length === 1 && raceIds[0] === 1));
-            
+
             let line2Head = "";
             if (isNonCreatureWithNoRace) {
-                // 種族なし＆クリーチャー以外の場合はカードタイプのみ表示（「：」も種族名もなし）
+                // 種族なし＆クリーチャー以外の時はカードタイプのみ（「：」も種族名も出力しない）
                 line2Head = cardTypeStr;
             } else {
-                if (!raceStr && cardTypeIds.length > 0 && !cardTypeIds.includes(1)) {
-                    raceStr = '(種族なし)';
+                let line2Parts = [];
+                if (cardTypeStr) line2Parts.push(cardTypeStr);
+                if (raceStr) {
+                    line2Parts.push(raceStr);
+                } else if (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) {
+                    // クリーチャー以外で種族が空の場合
+                    line2Parts.push('(種族なし)');
                 }
-                line2Head = (cardTypeStr && raceStr) ? `${cardTypeStr}：${raceStr}` : (cardTypeStr || raceStr);
+                line2Head = line2Parts.join('：');
             }
 
             let line2Pow = (cardData.pow !== null && cardData.pow !== undefined && cardData.pow !== '') ? cardData.pow : '';
             let line2 = (line2Head && line2Pow) ? `${line2Head}　${line2Pow}` : (line2Head || line2Pow);
 
-            // 5. テキスト
             let text = cardData.text ? cardData.text.trim() : '';
             let memoLines = [];
             if (line1) memoLines.push(line1);
@@ -393,7 +393,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return memoLines.join('\n');
         }
 
-        // ツインパクト対応のメモ生成関数（「上面」「下面」ラベル付与）
+        // ツインパクト対応のメモ生成関数（非同期）
         async function createMemoText(card) {
             const isTwinpact = card.twinpact == 1 || card.twinpact === '1' || card.twinpact === true;
             
@@ -406,12 +406,13 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         // card_id の昇順でソート (小さい方=上面、大きい方=下面)
                         combinationCards.sort((a, b) => parseInt(a.card_id) - parseInt(b.card_id));
                         
-                        const topCard = combinationCards[0];
-                        const bottomCard = combinationCards[1];
+                        const topCard = combinationCards[0]; // 小さい方
+                        const bottomCard = combinationCards[1]; // 大きい方
                         
                         const topMemo = buildCardMemo(topCard);
                         const bottomMemo = buildCardMemo(bottomCard);
                         
+                        // 「上面」「下面」ラベルを付与して結合
                         return `上面\n${topMemo}\n\n下面\n${bottomMemo}`;
                     }
                 } catch (e) {
