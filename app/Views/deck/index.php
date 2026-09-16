@@ -348,7 +348,9 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             }
             let line1 = line1Parts.join('　');
 
-            // カードタイプと種族のID解析
+            let cardTypeStr = cardData.typename || cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
+            let raceStr = cardData.race_names || cardData.race_name || '';
+            
             let cardTypeIds = [];
             if (cardData.cardtype_ids) {
                 cardTypeIds = cardData.cardtype_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
@@ -359,15 +361,10 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 raceIds = cardData.race_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             }
 
-            let cardTypeStr = cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
-            let raceStr = cardData.race_names || cardData.race_name || '';
-
-            // ★条件判定: cardtype_id が 1 ではない（クリーチャー以外）、かつ race_id が 1 である場合
             let isNonCreatureWithNoRace = (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) && (raceIds.length === 0 || (raceIds.length === 1 && raceIds[0] === 1));
 
             let line2Head = "";
             if (isNonCreatureWithNoRace) {
-                // 種族なし＆クリーチャー以外の時はカードタイプのみ（「：」も種族名も出力しない）
                 line2Head = cardTypeStr;
             } else {
                 let line2Parts = [];
@@ -375,7 +372,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 if (raceStr) {
                     line2Parts.push(raceStr);
                 } else if (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) {
-                    // クリーチャー以外で種族が空の場合
                     line2Parts.push('(種族なし)');
                 }
                 line2Head = line2Parts.join('：');
@@ -393,34 +389,49 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return memoLines.join('\n');
         }
 
-        // ツインパクト対応のメモ生成関数（非同期）
-        async function createMemoText(card) {
+        // ツインパクト対応のメモ生成関数（同期処理）
+        function createMemoText(card) {
             const isTwinpact = card.twinpact == 1 || card.twinpact === '1' || card.twinpact === true;
             
-            if (isTwinpact && card.combination_id) {
-                try {
-                    const res = await fetch(`/api/cards/combination?card_id=${card.card_id}`);
-                    const combinationCards = await res.json();
-                    
-                    if (Array.isArray(combinationCards) && combinationCards.length >= 2) {
-                        // card_id の昇順でソート (小さい方=上面、大きい方=下面)
-                        combinationCards.sort((a, b) => parseInt(a.card_id) - parseInt(b.card_id));
-                        
-                        const topCard = combinationCards[0]; // 小さい方
-                        const bottomCard = combinationCards[1]; // 大きい方
-                        
-                        const topMemo = buildCardMemo(topCard);
-                        const bottomMemo = buildCardMemo(bottomCard);
-                        
-                        // 「上面」「下面」ラベルを付与して結合
-                        return `上面\n${topMemo}\n\n下面\n${bottomMemo}`;
-                    }
-                } catch (e) {
-                    console.warn('ツインパクト情報の取得に失敗しました', e);
+            if (isTwinpact && card.partner_card_id) {
+                const selfId = parseInt(card.card_id);
+                const partnerId = parseInt(card.partner_card_id);
+
+                const selfData = {
+                    card_name: card.card_name,
+                    cost: card.cost,
+                    pow: card.pow,
+                    text: card.text,
+                    civ_ids: card.civ_ids,
+                    typename: card.typename,
+                    race_names: card.race_names
+                };
+
+                const partnerData = {
+                    card_name: card.partner_card_name,
+                    cost: card.partner_cost,
+                    pow: card.partner_pow,
+                    text: card.partner_text,
+                    civ_ids: card.partner_civ_ids,
+                    typename: card.partner_typename,
+                    race_names: card.partner_race_names
+                };
+
+                let topCard, bottomCard;
+                if (selfId < partnerId) {
+                    topCard = selfData;
+                    bottomCard = partnerData;
+                } else {
+                    topCard = partnerData;
+                    bottomCard = selfData;
                 }
+
+                const topMemo = buildCardMemo(topCard);
+                const bottomMemo = buildCardMemo(bottomCard);
+
+                return `上面\n${topMemo}\n\n下面\n${bottomMemo}`;
             }
-            
-            // 通常カードの場合
+
             return buildCardMemo(card);
         }
 
@@ -460,7 +471,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         };
                     }
 
-                    const memoText = includeText ? await createMemoText(card) : "";
+                    const memoText = includeText ? createMemoText(card) : "";
                     const itemId = generateId();
 
                     // パートナー分離が有効、かつ未抽出で、カードIDが thumbnailId と一致する場合
