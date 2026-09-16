@@ -922,6 +922,7 @@ if ($q !== '') {
                     (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = c.card_id) as ability_ids,
                     (SELECT GROUP_CONCAT(rarity_id) FROM card_rarity WHERE card_id = c.card_id) as rarity_ids,
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as characteristic_ids,
+                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                     (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename
                 FROM card c
                 JOIN card_detail cd ON c.card_id = cd.card_id
@@ -1054,7 +1055,12 @@ if ($q !== '') {
             // 7. カードタイプ中間テーブルの削除＆再登録
             $pdo->prepare("DELETE FROM card_cardtype WHERE card_id = :id")->execute([':id' => $cardId]);
             if (!empty($cardtypes)) {
-                $stmtType = $pdo->prepare("INSERT INTO card_cardtype (card_id, cardtype_id) VALUES (:id, :type_id)");
+                $stmtType = $pdo->prepare("
+                    INSERT INTO card_cardtype (card_id, cardtype_id, typename)
+                    SELECT :id, cardtype_id, cardtype_name 
+                    FROM cardtype 
+                    WHERE cardtype_id = :type_id
+                ");
                 foreach ($cardtypes as $typeId) {
                     $stmtType->execute([':id' => $cardId, ':type_id' => (int)$typeId]);
                 }
