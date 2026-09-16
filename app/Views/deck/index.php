@@ -404,6 +404,8 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                     text: card.text,
                     civ_ids: card.civ_ids,
                     typename: card.typename,
+                    cardtype_ids: card.cardtype_ids,
+                    race_ids: card.race_ids,
                     race_names: card.race_names
                 };
 
@@ -414,6 +416,8 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                     text: card.partner_text,
                     civ_ids: card.partner_civ_ids,
                     typename: card.partner_typename,
+                    cardtype_ids: card.partner_cardtype_ids,
+                    race_ids: card.partner_race_ids,
                     race_names: card.partner_race_names
                 };
 
