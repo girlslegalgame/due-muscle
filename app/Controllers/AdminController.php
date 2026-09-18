@@ -235,6 +235,8 @@ class AdminController {
         $deckIds = array_map('intval', $input['deck_ids'] ?? []);
         $userId = (int)($input['user_id'] ?? 0);
         $reason = trim($input['reason'] ?? '利用規約違反が確認されたため');
+        $applyPublicBan = !empty($input['apply_public_ban']); // ★追加: ペナルティ適用の有無
+        $reportId = !empty($input['report_id']) ? (int)$input['report_id'] : null; // ★追加: 連携する通報ID
 
         if (empty($deckIds) || !$userId) {
             http_response_code(400);
@@ -253,30 +255,42 @@ class AdminController {
             $stmtNames->execute($deckIds);
             $deckNames = $stmtNames->fetchAll(PDO::FETCH_COLUMN);
 
-            // 一括で非公開に更新
+            // 一括非公開
             $stmtUpdate = $pdo->prepare("UPDATE decks SET is_public = 0 WHERE deck_id IN ($placeholders)");
             $stmtUpdate->execute($deckIds);
 
-            // 関連する通報があれば対応済みに更新
-            $stmtReports = $pdo->prepare("UPDATE deck_reports SET status = 'resolved' WHERE deck_id IN ($placeholders) AND status = 'pending'");
-            $stmtReports->execute($deckIds);
-
-            // メッセージの構築（1件の場合と複数件の場合で分岐）
-            $count = count($deckNames);
-            if ($count === 1) {
-                $title = "【重要】デッキ非公開のお知らせ";
-                $msg = "作成されたデッキ「{$deckNames[0]}」は、以下の理由により非公開に設定されました。\n\n理由: {$reason}\n\n内容をご確認・修正のうえ、再度公開設定を行ってください。";
-                $actionUrl = "/decks/edit?deck_id=" . $deckIds[0];
-                $actionLabel = "デッキを編集する";
-            } else {
-                $title = "【重要】複数のデッキ非公開のお知らせ ({$count}件)";
-                $deckListStr = implode("\n", array_map(function($n) { return "・" . $n; }, $deckNames));
-                $msg = "作成された以下のデッキ（{$count}件）は、規約違反等の理由により非公開に設定されました。\n\n【対象デッキ】\n{$deckListStr}\n\n理由: {$reason}\n\nマイデッキより内容をご確認・修正してください。";
-                $actionUrl = "/mydecks";
-                $actionLabel = "マイデッキ一覧へ";
+            // ★追加: 1週間公開禁止ペナルティの付与
+            if ($applyPublicBan) {
+                $pdo->prepare("UPDATE users SET public_ban_until = DATE_ADD(NOW(), INTERVAL 1 WEEK) WHERE user_id = :uid")->execute([':uid' => $userId]);
             }
 
-            $this->sendNotification($pdo, $userId, $title, $msg, $actionUrl, $actionLabel);
+            // ★追加: 指定通報の解決
+            if ($reportId) {
+                $pdo->prepare("UPDATE deck_reports SET status = 'resolved' WHERE report_id = :rid")->execute([':rid' => $reportId]);
+                
+                // 通報者へ通知
+                $stmtRep = $pdo->prepare("SELECT user_id, creator.username as creator_name FROM deck_reports r JOIN users creator ON r.reported_user_id = creator.user_id WHERE r.report_id = :rid");
+                $stmtRep->execute([':rid' => $reportId]);
+                $repInfo = $stmtRep->fetch(PDO::FETCH_ASSOC);
+                if ($repInfo && !empty($repInfo['user_id'])) {
+                    $this->sendNotification($pdo, $repInfo['user_id'], "通報いただいた件についてのご案内", "ご報告いただいたユーザー「{$repInfo['creator_name']}」の連投につきまして、確認の上、デッキ非公開および公開制限の処置を行いました。ご協力ありがとうございました。");
+                }
+            }
+
+            // 被通報者へのメッセージ構築
+            $count = count($deckNames);
+            $deckListStr = implode("\n", array_map(function($n) { return "・" . $n; }, $deckNames));
+            $banNotice = $applyPublicBan ? "\n\nまた、度重なる連投・規約違反に伴い、【1週間のデッキ公開禁止ペナルティ】を適用いたしました。\n期間: " . date('Y年m月d日 H:i', strtotime('+1 week')) . " まで" : "";
+
+            if ($count === 1) {
+                $title = "【重要】デッキ非公開のお知らせ";
+                $msg = "作成されたデッキ「{$deckNames[0]}」は、以下の理由により非公開に設定されました。\n\n理由: {$reason}{$banNotice}\n\nマイデッキより内容をご確認ください。";
+            } else {
+                $title = "【重要】複数のデッキ非公開のお知らせ ({$count}件)";
+                $msg = "作成された以下のデッキ（{$count}件）は、規約違反等の理由により非公開に設定されました。\n\n【対象デッキ】\n{$deckListStr}\n\n理由: {$reason}{$banNotice}\n\nマイデッキより内容をご確認ください。";
+            }
+
+            $this->sendNotification($pdo, $userId, $title, $msg, "/mydecks", "マイデッキ一覧へ");
 
             $pdo->commit();
             echo json_encode(['success' => true]);

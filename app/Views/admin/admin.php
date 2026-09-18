@@ -149,14 +149,15 @@
                             <td style="text-align: center;">
                                 <?php if ($r['status'] === 'pending'): ?>
                                     <?php if ($r['report_type'] === 'user' && $r['user_report_category'] === 'spam'): ?>
-                                        <!-- 連投通報向けアクション -->
-                                        <div style="display:flex; flex-direction:column; gap:4px;">
-                                            <button class="btn-adm btn-adm-danger" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'spam_penalty', '全デッキ非公開＋1週間公開禁止を科しますか？')">全非公開+公開禁止1週</button>
-                                            <button class="btn-adm btn-adm-secondary" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'dismiss', 'この通報を却下しますか？')">却下</button>
-                                            <?php if (!empty($r['user_id'])): ?>
-                                                <button class="btn-adm btn-adm-purple" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'penalize_reporter', '通報者に1週間通報禁止ペナルティを科しますか？')">通報者を通報禁止</button>
-                                            <?php endif; ?>
-                                        </div>
+                                    <!-- 連投通報向けアクション -->
+                                    <div style="display:flex; flex-direction:column; gap:4px;">
+                                        <!-- ★変更: デッキ選択モーダルをペナルティモードで起動 -->
+                                        <button class="btn-adm btn-adm-danger" onclick="openUserDecksModalForSpam(<?= $r['reported_user_id'] ?>, '<?= htmlspecialchars($r['creator_name'], ENT_QUOTES) ?>', <?= $r['report_id'] ?>)">デッキ選択非公開+公開禁止1週</button>
+                                        <button class="btn-adm btn-adm-secondary" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'dismiss', 'この通報を却下しますか？')">却下</button>
+                                        <?php if (!empty($r['user_id'])): ?>
+                                            <button class="btn-adm btn-adm-purple" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'penalize_reporter', '通報者に1週間通報禁止ペナルティを科しますか？')">通報者を通報禁止</button>
+                                        <?php endif; ?>
+                                    </div>
                                     <?php elseif ($r['report_type'] === 'user' && $r['user_report_category'] === 'inappropriate_name'): ?>
                                         <!-- 不適切なユーザー名通報向けアクション -->
                                         <div style="display:flex; flex-direction:column; gap:4px;">
@@ -261,7 +262,7 @@
                 <input type="checkbox" id="checkAllUserDecks" onchange="toggleSelectAllDecks(this.checked)">
                 公開中のデッキを全選択
             </label>
-            <button type="button" class="btn-adm btn-adm-danger" onclick="bulkMakeDecksPrivate()">選択したデッキを一括非公開</button>
+            <button type="button" id="btnBulkPrivate" class="btn-adm btn-adm-danger" onclick="bulkMakeDecksPrivate()">選択したデッキを一括非公開</button>
         </div>
 
         <div class="sub-modal-body" style="padding: 15px; flex: 1; overflow-y: auto; max-height: 55vh;">
@@ -392,10 +393,27 @@ function updateUsername(userId) {
 }
 
 let currentModalUserId = null;
+let currentModalReportId = null;   // ★追加: 連携通報ID
+let isSpamPenaltyMode = false;      // ★追加: 連投処置モードフラグ
 
+// 連投処置専用でモーダルを開く
+function openUserDecksModalForSpam(userId, username, reportId) {
+    currentModalReportId = reportId;
+    isSpamPenaltyMode = true;
+    openUserDecksModal(userId, username);
+    document.getElementById('btnBulkPrivate').innerText = "選択したデッキを非公開＋公開禁止1週を適用";
+}
+
+// 通常のデッキ一覧表示
 function openUserDecksModal(userId, username) {
     currentModalUserId = userId;
-    document.getElementById('userDecksModalTitle').innerText = username + ' さんのデッキ一覧';
+    if (!isSpamPenaltyMode) {
+        currentModalReportId = null;
+        const btn = document.getElementById('btnBulkPrivate');
+        if (btn) btn.innerText = "選択したデッキを一括非公開";
+    }
+
+    document.getElementById('userDecksModalTitle').innerText = username + ' さんのデッキ一覧' + (isSpamPenaltyMode ? ' (連投処置)' : '');
     document.getElementById('checkAllUserDecks').checked = false;
     
     const list = document.getElementById('userDecksList');
@@ -444,6 +462,7 @@ function makeSingleDeckPrivate(deckId) {
     executeBulkPrivate([deckId], reason);
 }
 
+// 実行関数の呼び出し部
 function bulkMakeDecksPrivate() {
     const selected = Array.from(document.querySelectorAll('.bulk-deck-chk:checked')).map(cb => parseInt(cb.value));
     if (selected.length === 0) {
@@ -451,26 +470,32 @@ function bulkMakeDecksPrivate() {
         return;
     }
 
-    const reason = prompt(`${selected.length} 件のデッキを非公開にする理由を入力してください（ユーザーへの通知に記載されます）:`, '利用規約違反が確認されたため');
+    const promptText = isSpamPenaltyMode 
+        ? `${selected.length} 件のデッキを非公開にし、ユーザーに【1週間の公開禁止ペナルティ】を科します。理由を入力してください:` 
+        : `${selected.length} 件のデッキを非公開にする理由を入力してください:`;
+        
+    const reason = prompt(promptText, isSpamPenaltyMode ? 'デッキの連投・スパム行為のため' : '利用規約違反が確認されたため');
     if (reason === null) return;
 
-    executeBulkPrivate(selected, reason);
+    executeBulkPrivate(selected, reason, isSpamPenaltyMode, currentModalReportId);
 }
 
-function executeBulkPrivate(deckIds, reason) {
+function executeBulkPrivate(deckIds, reason, applyPublicBan = false, reportId = null) {
     fetch('/api/admin/decks/bulk-private', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             deck_ids: deckIds,
             user_id: currentModalUserId,
-            reason: reason
+            reason: reason,
+            apply_public_ban: applyPublicBan,
+            report_id: reportId
         })
     })
     .then(res => res.json())
     .then(data => {
         if (data.success) {
-            alert('選択したデッキを非公開にし、ユーザーへお知らせを送信しました。');
+            alert('処置を完了し、お知らせを送信しました。');
             location.reload();
         } else {
             alert(data.error || 'エラーが発生しました');
@@ -482,8 +507,9 @@ function executeBulkPrivate(deckIds, reason) {
 
 function closeUserDecksModal() {
     document.getElementById('userDecksModal').style.display = 'none';
+    isSpamPenaltyMode = false;
+    currentModalReportId = null;
 }
-
 function escapeHTML(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
