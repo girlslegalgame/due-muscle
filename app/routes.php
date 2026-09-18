@@ -43,6 +43,7 @@ $routes = [
         '/api/admin/users' => 'AdminController@usersApi',
         '/api/admin/user-decks' => 'AdminController@userDecksApi',
         '/notifications' => 'NotificationController@index',
+        '/users/decks' => 'DeckController@userPublicDecks',
     ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信

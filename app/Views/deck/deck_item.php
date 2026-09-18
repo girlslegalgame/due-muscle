@@ -87,8 +87,12 @@ if (!empty($deck['thumbnail_imagepath'])) {
         <?php if ($deck_colors['nature']): ?><span class="civ-badge civ-bg-nature">自然</span><?php endif; ?>
     </div>
 
-    <!-- 4. 製作者名（検索時、データが存在する場合のみ表示） -->
-    <?php if (!empty($deck['creator_name'])): ?>
+    <!-- 4. 製作者名（クリックでユーザーの公開デッキ一覧へ） -->
+    <?php if (!empty($deck['creator_name']) && !empty($deck['user_id'])): ?>
+        <div class="deck-creator">
+            製作者: <a href="/users/decks?user_id=<?php echo (int)$deck['user_id']; ?>" style="color: #007bff; text-decoration: underline;"><?php echo htmlspecialchars($deck['creator_name'], ENT_QUOTES, 'UTF-8'); ?></a>
+        </div>
+    <?php elseif (!empty($deck['creator_name'])): ?>
         <div class="deck-creator">
             製作者: <?php echo htmlspecialchars($deck['creator_name'], ENT_QUOTES, 'UTF-8'); ?>
         </div>

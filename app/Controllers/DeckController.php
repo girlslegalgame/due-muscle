@@ -548,28 +548,31 @@ public function myDecks() {
         }
 
         $input = json_decode(file_get_contents('php://input'), true);
-        $deckId = isset($input['deck_id']) ? (int)$input['deck_id'] : 0;
+        $deckId = !empty($input['deck_id']) ? (int)$input['deck_id'] : null;
+        $reportedUserId = !empty($input['reported_user_id']) ? (int)$input['reported_user_id'] : null;
         $reportType = ($input['report_type'] ?? 'deck') === 'user' ? 'user' : 'deck';
         $userCategory = ($reportType === 'user' && in_array($input['user_report_category'] ?? '', ['spam', 'inappropriate_name', 'other'])) 
                         ? $input['user_report_category'] : null;
         $reason = trim($input['reason'] ?? '');
 
-        if (!$deckId || empty($reason)) {
+        if (empty($reason) || ($reportType === 'deck' && !$deckId) || ($reportType === 'user' && !$reportedUserId)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => '入力情報が不足しています。']);
             exit;
         }
 
         try {
-            // デッキ作成者を取得
-            $stmtDeck = $pdo->prepare("SELECT user_id FROM decks WHERE deck_id = :did");
-            $stmtDeck->execute([':did' => $deckId]);
-            $deck = $stmtDeck->fetch(PDO::FETCH_ASSOC);
-
-            if (!$deck) {
-                http_response_code(404);
-                echo json_encode(['success' => false, 'error' => '対象のデッキが見つかりません。']);
-                exit;
+            // デッキ通報の場合は作成者を取得
+            if ($reportType === 'deck') {
+                $stmtDeck = $pdo->prepare("SELECT user_id FROM decks WHERE deck_id = :did");
+                $stmtDeck->execute([':did' => $deckId]);
+                $deck = $stmtDeck->fetch(PDO::FETCH_ASSOC);
+                if (!$deck) {
+                    http_response_code(404);
+                    echo json_encode(['success' => false, 'error' => '対象のデッキが見つかりません。']);
+                    exit;
+                }
+                $reportedUserId = (int)$deck['user_id'];
             }
 
             $stmt = $pdo->prepare("
@@ -578,7 +581,7 @@ public function myDecks() {
             ");
             $stmt->execute([
                 ':deck_id' => $deckId,
-                ':reported_user_id' => $deck['user_id'],
+                ':reported_user_id' => $reportedUserId,
                 ':user_id' => $userId,
                 ':report_type' => $reportType,
                 ':user_report_category' => $userCategory,
@@ -591,5 +594,45 @@ public function myDecks() {
             echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
         exit;
+    }
+    /**
+     * 特定ユーザーの公開デッキ一覧画面
+     */
+    public function userPublicDecks() {
+        $userId = (int)($_GET['user_id'] ?? 0);
+        if (!$userId) {
+            header('Location: /search');
+            exit;
+        }
+
+        $pdo = Database::connect();
+
+        // ユーザー情報の取得
+        $stmtUser = $pdo->prepare("SELECT user_id, username FROM users WHERE user_id = :uid");
+        $stmtUser->execute([':uid' => $userId]);
+        $targetUser = $stmtUser->fetch(PDO::FETCH_ASSOC);
+
+        if (!$targetUser) {
+            header('Location: /search');
+            exit;
+        }
+
+        // 公開デッキの取得
+        $stmtDecks = $pdo->prepare("
+            SELECT d.*, f.format_name, u.username as creator_name, cd.imagepath as thumbnail_imagepath
+            FROM decks d
+            JOIN formats f ON d.format_id = f.format_id
+            JOIN users u ON d.user_id = u.user_id
+            LEFT JOIN card_detail cd ON d.thumbnail_card_id = cd.card_id
+            WHERE d.user_id = :uid AND d.is_public = 1
+            ORDER BY d.updated_at DESC
+        ");
+        $stmtDecks->execute([':uid' => $userId]);
+        $decks = $stmtDecks->fetchAll(PDO::FETCH_ASSOC);
+
+        renderView('deck/user_decks.php', [
+            'targetUser' => $targetUser,
+            'decks' => $decks
+        ]);
     }
 }
