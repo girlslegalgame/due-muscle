@@ -249,14 +249,22 @@ try {
 <div id="deckReportModal" class="sub-modal">
     <div class="sub-modal-content" style="max-width: 480px;">
         <div class="sub-modal-header">
-            <span>デッキの通報</span>
+            <span>通報</span>
             <span style="cursor:pointer;" onclick="closeReportModal()">&times;</span>
         </div>
         <div class="sub-modal-body" style="padding: 20px;">
             <input type="hidden" id="report_deck_id">
             <p id="report_deck_title" style="font-weight: bold; margin-top: 0;"></p>
+            
+            <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報対象</label>
+            <div style="display: flex; gap: 15px; margin-bottom: 12px; font-size: 0.9rem;">
+                <label><input type="radio" name="report_type" value="deck" checked> デッキを通報</label>
+                <label><input type="radio" name="report_type" value="user"> 作成者を通報</label>
+            </div>
+
             <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報理由 (必須)</label>
-            <textarea id="report_reason" rows="4" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="不適切なデッキ名、規約違反内容など"></textarea>
+            <textarea id="report_reason" rows="4" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="連投、暴言、不適切な名前など"></textarea>
+            
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
                 <button type="button" class="btn-modal-cancel" onclick="closeReportModal()">キャンセル</button>
                 <button type="button" class="btn-modal-confirm" style="background:#dc3545;" onclick="submitDeckReport()">送信する</button>
@@ -494,10 +502,18 @@ function escapeHTML(str) {
               .replace(/"/g, '&quot;')
               .replace(/'/g, '&#39;');
 }
-function openReportModal(deckId, deckName) {
+const IS_LOGGED_IN = <?php echo isset($_SESSION['user_id']) ? 'true' : 'false'; ?>;
+
+function openReportModal(deckId, deckName, creatorName) {
+    if (!IS_LOGGED_IN) {
+        alert('通報機能を利用するにはログインが必要です。');
+        window.location.href = '/login';
+        return;
+    }
     document.getElementById('report_deck_id').value = deckId;
-    document.getElementById('report_deck_title').innerText = '対象デッキ: ' + deckName;
+    document.getElementById('report_deck_title').innerText = `デッキ: ${deckName} (作成者: ${creatorName})`;
     document.getElementById('report_reason').value = '';
+    document.querySelector('input[name="report_type"][value="deck"]').checked = true;
     document.getElementById('deckReportModal').style.display = 'block';
 }
 
@@ -507,6 +523,7 @@ function closeReportModal() {
 
 function submitDeckReport() {
     const deckId = document.getElementById('report_deck_id').value;
+    const reportType = document.querySelector('input[name="report_type"]:checked').value;
     const reason = document.getElementById('report_reason').value.trim();
 
     if (!reason) {
@@ -517,7 +534,7 @@ function submitDeckReport() {
     fetch('/api/decks/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deckId, reason: reason })
+        body: JSON.stringify({ deck_id: deckId, report_type: reportType, reason: reason })
     })
     .then(res => res.json())
     .then(data => {
@@ -525,12 +542,11 @@ function submitDeckReport() {
             alert('報告を受け付けました。ご協力ありがとうございます。');
             closeReportModal();
         } else {
-            alert('送信に失敗しました: ' + (data.error || '不明なエラー'));
+            alert(data.error || '送信に失敗しました。');
         }
     })
     .catch(err => {
         alert('通信エラーが発生しました。');
-        console.error(err);
     });
 }
 </script>

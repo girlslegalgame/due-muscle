@@ -40,7 +40,8 @@ $routes = [
         '/help' => 'DeckController@help',
         '/help/search' => 'DeckController@helpSearch',
         '/admin' => 'AdminController@index',
-    ],
+        '/api/admin/users' => 'AdminController@usersApi',
+        '/api/admin/user-decks' => 'AdminController@userDecksApi',    ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信
         '/register/verify' => 'AuthController@verifyRegister', // ★変更：DBへ本登録するメソッド名を verifyRegister に統一
@@ -55,7 +56,8 @@ $routes = [
         '/api/cards/help-update' => 'CardController@helpUpdateApi',
         '/api/decks/report' => 'DeckController@reportDeckApi',
         '/api/admin/reports/action' => 'AdminController@handleReportApi',
-    ],
+        '/api/admin/penalty' => 'AdminController@applyPenaltyApi',
+        '/api/admin/users/update' => 'AdminController@updateUserApi',    ],
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',
         '/api/decks/set_public' => 'DeckController@setDeckPublicApi',

@@ -109,14 +109,15 @@ if (!empty($deck['thumbnail_imagepath'])) {
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">内容表示</button>
             <button class="btn-edit" onclick="copyDeck(<?php echo $deck['deck_id']; ?>)" style="background-color: #ffc107; color: #212529;">コピー</button>
-            <!-- ★追加: 通報ボタン -->
+            <!-- ★修正: 通報ボタン -->
             <button type="button" 
                     class="btn-delete" 
-                    title="デッキを通報する"
+                    title="通報する"
                     style="background-color: #6c757d; font-size: 0.8rem; padding: 10px 8px;"
                     data-deck-id="<?php echo $deck['deck_id']; ?>"
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    onclick="openReportModal(this.dataset.deckId, this.dataset.deckName)">通報</button>
+                    data-creator-name="<?php echo htmlspecialchars($deck['creator_name'] ?? '作成者', ENT_QUOTES, 'UTF-8'); ?>"
+                    onclick="openReportModal(this.dataset.deckId, this.dataset.deckName, this.dataset.creatorName)">通報</button>
         <?php elseif ($context === 'index'): ?>
             
             <!-- 【マイデッキ一覧用】ボタン -->

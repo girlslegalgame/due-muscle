@@ -218,6 +218,17 @@ public function myDecks() {
 
 // --- storeDeckApi (新規保存) の修正箇所 ---
     public function storeDeckApi() {
+        // 公開ペナルティチェック
+            if (!empty($input['is_public'])) {
+                $chk = $pdo->prepare("SELECT public_ban_until FROM users WHERE user_id = :uid");
+                $chk->execute([':uid' => $_SESSION['user_id']]);
+                $u = $chk->fetch(PDO::FETCH_ASSOC);
+                if ($u && !empty($u['public_ban_until']) && strtotime($u['public_ban_until']) > time()) {
+                    http_response_code(403);
+                    echo json_encode(['success' => false, 'error' => '現在デッキの公開が制限されています（期限: ' . $u['public_ban_until'] . ' まで）。非公開で保存してください。']);
+                    return;
+                }
+            }
         $input = json_decode(file_get_contents('php://input'), true);
         if (!isset($_SESSION['user_id'])) { 
             header('Content-Type: application/json', true, 401); // ★ステータス401を明示
@@ -323,6 +334,17 @@ public function myDecks() {
 
     // デッキの上書き保存API
     public function updateDeckApi() {
+        // 公開ペナルティチェック
+        if (!empty($input['is_public'])) {
+                $chk = $pdo->prepare("SELECT public_ban_until FROM users WHERE user_id = :uid");
+                $chk->execute([':uid' => $_SESSION['user_id']]);
+                $u = $chk->fetch(PDO::FETCH_ASSOC);
+                if ($u && !empty($u['public_ban_until']) && strtotime($u['public_ban_until']) > time()) {
+                    http_response_code(403);
+                    echo json_encode(['success' => false, 'error' => '現在デッキの公開が制限されています（期限: ' . $u['public_ban_until'] . ' まで）。非公開で保存してください。']);
+                    return;
+                }
+            }
         $input = json_decode(file_get_contents('php://input'), true);
         if (!isset($_SESSION['user_id'])) { echo json_encode(['success' => false, 'error' => '権限不足']); return; }
 
@@ -501,29 +523,62 @@ public function myDecks() {
         include __DIR__ . '/../Views/deck/playtest.php';
     }
     /**
-     * デッキの違反報告API
+     * 通報API（ログイン必須・通報ペナルティチェック・ユーザー通報対応）
      */
     public function reportDeckApi() {
         header('Content-Type: application/json; charset=utf-8');
-        $input = json_decode(file_get_contents('php://input'), true);
 
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => '通報にはログインが必要です。']);
+            exit;
+        }
+
+        $userId = (int)$_SESSION['user_id'];
+        $pdo = Database::connect();
+
+        // 1. 通報ペナルティ（通報禁止期間）の確認
+        $stmtCheck = $pdo->prepare("SELECT report_ban_until FROM users WHERE user_id = :uid");
+        $stmtCheck->execute([':uid' => $userId]);
+        $user = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+        if ($user && !empty($user['report_ban_until']) && strtotime($user['report_ban_until']) > time()) {
+            http_response_code(403);
+            echo json_encode(['success' => false, 'error' => '現在通報機能が制限されています（期限: ' . $user['report_ban_until'] . ' まで）。']);
+            exit;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
         $deckId = isset($input['deck_id']) ? (int)$input['deck_id'] : 0;
+        $reportType = ($input['report_type'] ?? 'deck') === 'user' ? 'user' : 'deck';
         $reason = trim($input['reason'] ?? '');
 
         if (!$deckId || empty($reason)) {
             http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'デッキIDと通報理由は必須です。']);
+            echo json_encode(['success' => false, 'error' => '入力情報が不足しています。']);
             exit;
         }
 
         try {
-            $pdo = Database::connect();
-            $userId = $_SESSION['user_id'] ?? null;
+            // デッキ作成者を取得
+            $stmtDeck = $pdo->prepare("SELECT user_id FROM decks WHERE deck_id = :did");
+            $stmtDeck->execute([':did' => $deckId]);
+            $deck = $stmtDeck->fetch(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare("INSERT INTO deck_reports (deck_id, user_id, reason, created_at, updated_at) VALUES (:deck_id, :user_id, :reason, NOW(), NOW())");
+            if (!$deck) {
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => '対象のデッキが見つかりません。']);
+                exit;
+            }
+
+            $stmt = $pdo->prepare("
+                INSERT INTO deck_reports (deck_id, reported_user_id, user_id, report_type, reason, created_at, updated_at) 
+                VALUES (:deck_id, :reported_user_id, :user_id, :report_type, :reason, NOW(), NOW())
+            ");
             $stmt->execute([
                 ':deck_id' => $deckId,
+                ':reported_user_id' => $deck['user_id'],
                 ':user_id' => $userId,
+                ':report_type' => $reportType,
                 ':reason' => $reason
             ]);
 
