@@ -27,13 +27,12 @@ class AdminController {
                 reporter.username as reporter_name,
                 creator.username as creator_name
             FROM deck_reports r
-            JOIN decks d ON r.deck_id = d.deck_id
+            LEFT JOIN decks d ON r.deck_id = d.deck_id -- ★ LEFT JOINに変更
             JOIN users creator ON r.reported_user_id = creator.user_id
             LEFT JOIN users reporter ON r.user_id = reporter.user_id
             ORDER BY r.status = 'pending' DESC, r.created_at DESC
         ";
         $reports = $pdo->query($sqlReports)->fetchAll(PDO::FETCH_ASSOC);
-
         // 2. ユーザー一覧
         $users = $pdo->query("SELECT user_id, username, email, role, public_ban_until, report_ban_until, created_at FROM users ORDER BY user_id DESC")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -306,7 +305,7 @@ class AdminController {
             $stmt = $pdo->prepare("
                 SELECT r.*, d.deck_name, creator.username as creator_name
                 FROM deck_reports r
-                JOIN decks d ON r.deck_id = d.deck_id
+                LEFT JOIN decks d ON r.deck_id = d.deck_id -- ★ LEFT JOINに変更
                 JOIN users creator ON r.reported_user_id = creator.user_id
                 WHERE r.report_id = :rid
             ");

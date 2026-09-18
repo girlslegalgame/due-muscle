@@ -1,3 +1,30 @@
+<style>
+    .btn-modal-cancel {
+        padding: 8px 16px;
+        background: #ccc;
+        color: #333;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .btn-modal-cancel:hover {
+        background: #bbb;
+    }
+    .btn-modal-confirm {
+        padding: 8px 16px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .btn-modal-confirm:hover {
+        background: #c82333;
+    }
+</style>
+
 <div class="container">
     <!-- ユーザーヘッダーエリア -->
     <div style="display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 15px 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 25px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
@@ -51,7 +78,7 @@
             
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
                 <button type="button" class="btn-modal-cancel" onclick="closeUserReportModal()">キャンセル</button>
-                <button type="button" class="btn-modal-confirm" style="background:#dc3545;" onclick="submitUserReport()">送信する</button>
+                <button type="button" class="btn-modal-confirm" onclick="submitUserReport()">送信する</button>
             </div>
         </div>
     </div>

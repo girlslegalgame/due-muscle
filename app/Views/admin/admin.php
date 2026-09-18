@@ -123,12 +123,16 @@
                                     </small>
                                 <?php endif; ?>
                             </td>
-                            
-                            <td>
-                                <strong><?= htmlspecialchars($r['deck_name']) ?></strong><br>
-                                <span class="badge <?= $r['is_public'] ? 'badge-public' : 'badge-private' ?>" style="margin-top: 2px;">
-                                    <?= $r['is_public'] ? '公開中' : '非公開' ?>
-                                </span>
+                            <!-- 対象デッキ列 -->
+                            <td style="padding: 8px 10px;">
+                                <?php if (!empty($r['deck_name'])): ?>
+                                    <strong><?= htmlspecialchars($r['deck_name']) ?></strong><br>
+                                    <span class="badge <?= $r['is_public'] ? 'badge-public' : 'badge-private' ?>" style="margin-top: 2px;">
+                                        <?= $r['is_public'] ? '公開中' : '非公開' ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span style="color: #94a3b8;">なし (ユーザー通報)</span>
+                                <?php endif; ?>
                             </td>
                             <td>
                                 <div style="font-weight: bold;"><?= htmlspecialchars($r['creator_name']) ?></div>
