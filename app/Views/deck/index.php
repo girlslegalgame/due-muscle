@@ -139,6 +139,35 @@ try {
     color: #777;
     letter-spacing: 2px;
 }
+/* 公開状態切り替えボタン */
+    .btn-deck-public-toggle {
+        border: none;
+        border-radius: 20px;
+        padding: 3px 10px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+    }
+    .btn-deck-public-toggle.status-public {
+        background-color: #e6f4ea;
+        color: #137333;
+        border: 1px solid #ceead6;
+    }
+    .btn-deck-public-toggle.status-public:hover {
+        background-color: #ceead6;
+    }
+    .btn-deck-public-toggle.status-private {
+        background-color: #f1f3f4;
+        color: #5f6368;
+        border: 1px solid #dadce0;
+    }
+    .btn-deck-public-toggle.status-private:hover {
+        background-color: #e8eaed;
+    }
 </style>
 </head>
 <body>
@@ -754,6 +783,49 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
                   .replace(/"/g, '&quot;')
                   .replace(/'/g, '&#39;');
     }
+}
+/**
+ * デッキの公開 / 非公開を切り替える
+ */
+function toggleDeckPublic(btn) {
+    const deckId = btn.dataset.deckId;
+    const currentStatus = btn.dataset.isPublic === '1';
+    const nextStatus = currentStatus ? 0 : 1; // 反転
+
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+
+    fetch('/api/decks/set_public', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            deck_id: deckId,
+            is_public: nextStatus
+        })
+    })
+    .then(async res => {
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || '切り替えに失敗しました。');
+        }
+        return data;
+    })
+    .then(data => {
+        if (data.success) {
+            // 見た目の更新
+            const isPub = data.is_public === 1;
+            btn.dataset.isPublic = isPub ? '1' : '0';
+            btn.className = 'btn-deck-public-toggle ' + (isPub ? 'status-public' : 'status-private');
+            btn.innerText = isPub ? '● 公開中' : '▲ 非公開';
+        }
+    })
+    .catch(err => {
+        alert(err.message);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    });
 }
 </script>
 

@@ -66,15 +66,19 @@
         <div class="sub-modal-body" style="padding: 20px;">
             <p style="font-weight: bold; margin-top: 0;">対象ユーザー: <?= htmlspecialchars($targetUser['username']) ?></p>
 
+            <!-- 違反内容 -->
             <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">違反内容</label>
             <div style="display: flex; gap: 15px; margin-bottom: 12px; font-size: 0.85rem;">
-                <label><input type="radio" name="modal_user_category" value="spam" checked> 連投</label>
-                <label><input type="radio" name="modal_user_category" value="inappropriate_name"> 不適切なユーザー名</label>
-                <label><input type="radio" name="modal_user_category" value="other"> その他</label>
+                <label><input type="radio" name="modal_user_category" value="spam" checked onchange="toggleUserReasonField(this.value)"> 連投</label>
+                <label><input type="radio" name="modal_user_category" value="inappropriate_name" onchange="toggleUserReasonField(this.value)"> 不適切なユーザー名</label>
+                <label><input type="radio" name="modal_user_category" value="other" onchange="toggleUserReasonField(this.value)"> その他</label>
             </div>
 
-            <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報理由 (必須)</label>
-            <textarea id="modal_user_reason" rows="4" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="通報の理由を入力してください"></textarea>
+            <!-- ★修正: 「その他」選択時のみ表示される理由入力欄（初期非表示） -->
+            <div id="modal_user_reason_wrapper" style="display: none;">
+                <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報理由 (必須)</label>
+                <textarea id="modal_user_reason" rows="4" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="具体的な理由を入力してください"></textarea>
+            </div>
             
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
                 <button type="button" class="btn-modal-cancel" onclick="closeUserReportModal()">キャンセル</button>
@@ -128,12 +132,20 @@ function copyDeck(deckId) {
     });
 }
 
+// ★追加: 理由入力欄の表示/非表示切り替え
+function toggleUserReasonField(category) {
+    const wrapper = document.getElementById('modal_user_reason_wrapper');
+    wrapper.style.display = (category === 'other') ? 'block' : 'none';
+}
+
 function openUserReportModal() {
     if (!IS_LOGGED_IN) {
         alert('通報機能を利用するにはログインが必要です。');
         window.location.href = '/login';
         return;
     }
+    document.querySelector('input[name="modal_user_category"][value="spam"]').checked = true;
+    toggleUserReasonField('spam'); // 初期状態は非表示
     document.getElementById('modal_user_reason').value = '';
     document.getElementById('userReportModal').style.display = 'block';
 }
@@ -144,11 +156,18 @@ function closeUserReportModal() {
 
 function submitUserReport() {
     const category = document.querySelector('input[name="modal_user_category"]:checked').value;
-    const reason = document.getElementById('modal_user_reason').value.trim();
+    let reason = document.getElementById('modal_user_reason').value.trim();
 
-    if (!reason) {
-        alert('通報理由を入力してください。');
-        return;
+    // ★修正: 「その他」の時のみ必須チェック
+    if (category === 'other') {
+        if (!reason) {
+            alert('「その他」を選択した場合は通報理由を入力してください。');
+            return;
+        }
+    } else if (category === 'spam') {
+        reason = reason || 'デッキの連投';
+    } else if (category === 'inappropriate_name') {
+        reason = reason || '不適切なユーザー名';
     }
 
     fetch('/api/decks/report', {
@@ -172,6 +191,7 @@ function submitUserReport() {
     })
     .catch(err => alert('通信エラーが発生しました。'));
 }
+
 function openReportModal(deckId, deckName, creatorName) {
     if (!IS_LOGGED_IN) {
         alert('通報機能を利用するにはログインが必要です。');

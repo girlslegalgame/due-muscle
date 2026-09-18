@@ -555,6 +555,15 @@ public function myDecks() {
                         ? $input['user_report_category'] : null;
         $reason = trim($input['reason'] ?? '');
 
+        // ★追加: カテゴリーに応じた理由の自動補完
+        if (empty($reason) && $reportType === 'user') {
+            if ($userCategory === 'spam') {
+                $reason = 'デッキの連投';
+            } elseif ($userCategory === 'inappropriate_name') {
+                $reason = '不適切なユーザー名';
+            }
+        }
+
         if (empty($reason) || ($reportType === 'deck' && !$deckId) || ($reportType === 'user' && !$reportedUserId)) {
             http_response_code(400);
             echo json_encode(['success' => false, 'error' => '入力情報が不足しています。']);
@@ -634,5 +643,69 @@ public function myDecks() {
             'targetUser' => $targetUser,
             'decks' => $decks
         ]);
+    }
+    /**
+     * デッキの公開 / 非公開切り替えAPI
+     */
+    public function setDeckPublicApi() {
+        header('Content-Type: application/json; charset=utf-8');
+
+        if (!isset($_SESSION['user_id'])) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'ログインが必要です。']);
+            exit;
+        }
+
+        $userId = (int)$_SESSION['user_id'];
+        $input = json_decode(file_get_contents('php://input'), true);
+        $deckId = (int)($input['deck_id'] ?? 0);
+        $isPublic = !empty($input['is_public']) ? 1 : 0;
+
+        if (!$deckId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'デッキIDが不足しています。']);
+            exit;
+        }
+
+        try {
+            $pdo = Database::connect();
+
+            // 公開に設定する場合、ペナルティ（公開禁止期間）をチェック
+            if ($isPublic === 1) {
+                $stmtCheck = $pdo->prepare("SELECT public_ban_until FROM users WHERE user_id = :uid");
+                $stmtCheck->execute([':uid' => $userId]);
+                $user = $stmtCheck->fetch(PDO::FETCH_ASSOC);
+
+                if ($user && !empty($user['public_ban_until']) && strtotime($user['public_ban_until']) > time()) {
+                    http_response_code(403);
+                    echo json_encode([
+                        'success' => false, 
+                        'error' => "現在ペナルティが科されているため、デッキを公開できません。\n(期限: " . date('Y/m/d H:i', strtotime($user['public_ban_until'])) . " まで)"
+                    ]);
+                    exit;
+                }
+            }
+
+            // 自分のデッキの公開ステータスを更新
+            $stmt = $pdo->prepare("UPDATE decks SET is_public = :is_pub, updated_at = NOW() WHERE deck_id = :did AND user_id = :uid");
+            $stmt->execute([
+                ':is_pub' => $isPublic,
+                ':did' => $deckId,
+                ':uid' => $userId
+            ]);
+
+            if ($stmt->rowCount() === 0) {
+                // デッキが存在しないか所有者が異なる場合
+                http_response_code(404);
+                echo json_encode(['success' => false, 'error' => '対象のデッキが見つかりません。']);
+                exit;
+            }
+
+            echo json_encode(['success' => true, 'is_public' => $isPublic]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
     }
 }

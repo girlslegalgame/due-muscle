@@ -101,6 +101,20 @@ if (!empty($deck['thumbnail_imagepath'])) {
     <!-- 5. フォーマット 最終更新日 -->
     <div class="deck-meta-info">
         <span class="format-badge"><?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?></span>
+        
+        <!-- ★追加: マイデッキ一覧の場合のみ、クリックで切り替え可能な公開トグルボタンを表示 -->
+        <?php if ($context === 'index'): ?>
+            <?php $isPub = !empty($deck['is_public']); ?>
+            <button type="button" 
+                    class="btn-deck-public-toggle <?php echo $isPub ? 'status-public' : 'status-private'; ?>"
+                    data-deck-id="<?php echo $deck['deck_id']; ?>"
+                    data-is-public="<?php echo $isPub ? '1' : '0'; ?>"
+                    onclick="toggleDeckPublic(this)"
+                    title="クリックして公開/非公開を切り替え">
+                <?php echo $isPub ? '● 公開中' : '▲ 非公開'; ?>
+            </button>
+        <?php endif; ?>
+
         <span><?php echo date('Y/m/d', strtotime($deck['updated_at'])); ?></span>
     </div>
 
