@@ -134,7 +134,18 @@
             <a href="/search">デッキ検索</a>
             <a href="/decks/new">デッキ作成</a>
             <a href="/help">ヘルプ</a>
-            <a href="/notifications">お知らせ</a>
+            <?php 
+                $unreadCnt = getUnreadNotificationCount(); 
+                $badgeText = $unreadCnt > 9 ? '9+' : $unreadCnt;
+            ?>
+            <a href="/notifications" style="position: relative; display: inline-flex; align-items: center;">
+                お知らせ
+                <?php if ($unreadCnt > 0): ?>
+                    <span style="background-color: #ef4444; color: #fff; font-size: 0.7rem; font-weight: bold; border-radius: 10px; padding: 1px 6px; margin-left: 4px; line-height: 1.2;">
+                        <?= $badgeText ?>
+                    </span>
+                <?php endif; ?>
+            </a>
             <!-- ★修正: ログイン状態に応じてリンク先を動的に変更 -->
             <a href="<?php echo isset($_SESSION['user_id']) ? '/account' : '/register'; ?>">アカウント</a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>

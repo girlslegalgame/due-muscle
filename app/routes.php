@@ -64,7 +64,8 @@ $routes = [
         '/api/admin/notifications' => 'AdminController@sendNotificationApi',
         '/api/admin/decks/bulk-private' => 'AdminController@bulkMakeDecksPrivateApi',
         '/api/admin/reports/resolve-user' => 'AdminController@resolveUserReportApi',
-    ],
+        '/api/notifications/read' => 'NotificationController@markAsReadApi',
+        '/api/notifications/delete' => 'NotificationController@deleteNotificationsApi',    ],
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',
         '/api/decks/set_public' => 'DeckController@setDeckPublicApi',
