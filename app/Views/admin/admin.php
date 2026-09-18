@@ -91,7 +91,10 @@
     <h2 class="admin-title">管理画面</h2>
 
     <!-- セクション1: 通報一覧 -->
-    <div class="admin-section-title">通報一覧</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0 12px;">
+        <div class="admin-section-title" style="margin: 0;">通報一覧</div>
+        <button type="button" class="btn-adm btn-adm-danger" onclick="cleanProcessedReports()">処理済みの通報を一括削除</button>
+    </div>
     <div class="admin-table-wrapper">
         <table class="admin-table">
             <thead>
@@ -221,7 +224,20 @@
                             </div>
                         </td>
                         <td><?= htmlspecialchars($u['email']) ?></td>
-                        <td><span class="badge badge-dismissed"><?= htmlspecialchars($u['role']) ?></span></td>
+                        <!-- ロール列 -->
+                        <td>
+                            <?php if ($u['role'] === 'admin'): ?>
+                                <span class="badge" style="background:#fee2e2; color:#b91c1c; font-weight:bold;">admin</span>
+                            <?php else: ?>
+                                <div style="display: flex; align-items: center; gap: 4px;">
+                                    <select id="role_<?= $u['user_id'] ?>" class="input-adm-text" style="padding: 2px 4px;">
+                                        <option value="user" <?= $u['role'] === 'user' ? 'selected' : '' ?>>user</option>
+                                        <option value="developer" <?= $u['role'] === 'developer' ? 'selected' : '' ?>>developer</option>
+                                    </select>
+                                    <button class="btn-adm btn-adm-primary" style="padding: 2px 6px;" onclick="updateUserRole(<?= $u['user_id'] ?>)">更新</button>
+                                </div>
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php if ($isPublicBanned): ?>
                                 <span style="color:#dc3545; font-weight:bold;"><?= substr($u['public_ban_until'], 0, 16) ?> まで</span>
@@ -238,8 +254,14 @@
                                 <span style="color:#10b981; font-weight: 500;">なし</span>
                             <?php endif; ?>
                         </td>
+                        <!-- 操作列 -->
                         <td style="text-align: center;">
-                            <button class="btn-adm btn-adm-outline" onclick="openUserDecksModal(<?= $u['user_id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>')">デッキ一覧</button>
+                            <div style="display: flex; justify-content: center; gap: 4px;">
+                                <button class="btn-adm btn-adm-outline" onclick="openUserDecksModal(<?= $u['user_id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>')">デッキ一覧</button>
+                                <?php if ($u['role'] !== 'admin' && $u['user_id'] !== (int)$_SESSION['user_id']): ?>
+                                    <button class="btn-adm btn-adm-danger" style="padding: 2px 6px;" onclick="deleteUser(<?= $u['user_id'] ?>, '<?= htmlspecialchars($u['username'], ENT_QUOTES) ?>')">削除</button>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -271,15 +293,15 @@
     </div>
 </div>
 
-<!-- セクション3: お知らせ手動送信 -->
+<!-- セクション3: お知らせ送信 -->
     <div class="admin-section-title">お知らせ送信</div>
-    <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.08); margin-bottom: 40px;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 12px;">
+    <div style="background: #fff; max-width: 680px; padding: 22px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 50px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div>
                 <label style="font-size: 0.8rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">送信対象</label>
                 <select id="notif_target" class="input-adm-text" style="width: 100%;" onchange="document.getElementById('notif_user_wrapper').style.display = (this.value === 'user' ? 'block' : 'none');">
-                    <option value="all">全ユーザー（仕様追加・カード追加など）</option>
-                    <option value="user">特定のユーザー</option>
+                    <option value="all">全ユーザー（全体お知らせ）</option>
+                    <option value="user">特定のユーザー（個別通知）</option>
                 </select>
             </div>
             <div id="notif_user_wrapper" style="display: none;">
@@ -290,7 +312,7 @@
 
         <div style="margin-bottom: 12px;">
             <label style="font-size: 0.8rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">タイトル</label>
-            <input type="text" id="notif_title" class="input-adm-text" style="width: 100%;" placeholder="例: 新規弾のカードデータを追加しました">
+            <input type="text" id="notif_title" class="input-adm-text" style="width: 100%;" placeholder="例: 新機能を追加しました">
         </div>
 
         <div style="margin-bottom: 12px;">
@@ -298,10 +320,10 @@
             <textarea id="notif_message" class="input-adm-text" rows="4" style="width: 100%;" placeholder="お知らせの詳細内容"></textarea>
         </div>
 
-        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-bottom: 15px;">
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 16px;">
             <div>
                 <label style="font-size: 0.8rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">リンク先URL (任意)</label>
-                <input type="text" id="notif_url" class="input-adm-text" style="width: 100%;" placeholder="/search などの内部リンク">
+                <input type="text" id="notif_url" class="input-adm-text" style="width: 100%;" placeholder="/search など">
             </div>
             <div>
                 <label style="font-size: 0.8rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">ボタンのラベル (任意)</label>
@@ -309,7 +331,7 @@
             </div>
         </div>
 
-        <button type="button" class="btn-adm btn-adm-primary" style="padding: 8px 20px; font-size: 0.9rem;" onclick="sendManualNotification()">お知らせを送信する</button>
+        <button type="button" class="btn-adm btn-adm-primary" style="width: 100%; padding: 10px; font-size: 0.9rem;" onclick="sendManualNotification()">お知らせを送信する</button>
     </div>
 
 <script>
@@ -529,6 +551,68 @@ function resolveUserReport(reportId, action, confirmMsg) {
             location.reload();
         } else {
             alert(data.error || 'エラーが発生しました');
+        }
+    })
+    .catch(err => alert('通信エラーが発生しました。'));
+}
+// 処理済み通報の一括削除
+function cleanProcessedReports() {
+    if (!confirm('「対応済」および「却下」の通報履歴を一括削除しますか？\n（未対応の通報は残ります）')) return;
+
+    fetch('/api/admin/reports/clean', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.deleted_count + ' 件の処理済み通報を削除しました。');
+            location.reload();
+        } else {
+            alert(data.error || 'エラー');
+        }
+    })
+    .catch(err => alert('通信エラーが発生しました。'));
+}
+
+// ロール変更
+function updateUserRole(userId) {
+    const role = document.getElementById('role_' + userId).value;
+    if (!confirm('ロールを「' + role + '」に変更しますか？')) return;
+
+    fetch('/api/admin/users/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, role: role })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('ロールを更新しました');
+            location.reload();
+        } else {
+            alert(data.error || 'エラー');
+        }
+    })
+    .catch(err => alert('通信エラーが発生しました。'));
+}
+
+// ユーザー削除
+function deleteUser(userId, username) {
+    if (!confirm(`ユーザー「${username}」(UID: ${userId}) を完全に削除しますか？\n※作成されたデッキやデータもすべて削除されます。この操作は取り消せません。`)) return;
+
+    fetch('/api/admin/users/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('ユーザーを削除しました');
+            location.reload();
+        } else {
+            alert(data.error || 'エラー');
         }
     })
     .catch(err => alert('通信エラーが発生しました。'));

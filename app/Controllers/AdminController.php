@@ -385,4 +385,90 @@ class AdminController {
         }
         exit;
     }
+    /**
+     * ロール変更API（admin以外のユーザーのみ変更可）
+     */
+    public function updateUserRoleApi() {
+        $this->ensureAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $userId = (int)($input['user_id'] ?? 0);
+        $newRole = trim($input['role'] ?? '');
+
+        // 許可するロール
+        if (!$userId || !in_array($newRole, ['user', 'developer'])) {
+            http_response_code(400);
+            echo json_encode(['error' => '無効な指定です']);
+            exit;
+        }
+
+        $pdo = Database::connect();
+
+        // 対象がadmin、または自分自身でないか確認
+        $stmt = $pdo->prepare("SELECT role FROM users WHERE user_id = :uid");
+        $stmt->execute([':uid' => $userId]);
+        $targetUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$targetUser || $targetUser['role'] === 'admin' || $userId === (int)$_SESSION['user_id']) {
+            http_response_code(403);
+            echo json_encode(['error' => 'admin権限を持つユーザーのロールは変更できません']);
+            exit;
+        }
+
+        $stmtUp = $pdo->prepare("UPDATE users SET role = :role, updated_at = NOW() WHERE user_id = :uid");
+        $stmtUp->execute([':role' => $newRole, ':uid' => $userId]);
+
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    /**
+     * ユーザー削除API（adminは削除不可）
+     */
+    public function deleteUserApi() {
+        $this->ensureAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $userId = (int)($input['user_id'] ?? 0);
+
+        if (!$userId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'ユーザーID不足']);
+            exit;
+        }
+
+        $pdo = Database::connect();
+        $stmt = $pdo->prepare("SELECT role FROM users WHERE user_id = :uid");
+        $stmt->execute([':uid' => $userId]);
+        $targetUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$targetUser || $targetUser['role'] === 'admin' || $userId === (int)$_SESSION['user_id']) {
+            http_response_code(403);
+            echo json_encode(['error' => '管理者アカウントは削除できません']);
+            exit;
+        }
+
+        $stmtDel = $pdo->prepare("DELETE FROM users WHERE user_id = :uid");
+        $stmtDel->execute([':uid' => $userId]);
+
+        echo json_encode(['success' => true]);
+        exit;
+    }
+
+    /**
+     * 処理済み（対応済・却下）の通報を一括削除するAPI
+     */
+    public function cleanReportsApi() {
+        $this->ensureAdmin();
+        header('Content-Type: application/json; charset=utf-8');
+
+        $pdo = Database::connect();
+        $stmt = $pdo->prepare("DELETE FROM deck_reports WHERE status IN ('resolved', 'dismissed')");
+        $stmt->execute();
+
+        echo json_encode(['success' => true, 'deleted_count' => $stmt->rowCount()]);
+        exit;
+    }
 }
