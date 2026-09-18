@@ -256,10 +256,21 @@ try {
             <input type="hidden" id="report_deck_id">
             <p id="report_deck_title" style="font-weight: bold; margin-top: 0;"></p>
             
+            <!-- 通報対象 -->
             <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報対象</label>
             <div style="display: flex; gap: 15px; margin-bottom: 12px; font-size: 0.9rem;">
-                <label><input type="radio" name="report_type" value="deck" checked> デッキを通報</label>
-                <label><input type="radio" name="report_type" value="user"> 作成者を通報</label>
+                <label><input type="radio" name="report_type" value="deck" checked onchange="toggleUserReportCategories(false)"> デッキを通報</label>
+                <label><input type="radio" name="report_type" value="user" onchange="toggleUserReportCategories(true)"> 作成者を通報</label>
+            </div>
+
+            <!-- ★追加: 作成者通報時のサブカテゴリー -->
+            <div id="user_category_wrapper" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 10px; margin-bottom: 12px;">
+                <label style="font-size: 0.8rem; font-weight: bold; color: #334155; display: block; margin-bottom: 6px;">作成者の違反内容</label>
+                <div style="display: flex; gap: 12px; font-size: 0.85rem;">
+                    <label><input type="radio" name="user_report_category" value="spam" checked> 連投</label>
+                    <label><input type="radio" name="user_report_category" value="inappropriate_name"> 不適切なユーザー名</label>
+                    <label><input type="radio" name="user_report_category" value="other"> その他</label>
+                </div>
             </div>
 
             <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報理由 (必須)</label>
@@ -521,9 +532,14 @@ function closeReportModal() {
     document.getElementById('deckReportModal').style.display = 'none';
 }
 
+function toggleUserReportCategories(show) {
+    document.getElementById('user_category_wrapper').style.display = show ? 'block' : 'none';
+}
+
 function submitDeckReport() {
     const deckId = document.getElementById('report_deck_id').value;
     const reportType = document.querySelector('input[name="report_type"]:checked').value;
+    const userCategory = reportType === 'user' ? document.querySelector('input[name="user_report_category"]:checked').value : null;
     const reason = document.getElementById('report_reason').value.trim();
 
     if (!reason) {
@@ -534,7 +550,12 @@ function submitDeckReport() {
     fetch('/api/decks/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deckId, report_type: reportType, reason: reason })
+        body: JSON.stringify({ 
+            deck_id: deckId, 
+            report_type: reportType, 
+            user_report_category: userCategory,
+            reason: reason 
+        })
     })
     .then(res => res.json())
     .then(data => {

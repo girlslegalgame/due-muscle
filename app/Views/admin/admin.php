@@ -115,9 +115,15 @@
                             <td><?= $r['report_id'] ?></td>
                             <td>
                                 <span class="badge <?= $r['report_type'] === 'user' ? 'badge-user' : 'badge-deck' ?>">
-                                    <?= $r['report_type'] === 'user' ? 'ユーザー' : 'デッキ' ?>
+                                    <?= $r['report_type'] === 'user' ? '作成者' : 'デッキ' ?>
                                 </span>
+                                <?php if (!empty($r['user_report_category'])): ?>
+                                    <br><small style="font-size:0.7rem; font-weight:bold; color:#64748b;">
+                                        <?= $r['user_report_category'] === 'spam' ? '【連投】' : ($r['user_report_category'] === 'inappropriate_name' ? '【不適切名】' : '【その他】') ?>
+                                    </small>
+                                <?php endif; ?>
                             </td>
+                            
                             <td>
                                 <strong><?= htmlspecialchars($r['deck_name']) ?></strong><br>
                                 <span class="badge <?= $r['is_public'] ? 'badge-public' : 'badge-private' ?>" style="margin-top: 2px;">
@@ -135,18 +141,40 @@
                                     <?= $r['status'] === 'pending' ? '未対応' : ($r['status'] === 'resolved' ? '対応済' : '却下') ?>
                                 </span>
                             </td>
+                            <!-- 操作列 -->
                             <td style="text-align: center;">
                                 <?php if ($r['status'] === 'pending'): ?>
-                                    <div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 4px;">
-                                        <button class="btn-adm btn-adm-danger" onclick="handleReport(<?= $r['report_id'] ?>, <?= $r['deck_id'] ?>, 'make_private')">非公開化</button>
-                                        <button class="btn-adm btn-adm-secondary" onclick="handleReport(<?= $r['report_id'] ?>, <?= $r['deck_id'] ?>, 'dismiss')">却下</button>
-                                    </div>
-                                    <div style="display: flex; gap: 4px; justify-content: center; flex-direction: column;">
-                                        <button class="btn-adm btn-adm-warning" onclick="applyPenalty(<?= $r['reported_user_id'] ?>, 'public_ban', 'apply_1week')">作成者: 公開禁止1週</button>
-                                        <?php if (!empty($r['user_id'])): ?>
-                                            <button class="btn-adm btn-adm-purple" onclick="applyPenalty(<?= $r['user_id'] ?>, 'report_ban', 'apply_1week')">通報者: 通報禁止1週</button>
-                                        <?php endif; ?>
-                                    </div>
+                                    <?php if ($r['report_type'] === 'user' && $r['user_report_category'] === 'spam'): ?>
+                                        <!-- 連投通報向けアクション -->
+                                        <div style="display:flex; flex-direction:column; gap:4px;">
+                                            <button class="btn-adm btn-adm-danger" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'spam_penalty', '全デッキ非公開＋1週間公開禁止を科しますか？')">全非公開+公開禁止1週</button>
+                                            <button class="btn-adm btn-adm-secondary" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'dismiss', 'この通報を却下しますか？')">却下</button>
+                                            <?php if (!empty($r['user_id'])): ?>
+                                                <button class="btn-adm btn-adm-purple" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'penalize_reporter', '通報者に1週間通報禁止ペナルティを科しますか？')">通報者を通報禁止</button>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php elseif ($r['report_type'] === 'user' && $r['user_report_category'] === 'inappropriate_name'): ?>
+                                        <!-- 不適切なユーザー名通報向けアクション -->
+                                        <div style="display:flex; flex-direction:column; gap:4px;">
+                                            <button class="btn-adm btn-adm-warning" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'reset_name', 'ユーザー名を「ユーザー」に変更しますか？')">名前を「ユーザー」に変更</button>
+                                            <button class="btn-adm btn-adm-secondary" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'dismiss', 'この通報を却下しますか？')">却下</button>
+                                            <?php if (!empty($r['user_id'])): ?>
+                                                <button class="btn-adm btn-adm-purple" onclick="resolveUserReport(<?= $r['report_id'] ?>, 'penalize_reporter', '通報者に1週間通報禁止ペナルティを科しますか？')">通報者を通報禁止</button>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php else: ?>
+                                        <!-- 通常のデッキ通報・その他 -->
+                                        <div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 4px;">
+                                            <button class="btn-adm btn-adm-danger" onclick="handleReport(<?= $r['report_id'] ?>, <?= $r['deck_id'] ?>, 'make_private')">非公開化</button>
+                                            <button class="btn-adm btn-adm-secondary" onclick="handleReport(<?= $r['report_id'] ?>, <?= $r['deck_id'] ?>, 'dismiss')">却下</button>
+                                        </div>
+                                        <div style="display: flex; gap: 4px; justify-content: center; flex-direction: column;">
+                                            <button class="btn-adm btn-adm-warning" onclick="applyPenalty(<?= $r['reported_user_id'] ?>, 'public_ban', 'apply_1week', <?= $r['deck_id'] ?>)">作成者: 公開禁止1週</button>
+                                            <?php if (!empty($r['user_id'])): ?>
+                                                <button class="btn-adm btn-adm-purple" onclick="applyPenalty(<?= $r['user_id'] ?>, 'report_ban', 'apply_1week')">通報者: 通報禁止1週</button>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
                                 <?php else: ?>
                                     <span style="color: #94a3b8;">-</span>
                                 <?php endif; ?>
@@ -217,13 +245,22 @@
 
 <!-- ユーザー保有デッキ一覧表示サブモーダル -->
 <div id="userDecksModal" class="sub-modal">
-    <div class="sub-modal-content" style="max-width: 600px; max-height: 80vh; display: flex; flex-direction: column;">
+    <div class="sub-modal-content" style="max-width: 650px; max-height: 85vh; display: flex; flex-direction: column;">
         <div class="sub-modal-header">
             <span id="userDecksModalTitle" style="font-weight: bold;">デッキ一覧</span>
             <span style="cursor:pointer; font-size: 1.3rem;" onclick="closeUserDecksModal()">&times;</span>
         </div>
-        <!-- はみ出し防止：max-heightとoverflow-yを指定 -->
-        <div class="sub-modal-body" style="padding: 15px; flex: 1; overflow-y: auto; max-height: 60vh;">
+        
+        <!-- 一括操作用ツールバー -->
+        <div style="padding: 10px 15px; background: #f1f5f9; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <label style="font-size: 0.85rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <input type="checkbox" id="checkAllUserDecks" onchange="toggleSelectAllDecks(this.checked)">
+                公開中のデッキを全選択
+            </label>
+            <button type="button" class="btn-adm btn-adm-danger" onclick="bulkMakeDecksPrivate()">選択したデッキを一括非公開</button>
+        </div>
+
+        <div class="sub-modal-body" style="padding: 15px; flex: 1; overflow-y: auto; max-height: 55vh;">
             <div id="userDecksList" style="display: flex; flex-direction: column; gap: 8px;"></div>
         </div>
     </div>
@@ -350,8 +387,13 @@ function updateUsername(userId) {
     });
 }
 
+let currentModalUserId = null;
+
 function openUserDecksModal(userId, username) {
+    currentModalUserId = userId;
     document.getElementById('userDecksModalTitle').innerText = username + ' さんのデッキ一覧';
+    document.getElementById('checkAllUserDecks').checked = false;
+    
     const list = document.getElementById('userDecksList');
     list.innerHTML = '<div style="text-align:center; padding:20px; color:#64748b;">読み込み中...</div>';
     document.getElementById('userDecksModal').style.display = 'block';
@@ -368,14 +410,17 @@ function openUserDecksModal(userId, username) {
                 const item = document.createElement('div');
                 item.style = "display:flex; justify-content:space-between; align-items:center; padding:10px 12px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px;";
                 item.innerHTML = `
-                    <div style="min-width:0; margin-right:10px;">
-                        <strong style="font-size:0.9rem; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(d.deck_name)}</strong>
-                        <span class="badge ${d.is_public ? 'badge-public' : 'badge-private'}" style="margin-top:2px;">
-                            ${d.is_public ? '公開中' : '非公開'}
-                        </span>
+                    <div style="display:flex; align-items:center; gap:10px; min-width:0; margin-right:10px;">
+                        ${d.is_public ? `<input type="checkbox" class="bulk-deck-chk" value="${d.deck_id}">` : `<input type="checkbox" disabled style="opacity:0.3;">`}
+                        <div>
+                            <strong style="font-size:0.9rem; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(d.deck_name)}</strong>
+                            <span class="badge ${d.is_public ? 'badge-public' : 'badge-private'}" style="margin-top:2px;">
+                                ${d.is_public ? '公開中' : '非公開'}
+                            </span>
+                        </div>
                     </div>
                     <div>
-                        ${d.is_public ? `<button class="btn-adm btn-adm-danger" onclick="makeDeckPrivate(${d.deck_id})">非公開にする</button>` : '<span style="color:#94a3b8; font-size:0.8rem;">非公開設定済</span>'}
+                        ${d.is_public ? `<button class="btn-adm btn-adm-danger" onclick="makeSingleDeckPrivate(${d.deck_id})">非公開</button>` : '<span style="color:#94a3b8; font-size:0.8rem;">非公開設定済</span>'}
                     </div>
                 `;
                 list.appendChild(item);
@@ -383,14 +428,53 @@ function openUserDecksModal(userId, username) {
         });
 }
 
-function makeDeckPrivate(deckId) {
-    if (!confirm('このデッキを非公開にしますか？')) return;
-    fetch('/api/admin/reports/action', {
+function toggleSelectAllDecks(checked) {
+    document.querySelectorAll('.bulk-deck-chk').forEach(cb => {
+        cb.checked = checked;
+    });
+}
+
+function makeSingleDeckPrivate(deckId) {
+    const reason = prompt('非公開にする理由を入力してください:', '利用規約違反が確認されたため');
+    if (reason === null) return;
+    executeBulkPrivate([deckId], reason);
+}
+
+function bulkMakeDecksPrivate() {
+    const selected = Array.from(document.querySelectorAll('.bulk-deck-chk:checked')).map(cb => parseInt(cb.value));
+    if (selected.length === 0) {
+        alert('非公開にする公開中デッキを選択してください。');
+        return;
+    }
+
+    const reason = prompt(`${selected.length} 件のデッキを非公開にする理由を入力してください（ユーザーへの通知に記載されます）:`, '利用規約違反が確認されたため');
+    if (reason === null) return;
+
+    executeBulkPrivate(selected, reason);
+}
+
+function executeBulkPrivate(deckIds, reason) {
+    fetch('/api/admin/decks/bulk-private', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ report_id: 0, deck_id: deckId, action: 'make_private' })
-    }).then(res => res.json()).then(() => location.reload());
+        body: JSON.stringify({
+            deck_ids: deckIds,
+            user_id: currentModalUserId,
+            reason: reason
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('選択したデッキを非公開にし、ユーザーへお知らせを送信しました。');
+            location.reload();
+        } else {
+            alert(data.error || 'エラーが発生しました');
+        }
+    })
+    .catch(err => alert('通信エラーが発生しました。'));
 }
+
 
 function closeUserDecksModal() {
     document.getElementById('userDecksModal').style.display = 'none';
@@ -399,5 +483,24 @@ function closeUserDecksModal() {
 function escapeHTML(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+function resolveUserReport(reportId, action, confirmMsg) {
+    if (!confirm(confirmMsg)) return;
+
+    fetch('/api/admin/reports/resolve-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: reportId, action: action })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('処置を完了し、関係ユーザーへお知らせを送信しました。');
+            location.reload();
+        } else {
+            alert(data.error || 'エラーが発生しました');
+        }
+    })
+    .catch(err => alert('通信エラーが発生しました。'));
 }
 </script>

@@ -61,6 +61,8 @@ $routes = [
         '/api/admin/penalty' => 'AdminController@applyPenaltyApi',
         '/api/admin/users/update' => 'AdminController@updateUserApi',  
         '/api/admin/notifications' => 'AdminController@sendNotificationApi',
+        '/api/admin/decks/bulk-private' => 'AdminController@bulkMakeDecksPrivateApi',
+        '/api/admin/reports/resolve-user' => 'AdminController@resolveUserReportApi',
     ],
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',

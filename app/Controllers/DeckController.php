@@ -550,6 +550,8 @@ public function myDecks() {
         $input = json_decode(file_get_contents('php://input'), true);
         $deckId = isset($input['deck_id']) ? (int)$input['deck_id'] : 0;
         $reportType = ($input['report_type'] ?? 'deck') === 'user' ? 'user' : 'deck';
+        $userCategory = ($reportType === 'user' && in_array($input['user_report_category'] ?? '', ['spam', 'inappropriate_name', 'other'])) 
+                        ? $input['user_report_category'] : null;
         $reason = trim($input['reason'] ?? '');
 
         if (!$deckId || empty($reason)) {
@@ -571,14 +573,15 @@ public function myDecks() {
             }
 
             $stmt = $pdo->prepare("
-                INSERT INTO deck_reports (deck_id, reported_user_id, user_id, report_type, reason, created_at, updated_at) 
-                VALUES (:deck_id, :reported_user_id, :user_id, :report_type, :reason, NOW(), NOW())
+                INSERT INTO deck_reports (deck_id, reported_user_id, user_id, report_type, user_report_category, reason, created_at, updated_at) 
+                VALUES (:deck_id, :reported_user_id, :user_id, :report_type, :user_report_category, :reason, NOW(), NOW())
             ");
             $stmt->execute([
                 ':deck_id' => $deckId,
                 ':reported_user_id' => $deck['user_id'],
                 ':user_id' => $userId,
                 ':report_type' => $reportType,
+                ':user_report_category' => $userCategory,
                 ':reason' => $reason
             ]);
 
