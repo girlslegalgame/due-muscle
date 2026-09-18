@@ -39,13 +39,16 @@ class NotificationController {
             $sqlUser = "
                 SELECT n.*, (s.read_at IS NOT NULL) as is_read
                 FROM notifications n
-                LEFT JOIN user_notification_status s ON n.notification_id = s.notification_id AND s.user_id = :uid
-                WHERE n.user_id = :uid
+                LEFT JOIN user_notification_status s ON n.notification_id = s.notification_id AND s.user_id = :uid1
+                WHERE n.user_id = :uid2
                   AND (s.is_deleted IS NULL OR s.is_deleted = 0)
                 ORDER BY n.created_at DESC
             ";
             $stmtU = $pdo->prepare($sqlUser);
-            $stmtU->execute([':uid' => $userId]);
+            $stmtU->execute([
+                ':uid1' => $userId,
+                ':uid2' => $userId
+            ]);
             $userNotifications = $stmtU->fetchAll(PDO::FETCH_ASSOC);
         }
 
@@ -113,8 +116,8 @@ class NotificationController {
         $sql = "
             SELECT n.notification_id 
             FROM notifications n
-            LEFT JOIN user_notification_status s ON n.notification_id = s.notification_id AND s.user_id = :uid
-            WHERE (n.user_id IS NULL OR n.user_id = :uid)
+            LEFT JOIN user_notification_status s ON n.notification_id = s.notification_id AND s.user_id = :uid1
+            WHERE (n.user_id IS NULL OR n.user_id = :uid2)
               $whereTab
         ";
         if ($type === 'read') {
@@ -122,7 +125,10 @@ class NotificationController {
         }
 
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([':uid' => $userId]);
+        $stmt->execute([
+            ':uid1' => $userId,
+            ':uid2' => $userId
+        ]);
         $targetIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
 
         if (!empty($targetIds)) {

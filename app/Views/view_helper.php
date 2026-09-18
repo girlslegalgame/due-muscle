@@ -40,13 +40,16 @@ function getUnreadNotificationCount() {
         $sql = "
             SELECT COUNT(*) 
             FROM notifications n
-            LEFT JOIN user_notification_status s ON n.notification_id = s.notification_id AND s.user_id = :uid
-            WHERE (n.user_id IS NULL OR n.user_id = :uid)
+            LEFT JOIN user_notification_status s ON n.notification_id = s.notification_id AND s.user_id = :uid1
+            WHERE (n.user_id IS NULL OR n.user_id = :uid2)
               AND (s.is_deleted IS NULL OR s.is_deleted = 0)
               AND (s.read_at IS NULL)
         ";
         $stmt = $pdo->prepare($sql);
-        $stmt->execute([':uid' => $uid]);
+        $stmt->execute([
+            ':uid1' => $uid,
+            ':uid2' => $uid
+        ]);
         return (int)$stmt->fetchColumn();
     } catch (\Exception $e) {
         return 0;
