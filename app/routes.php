@@ -41,7 +41,9 @@ $routes = [
         '/help/search' => 'DeckController@helpSearch',
         '/admin' => 'AdminController@index',
         '/api/admin/users' => 'AdminController@usersApi',
-        '/api/admin/user-decks' => 'AdminController@userDecksApi',    ],
+        '/api/admin/user-decks' => 'AdminController@userDecksApi',
+        '/notifications' => 'NotificationController@index',
+    ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信
         '/register/verify' => 'AuthController@verifyRegister', // ★変更：DBへ本登録するメソッド名を verifyRegister に統一
@@ -57,7 +59,9 @@ $routes = [
         '/api/decks/report' => 'DeckController@reportDeckApi',
         '/api/admin/reports/action' => 'AdminController@handleReportApi',
         '/api/admin/penalty' => 'AdminController@applyPenaltyApi',
-        '/api/admin/users/update' => 'AdminController@updateUserApi',    ],
+        '/api/admin/users/update' => 'AdminController@updateUserApi',  
+        '/api/admin/notifications' => 'AdminController@sendNotificationApi',
+    ],
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',
         '/api/decks/set_public' => 'DeckController@setDeckPublicApi',

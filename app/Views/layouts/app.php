@@ -134,6 +134,7 @@
             <a href="/search">デッキ検索</a>
             <a href="/decks/new">デッキ作成</a>
             <a href="/help">ヘルプ</a>
+            <a href="/notifications">お知らせ</a>
             <!-- ★修正: ログイン状態に応じてリンク先を動的に変更 -->
             <a href="<?php echo isset($_SESSION['user_id']) ? '/account' : '/register'; ?>">アカウント</a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
