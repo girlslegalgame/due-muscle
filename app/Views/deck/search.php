@@ -506,7 +506,6 @@ function openReportModal(deckId, deckName, creatorName) {
     document.getElementById('report_deck_id').value = deckId;
     document.getElementById('report_deck_title').innerText = `デッキ: ${deckName} (作成者: ${creatorName})`;
     document.getElementById('report_reason').value = '';
-    document.querySelector('input[name="report_type"][value="deck"]').checked = true;
     document.getElementById('deckReportModal').style.display = 'block';
 }
 
