@@ -293,8 +293,9 @@
 </div>
 
 <!-- セクション3: お知らせ送信 -->
-    <div class="admin-section-title">お知らせ送信</div>
-    <div style="background: #fff; max-width: 680px; margin: 0 auto 50px auto; padding: 22px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.06);">
+    <div class="admin-section-title" style="margin-top: 40px;">お知らせ送信</div>
+    <!-- ★ max-width: 680px を削除し、width: 100% で他のテーブルと幅を完全に統一 -->
+    <div style="background: #fff; width: 100%; box-sizing: border-box; padding: 22px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 50px;">
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
             <div>
                 <label style="font-size: 0.8rem; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">送信対象</label>
