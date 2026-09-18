@@ -500,4 +500,38 @@ public function myDecks() {
         // ビューをロード
         include __DIR__ . '/../Views/deck/playtest.php';
     }
+    /**
+     * デッキの違反報告API
+     */
+    public function reportDeckApi() {
+        header('Content-Type: application/json; charset=utf-8');
+        $input = json_decode(file_get_contents('php://input'), true);
+
+        $deckId = isset($input['deck_id']) ? (int)$input['deck_id'] : 0;
+        $reason = trim($input['reason'] ?? '');
+
+        if (!$deckId || empty($reason)) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'デッキIDと通報理由は必須です。']);
+            exit;
+        }
+
+        try {
+            $pdo = Database::connect();
+            $userId = $_SESSION['user_id'] ?? null;
+
+            $stmt = $pdo->prepare("INSERT INTO deck_reports (deck_id, user_id, reason, created_at, updated_at) VALUES (:deck_id, :user_id, :reason, NOW(), NOW())");
+            $stmt->execute([
+                ':deck_id' => $deckId,
+                ':user_id' => $userId,
+                ':reason' => $reason
+            ]);
+
+            echo json_encode(['success' => true]);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
+    }
 }

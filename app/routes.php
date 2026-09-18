@@ -39,6 +39,7 @@ $routes = [
                 
         '/help' => 'DeckController@help',
         '/help/search' => 'DeckController@helpSearch',
+        '/admin' => 'AdminController@index',
     ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信
@@ -52,6 +53,8 @@ $routes = [
         '/api/decks' => 'DeckController@storeDeckApi',
         '/api/decks/copy' => 'DeckController@copyDeckApi',
         '/api/cards/help-update' => 'CardController@helpUpdateApi',
+        '/api/decks/report' => 'DeckController@reportDeckApi',
+        '/api/admin/reports/action' => 'AdminController@handleReportApi',
     ],
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',
