@@ -1989,57 +1989,60 @@ const searchSortable = new Sortable(resultsDiv, {
     sort: false, 
     animation: 150,
     forceFallback: true,      
-    fallbackTolerance: 10,    // ★ 判定の猶予を作るため 5 から 10 に変更
+    fallbackTolerance: 10,    // 判定に余裕を持たせる設定
     fallbackOnBody: true      
 });
 
-// --- スマホでの横スワイプ(スクロール)と上方向ドラッグの精密判定制御 ---
+// --- スマホでの画像上スワイプ(スクロール)と上方向ドラッグの完全分離制御 ---
 let touchStartX = 0;
 let touchStartY = 0;
-let isTouchingResults = false;
-let isDirectionDecided = false;
+let isTrackingTouch = false;
+let isScrollMode = false;
 
-// 検索結果エリア内でタッチが開始された時のみ監視フラグをON
+// 画像上を含め、検索結果エリア内でタッチが開始された瞬間に位置を記憶
 resultsDiv.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
     touchStartX = e.touches[0].clientX;
     touchStartY = e.touches[0].clientY;
-    isTouchingResults = true;
-    isDirectionDecided = false;
-    searchSortable.option('disabled', false);
-}, { passive: true });
+    isTrackingTouch = true;
+    isScrollMode = false;
+}, { capture: true, passive: true });
 
-// documentのcaptureフェーズでSortableJSより「先」に方向を割り込み判定
+// documentのcaptureフェーズでSortableJSよりも「先」にイベントを監視・制御
 document.addEventListener('touchmove', (e) => {
-    if (!isTouchingResults || isDirectionDecided || e.touches.length !== 1) return;
+    if (!isTrackingTouch || e.touches.length !== 1) return;
 
     const dx = e.touches[0].clientX - touchStartX;
     const dy = e.touches[0].clientY - touchStartY;
     const dist = Math.hypot(dx, dy);
 
-    // SortableJSが反応する(10px)手前の 5px の瞬間に角度を判定
-    if (dist >= 5) {
-        isDirectionDecided = true;
+    // 5px動いた瞬間にスワイプ角度を判定
+    if (!isScrollMode && dist >= 5) {
         // 真上(デッキ方向)を0度とした時計回りの角度(0〜360度)を計算
         let deg = Math.atan2(dx, -dy) * (180 / Math.PI);
         if (deg < 0) deg += 360;
 
-        // 46度〜319度（横・下スワイプ）の時はSortableJSを即座に停止し、ブラウザの横スクロールを優先
+        // 46度〜319度（横・下スワイプ）の場合はスクロールモード確定
         if (deg > 45 && deg < 320) {
-            searchSortable.option('disabled', true);
+            isScrollMode = true;
         }
-        // 320度〜45度（上スワイプ）の時はそのまま維持され、指が10px動いた瞬間に画像ドラッグが発火
     }
+
+    // スクロールモード確定時：SortableJSにイベントを一切渡さず黙らせる
+    // （preventDefaultは呼ばないため、ブラウザは画像上からでも100%滑らかに横スクロールします）
+    if (isScrollMode) {
+        e.stopImmediatePropagation();
+    }
+    // 320度〜45度（上スワイプ）の時は何もしないため、SortableJSにイベントが届き10px到達で画像ドラッグが発火します
 }, { capture: true, passive: true });
 
-const resetSearchSortableTouch = () => {
-    isTouchingResults = false;
-    isDirectionDecided = false;
-    searchSortable.option('disabled', false);
+const resetSearchTouch = () => {
+    isTrackingTouch = false;
+    isScrollMode = false;
 };
 
-document.addEventListener('touchend', resetSearchSortableTouch, { passive: true });
-document.addEventListener('touchcancel', resetSearchSortableTouch, { passive: true });
+document.addEventListener('touchend', resetSearchTouch, { capture: true, passive: true });
+document.addEventListener('touchcancel', resetSearchTouch, { capture: true, passive: true });
 
 document.querySelectorAll('.special-box').forEach(box => {
     new Sortable(box, {
