@@ -1980,7 +1980,6 @@ new Sortable(superDimList, deckSortableConfig);
 new Sortable(grList, deckSortableConfig);
 
 // 検索結果エリアのSortable設定
-// ★ 長押しなしで瞬時にドラッグできるようディレイ（delay）を排除した設定のみを残します
 const searchSortable = new Sortable(resultsDiv, { 
     group: { 
         name: 'shared', 
@@ -1990,9 +1989,52 @@ const searchSortable = new Sortable(resultsDiv, {
     sort: false, 
     animation: 150,
     forceFallback: true,      
-    fallbackTolerance: 5,     // わずかな動きでもドラッグを開始させる設定
+    fallbackTolerance: 5,     
     fallbackOnBody: true      
 });
+
+// --- スマホでの横スワイプ(スクロール)と上方向ドラッグの判定制御 ---
+let touchStartX = 0;
+let touchStartY = 0;
+let isTouchDirectionDecided = false;
+
+resultsDiv.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    isTouchDirectionDecided = false;
+    searchSortable.option('disabled', false);
+}, { passive: true });
+
+resultsDiv.addEventListener('touchmove', (e) => {
+    if (isTouchDirectionDecided || e.touches.length !== 1) return;
+
+    const dx = e.touches[0].clientX - touchStartX;
+    const dy = e.touches[0].clientY - touchStartY;
+    const dist = Math.hypot(dx, dy);
+
+    // 5px以上動いた瞬間に角度を判定
+    if (dist >= 5) {
+        isTouchDirectionDecided = true;
+        // 真上(デッキ方向)を0度とした時計回りの角度(0〜360度)を計算
+        let deg = Math.atan2(dx, -dy) * (180 / Math.PI);
+        if (deg < 0) deg += 360;
+
+        // 320度〜45度の範囲外（横スクロールや下方向）の場合はドラッグを即座に無効化
+        const isUpward = (deg >= 320 || deg <= 45);
+        if (!isUpward) {
+            searchSortable.option('disabled', true);
+        }
+    }
+}, { passive: true });
+
+const resetSearchSortableTouch = () => {
+    isTouchDirectionDecided = false;
+    searchSortable.option('disabled', false);
+};
+
+resultsDiv.addEventListener('touchend', resetSearchSortableTouch, { passive: true });
+resultsDiv.addEventListener('touchcancel', resetSearchSortableTouch, { passive: true });
 
 document.querySelectorAll('.special-box').forEach(box => {
     new Sortable(box, {
