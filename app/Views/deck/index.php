@@ -450,51 +450,78 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return memoLines.join('\n');
         }
 
-        // ツインパクト対応のメモ生成関数（同期処理）
+        // ツインパクト / ハイパーモード対応のメモ生成関数（同期処理）
         function createMemoText(card) {
             const isTwinpact = card.twinpact == 1 || card.twinpact === '1' || card.twinpact === true;
-            
-            if (isTwinpact && card.partner_card_id) {
+            const hasCombination = !!card.combination_id && !!card.partner_card_id;
+            const isSelfHyper = card.hypermode == 1 || card.hypermode === '1' || card.hypermode === true;
+            const isPartnerHyper = card.partner_hypermode == 1 || card.partner_hypermode === '1' || card.partner_hypermode === true;
+            const isHypermode = hasCombination && (isSelfHyper || isPartnerHyper);
+
+            // コンビネーションカード（ツインパクトまたはハイパーモード）のデータ整理
+            if (hasCombination && (isTwinpact || isHypermode)) {
                 const selfId = parseInt(card.card_id);
                 const partnerId = parseInt(card.partner_card_id);
 
                 const selfData = {
+                    card_id: selfId,
                     card_name: card.card_name,
                     cost: card.cost,
                     pow: card.pow,
-                    text: card.text,
+                    text: card.text || '',
                     civ_ids: card.civ_ids,
                     typename: card.typename,
                     cardtype_ids: card.cardtype_ids,
                     race_ids: card.race_ids,
-                    race_names: card.race_names
+                    race_names: card.race_names,
+                    is_hyper: isSelfHyper
                 };
 
                 const partnerData = {
+                    card_id: partnerId,
                     card_name: card.partner_card_name,
                     cost: card.partner_cost,
                     pow: card.partner_pow,
-                    text: card.partner_text,
+                    text: card.partner_text || '',
                     civ_ids: card.partner_civ_ids,
                     typename: card.partner_typename,
                     cardtype_ids: card.partner_cardtype_ids,
                     race_ids: card.partner_race_ids,
-                    race_names: card.partner_race_names
+                    race_names: card.partner_race_names,
+                    is_hyper: isPartnerHyper
                 };
 
-                let topCard, bottomCard;
-                if (selfId < partnerId) {
-                    topCard = selfData;
-                    bottomCard = partnerData;
-                } else {
-                    topCard = partnerData;
-                    bottomCard = selfData;
+                const minCard = selfId < partnerId ? selfData : partnerData;
+                const otherCard = selfId < partnerId ? partnerData : selfData;
+
+                // --- ハイパーモードの処理 ---
+                if (isHypermode) {
+                    const hyperCard = minCard.is_hyper ? minCard : otherCard;
+                    const baseCard = minCard.is_hyper ? otherCard : minCard;
+
+                    // 通常面（card_idが小さい方）の情報を記述
+                    const baseMemo = buildCardMemo(minCard);
+
+                    // ハイパー面のtextから通常面のtextを除去
+                    let hyperOnlyText = hyperCard.text;
+                    if (baseCard.text) {
+                        hyperOnlyText = hyperOnlyText.split(baseCard.text).join('').trim();
+                    }
+
+                    const hyperPowStr = hyperCard.pow !== null && hyperCard.pow !== undefined && hyperCard.pow !== '' ? hyperCard.pow : '';
+                    let memoResult = `${baseMemo}\n\nハイパーモード　${hyperPowStr}`;
+                    if (hyperOnlyText) {
+                        memoResult += `\n${hyperOnlyText}`;
+                    }
+                    return memoResult;
                 }
 
-                const topMemo = buildCardMemo(topCard);
-                const bottomMemo = buildCardMemo(bottomCard);
-
-                return `上面\n${topMemo}\n\n下面\n${bottomMemo}`;
+                // --- ツインパクトの処理 ---
+                if (isTwinpact) {
+                    const topMemo = buildCardMemo(minCard);
+                    const bottomMemo = buildCardMemo(otherCard);
+                    return `上面\n${topMemo}\n\n下面\n${bottomMemo}`;
+                }
             }
 
             return buildCardMemo(card);
