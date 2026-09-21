@@ -231,6 +231,34 @@ try {
     </div>
 </div>
 
+<!-- ZIP出力中待機モーダル（広告スペース付き） -->
+<div id="zip-export-loading-modal" class="sub-modal" style="display: none; z-index: 3100;">
+    <div class="sub-modal-content" style="max-width: 450px; text-align: center;">
+        <div class="sub-modal-header" style="justify-content: center;">
+            <span>ZIP出力中</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 25px 20px;">
+            <p style="font-weight: bold; color: #d9534f; font-size: 1.05rem; margin: 0 0 10px 0;">
+                出力中です。他の画面に移動しないでください。
+            </p>
+            <p style="color: #666; font-size: 0.85rem; margin: 0 0 20px 0;">
+                カード画像を生成・圧縮しています。完了すると自動でダウンロードが開始されます。
+            </p>
+
+            <!-- ========================================== -->
+            <!-- ▼▼▼ 広告掲載スペース（ここから） ▼▼▼ -->
+            <!-- ========================================== -->
+            <div id="export-ad-area" style="width: 100%; min-height: 250px; background-color: #f0f0f0; border: 2px dashed #bbb; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #888; font-size: 0.9rem; margin-top: 15px;">
+                <p style="margin: 0; font-weight: bold;">Ad</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.75rem; color: #aaa;">※ここにAdSense等の広告タグを配置してください</p>
+            </div>
+            <!-- ========================================== -->
+            <!-- ▲▲▲ 広告掲載スペース（ここまで） ▲▲▲ -->
+            <!-- ========================================== -->
+        </div>
+    </div>
+</div>
+
 <script>
 /**
  * デッキ削除
@@ -302,6 +330,10 @@ document.addEventListener('DOMContentLoaded', () => {
 async function executeZipExport(deckId, deckName, formatName, thumbnailId, buttonElement) {
     const includeText = document.getElementById('zip-include-text')?.checked || false;
     const separatePartner = document.getElementById('zip-separate-partner')?.checked || false;
+
+    // 出力中ローディングモーダルの表示
+    const loadingModal = document.getElementById('zip-export-loading-modal');
+    if (loadingModal) loadingModal.style.display = 'flex';
 
     if (buttonElement) {
         buttonElement.innerText = 'ZIP生成中...';
@@ -591,6 +623,9 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
     }
 
     function resetBtn() {
+        // 出力中ローディングモーダルを閉じる
+        if (loadingModal) loadingModal.style.display = 'none';
+
         if (buttonElement) {
             buttonElement.innerText = 'デッキ出力';
             buttonElement.disabled = false;
