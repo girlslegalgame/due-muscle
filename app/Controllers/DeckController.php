@@ -778,12 +778,14 @@ public function myDecks() {
                 // パラメータ：新アクセスキー(pk_...)をセット
                 $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
 
+                $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー スリーブセット';
                 $queryParams = [
                     'applicationId' => $appId,
                     'accessKey'     => $accessKey,
                     'keyword'       => $keyword,
+                    'NGKeyword'     => $ngKeywords, // 楽天API公式の除外キーワード機能
                     'sort'          => '+itemPrice',
-                    'hits'          => 1,
+                    'hits'          => 10,           // ★ 上位10件取得して精査
                     'minPrice'      => 10,
                 ];
 
@@ -792,7 +794,7 @@ public function myDecks() {
                 }
 
                 $url = $apiBaseUrl . '?' . http_build_query($queryParams);
-
+                
                 // cURLで通信
                 $ch = curl_init();
                 curl_setopt_array($ch, [
@@ -817,6 +819,35 @@ public function myDecks() {
                 $minPrice = null;
                 $affiliateUrl = '';
                 $itemName = '';
+
+                $itemList = $data['Items'] ?? $data['items'] ?? [];
+                $ngPattern = '/(スリーブ|プレイマット|デッキケース|ラバーマット|ストレージ|ファイル|バインダー|オリパ|くじ|未開封パック|未開封BOX)/u';
+
+                foreach ($itemList as $rawItem) {
+                    $candidate = $rawItem['Item'] ?? $rawItem;
+                    $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
+
+                    // サプライ系ワードが含まれていたらスキップ
+                    if (preg_match($ngPattern, $title)) {
+                        continue;
+                    }
+
+                    // カード名が商品タイトルに含まれていることを確認（誤爆防止）
+                    if (mb_stripos($title, $cleanName) === false) {
+                        continue;
+                    }
+
+                    // 最安順で最初に条件を満たした商品を採択
+                    $minPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
+                    $affiliateUrl = $candidate['affiliateUrl'] ?? $candidate['itemUrl'] ?? '';
+                    $itemName = $title;
+                    $totalPrice += ($minPrice * $qty);
+                    break;
+                }
+
+                if ($minPrice === null) {
+                    $notFoundCount++;
+                }
 
                 // 新旧レスポンス構造の差異（Items / results / itemPrice）に柔軟に対応
                 $firstItem = null;
