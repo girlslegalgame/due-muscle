@@ -2753,8 +2753,12 @@ function applyFilters() {
 }
 
 function clearAllFilters() {
-    document.querySelectorAll('#filterModal input[type="checkbox"], #filterModal input[type="number"]').forEach(el => {
+    // ★修正: チェックボックスは checked のみ解除し、value は消去しない
+    document.querySelectorAll('#filterModal input[type="checkbox"]').forEach(el => {
         el.checked = false;
+    });
+    // 数値入力欄（コスト・パワー）のみ value を空にする
+    document.querySelectorAll('#filterModal input[type="number"]').forEach(el => {
         el.value = '';
     });
     
@@ -2769,7 +2773,7 @@ function clearAllFilters() {
         q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
         pow_min: '', pow_max: '', races: [], abilities: [], 
         characteristics: [], cardtypes: [],
-        goods: [], // ★追記: 初期状態に空配列をセット
+        goods: [],
         race_logic: 'OR', ability_logic: 'OR', reg: [],
         characteristic_logic: 'OR', cardtype_logic: 'OR',
         civ_type: '', civ_match_type: 'include', exclude_civs: []
@@ -2778,7 +2782,7 @@ function clearAllFilters() {
     clearSubSelection('ability');
     clearSubSelection('characteristics');
     clearSubSelection('cardtype');
-    clearSubSelection('goods'); // ★追記: 商品選択をクリア
+    clearSubSelection('goods');
     searchCards();
 }
 
