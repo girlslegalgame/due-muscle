@@ -218,22 +218,25 @@ public function myDecks() {
 
 // --- storeDeckApi (新規保存) の修正箇所 ---
     public function storeDeckApi() {
-        // 公開ペナルティチェック
-            if (!empty($input['is_public'])) {
-                $chk = $pdo->prepare("SELECT public_ban_until FROM users WHERE user_id = :uid");
-                $chk->execute([':uid' => $_SESSION['user_id']]);
-                $u = $chk->fetch(PDO::FETCH_ASSOC);
-                if ($u && !empty($u['public_ban_until']) && strtotime($u['public_ban_until']) > time()) {
-                    http_response_code(403);
-                    echo json_encode(['success' => false, 'error' => '現在デッキの公開が制限されています（期限: ' . $u['public_ban_until'] . ' まで）。非公開で保存してください。']);
-                    return;
-                }
-            }
         $input = json_decode(file_get_contents('php://input'), true);
         if (!isset($_SESSION['user_id'])) { 
-            header('Content-Type: application/json', true, 401); // ★ステータス401を明示
+            header('Content-Type: application/json', true, 401);
             echo json_encode(['success' => false, 'error' => 'ログインが必要です']); 
             return; 
+        }
+
+        $pdo = \Models\Database::connect();
+
+        // 公開ペナルティチェック（$inputと$pdoの定義後に移動）
+        if (!empty($input['is_public'])) {
+            $chk = $pdo->prepare("SELECT public_ban_until FROM users WHERE user_id = :uid");
+            $chk->execute([':uid' => $_SESSION['user_id']]);
+            $u = $chk->fetch(PDO::FETCH_ASSOC);
+            if ($u && !empty($u['public_ban_until']) && strtotime($u['public_ban_until']) > time()) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => '現在デッキの公開が制限されています（期限: ' . $u['public_ban_until'] . ' まで）。非公開で保存してください。']);
+                return;
+            }
         }
         try {
             $pdo = \Models\Database::connect();
@@ -334,19 +337,22 @@ public function myDecks() {
 
     // デッキの上書き保存API
     public function updateDeckApi() {
-        // 公開ペナルティチェック
-        if (!empty($input['is_public'])) {
-                $chk = $pdo->prepare("SELECT public_ban_until FROM users WHERE user_id = :uid");
-                $chk->execute([':uid' => $_SESSION['user_id']]);
-                $u = $chk->fetch(PDO::FETCH_ASSOC);
-                if ($u && !empty($u['public_ban_until']) && strtotime($u['public_ban_until']) > time()) {
-                    http_response_code(403);
-                    echo json_encode(['success' => false, 'error' => '現在デッキの公開が制限されています（期限: ' . $u['public_ban_until'] . ' まで）。非公開で保存してください。']);
-                    return;
-                }
-            }
         $input = json_decode(file_get_contents('php://input'), true);
         if (!isset($_SESSION['user_id'])) { echo json_encode(['success' => false, 'error' => '権限不足']); return; }
+
+        $pdo = \Models\Database::connect();
+
+        // 公開ペナルティチェック（$inputと$pdoの定義後に移動）
+        if (!empty($input['is_public'])) {
+            $chk = $pdo->prepare("SELECT public_ban_until FROM users WHERE user_id = :uid");
+            $chk->execute([':uid' => $_SESSION['user_id']]);
+            $u = $chk->fetch(PDO::FETCH_ASSOC);
+            if ($u && !empty($u['public_ban_until']) && strtotime($u['public_ban_until']) > time()) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => '現在デッキの公開が制限されています（期限: ' . $u['public_ban_until'] . ' まで）。非公開で保存してください。']);
+                return;
+            }
+        }
 
         try {
             $pdo = \Models\Database::connect();
@@ -713,7 +719,6 @@ public function myDecks() {
      * 楽天市場APIを用いたデッキ価格査定API
      */
     public function estimatePriceApi() {
-        // ★ タイムアウトを120秒に延長（60枚デッキ等の長時間のAPI呼び出しに対応）
         set_time_limit(120);
 
         header('Content-Type: application/json; charset=utf-8');
@@ -729,19 +734,19 @@ public function myDecks() {
         $accessKey = trim($_ENV['RAKUTEN_ACCESS_KEY'] ?? $_SERVER['RAKUTEN_ACCESS_KEY'] ?? getenv('RAKUTEN_ACCESS_KEY') ?: 'pk_6YPrWKh1sowRK0R3SSZQDvsmzoPzPZtgIytCQoajcwj');
         $affiliateId = trim($_ENV['RAKUTEN_AFFILIATE_ID'] ?? $_SERVER['RAKUTEN_AFFILIATE_ID'] ?? getenv('RAKUTEN_AFFILIATE_ID') ?: '');
 
-        // アフィリエイトIDが未設定・ダミーの場合は除外
         if (empty($affiliateId) || str_contains($affiliateId, 'YOUR_')) {
             $affiliateId = null;
         }
-        // アプリIDが取得できていない場合は即座に分かりやすいエラーを返す
+
         if (empty($appId)) {
             http_response_code(500);
             echo json_encode([
                 'success' => false,
-                'error' => 'Railwayの環境変数に「RAKUTEN_APP_ID」が設定されていません。RailwayダッシュボードのVariablesを確認してください。'
+                'error' => 'RAKUTEN_APP_IDが設定されていません。'
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
+
         try {
             $pdo = Database::connect();
             $deckModel = new Deck($pdo);
@@ -767,7 +772,6 @@ public function myDecks() {
                 if ($isTwinpact) {
                     $selfId = (int)$c['card_id'];
                     $partnerId = (int)$c['partner_card_id'];
-                    // card_idが小さい方を上面、大きい方を下面とする
                     if ($selfId < $partnerId) {
                         $topName = $c['card_name'];
                         $bottomName = $c['partner_card_name'];
@@ -790,59 +794,44 @@ public function myDecks() {
                 }
                 $cardMap[$key]['quantity'] += $qty;
             }
+
             $items = [];
             $totalPrice = 0;
             $notFoundCount = 0;
-            $debugLog = []; // ★ デバッグ情報収集用
+            $debugLog = [];
+
+            $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
+            $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー';
+            $ngTitlePattern = '/(スリーブ|プレイマット|デッキケース|ラバーマット|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ)/ui';
+
+            // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
+            $normalize = function($str) {
+                $s = mb_convert_kana((string)$str, 'asKV', 'UTF-8');
+                $s = mb_strtolower($s, 'UTF-8');
+                return preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/\-_:：]/u', '', $s);
+            };
 
             foreach ($cardMap as $cardInfo) {
                 $qty = $cardInfo['quantity'];
                 $isTwinpact = $cardInfo['is_twinpact'];
 
-                // 記号除去用ヘルパー
-                $cleaner = function($str) {
-                    $s = explode('/', $str)[0];
-                    $s = preg_replace('/[・～〜「」『』【】“”"\'()（）]/u', ' ', $s);
-                    return preg_replace('/\s+/', ' ', trim($s));
-                };
-
-                $cleanTop = $cleaner($cardInfo['top_name']);
-                $cleanBottom = $isTwinpact ? $cleaner($cardInfo['bottom_name']) : '';
-
-                // ★ ツインパクトなら上面と下面の両方をキーワードに含める
-                if ($isTwinpact && !empty($cleanBottom)) {
-                    $keyword = "デュエルマスターズ {$cleanTop} {$cleanBottom}";
-                } else {
-                    $keyword = "デュエルマスターズ {$cleanTop}";
-                }
-
-                $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー スリーブセット';
-
-                $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
-
-                $norm = function($str) {
-                    return mb_strtolower(preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/]/u', '', (string)$str));
-                };
-                $normTop = $norm($cardInfo['top_name']);
-                $normBottom = $isTwinpact ? $norm($cardInfo['bottom_name']) : '';
-
-                // 検索キーワード（ツインパクトも検索時は最も確実な上面名＋下面名）
-                $cleanTop = trim(preg_replace('/[・～〜「」『』【】“”"\'()（）\/]/u', ' ', $cardInfo['top_name']));
-                $cleanBottom = $isTwinpact ? trim(preg_replace('/[・～〜「」『』【】“”"\'()（）\/]/u', ' ', $cardInfo['bottom_name'])) : '';
-
-                if ($isTwinpact && !empty($cleanBottom)) {
-                    $keyword = "デュエマ {$cleanTop} {$cleanBottom}";
-                } else {
-                    $keyword = "デュエマ {$cleanTop}";
-                }
+                // 検索用キーワードの整形（余分な記号を除去し、長すぎるサブタイトルは先頭を重視）
+                $cleanSearchName = preg_replace('/[・～〜「」『』【】“”"\'()（）\/]/u', ' ', $cardInfo['top_name']);
+                $cleanSearchName = preg_replace('/\s+/', ' ', trim($cleanSearchName));
                 
+                // 検索クエリ：ツインパクトの場合でもキーワード過多を防ぐため上面名を主軸にする
+                $keyword = $cleanSearchName;
+
+                $normTop = $normalize($cardInfo['top_name']);
+                $normBottom = $isTwinpact && !empty($cardInfo['bottom_name']) ? $normalize($cardInfo['bottom_name']) : '';
+
                 $queryParams = [
                     'applicationId' => $appId,
                     'accessKey'     => $accessKey,
                     'keyword'       => $keyword,
-                    'NGKeyword'     => $ngKeywords, // 楽天API公式の除外キーワード機能
-                    'sort'          => '+itemPrice',
-                    'hits'          => 20,           // ★ 上位10件取得して精査
+                    'NGKeyword'     => $ngKeywords,
+                    'sort'          => '+itemPrice', // 価格昇順（最安値順）
+                    'hits'          => 30,           // 候補を30件まで広げて精査
                     'minPrice'      => 10,
                 ];
 
@@ -851,20 +840,17 @@ public function myDecks() {
                 }
 
                 $url = $apiBaseUrl . '?' . http_build_query($queryParams);
-                
-                $maxRetries = 2;
-                $httpCode = 0;
                 $responseBody = '';
+                $httpCode = 0;
 
-                
-                for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+                for ($attempt = 0; $attempt <= 2; $attempt++) {
                     $ch = curl_init();
                     curl_setopt_array($ch, [
                         CURLOPT_URL            => $url,
                         CURLOPT_RETURNTRANSFER => true,
                         CURLOPT_TIMEOUT        => 8,
                         CURLOPT_SSL_VERIFYPEER => false,
-                        CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                        CURLOPT_USERAGENT      => 'Mozilla/5.0',
                         CURLOPT_HTTPHEADER     => [
                             'Origin: https://due-muscle.up.railway.app',
                             'Referer: https://due-muscle.up.railway.app/',
@@ -875,7 +861,6 @@ public function myDecks() {
                     $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                     curl_close($ch);
 
-                    // 429（制限）になったら1.2秒待って再試行
                     if ($httpCode === 429) {
                         usleep(1200000);
                         continue;
@@ -884,65 +869,68 @@ public function myDecks() {
                 }
 
                 $data = $responseBody ? json_decode($responseBody, true) : null;
+                $itemList = $data['Items'] ?? $data['items'] ?? [];
+
+                $matchedItem = null;
+                $fallbackItem = null; // ツインパクト等で下面名はないが上面名が完全一致した候補用
+
+                foreach ($itemList as $rawItem) {
+                    $candidate = $rawItem['Item'] ?? $rawItem;
+                    $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
+
+                    // サプライ・オリパ等の除外
+                    if (preg_match($ngTitlePattern, $title)) {
+                        continue;
+                    }
+
+                    $normTitle = $normalize($title);
+
+                    // 通常カード判定：商品名にカード名が含まれているか
+                    if (!$isTwinpact) {
+                        if (str_contains($normTitle, $normTop)) {
+                            $matchedItem = $candidate;
+                            break; // 価格昇順なので、最初に合致したものが最安値
+                        }
+                    } else {
+                        // ツインパクト判定：上面名と下面名の両方が商品名に含まれているか
+                        if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
+                            $matchedItem = $candidate;
+                            break;
+                        }
+                        // ショップによっては上面名しか商品名に記載しない場合があるためフォールバックとして保持
+                        if ($fallbackItem === null && str_contains($normTitle, $normTop)) {
+                            $fallbackItem = $candidate;
+                        }
+                    }
+                }
+
+                // ツインパクトで両面一致が見つからなかった場合、上面一致を採択
+                if ($matchedItem === null && $fallbackItem !== null) {
+                    $matchedItem = $fallbackItem;
+                }
 
                 $minPrice = null;
                 $affiliateUrl = '';
                 $itemName = '';
 
-                $itemList = $data['Items'] ?? $data['items'] ?? [];
-                $ngTitlePattern = '/(スリーブ|プレイマット|デッキケース|ラバーマット|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック)/u';
-
-                foreach ($itemList as $rawItem) {
-                    $candidate = $rawItem['Item'] ?? $rawItem;
-                    $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
-                    $normTitle = $norm($title); // ★ 確実に定義
-                    // サプライ系ワードが含まれていたらスキップ
-                    if (preg_match($ngTitlePattern, $title)) {
-                        continue;
-                    }
-
-                    // ツインパクトなら上面・下面両方の一致、通常なら上面の一致を確認
-                    if ($isTwinpact && !empty($normBottom)) {
-                        if (str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
-                            $minPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
-                            $affiliateUrl = $candidate['affiliateUrl'] ?? $candidate['itemUrl'] ?? '';
-                            $itemName = $title;
-                            $totalPrice += ($minPrice * $qty);
-                            break;
-                        }
-                    } else {
-                        // 通常カードは上面名の一致を確認
-                        if (str_contains($normTitle, $normTop)) {
-                            $minPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
-                            $affiliateUrl = $candidate['affiliateUrl'] ?? $candidate['itemUrl'] ?? '';
-                            $itemName = $title;
-                            $totalPrice += ($minPrice * $qty);
-                            break;
-                        }
-                    }
-
-                    // 条件を満たした最安商品を採択
-                    $minPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
-                    $affiliateUrl = $candidate['affiliateUrl'] ?? $candidate['itemUrl'] ?? '';
-                    $itemName = $title;
+                if ($matchedItem !== null) {
+                    $minPrice = (int)($matchedItem['itemPrice'] ?? $matchedItem['price'] ?? 0);
+                    $affiliateUrl = $matchedItem['affiliateUrl'] ?? $matchedItem['itemUrl'] ?? '';
+                    $itemName = $matchedItem['itemName'] ?? $matchedItem['title'] ?? '';
                     $totalPrice += ($minPrice * $qty);
-                    break;
-                }
-
-                if ($minPrice === null) {
+                } else {
                     $notFoundCount++;
                 }
 
-                // デバッグログ
                 $debugLog[] = [
-                    'card_name'       => $cardInfo['display_name'],
-                    'search_keyword'  => $keyword,
-                    'http_code'       => $httpCode,
-                    'hit_count'       => count($itemList),
-                    'picked_item'     => $itemName ?: null
+                    'card_name'      => $cardInfo['display_name'],
+                    'search_keyword' => $keyword,
+                    'http_code'      => $httpCode,
+                    'hit_count'      => count($itemList),
+                    'picked_item'    => $itemName ?: null,
+                    'price'          => $minPrice
                 ];
 
-                // 査定結果アイテム
                 $items[] = [
                     'card_name'     => $cardInfo['display_name'],
                     'quantity'      => $qty,
@@ -952,20 +940,19 @@ public function myDecks() {
                     'item_title'    => $itemName,
                 ];
 
-                usleep(1100000);
+                usleep(400000); // 0.4秒ウェイト（レート制限対策）
             }
 
             echo json_encode([
-                'success'        => true,
-                'total_price'    => $totalPrice,
-                'cards'          => $items,
-                'not_found_cards'=> $notFoundCount,
-                'debug'          => [
-                    'used_app_id'     => substr($appId, 0, 6) . '******', // 安全のため伏字表示
-                    'logs'            => $debugLog
+                'success'         => true,
+                'total_price'     => $totalPrice,
+                'cards'           => $items,
+                'not_found_cards' => $notFoundCount,
+                'debug'           => [
+                    'used_app_id' => substr($appId, 0, 6) . '******',
+                    'logs'        => $debugLog
                 ]
             ], JSON_UNESCAPED_UNICODE);
-
 
         } catch (\Exception $e) {
             http_response_code(500);
