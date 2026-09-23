@@ -724,6 +724,7 @@ public function myDecks() {
         header('Content-Type: application/json; charset=utf-8');
 
         $deckId = $_GET['deck_id'] ?? null;
+        $targetShopCode = trim($_GET['shop_code'] ?? ''); // ★追加：選択ショップコード
         if (!$deckId) {
             http_response_code(400);
             echo json_encode(['error' => 'Deck ID is required']);
@@ -840,6 +841,11 @@ public function myDecks() {
                     'minPrice'      => 10,
                 ];
 
+                // ★追加：ショップが指定されている場合はショップ内検索に絞り込む
+                if (!empty($targetShopCode)) {
+                    $queryParams['shopCode'] = $targetShopCode;
+                }
+
                 if (!empty($affiliateId)) {
                     $queryParams['affiliateId'] = $affiliateId;
                 }
@@ -915,11 +921,16 @@ public function myDecks() {
                 $minPrice = null;
                 $affiliateUrl = '';
                 $itemName = '';
+                $shopName = '';
+                $shopCode = '';
 
                 if ($matchedItem !== null) {
                     $minPrice = (int)($matchedItem['itemPrice'] ?? $matchedItem['price'] ?? 0);
                     $affiliateUrl = $matchedItem['affiliateUrl'] ?? $matchedItem['itemUrl'] ?? '';
                     $itemName = $matchedItem['itemName'] ?? $matchedItem['title'] ?? '';
+                    // ★ ショップ名・ショップコードを取得
+                    $shopName = $matchedItem['shopName'] ?? '';
+                    $shopCode = $matchedItem['shopCode'] ?? '';
                     $totalPrice += ($minPrice * $qty);
                 } else {
                     $notFoundCount++;
@@ -941,9 +952,24 @@ public function myDecks() {
                     'subtotal'      => $minPrice !== null ? ($minPrice * $qty) : null,
                     'affiliate_url' => $affiliateUrl,
                     'item_title'    => $itemName,
+                    'shop_name'     => $shopName,
+                    'shop_code'     => $shopCode,
                 ];
-
                 usleep(400000);
+            }
+
+            usort($items, function($a, $b) {
+                $hasA = $a['price'] !== null ? 1 : 0;
+                $hasB = $b['price'] !== null ? 1 : 0;
+                return $hasB <=> $hasA; // 見つかったものを上に
+            });
+
+            // ★追加：結果に含まれるショップ一覧を抽出（ドロップダウン用）
+            $availableShops = [];
+            foreach ($items as $item) {
+                if (!empty($item['shop_code']) && !empty($item['shop_name'])) {
+                    $availableShops[$item['shop_code']] = $item['shop_name'];
+                }
             }
 
             echo json_encode([
@@ -951,12 +977,14 @@ public function myDecks() {
                 'total_price'     => $totalPrice,
                 'cards'           => $items,
                 'not_found_cards' => $notFoundCount,
+                'shops'           => $availableShops, // 利用可能なショップリスト
+                'selected_shop'   => $targetShopCode,
                 'debug'           => [
                     'used_app_id' => substr($appId, 0, 6) . '******',
                     'logs'        => $debugLog
                 ]
             ], JSON_UNESCAPED_UNICODE);
-
+            
         } catch (\Exception $e) {
             http_response_code(500);
             echo json_encode(['error' => $e->getMessage()]);

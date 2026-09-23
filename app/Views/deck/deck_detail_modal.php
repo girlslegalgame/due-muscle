@@ -449,7 +449,7 @@
             <div id="tab-main" class="tab-item active" onclick="switchTab('main')">メイン</div>
             <div id="tab-extra" class="tab-item" onclick="switchTab('extra')">GR / 超次元 / 特殊</div>
             <div id="tab-analysis" class="tab-item" onclick="switchTab('analysis')">分析</div>
-            <div id="tab-price" class="tab-item" onclick="switchTab('price')">価格査定</div>
+            <div id="tab-price" class="tab-item" onclick="switchTab('price')">価格査定(PR)</div>
         </div>
 
         <div class="scroll-area">
@@ -595,6 +595,13 @@
 
                 <!-- 査定結果表示エリア -->
                 <div id="price-estimate-result" style="display: none;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 12px;">
+                        <label for="price-shop-select" style="font-size: 0.85rem; font-weight: bold; color: #555;">ショップ指定:</label>
+                        <select id="price-shop-select" onchange="onShopChange()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; font-weight: bold;">
+                            <option value="">すべてのショップ（最安値）</option>
+                        </select>
+                    </div>
+                    
                     <div style="background: #eef9f1; border: 1px solid #b7ebc5; border-radius: 8px; padding: 15px; margin-bottom: 15px; text-align: center;">
                         <span style="font-size: 0.95rem; color: #333;">デッキ最安合計金額（概算）: </span>
                         <span id="deck-total-price" style="font-size: 1.8rem; font-weight: bold; color: #d9534f; margin-left: 8px;">0</span>
@@ -609,6 +616,7 @@
                                 <th style="width: 50px;">枚数</th>
                                 <th style="width: 80px;">最安単価</th>
                                 <th style="width: 80px;">小計</th>
+                                <th style="width: 120px;">ショップ</th> <!-- ★追加 -->
                                 <th style="width: 70px;">リンク</th>
                             </tr>
                         </thead>
@@ -820,63 +828,81 @@ function switchTab(type) {
     }
 }
 
-// デッキ価格査定の実行
-function runPriceEstimate() {
+// ショップ選択変更時のハンドラ
+function onShopChange() {
+    const shopCode = document.getElementById('price-shop-select').value;
+    runPriceEstimate(shopCode);
+}
+
+// デッキ価格査定の実行（shopCode対応）
+function runPriceEstimate(shopCode = '') {
     if (!currentDeckId) return;
 
     const btn = document.getElementById('btn-start-estimate');
     const loading = document.getElementById('price-estimate-loading');
     const resultArea = document.getElementById('price-estimate-result');
+    const shopSelect = document.getElementById('price-shop-select');
 
     btn.disabled = true;
     btn.style.opacity = '0.6';
     loading.style.display = 'block';
     resultArea.style.display = 'none';
 
-    fetch('/api/decks/estimate-price?deck_id=' + currentDeckId)
+    let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
+    if (shopCode) {
+        url += '&shop_code=' + encodeURIComponent(shopCode);
+    }
+
+    fetch(url)
         .then(async res => {
             const text = await res.text();
             try {
                 return JSON.parse(text);
             } catch (e) {
                 console.error('Server Response:', text);
-                throw new Error('サーバーエラーが発生しました。タイムアウトまたは設定を確認してください。');
+                throw new Error('サーバーエラーが発生しました。');
             }
         })
         .then(data => {
-            if (data.debug) {
-                console.group('=== 楽天市場API 査定デバッグログ ===');
-                console.log('使用AppID:', data.debug.used_app_id);
-                console.table(data.debug.logs);
-                console.groupEnd();
-
-                // 楽天APIキーそのものがエラーになっている場合の検知
-                const firstError = data.debug.logs.find(l => l.api_error || l.http_code !== 200);
-                if (firstError) {
-                    console.error('楽天APIエラー検知:', firstError);
-                    if (firstError.api_description) {
-                        alert(`【楽天APIエラー】\n${firstError.api_error}: ${firstError.api_description}\n※楽天Application IDの設定等を確認してください。`);
-                    }
-                }
-            }
-
             if (!data.success) {
                 alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
                 return;
             }
 
+            // ★ 全体検索時のみ、ドロップダウンの選択肢を更新（見つかったショップ一覧を追加）
+            if (!shopCode && data.shops && shopSelect) {
+                shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
+                Object.keys(data.shops).forEach(code => {
+                    const opt = document.createElement('option');
+                    opt.value = code;
+                    opt.textContent = data.shops[code];
+                    shopSelect.appendChild(opt);
+                });
+            }
+            if (shopSelect) {
+                shopSelect.value = shopCode; // 現在選択中のショップを反映
+            }
+
             document.getElementById('deck-total-price').innerText = Number(data.total_price).toLocaleString();
             
             const warnEl = document.getElementById('price-not-found-warn');
-            warnEl.innerText = data.not_found_cards > 0 ? `※ ${data.not_found_cards} 種のカードは楽天市場で見つかりませんでした（0円として計算）` : '';
+            warnEl.innerText = data.not_found_cards > 0 ? `※ ${data.not_found_cards} 種のカードは見つかりませんでした（0円として計算）` : '';
 
             const tbody = document.getElementById('price-card-list-body');
             tbody.innerHTML = '';
 
+            // サーバー側で見つかったカードが優先（上位）ソート済み
             data.cards.forEach(c => {
                 const tr = document.createElement('tr');
+                // 未発見の行は少し薄く表示
+                if (c.price === null) {
+                    tr.style.backgroundColor = '#fcfcfc';
+                    tr.style.color = '#888';
+                }
+
                 const priceStr = c.price !== null ? `¥${Number(c.price).toLocaleString()}` : '-';
                 const subtotalStr = c.subtotal !== null ? `¥${Number(c.subtotal).toLocaleString()}` : '-';
+                const shopStr = c.shop_name ? `<span style="font-size:0.75rem; word-break:break-all;">${c.shop_name}</span>` : '-';
                 const linkHtml = c.affiliate_url 
                     ? `<a href="${c.affiliate_url}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline; font-weight: bold;">購入</a>`
                     : '<span style="color: #999;">-</span>';
@@ -886,6 +912,7 @@ function runPriceEstimate() {
                     <td>${c.quantity}</td>
                     <td>${priceStr}</td>
                     <td style="font-weight: bold;">${subtotalStr}</td>
+                    <td>${shopStr}</td>
                     <td>${linkHtml}</td>
                 `;
                 tbody.appendChild(tr);
@@ -903,7 +930,6 @@ function runPriceEstimate() {
             btn.style.opacity = '1';
         });
 }
-
 function closeModal() {
     document.getElementById('deckModal').style.display = 'none';
     document.body.style.overflow = 'auto';
