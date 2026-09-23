@@ -94,13 +94,17 @@
         <div class="alert alert-danger"><?php echo htmlspecialchars($_SESSION['error']); unset($_SESSION['error']); ?></div>
     <?php endif; ?>
 
+    <?php 
+        $isLogin = ($action_url ?? '') === '/login/verify';
+    ?>
+
     <form action="<?php echo htmlspecialchars($action_url ?? '/register/verify'); ?>" method="POST">
         <div class="form-group">
             <!-- 認証コード入力フィールド -->
             <input type="text" id="code" name="code" class="input-code" required placeholder="123456" maxlength="6" pattern="[0-9]{6}" autocomplete="off">
         </div>
-        <button type="submit" class="btn-submit">アカウントを作成する</button>
+        <button type="submit" class="btn-submit"><?php echo $isLogin ? 'ログインする' : 'アカウントを作成する'; ?></button>
     </form>
 
-    <a href="/register" class="back-link">← 最初からやり直す</a>
+    <a href="<?php echo $isLogin ? '/login' : '/register'; ?>" class="back-link">← 最初からやり直す</a>
 </div>
