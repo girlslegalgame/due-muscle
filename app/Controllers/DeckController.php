@@ -751,14 +751,14 @@ public function myDecks() {
             $items = [];
             $totalPrice = 0;
             $notFoundCount = 0;
+            $debugLog = []; // ★ デバッグ情報収集用
 
             foreach ($cardQuantities as $name => $qty) {
-                // ★ カード名のクリーンアップ（ツインパクトは上面のみ、記号等を除去してヒット率を最大化）
-                $cleanName = explode('/', $name)[0]; // ツインパクトならスラッシュ前を採用
+                // カード名クリーンアップ
+                $cleanName = explode('/', $name)[0];
                 $cleanName = preg_replace('/[・～〜「」『』【】“”"\'()（）]/u', ' ', $cleanName);
                 $cleanName = preg_replace('/\s+/', ' ', trim($cleanName));
 
-                // 「デュエルマスターズ」と整形したカード名で検索
                 $keyword = 'デュエルマスターズ ' . $cleanName;
                 $queryParams = [
                     'applicationId' => $appId,
@@ -767,23 +767,33 @@ public function myDecks() {
                     'hits'          => 1,
                     'minPrice'      => 10,
                 ];
-                if (!empty($affiliateId)) {
+                if (!empty($affiliateId) && $affiliateId !== 'YOUR_RAKUTEN_AFFILIATE_ID') {
                     $queryParams['affiliateId'] = $affiliateId;
                 }
 
                 $url = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?' . http_build_query($queryParams);
 
-                $ctx = stream_context_create([
-                    'http' => ['ignore_errors' => true, 'timeout' => 5]
+                // cURLで通信し、ステータスコードとエラーを詳細に取得
+                $ch = curl_init();
+                curl_setopt_array($ch, [
+                    CURLOPT_URL            => $url,
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 8,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_USERAGENT      => 'DuemaDeckBuilder/1.0'
                 ]);
-                $resJson = @file_get_contents($url, false, $ctx);
-                $data = $resJson ? json_decode($resJson, true) : null;
+                $responseBody = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlErr  = curl_error($ch);
+                curl_close($ch);
+
+                $data = $responseBody ? json_decode($responseBody, true) : null;
 
                 $minPrice = null;
                 $affiliateUrl = '';
                 $itemName = '';
 
-                if (!empty($data['Items'][0]['Item'])) {
+                if ($httpCode === 200 && !empty($data['Items'][0]['Item'])) {
                     $item = $data['Items'][0]['Item'];
                     $minPrice = (int)$item['itemPrice'];
                     $affiliateUrl = $item['affiliateUrl'] ?? $item['itemUrl'];
@@ -792,6 +802,18 @@ public function myDecks() {
                 } else {
                     $notFoundCount++;
                 }
+
+                // 各カードごとの通信デバッグログを記録
+                $debugLog[] = [
+                    'card_name'       => $name,
+                    'search_keyword'  => $keyword,
+                    'http_code'       => $httpCode,
+                    'curl_error'      => $curlErr ?: null,
+                    'api_error'       => $data['error'] ?? null,
+                    'api_description' => $data['error_description'] ?? null,
+                    'hit_count'       => $data['count'] ?? 0,
+                    'first_item'      => $itemName ?: null
+                ];
 
                 $items[] = [
                     'card_name'     => $name,
@@ -802,15 +824,20 @@ public function myDecks() {
                     'item_title'    => $itemName,
                 ];
 
-                usleep(250000); // 0.25秒ウェイト
+                usleep(250000);
             }
 
             echo json_encode([
                 'success'        => true,
                 'total_price'    => $totalPrice,
                 'cards'          => $items,
-                'not_found_cards'=> $notFoundCount
+                'not_found_cards'=> $notFoundCount,
+                'debug'          => [
+                    'used_app_id'     => substr($appId, 0, 6) . '******', // 安全のため伏字表示
+                    'logs'            => $debugLog
+                ]
             ], JSON_UNESCAPED_UNICODE);
+
 
         } catch (\Exception $e) {
             http_response_code(500);

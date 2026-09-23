@@ -844,6 +844,22 @@ function runPriceEstimate() {
             }
         })
         .then(data => {
+            if (data.debug) {
+                console.group('=== 楽天市場API 査定デバッグログ ===');
+                console.log('使用AppID:', data.debug.used_app_id);
+                console.table(data.debug.logs);
+                console.groupEnd();
+
+                // 楽天APIキーそのものがエラーになっている場合の検知
+                const firstError = data.debug.logs.find(l => l.api_error || l.http_code !== 200);
+                if (firstError) {
+                    console.error('楽天APIエラー検知:', firstError);
+                    if (firstError.api_description) {
+                        alert(`【楽天APIエラー】\n${firstError.api_error}: ${firstError.api_description}\n※楽天Application IDの設定等を確認してください。`);
+                    }
+                }
+            }
+
             if (!data.success) {
                 alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
                 return;
