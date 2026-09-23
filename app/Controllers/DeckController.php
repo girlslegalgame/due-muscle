@@ -801,8 +801,8 @@ public function myDecks() {
             $debugLog = [];
 
             $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
-            $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー キャラスリ';
-            $ngTitlePattern = '/(スリーブ|カードスリーブ|プレイマット|ラバーマット|デッキケース|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ|プロテクト)/ui';
+            $ngKeywords = 'スリーブ "ス リーブ" プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー キャラスリ';
+            $ngTitlePattern = '/(ス\s*リーブ|カードス\s*リーブ|プレイマット|ラバーマット|デッキケース|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ|プロテクト|DXカード)/ui';
 
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
             $normalize = function($str) {
@@ -882,10 +882,10 @@ public function myDecks() {
                 foreach ($itemList as $rawItem) {
                     $candidate = $rawItem['Item'] ?? $rawItem;
                     $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
-
-                    // ★ 半角カナ（ｶｰﾄﾞｽﾘｰﾌﾞ等）を全角に統一してからスリーブ除外判定
                     $titleNormalizedKana = mb_convert_kana($title, 'KV', 'UTF-8');
-                    if (preg_match($ngTitlePattern, $titleNormalizedKana)) {
+                    // ★ 半角カナ（ｶｰﾄﾞｽﾘｰﾌﾞ等）を全角に統一してからスリーブ除外判定
+                    $titleNoSpace = preg_replace('/\s+/u', '', $titleNormalizedKana);
+                    if (preg_match($ngTitlePattern, $titleNormalizedKana) || preg_match($ngTitlePattern, $titleNoSpace)) {
                         continue;
                     }
 
