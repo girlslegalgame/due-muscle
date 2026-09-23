@@ -806,12 +806,10 @@ public function myDecks() {
 
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
             $normalize = function($str) {
-                // 特殊文字「∑」を「Σ」に事前統一
                 $s = str_replace('∑', 'Σ', (string)$str);
                 $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
-                // デュエマ特有の記号（+、↑、♪、！、？、・、引用符等）をすべて消去
-                return preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/\-_:：+＋↑!！?？♪、,.*・]/u', '', $s);
+                return trim($s);
             };
             foreach ($cardMap as $cardInfo) {
                 $qty = $cardInfo['quantity'];
@@ -825,14 +823,9 @@ public function myDecks() {
                     $topName = str_replace('∑', 'Σ', $topName);
                 }
 
-                // 検索キーワード作成：
-                // 記号（♪や""や+など）を取り除き、「・」はスペースにせず繋げることでショップの表記に合わせる
-                $cleanSearchName = preg_replace('/[♪"\'「」『』【】+＋]/u', '', $topName);
-                $cleanSearchName = str_replace(['・', '／', '/'], ' ', $cleanSearchName);
-                $cleanSearchName = preg_replace('/\s+/', ' ', trim($cleanSearchName));
 
                 // 一般商品（お菓子、洋服等）の混入を防ぐため「デュエマ」を冠詞にする
-                $keyword = "デュエマ {$cleanSearchName}";
+                $keyword = trim($topName);
 
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
