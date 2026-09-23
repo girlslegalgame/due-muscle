@@ -755,30 +755,71 @@ public function myDecks() {
                 return empty($type) || $type === 'main';
             });
 
-            $cardQuantities = [];
+            $cardMap = [];
             foreach ($mainCards as $c) {
                 $name = trim($c['card_name']);
                 $qty = (int)($c['quantity'] ?? 1);
-                $cardQuantities[$name] = ($cardQuantities[$name] ?? 0) + $qty;
-            }
+                $isTwinpact = !empty($c['twinpact']) && !empty($c['partner_card_id']);
 
+                $topName = $name;
+                $bottomName = null;
+
+                if ($isTwinpact) {
+                    $selfId = (int)$c['card_id'];
+                    $partnerId = (int)$c['partner_card_id'];
+                    // card_idが小さい方を上面、大きい方を下面とする
+                    if ($selfId < $partnerId) {
+                        $topName = $c['card_name'];
+                        $bottomName = $c['partner_card_name'];
+                    } else {
+                        $topName = $c['partner_card_name'];
+                        $bottomName = $c['card_name'];
+                    }
+                }
+
+                $key = $isTwinpact ? "{$topName} / {$bottomName}" : $name;
+
+                if (!isset($cardMap[$key])) {
+                    $cardMap[$key] = [
+                        'display_name' => $key,
+                        'is_twinpact'  => $isTwinpact,
+                        'top_name'     => $topName,
+                        'bottom_name'  => $bottomName,
+                        'quantity'     => 0
+                    ];
+                }
+                $cardMap[$key]['quantity'] += $qty;
+            }
             $items = [];
             $totalPrice = 0;
             $notFoundCount = 0;
             $debugLog = []; // ★ デバッグ情報収集用
 
-            foreach ($cardQuantities as $name => $qty) {
-                // カード名クリーンアップ
-                $cleanName = explode('/', $name)[0];
-                $cleanName = preg_replace('/[・～〜「」『』【】“”"\'()（）]/u', ' ', $cleanName);
-                $cleanName = preg_replace('/\s+/', ' ', trim($cleanName));
+            foreach ($cardMap as $cardInfo) {
+                $qty = $cardInfo['quantity'];
+                $isTwinpact = $cardInfo['is_twinpact'];
 
-                $keyword = 'デュエルマスターズ ' . $cleanName;
-                
-                // パラメータ：新アクセスキー(pk_...)をセット
-                $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
+                // 記号除去用ヘルパー
+                $cleaner = function($str) {
+                    $s = explode('/', $str)[0];
+                    $s = preg_replace('/[・～〜「」『』【】“”"\'()（）]/u', ' ', $s);
+                    return preg_replace('/\s+/', ' ', trim($s));
+                };
+
+                $cleanTop = $cleaner($cardInfo['top_name']);
+                $cleanBottom = $isTwinpact ? $cleaner($cardInfo['bottom_name']) : '';
+
+                // ★ ツインパクトなら上面と下面の両方をキーワードに含める
+                if ($isTwinpact && !empty($cleanBottom)) {
+                    $keyword = "デュエルマスターズ {$cleanTop} {$cleanBottom}";
+                } else {
+                    $keyword = "デュエルマスターズ {$cleanTop}";
+                }
 
                 $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー スリーブセット';
+
+                $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
+
                 $queryParams = [
                     'applicationId' => $appId,
                     'accessKey'     => $accessKey,
@@ -832,12 +873,18 @@ public function myDecks() {
                         continue;
                     }
 
-                    // カード名が商品タイトルに含まれていることを確認（誤爆防止）
-                    if (mb_stripos($title, $cleanName) === false) {
-                        continue;
+                    // ツインパクトなら上面・下面両方の一致、通常なら上面の一致を確認
+                    if ($isTwinpact && !empty($cleanBottom)) {
+                        if (mb_stripos($title, $cleanTop) === false || mb_stripos($title, $cleanBottom) === false) {
+                            continue;
+                        }
+                    } else {
+                        if (mb_stripos($title, $cleanTop) === false) {
+                            continue;
+                        }
                     }
 
-                    // 最安順で最初に条件を満たした商品を採択
+                    // 条件を満たした最安商品を採択
                     $minPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
                     $affiliateUrl = $candidate['affiliateUrl'] ?? $candidate['itemUrl'] ?? '';
                     $itemName = $title;
@@ -849,40 +896,18 @@ public function myDecks() {
                     $notFoundCount++;
                 }
 
-                // 新旧レスポンス構造の差異（Items / results / itemPrice）に柔軟に対応
-                $firstItem = null;
-                if (!empty($data['Items'][0]['Item'])) {
-                    $firstItem = $data['Items'][0]['Item'];
-                } elseif (!empty($data['Items'][0])) {
-                    $firstItem = $data['Items'][0];
-                } elseif (!empty($data['items'][0])) {
-                    $firstItem = $data['items'][0];
-                }
-
-                if ($httpCode === 200 && $firstItem) {
-                    $minPrice = (int)($firstItem['itemPrice'] ?? $firstItem['price'] ?? 0);
-                    $affiliateUrl = $firstItem['affiliateUrl'] ?? $firstItem['itemUrl'] ?? '';
-                    $itemName = $firstItem['itemName'] ?? $firstItem['title'] ?? '';
-                    $totalPrice += ($minPrice * $qty);
-                } else {
-                    $notFoundCount++;
-                }
-
-                // 各カードごとの通信デバッグログを記録
+                // デバッグログ
                 $debugLog[] = [
-                    'card_name'       => $name,
+                    'card_name'       => $cardInfo['display_name'],
                     'search_keyword'  => $keyword,
                     'http_code'       => $httpCode,
-                    'request_url'     => $url, // ★ この行を追加（ブラウザで直接開いて確認用）
-                    'raw_response'    => $responseBody, // ★ 生のAPI返却内容をそのまま確認
-                    'curl_error'      => $curlErr ?: null,
-                    'api_error'       => $data['error'] ?? null,
-                    'api_description' => $data['error_description'] ?? null,
-                    'hit_count'       => $data['count'] ?? 0,
-                    'first_item'      => $itemName ?: null
+                    'hit_count'       => count($itemList),
+                    'picked_item'     => $itemName ?: null
                 ];
+
+                // 査定結果アイテム
                 $items[] = [
-                    'card_name'     => $name,
+                    'card_name'     => $cardInfo['display_name'],
                     'quantity'      => $qty,
                     'price'         => $minPrice,
                     'subtotal'      => $minPrice !== null ? ($minPrice * $qty) : null,
