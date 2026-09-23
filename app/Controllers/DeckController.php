@@ -725,14 +725,14 @@ public function myDecks() {
             exit;
         }
 
-        $appId = trim($_ENV['RAKUTEN_APP_ID'] ?? $_SERVER['RAKUTEN_APP_ID'] ?? getenv('RAKUTEN_APP_ID') ?: '');
+        $appId = trim($_ENV['RAKUTEN_APP_ID'] ?? $_SERVER['RAKUTEN_APP_ID'] ?? getenv('RAKUTEN_APP_ID') ?: '5e43be83-582b-4e0c-aca5-a2a2cdab185d');
+        $accessKey = trim($_ENV['RAKUTEN_ACCESS_KEY'] ?? $_SERVER['RAKUTEN_ACCESS_KEY'] ?? getenv('RAKUTEN_ACCESS_KEY') ?: 'pk_6YPrWKh1sowRK0R3SSZQDvsmzoPzPZtgIytCQoajcwj');
         $affiliateId = trim($_ENV['RAKUTEN_AFFILIATE_ID'] ?? $_SERVER['RAKUTEN_AFFILIATE_ID'] ?? getenv('RAKUTEN_AFFILIATE_ID') ?: '');
 
         // アフィリエイトIDが未設定・ダミーの場合は除外
         if (empty($affiliateId) || str_contains($affiliateId, 'YOUR_')) {
             $affiliateId = null;
         }
-
         // アプリIDが取得できていない場合は即座に分かりやすいエラーを返す
         if (empty($appId)) {
             http_response_code(500);
@@ -776,17 +776,18 @@ public function myDecks() {
                 $keyword = 'デュエルマスターズ ' . $cleanName;
                 
                 // パラメータ：新アクセスキー(pk_...)をセット
-$apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
+                $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
 
                 $queryParams = [
-                    'accessKey'     => $appId, // 新APIキー (pk_...)
+                    'applicationId' => $appId,
+                    'accessKey'     => $accessKey,
                     'keyword'       => $keyword,
                     'sort'          => '+itemPrice',
                     'hits'          => 1,
                     'minPrice'      => 10,
                 ];
 
-                if (!empty($affiliateId) && !str_contains($affiliateId, 'YOUR_')) {
+                if (!empty($affiliateId)) {
                     $queryParams['affiliateId'] = $affiliateId;
                 }
 
@@ -803,7 +804,7 @@ $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/2026
                     CURLOPT_HTTPHEADER     => [
                         'Origin: https://due-muscle.up.railway.app',
                         'Referer: https://due-muscle.up.railway.app/',
-                        'Authorization: Bearer ' . $appId
+                        'Authorization: Bearer ' . $accessKey
                     ]
                 ]);
                 $responseBody = curl_exec($ch);
