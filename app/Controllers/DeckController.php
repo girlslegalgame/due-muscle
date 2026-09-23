@@ -725,13 +725,13 @@ public function myDecks() {
             exit;
         }
 
-        $appId = getenv('RAKUTEN_APP_ID') ?: '5e43be83-582b-4e0c-aca5-a2a2cdab185d';
-        $affiliateId = getenv('RAKUTEN_AFFILIATE_ID') ?: '57d28241.889368b8.57d28242.8a513cfa';
+        $appId = trim('5e43be83-582b-4e0c-aca5-a2a2cdab185d');
+        $affiliateId = trim('57d28241.889368b8.57d28242.8a513cfa');
 
-        if (empty($affiliateId) || $affiliateId === 'YOUR_RAKUTEN_AFFILIATE_ID') {
+        // アフィリエイトIDが未設定・ダミーの場合は除外
+        if (empty($affiliateId) || str_contains($affiliateId, 'YOUR_')) {
             $affiliateId = null;
         }
-
         try {
             $pdo = Database::connect();
             $deckModel = new Deck($pdo);
@@ -812,13 +812,13 @@ public function myDecks() {
                     'card_name'       => $name,
                     'search_keyword'  => $keyword,
                     'http_code'       => $httpCode,
+                    'request_url'     => $url, // ★ この行を追加（ブラウザで直接開いて確認用）
                     'curl_error'      => $curlErr ?: null,
                     'api_error'       => $data['error'] ?? null,
                     'api_description' => $data['error_description'] ?? null,
                     'hit_count'       => $data['count'] ?? 0,
                     'first_item'      => $itemName ?: null
                 ];
-
                 $items[] = [
                     'card_name'     => $name,
                     'quantity'      => $qty,
