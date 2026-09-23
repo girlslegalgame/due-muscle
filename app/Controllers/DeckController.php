@@ -801,7 +801,7 @@ public function myDecks() {
             $debugLog = [];
 
             $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
-            $ngKeywords = 'スリーブ "ス リーブ" プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー キャラスリ';
+            $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー キャラスリ';
             $ngTitlePattern = '/(ス\s*リーブ|カードス\s*リーブ|プレイマット|ラバーマット|デッキケース|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ|プロテクト|DXカード)/ui';
 
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
