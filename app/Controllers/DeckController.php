@@ -725,12 +725,22 @@ public function myDecks() {
             exit;
         }
 
-        $appId = trim('5e43be83-582b-4e0c-aca5-a2a2cdab185d');
-        $affiliateId = trim('57d28241.889368b8.57d28242.8a513cfa');
+        $appId = trim($_ENV['RAKUTEN_APP_ID'] ?? $_SERVER['RAKUTEN_APP_ID'] ?? getenv('RAKUTEN_APP_ID') ?: '');
+        $affiliateId = trim($_ENV['RAKUTEN_AFFILIATE_ID'] ?? $_SERVER['RAKUTEN_AFFILIATE_ID'] ?? getenv('RAKUTEN_AFFILIATE_ID') ?: '');
 
         // アフィリエイトIDが未設定・ダミーの場合は除外
         if (empty($affiliateId) || str_contains($affiliateId, 'YOUR_')) {
             $affiliateId = null;
+        }
+
+        // アプリIDが取得できていない場合は即座に分かりやすいエラーを返す
+        if (empty($appId)) {
+            http_response_code(500);
+            echo json_encode([
+                'success' => false,
+                'error' => 'Railwayの環境変数に「RAKUTEN_APP_ID」が設定されていません。RailwayダッシュボードのVariablesを確認してください。'
+            ], JSON_UNESCAPED_UNICODE);
+            exit;
         }
         try {
             $pdo = Database::connect();
