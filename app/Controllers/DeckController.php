@@ -842,6 +842,7 @@ $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/2026
                     'search_keyword'  => $keyword,
                     'http_code'       => $httpCode,
                     'request_url'     => $url, // ★ この行を追加（ブラウザで直接開いて確認用）
+                    'raw_response'    => $responseBody, // ★ 生のAPI返却内容をそのまま確認
                     'curl_error'      => $curlErr ?: null,
                     'api_error'       => $data['error'] ?? null,
                     'api_description' => $data['error_description'] ?? null,
