@@ -821,7 +821,7 @@ public function myDecks() {
                 $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
 
                 $norm = function($str) {
-                    return mb_strtolower(preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/]/u', '', $str));
+                    return mb_strtolower(preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/]/u', '', (string)$str));
                 };
                 $normTop = $norm($cardInfo['top_name']);
                 $normBottom = $isTwinpact ? $norm($cardInfo['bottom_name']) : '';
@@ -852,24 +852,36 @@ public function myDecks() {
 
                 $url = $apiBaseUrl . '?' . http_build_query($queryParams);
                 
-                // cURLで通信
-                $ch = curl_init();
-                curl_setopt_array($ch, [
-                    CURLOPT_URL            => $url,
-                    CURLOPT_RETURNTRANSFER => true,
-                    CURLOPT_TIMEOUT        => 8,
-                    CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-                    CURLOPT_HTTPHEADER     => [
-                        'Origin: https://due-muscle.up.railway.app',
-                        'Referer: https://due-muscle.up.railway.app/',
-                        'Authorization: Bearer ' . $accessKey
-                    ]
-                ]);
-                $responseBody = curl_exec($ch);
-                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                $curlErr  = curl_error($ch);
-                curl_close($ch);
+                $maxRetries = 2;
+                $httpCode = 0;
+                $responseBody = '';
+
+                
+                for ($attempt = 0; $attempt <= $maxRetries; $attempt++) {
+                    $ch = curl_init();
+                    curl_setopt_array($ch, [
+                        CURLOPT_URL            => $url,
+                        CURLOPT_RETURNTRANSFER => true,
+                        CURLOPT_TIMEOUT        => 8,
+                        CURLOPT_SSL_VERIFYPEER => false,
+                        CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                        CURLOPT_HTTPHEADER     => [
+                            'Origin: https://due-muscle.up.railway.app',
+                            'Referer: https://due-muscle.up.railway.app/',
+                            'Authorization: Bearer ' . $accessKey
+                        ]
+                    ]);
+                    $responseBody = curl_exec($ch);
+                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                    curl_close($ch);
+
+                    // 429（制限）になったら1.2秒待って再試行
+                    if ($httpCode === 429) {
+                        usleep(1200000);
+                        continue;
+                    }
+                    break;
+                }
 
                 $data = $responseBody ? json_decode($responseBody, true) : null;
 
@@ -883,7 +895,7 @@ public function myDecks() {
                 foreach ($itemList as $rawItem) {
                     $candidate = $rawItem['Item'] ?? $rawItem;
                     $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
-
+                    $normTitle = $norm($title); // ★ 確実に定義
                     // サプライ系ワードが含まれていたらスキップ
                     if (preg_match($ngTitlePattern, $title)) {
                         continue;
@@ -940,7 +952,7 @@ public function myDecks() {
                     'item_title'    => $itemName,
                 ];
 
-                usleep(250000);
+                usleep(1100000);
             }
 
             echo json_encode([
