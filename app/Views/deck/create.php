@@ -1382,6 +1382,18 @@
             <div class="filter-group">
                 <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin-bottom: 8px;">収録商品</label>
                 <div id="goods-trigger" class="select-trigger" onclick="openSubModal('goods')">収録商品を選択</div>
+            </div>
+            <!-- ★追加：ツインパクト絞り込みグループ -->
+            <div class="filter-group">
+                <label>ツインパクト</label>
+                <div style="display: flex; gap: 15px;">
+                    <label style="font-size: 13px; font-weight: normal; margin: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <input type="checkbox" id="filter-twinpact-only" onchange="toggleTwinpactExclusive('only')"> ツインパクトカードのみ
+                    </label>
+                    <label style="font-size: 13px; font-weight: normal; margin: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <input type="checkbox" id="filter-twinpact-exclude" onchange="toggleTwinpactExclusive('exclude')"> ツインパクトカードを除く
+                    </label>
+                </div>
             </div>            
             <!-- レギュレーショングループ -->
             <div class="filter-group" style="margin: 0;">
@@ -1649,12 +1661,13 @@ const input = document.getElementById('card-search-input');
 let currentFilters = { 
     q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
     pow_min: '', pow_max: '', races: [], abilities: [], 
-    characteristics: [], cardtypes: [], // ★特殊タイプとカードタイプを追加
+    characteristics: [], cardtypes: [],
     goods: [],
     race_logic: 'OR', ability_logic: 'OR', 
-    characteristic_logic: 'OR', cardtype_logic: 'OR', // ★ロジックを追加
-    reg: [] ,
-    civ_type: '', civ_match_type: 'include', exclude_civs: []
+    characteristic_logic: 'OR', cardtype_logic: 'OR',
+    reg: [],
+    civ_type: '', civ_match_type: 'include', exclude_civs: [],
+    twinpact: '' // ★追加: 'only', 'exclude', ''
 };
 let currentOffset = 0, isFetching = false, hasMoreCards = true;
 let searchTimeout = null, abortController = null;
@@ -2580,6 +2593,10 @@ function fetchAndRender() {
     if (currentFilters.cardtypes.length) p.append('cardtypes', currentFilters.cardtypes.join(','));
     p.append('cardtype_logic', currentFilters.cardtype_logic);
 
+    if (currentFilters.twinpact) {
+        p.append('twinpact', currentFilters.twinpact);
+    }
+        
     if (currentFilters.reg.length) p.append('reg', currentFilters.reg.join(','));
     p.append('offset', currentOffset);
 
@@ -2718,6 +2735,15 @@ function toggleFilterCivType() {
     const excludeArea = document.getElementById('filter-exclude-civ-area');
     excludeArea.style.display = isMulti ? 'grid' : 'none'; // ★ 'flex' から 'grid' に修正
 }
+
+function toggleTwinpactExclusive(type) {
+    if (type === 'only' && document.getElementById('filter-twinpact-only').checked) {
+        document.getElementById('filter-twinpact-exclude').checked = false;
+    } else if (type === 'exclude' && document.getElementById('filter-twinpact-exclude').checked) {
+        document.getElementById('filter-twinpact-only').checked = false;
+    }
+}
+
 function applyFilters() {
     currentFilters.civs = Array.from(document.querySelectorAll('.civ-check:checked')).map(el => el.value);
     
@@ -2745,6 +2771,14 @@ function applyFilters() {
     currentFilters.characteristic_logic = document.querySelector('input[name="characteristic_logic"]:checked').value;
     currentFilters.cardtypes = Array.from(document.querySelectorAll('.cardtype-check:checked')).map(el => el.value);
     currentFilters.cardtype_logic = document.querySelector('input[name="cardtype_logic"]:checked').value;
+
+    if (document.getElementById('filter-twinpact-only').checked) {
+        currentFilters.twinpact = 'only';
+    } else if (document.getElementById('filter-twinpact-exclude').checked) {
+        currentFilters.twinpact = 'exclude';
+    } else {
+        currentFilters.twinpact = '';
+    }
 
     currentFilters.reg = Array.from(document.querySelectorAll('.reg-check:checked')).map(el => el.value);
     
@@ -2776,8 +2810,10 @@ function clearAllFilters() {
         goods: [],
         race_logic: 'OR', ability_logic: 'OR', reg: [],
         characteristic_logic: 'OR', cardtype_logic: 'OR',
-        civ_type: '', civ_match_type: 'include', exclude_civs: []
+        civ_type: '', civ_match_type: 'include', exclude_civs: [],
+        twinpact: '' // ★追加
     };
+    
     clearSubSelection('race');
     clearSubSelection('ability');
     clearSubSelection('characteristics');

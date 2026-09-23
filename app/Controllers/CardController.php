@@ -32,6 +32,7 @@ class CardController {
         $characteristicLogic = $_GET['characteristic_logic'] ?? 'OR';
         $cardtypeLogic = $_GET['cardtype_logic'] ?? 'OR';
         $goods = isset($_GET['goods']) ? explode(',', $_GET['goods']) : [];
+        $twinpact = $_GET['twinpact'] ?? ''; // ★追加
         $limit = 50;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -180,24 +181,33 @@ if ($q !== '') {
                 }
             }
 
-            // === 【修正】多色カードから除外する文明の連動 ===
+            // === 【修正】多色カードから除外する文明の連動（ツインパクト等の全構成面を含めて除外） ===
             if (!empty($excludeCivs)) {
                 $hasExcludeZero = in_array(6, $excludeCivs);
                 $otherExcludeCivs = array_filter($excludeCivs, function($v) { return $v != 6; });
                 
+                // 自カード、または同一combination_idを持つすべてのカードが該当するかチェックする条件句
+                $targetCardCond = "cc.card_id = c_search.card_id 
+                    OR cc.card_id IN (
+                        SELECT ccb_sub.card_id 
+                        FROM card_combination ccb_main 
+                        JOIN card_combination ccb_sub ON ccb_main.combination_id = ccb_sub.combination_id 
+                        WHERE ccb_main.card_id = c_search.card_id
+                    )";
+
                 if (!empty($otherExcludeCivs)) {
                     $excludeList = implode(',', array_map('intval', $otherExcludeCivs));
                     if ($hasExcludeZero) {
-                        // 他の文明を除外、かつ無色も除外（＝文明テーブルにレコードが存在し、指定された文明でも6でもないカードのみを許可）
-                        $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id)";
-                        $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id IN ($excludeList, 6))";
+                        // 他の文明を除外、かつ無色も除外
+                        $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond))";
+                        $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond) AND cc.civilization_id IN ($excludeList, 6))";
                     } else {
-                        $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id IN ($excludeList))";
+                        $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond) AND cc.civilization_id IN ($excludeList))";
                     }
                 } elseif ($hasExcludeZero) {
-                    // 無色（レコードなし、またはレコード6）のみを除外（＝文明テーブルにレコードが少なくとも1つ存在し、かつ6ではないカードのみを許可）
-                    $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id)";
-                    $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id = 6)";
+                    // 無色（ID: 6）のみを除外
+                    $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond))";
+                    $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond) AND cc.civilization_id = 6)";
                 }
             }
             
@@ -265,6 +275,12 @@ if ($q !== '') {
                 $searchSql .= " AND cd_search.goods_id IN ($goodsList)";
             }
             
+            if ($twinpact === 'only') {
+                $searchSql .= " AND cd_search.twinpact = 1";
+            } elseif ($twinpact === 'exclude') {
+                $searchSql .= " AND (cd_search.twinpact = 0 OR cd_search.twinpact IS NULL)";
+            }
+
             // フィルター条件が何も指定されていないかを判定
             $isFiltered = (
                 $q !== '' 
@@ -281,6 +297,7 @@ if ($q !== '') {
                 || !empty($cardtypes) 
                 || !empty($regulations)
                 || !empty($goods)
+                || $twinpact !== '' // ★追加
             );
 
             // 共通の洗練されたソート順：
