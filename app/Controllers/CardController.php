@@ -340,6 +340,11 @@ if ($q !== '') {
                 $stmt->bindValue($key, $val, is_int($val) ? PDO::PARAM_INT : PDO::PARAM_STR);
             }
 
+            // ★追加: デバッグ用SQLとパラメータをヘッダーに乗せて返却
+            $debugParams = array_merge($params, [':limit' => $limit, ':offset' => $offset]);
+            header('X-Debug-Sql: ' . rawurlencode(preg_replace('/\s+/', ' ', trim($sql))));
+            header('X-Debug-Params: ' . rawurlencode(json_encode($debugParams, JSON_UNESCAPED_UNICODE)));
+
             $stmt->execute();
             header('Content-Type: application/json');
             echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));

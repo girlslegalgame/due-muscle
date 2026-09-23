@@ -1661,6 +1661,7 @@ let searchTimeout = null, abortController = null;
 
 // モーダル・カード情報管理
 let selectedCardData = null, allVersions = [], activeClickedElement = null;
+let isSubmittingDeck = false; // ★追加：送信中の多重送信防止フラグ
 
 /**
  * 画像パス生成 (通常・両面対応)
@@ -2583,7 +2584,20 @@ function fetchAndRender() {
     p.append('offset', currentOffset);
 
     fetch('/api/cards?' + p.toString(), { signal: abortController.signal })
-        .then(res => res.json())
+        .then(res => {
+            // ★追加: デバッグ用ヘッダーがあればコンソールにSQLとパラメータを出力
+            const debugSql = res.headers.get('X-Debug-Sql');
+            const debugParams = res.headers.get('X-Debug-Params');
+            if (debugSql) {
+                console.group('🔍 [カード検索 SQLデバッグ]');
+                console.log('SQL:', decodeURIComponent(debugSql));
+                if (debugParams) {
+                    console.log('Parameters:', JSON.parse(decodeURIComponent(debugParams)));
+                }
+                console.groupEnd();
+            }
+            return res.json();
+        })
         .then(data => {
             if (currentOffset === 0) resultsDiv.innerHTML = '';
             if (data.length === 0 && currentOffset === 0) {
@@ -2871,6 +2885,9 @@ function setThumbnail(cardId, imagepath) {
 }
 
 function submitDeckSave() {
+    // ★追加: 既に送信中であれば処理を中断
+    if (isSubmittingDeck) return;
+
     const name = document.getElementById('save-deck-name').value.trim();
     const formatSelect = document.getElementById('save-deck-format');
     const formatId = formatSelect ? formatSelect.value : null;
@@ -2892,6 +2909,14 @@ function submitDeckSave() {
 
     const allCards = [...mainCards, ...superDimCards, ...grCards, ...specialCards];    
     if (!allCards.length) return alert("カードを1枚以上入れてください。");
+
+    // ★追加: モーダル内の保存ボタンを取得して無効化＆文言変更
+    const submitBtn = document.querySelector('#deckSaveModal button[onclick="submitDeckSave()"]');
+    isSubmittingDeck = true;
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = '保存中...';
+    }
 
     const payload = { 
         deck_id: deckId, 
@@ -2929,11 +2954,23 @@ function submitDeckSave() {
             window.location.href = '/mydecks'; 
         } else { 
             alert("保存に失敗しました: " + data.error); 
+            // ★追加: 失敗した場合はボタン状態を復元
+            isSubmittingDeck = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = '保存する';
+            }
         }
     })
     .catch(err => {
         if (err.message !== "REDIRECTED_TO_LOGIN") {
             console.error(err);
+            // ★追加: 通信エラー等の場合もボタン状態を復元
+            isSubmittingDeck = false;
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerText = '保存する';
+            }
         }
     });
 }
