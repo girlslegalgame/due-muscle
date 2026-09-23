@@ -713,6 +713,9 @@ public function myDecks() {
      * 楽天市場APIを用いたデッキ価格査定API
      */
     public function estimatePriceApi() {
+        // ★ タイムアウトを120秒に延長（60枚デッキ等の長時間のAPI呼び出しに対応）
+        set_time_limit(120);
+
         header('Content-Type: application/json; charset=utf-8');
 
         $deckId = $_GET['deck_id'] ?? null;
@@ -722,7 +725,6 @@ public function myDecks() {
             exit;
         }
 
-        // 楽天API設定
         $appId = getenv('RAKUTEN_APP_ID') ?: 'YOUR_RAKUTEN_APP_ID';
         $affiliateId = getenv('RAKUTEN_AFFILIATE_ID') ?: 'YOUR_RAKUTEN_AFFILIATE_ID';
 
@@ -731,7 +733,6 @@ public function myDecks() {
             $deckModel = new Deck($pdo);
             $cards = $deckModel->getCardsByDeckId((int)$deckId);
 
-            // メインデッキのカードのみ抽出
             $mainCards = array_filter($cards, function($c) {
                 $isSpecial = ($c['card_type_in_deck'] ?? '') === 'special' 
                     || (isset($c['card_name']) && (str_contains($c['card_name'], 'ドルマゲドン') || str_contains($c['card_name'], '零龍')));
@@ -740,7 +741,6 @@ public function myDecks() {
                 return empty($type) || $type === 'main';
             });
 
-            // カード名ごとに枚数を集約
             $cardQuantities = [];
             foreach ($mainCards as $c) {
                 $name = trim($c['card_name']);
@@ -753,17 +753,25 @@ public function myDecks() {
             $notFoundCount = 0;
 
             foreach ($cardQuantities as $name => $qty) {
-                // デュエルマスターズ + カード名で最安順(+itemPrice)検索
-                $keyword = 'デュエルマスターズ ' . $name;
-                $url = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?' . http_build_query([
+                // ★ カード名のクリーンアップ（ツインパクトは上面のみ、記号等を除去してヒット率を最大化）
+                $cleanName = explode('/', $name)[0]; // ツインパクトならスラッシュ前を採用
+                $cleanName = preg_replace('/[・～〜「」『』【】“”"\'()（）]/u', ' ', $cleanName);
+                $cleanName = preg_replace('/\s+/', ' ', trim($cleanName));
+
+                // 「デュエルマスターズ」と整形したカード名で検索
+                $keyword = 'デュエルマスターズ ' . $cleanName;
+                $queryParams = [
                     'applicationId' => $appId,
-                    'affiliateId'   => $affiliateId,
                     'keyword'       => $keyword,
-                    'genreId'       => '101164', // ホビー > トレーディングカード・テレカ > トレーディングカードゲーム
                     'sort'          => '+itemPrice',
                     'hits'          => 1,
                     'minPrice'      => 10,
-                ]);
+                ];
+                if (!empty($affiliateId)) {
+                    $queryParams['affiliateId'] = $affiliateId;
+                }
+
+                $url = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?' . http_build_query($queryParams);
 
                 $ctx = stream_context_create([
                     'http' => ['ignore_errors' => true, 'timeout' => 5]
@@ -794,8 +802,7 @@ public function myDecks() {
                     'item_title'    => $itemName,
                 ];
 
-                // 楽天APIの秒間リクエスト制限対策
-                usleep(300000); // 0.3秒ウェイト
+                usleep(250000); // 0.25秒ウェイト
             }
 
             echo json_encode([

@@ -655,6 +655,17 @@ let modalFaHandCount = 5;
 function openDeckModal(deckId, deckName) {
     currentDeckId = deckId; // ★この行を追加（デッキIDを保持）
 
+    const priceResult = document.getElementById('price-estimate-result');
+    const priceLoading = document.getElementById('price-estimate-loading');
+    const priceTbody = document.getElementById('price-card-list-body');
+    const btnEstimate = document.getElementById('btn-start-estimate');
+    if (priceResult) priceResult.style.display = 'none';
+    if (priceLoading) priceLoading.style.display = 'none';
+    if (priceTbody) priceTbody.innerHTML = '';
+    if (btnEstimate) {
+        btnEstimate.disabled = false;
+        btnEstimate.style.opacity = '1';
+    }    
     document.getElementById('modal-deck-title').innerText = deckName;
     const mainList = document.getElementById('modal-main-list');
     mainList.innerHTML = '読み込み中...';
@@ -823,7 +834,15 @@ function runPriceEstimate() {
     resultArea.style.display = 'none';
 
     fetch('/api/decks/estimate-price?deck_id=' + currentDeckId)
-        .then(res => res.json())
+        .then(async res => {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error('Server Response:', text);
+                throw new Error('サーバーエラーが発生しました。タイムアウトまたは設定を確認してください。');
+            }
+        })
         .then(data => {
             if (!data.success) {
                 alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
