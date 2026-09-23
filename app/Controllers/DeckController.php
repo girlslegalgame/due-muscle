@@ -708,4 +708,107 @@ public function myDecks() {
         }
         exit;
     }
+
+    /**
+     * 楽天市場APIを用いたデッキ価格査定API
+     */
+    public function estimatePriceApi() {
+        header('Content-Type: application/json; charset=utf-8');
+
+        $deckId = $_GET['deck_id'] ?? null;
+        if (!$deckId) {
+            http_response_code(400);
+            echo json_encode(['error' => 'Deck ID is required']);
+            exit;
+        }
+
+        // 楽天API設定
+        $appId = getenv('RAKUTEN_APP_ID') ?: 'YOUR_RAKUTEN_APP_ID';
+        $affiliateId = getenv('RAKUTEN_AFFILIATE_ID') ?: 'YOUR_RAKUTEN_AFFILIATE_ID';
+
+        try {
+            $pdo = Database::connect();
+            $deckModel = new Deck($pdo);
+            $cards = $deckModel->getCardsByDeckId((int)$deckId);
+
+            // メインデッキのカードのみ抽出
+            $mainCards = array_filter($cards, function($c) {
+                $isSpecial = ($c['card_type_in_deck'] ?? '') === 'special' 
+                    || (isset($c['card_name']) && (str_contains($c['card_name'], 'ドルマゲドン') || str_contains($c['card_name'], '零龍')));
+                if ($isSpecial) return false;
+                $type = $c['card_type_in_deck'] ?? 'main';
+                return empty($type) || $type === 'main';
+            });
+
+            // カード名ごとに枚数を集約
+            $cardQuantities = [];
+            foreach ($mainCards as $c) {
+                $name = trim($c['card_name']);
+                $qty = (int)($c['quantity'] ?? 1);
+                $cardQuantities[$name] = ($cardQuantities[$name] ?? 0) + $qty;
+            }
+
+            $items = [];
+            $totalPrice = 0;
+            $notFoundCount = 0;
+
+            foreach ($cardQuantities as $name => $qty) {
+                // デュエルマスターズ + カード名で最安順(+itemPrice)検索
+                $keyword = 'デュエルマスターズ ' . $name;
+                $url = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?' . http_build_query([
+                    'applicationId' => $appId,
+                    'affiliateId'   => $affiliateId,
+                    'keyword'       => $keyword,
+                    'genreId'       => '101164', // ホビー > トレーディングカード・テレカ > トレーディングカードゲーム
+                    'sort'          => '+itemPrice',
+                    'hits'          => 1,
+                    'minPrice'      => 10,
+                ]);
+
+                $ctx = stream_context_create([
+                    'http' => ['ignore_errors' => true, 'timeout' => 5]
+                ]);
+                $resJson = @file_get_contents($url, false, $ctx);
+                $data = $resJson ? json_decode($resJson, true) : null;
+
+                $minPrice = null;
+                $affiliateUrl = '';
+                $itemName = '';
+
+                if (!empty($data['Items'][0]['Item'])) {
+                    $item = $data['Items'][0]['Item'];
+                    $minPrice = (int)$item['itemPrice'];
+                    $affiliateUrl = $item['affiliateUrl'] ?? $item['itemUrl'];
+                    $itemName = $item['itemName'];
+                    $totalPrice += ($minPrice * $qty);
+                } else {
+                    $notFoundCount++;
+                }
+
+                $items[] = [
+                    'card_name'     => $name,
+                    'quantity'      => $qty,
+                    'price'         => $minPrice,
+                    'subtotal'      => $minPrice !== null ? ($minPrice * $qty) : null,
+                    'affiliate_url' => $affiliateUrl,
+                    'item_title'    => $itemName,
+                ];
+
+                // 楽天APIの秒間リクエスト制限対策
+                usleep(300000); // 0.3秒ウェイト
+            }
+
+            echo json_encode([
+                'success'        => true,
+                'total_price'    => $totalPrice,
+                'cards'          => $items,
+                'not_found_cards'=> $notFoundCount
+            ], JSON_UNESCAPED_UNICODE);
+
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        exit;
+    }
 }

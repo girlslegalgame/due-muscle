@@ -449,6 +449,7 @@
             <div id="tab-main" class="tab-item active" onclick="switchTab('main')">メイン</div>
             <div id="tab-extra" class="tab-item" onclick="switchTab('extra')">GR / 超次元 / 特殊</div>
             <div id="tab-analysis" class="tab-item" onclick="switchTab('analysis')">分析</div>
+            <div id="tab-price" class="tab-item" onclick="switchTab('price')">価格査定</div>
         </div>
 
         <div class="scroll-area">
@@ -576,6 +577,43 @@
                         <span id="modal-fa-hand-val" style="font-size: 18px; font-weight: bold; min-width: 25px; text-align: center;">5</span>
                         <button class="modal-btn-hand-qty" onclick="adjustModalFaHand(1)">+</button>
                     </div>
+                </div>
+            </div>
+            <!-- デッキ価格査定 -->
+            <div id="content-price" class="tab-content">
+                <div style="text-align: center; margin-bottom: 15px;">
+                    <button id="btn-start-estimate" class="modal-btn-fa-setup" style="padding: 8px 24px;" onclick="runPriceEstimate()">
+                        楽天市場で最安値を査定する
+                    </button>
+                </div>
+
+                <!-- ローディング表示 -->
+                <div id="price-estimate-loading" style="display: none; text-align: center; padding: 30px 0; color: #666;">
+                    <p style="font-weight: bold; margin-bottom: 5px;">楽天市場から最安値情報を取得しています...</p>
+                    <p style="font-size: 0.85rem; color: #999;">（カードの種類数に応じて十数秒かかる場合があります）</p>
+                </div>
+
+                <!-- 査定結果表示エリア -->
+                <div id="price-estimate-result" style="display: none;">
+                    <div style="background: #eef9f1; border: 1px solid #b7ebc5; border-radius: 8px; padding: 15px; margin-bottom: 15px; text-align: center;">
+                        <span style="font-size: 0.95rem; color: #333;">デッキ最安合計金額（概算）: </span>
+                        <span id="deck-total-price" style="font-size: 1.8rem; font-weight: bold; color: #d9534f; margin-left: 8px;">0</span>
+                        <span style="font-size: 1.1rem; font-weight: bold; color: #d9534f;"> 円</span>
+                        <div id="price-not-found-warn" style="font-size: 0.8rem; color: #888; margin-top: 4px;"></div>
+                    </div>
+
+                    <table class="analysis-table" style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; padding-left: 8px;">カード名</th>
+                                <th style="width: 50px;">枚数</th>
+                                <th style="width: 80px;">最安単価</th>
+                                <th style="width: 80px;">小計</th>
+                                <th style="width: 70px;">リンク</th>
+                            </tr>
+                        </thead>
+                        <tbody id="price-card-list-body"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -759,7 +797,7 @@ function initCharts(cards) {
 }
 
 function switchTab(type) {
-    const types = ['main', 'extra', 'analysis'];
+    const types = ['main', 'extra', 'analysis', 'price']; // ★ 'price' を追加
     types.forEach(t => {
         const tabEl = document.getElementById('tab-' + t);
         const contEl = document.getElementById('content-' + t);
@@ -767,9 +805,68 @@ function switchTab(type) {
         if(contEl) contEl.classList.toggle('active', t === type);
     });
     if (type === 'analysis') {
-        // 分析タブに切り替わった時、分析モードの表示切替を呼ぶ
         switchModalAnalysisMode();
     }
+}
+
+// デッキ価格査定の実行
+function runPriceEstimate() {
+    if (!currentDeckId) return;
+
+    const btn = document.getElementById('btn-start-estimate');
+    const loading = document.getElementById('price-estimate-loading');
+    const resultArea = document.getElementById('price-estimate-result');
+
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    loading.style.display = 'block';
+    resultArea.style.display = 'none';
+
+    fetch('/api/decks/estimate-price?deck_id=' + currentDeckId)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.success) {
+                alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
+                return;
+            }
+
+            document.getElementById('deck-total-price').innerText = Number(data.total_price).toLocaleString();
+            
+            const warnEl = document.getElementById('price-not-found-warn');
+            warnEl.innerText = data.not_found_cards > 0 ? `※ ${data.not_found_cards} 種のカードは楽天市場で見つかりませんでした（0円として計算）` : '';
+
+            const tbody = document.getElementById('price-card-list-body');
+            tbody.innerHTML = '';
+
+            data.cards.forEach(c => {
+                const tr = document.createElement('tr');
+                const priceStr = c.price !== null ? `¥${Number(c.price).toLocaleString()}` : '-';
+                const subtotalStr = c.subtotal !== null ? `¥${Number(c.subtotal).toLocaleString()}` : '-';
+                const linkHtml = c.affiliate_url 
+                    ? `<a href="${c.affiliate_url}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline; font-weight: bold;">購入</a>`
+                    : '<span style="color: #999;">-</span>';
+
+                tr.innerHTML = `
+                    <td style="text-align: left; padding: 6px 8px;">${c.card_name}</td>
+                    <td>${c.quantity}</td>
+                    <td>${priceStr}</td>
+                    <td style="font-weight: bold;">${subtotalStr}</td>
+                    <td>${linkHtml}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            resultArea.style.display = 'block';
+        })
+        .catch(err => {
+            alert('通信エラーが発生しました');
+            console.error(err);
+        })
+        .finally(() => {
+            loading.style.display = 'none';
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        });
 }
 
 function closeModal() {
