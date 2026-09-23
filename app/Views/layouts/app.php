@@ -147,7 +147,7 @@
                 <?php endif; ?>
             </a>
             <!-- ★修正: ログイン状態に応じてリンク先を動的に変更 -->
-            <a href="<?php echo isset($_SESSION['user_id']) ? '/account' : '/register'; ?>">アカウント</a>
+            <a href="<?php echo isset($_SESSION['user_id']) ? '/account' : '/login'; ?>">アカウント</a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                 <a href="/admin" style="color: #ffc107 !important; font-weight: bold;">管理者画面</a>
             <?php endif; ?>

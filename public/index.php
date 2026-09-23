@@ -16,6 +16,8 @@ spl_autoload_register(function ($class) {
     }
 });
 
+(new \Controllers\AuthController())->tryAutoLogin();
+
 // ルーティング設定を読み込む
 require_once __DIR__ . '/../app/routes.php';
 

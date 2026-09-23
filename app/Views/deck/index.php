@@ -23,8 +23,8 @@ try {
     left: -9999px;
     top: 0;
     width: 1200px;
-    background-color: #fff;
-    color: #000;
+    background-color: #000000; /* 背景を真っ黒に */
+    color: #ffffff;            /* 文字色を白に */
     font-family: sans-serif;
     padding: 30px;
     box-sizing: border-box;
@@ -35,7 +35,7 @@ try {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 2px solid #ccc;
+    border-bottom: 2px solid #333333; /* 暗めの境界線 */
     padding-bottom: 15px;
     margin-bottom: 20px;
 }
@@ -43,6 +43,7 @@ try {
     font-size: 2.2rem;
     font-weight: bold;
     margin: 0;
+    color: #ffffff;
 }
 .export-meta {
     text-align: right;
@@ -63,7 +64,7 @@ try {
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
 }
 /* 文明色マッピング */
 .bg-fire    { background-color: #e6193c; } 
@@ -75,7 +76,7 @@ try {
 
 .export-format {
     font-size: 1.2rem;
-    color: #444;
+    color: #cccccc; /* 黒背景で見やすい明るいグレー */
     font-weight: bold;
 }
 
@@ -97,9 +98,10 @@ try {
     font-size: 1.4rem;
     font-weight: bold;
     text-align: center;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid #333333; /* 暗めの境界線 */
     padding-bottom: 5px;
     margin: 0 0 15px 0;
+    color: #ffffff;
 }
 
 .export-card-grid {
@@ -118,8 +120,8 @@ try {
     aspect-ratio: 51 / 73;
     overflow: hidden;
     border-radius: 4px;
-    border: 1px solid #ddd;
-    background-color: #f5f5f5;
+    border: 1px solid #222222;
+    background-color: #111111;
 }
 .export-card-img {
     width: 100%;
@@ -134,11 +136,16 @@ try {
 .export-footer {
     text-align: center;
     margin-top: 30px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    color: #777;
-    letter-spacing: 2px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
+
+.export-footer-logo {
+    height: 45px;
+    object-fit: contain;
+}
+
 /* 公開状態切り替えボタン */
     .btn-deck-public-toggle {
         border: none;
@@ -768,7 +775,9 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
                     </div>
                 ` : ''}
             </div>
-            <div class="export-footer">⚡ DECK MAKER</div>
+            <div class="export-footer">
+                <img src="/images/logo.webp" class="export-footer-logo" alt="Logo">
+            </div>
         `;
 
         document.body.appendChild(exportContainer);

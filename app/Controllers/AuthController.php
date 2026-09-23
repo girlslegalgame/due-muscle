@@ -10,13 +10,22 @@ require_once __DIR__ . '/../Views/view_helper.php';
 
 class AuthController {
     
-    public function showRegisterForm($errors =[]) {
+    public function showRegisterForm($errors = []) {
+        if (isset($_SESSION['user_id'])) {
+            header('Location: /mydecks');
+            exit;
+        }
         renderView('auth/register.php', ['errors' => $errors]);
     }
 
     public function showLoginForm($errors = []) {
+        if (isset($_SESSION['user_id'])) {
+            header('Location: /mydecks');
+            exit;
+        }
         renderView('auth/login.php', ['errors' => $errors]);
     }
+    
     /**
      * Brevo API (HTTPS) を使用したメール送信
      * (SMTPが遮断される環境でも100%確実に届きます)
@@ -426,7 +435,7 @@ class AuthController {
      */
     public function showAccountForm() {
         if (!isset($_SESSION['user_id'])) {
-            header('Location: /register');
+            header('Location: /login');
             exit;
         }
 
@@ -518,50 +527,64 @@ class AuthController {
         }
     }
     /**
-     * ユーザーIDとパスワードハッシュからセキュアな端末識別用トークンを生成
+     * ユーザーID・パスワードハッシュ・有効期限からセキュアな端末識別用トークンを生成
      */
-    private function generateDeviceToken($userId, $passwordHash) {
-        $salt = "dm_deck_app_device_salt_9876"; // 任意のソルト文字列
-        return hash_hmac('sha256', $userId . '_' . $salt, $passwordHash);
+    private function generateDeviceToken($userId, $passwordHash, $expires) {
+        $salt = "dm_deck_app_device_salt_9876";
+        return hash_hmac('sha256', $userId . '_' . $expires . '_' . $salt, $passwordHash);
     }
 
     /**
-     * 端末識別用Cookieをブラウザに保存する（30日間有効）
+     * 端末識別用Cookieをブラウザに保存する（30日間有効・アクセス毎に延長）
      */
     private function saveDeviceCookie($userId, $passwordHash) {
-        $token = $this->generateDeviceToken($userId, $passwordHash);
+        $expires = time() + (30 * 24 * 60 * 60); // 30日後
+        $hash = $this->generateDeviceToken($userId, $passwordHash, $expires);
+        $cookieValue = $expires . ':' . $hash;
         $cookieName = "known_device_" . $userId;
-        
-        // 30日間有効。HttpOnly属性によりJavaScriptからの盗み見を防止
-        setcookie($cookieName, $token, [
-            'expires' => time() + (30 * 24 * 60 * 60),
+
+        setcookie($cookieName, $cookieValue, [
+            'expires' => $expires,
             'path' => '/',
-            'secure' => true,      // HTTPS環境（Railwayなど）で機能
-            'httponly' => true,    // セキュリティ対策（XSS防止）
+            'secure' => true,
+            'httponly' => true,
             'samesite' => 'Lax'
         ]);
     }
-
     /**
-     * この端末が「既知の端末」であるかチェックする
+     * この端末が「既知の端末」であるかチェックする（30日以内のアクセスか検証）
      */
     private function isKnownDevice($user) {
         $cookieName = "known_device_" . $user['user_id'];
         if (!isset($_COOKIE[$cookieName])) {
             return false;
         }
-        
-        $expectedToken = $this->generateDeviceToken($user['user_id'], $user['password_hash']);
-        // タイミング攻撃を防ぐため hash_equals で比較
-        return hash_equals($expectedToken, $_COOKIE[$cookieName]);
-    }
 
+        $parts = explode(':', $_COOKIE[$cookieName], 2);
+        if (count($parts) !== 2) {
+            return false;
+        }
+
+        list($expires, $token) = $parts;
+
+        // 30日以上アクセスがなかった場合（期限切れ）
+        if (time() > (int)$expires) {
+            return false;
+        }
+
+        $expectedToken = $this->generateDeviceToken($user['user_id'], $user['password_hash'], (int)$expires);
+        return hash_equals($expectedToken, $token);
+    }
     /**
-     * Cookieからセッションを自動復元、またはアクセス時にCookieの有効期限を30日後に延長する
-     * （共通のログインチェック処理や、認証が必要なページの遷移前に呼び出してください）
+     * セッションが切れている場合、Cookieから自動復元する
+     * （アクセスがあるたびに有効期限をさらに30日後へスライド更新します）
      */
     public function tryAutoLogin() {
-        // 既にセッションがある場合は、アクセスがあったためCookieの寿命を30日に延長（スライド）する
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+
+        // 既にセッションが存在する場合：アクセスがあったのでCookie期限を30日延長
         if (isset($_SESSION['user_id'])) {
             try {
                 $pdo = \Models\Database::connect();
@@ -577,28 +600,39 @@ class AuthController {
             return true;
         }
 
-        // セッションがない場合、ブラウザのCookieから自動ログインを試みる
+        // セッションが切れている場合：Cookieからセッションを復元
         foreach ($_COOKIE as $key => $value) {
             if (strpos($key, 'known_device_') === 0) {
                 $userId = (int)str_replace('known_device_', '', $key);
                 if ($userId > 0) {
                     try {
+                        $parts = explode(':', $value, 2);
+                        if (count($parts) !== 2) continue;
+
+                        list($expires, $token) = $parts;
+
+                        // 30日間アクセスがなければ無効化（自動ログインさせない）
+                        if (time() > (int)$expires) {
+                            continue;
+                        }
+
                         $pdo = \Models\Database::connect();
-                        $stmt = $pdo->prepare("SELECT user_id, username, password_hash, role FROM users WHERE user_id = :user_id"); // ★修正: roleも取得
+                        $stmt = $pdo->prepare("SELECT user_id, username, password_hash, role FROM users WHERE user_id = :user_id");
                         $stmt->execute([':user_id' => $userId]);
                         $user = $stmt->fetch();
 
-                        if ($user && hash_equals($this->generateDeviceToken($user['user_id'], $user['password_hash']), $value)) {
-                            // セッションを復元
-                            $_SESSION['user_id'] = $user['user_id'];
-                            $_SESSION['username'] = $user['username'];
-                            $_SESSION['role'] = $user['role'] ?? 'user'; // ★追加: 自動ログイン成功時にロールを保持
+                        if ($user) {
+                            $expectedToken = $this->generateDeviceToken($user['user_id'], $user['password_hash'], (int)$expires);
+                            if (hash_equals($expectedToken, $token)) {
+                                // セッションを静かに復元（リダイレクトは行わない）
+                                $_SESSION['user_id'] = $user['user_id'];
+                                $_SESSION['username'] = $user['username'];
+                                $_SESSION['role'] = $user['role'] ?? 'user';
 
-                            header('Location: /mydecks');
-                            
-                            // Cookieの有効期限をさらに30日後に延長
-                            $this->saveDeviceCookie($user['user_id'], $user['password_hash']);
-                            return true;
+                                // アクセスがあったため、有効期限を今日から30日後に延長
+                                $this->saveDeviceCookie($user['user_id'], $user['password_hash']);
+                                return true;
+                            }
                         }
                     } catch (\Exception $e) {
                         error_log("Auto Login Error: " . $e->getMessage());
