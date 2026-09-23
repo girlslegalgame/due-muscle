@@ -820,13 +820,29 @@ public function myDecks() {
 
                 $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
 
+                $norm = function($str) {
+                    return mb_strtolower(preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/]/u', '', $str));
+                };
+                $normTop = $norm($cardInfo['top_name']);
+                $normBottom = $isTwinpact ? $norm($cardInfo['bottom_name']) : '';
+
+                // 検索キーワード（ツインパクトも検索時は最も確実な上面名＋下面名）
+                $cleanTop = trim(preg_replace('/[・～〜「」『』【】“”"\'()（）\/]/u', ' ', $cardInfo['top_name']));
+                $cleanBottom = $isTwinpact ? trim(preg_replace('/[・～〜「」『』【】“”"\'()（）\/]/u', ' ', $cardInfo['bottom_name'])) : '';
+
+                if ($isTwinpact && !empty($cleanBottom)) {
+                    $keyword = "デュエマ {$cleanTop} {$cleanBottom}";
+                } else {
+                    $keyword = "デュエマ {$cleanTop}";
+                }
+                
                 $queryParams = [
                     'applicationId' => $appId,
                     'accessKey'     => $accessKey,
                     'keyword'       => $keyword,
                     'NGKeyword'     => $ngKeywords, // 楽天API公式の除外キーワード機能
                     'sort'          => '+itemPrice',
-                    'hits'          => 10,           // ★ 上位10件取得して精査
+                    'hits'          => 20,           // ★ 上位10件取得して精査
                     'minPrice'      => 10,
                 ];
 
@@ -862,25 +878,34 @@ public function myDecks() {
                 $itemName = '';
 
                 $itemList = $data['Items'] ?? $data['items'] ?? [];
-                $ngPattern = '/(スリーブ|プレイマット|デッキケース|ラバーマット|ストレージ|ファイル|バインダー|オリパ|くじ|未開封パック|未開封BOX)/u';
+                $ngTitlePattern = '/(スリーブ|プレイマット|デッキケース|ラバーマット|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック)/u';
 
                 foreach ($itemList as $rawItem) {
                     $candidate = $rawItem['Item'] ?? $rawItem;
                     $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
 
                     // サプライ系ワードが含まれていたらスキップ
-                    if (preg_match($ngPattern, $title)) {
+                    if (preg_match($ngTitlePattern, $title)) {
                         continue;
                     }
 
                     // ツインパクトなら上面・下面両方の一致、通常なら上面の一致を確認
-                    if ($isTwinpact && !empty($cleanBottom)) {
-                        if (mb_stripos($title, $cleanTop) === false || mb_stripos($title, $cleanBottom) === false) {
-                            continue;
+                    if ($isTwinpact && !empty($normBottom)) {
+                        if (str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
+                            $minPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
+                            $affiliateUrl = $candidate['affiliateUrl'] ?? $candidate['itemUrl'] ?? '';
+                            $itemName = $title;
+                            $totalPrice += ($minPrice * $qty);
+                            break;
                         }
                     } else {
-                        if (mb_stripos($title, $cleanTop) === false) {
-                            continue;
+                        // 通常カードは上面名の一致を確認
+                        if (str_contains($normTitle, $normTop)) {
+                            $minPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
+                            $affiliateUrl = $candidate['affiliateUrl'] ?? $candidate['itemUrl'] ?? '';
+                            $itemName = $title;
+                            $totalPrice += ($minPrice * $qty);
+                            break;
                         }
                     }
 
