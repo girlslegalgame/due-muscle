@@ -725,8 +725,12 @@ public function myDecks() {
             exit;
         }
 
-        $appId = getenv('RAKUTEN_APP_ID') ?: 'YOUR_RAKUTEN_APP_ID';
-        $affiliateId = getenv('RAKUTEN_AFFILIATE_ID') ?: 'YOUR_RAKUTEN_AFFILIATE_ID';
+        $appId = getenv('RAKUTEN_APP_ID') ?: '5e43be83-582b-4e0c-aca5-a2a2cdab185d';
+        $affiliateId = getenv('RAKUTEN_AFFILIATE_ID') ?: '57d28241.889368b8.57d28242.8a513cfa';
+
+        if (empty($affiliateId) || $affiliateId === 'YOUR_RAKUTEN_AFFILIATE_ID') {
+            $affiliateId = null;
+        }
 
         try {
             $pdo = Database::connect();
