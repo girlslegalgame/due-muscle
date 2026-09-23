@@ -774,27 +774,35 @@ public function myDecks() {
                 $cleanName = preg_replace('/\s+/', ' ', trim($cleanName));
 
                 $keyword = 'デュエルマスターズ ' . $cleanName;
+                
+                // パラメータ：新アクセスキー(pk_...)をセット
                 $queryParams = [
                     'applicationId' => $appId,
+                    'accessKey'     => $appId, // 新仕様パラメータ両対応
                     'keyword'       => $keyword,
                     'sort'          => '+itemPrice',
                     'hits'          => 1,
                     'minPrice'      => 10,
                 ];
-                if (!empty($affiliateId) && $affiliateId !== 'YOUR_RAKUTEN_AFFILIATE_ID') {
+                if (!empty($affiliateId) && !str_contains($affiliateId, 'YOUR_')) {
                     $queryParams['affiliateId'] = $affiliateId;
                 }
 
                 $url = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?' . http_build_query($queryParams);
 
-                // cURLで通信し、ステータスコードとエラーを詳細に取得
+                // cURLで通信（新仕様のOrigin / Referer / Authorizationヘッダーを付与）
                 $ch = curl_init();
                 curl_setopt_array($ch, [
                     CURLOPT_URL            => $url,
                     CURLOPT_RETURNTRANSFER => true,
                     CURLOPT_TIMEOUT        => 8,
                     CURLOPT_SSL_VERIFYPEER => false,
-                    CURLOPT_USERAGENT      => 'DuemaDeckBuilder/1.0'
+                    CURLOPT_USERAGENT      => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+                    CURLOPT_HTTPHEADER     => [
+                        'Origin: https://due-muscle.up.railway.app',
+                        'Referer: https://due-muscle.up.railway.app/',
+                        'Authorization: Bearer ' . $appId // 新仕様Bearerトークン認証
+                    ]
                 ]);
                 $responseBody = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
