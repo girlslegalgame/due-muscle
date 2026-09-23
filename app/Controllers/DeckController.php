@@ -801,37 +801,49 @@ public function myDecks() {
             $debugLog = [];
 
             $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
-            $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー';
-            $ngTitlePattern = '/(スリーブ|プレイマット|デッキケース|ラバーマット|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ)/ui';
+            $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー キャラスリ';
+            $ngTitlePattern = '/(スリーブ|カードスリーブ|プレイマット|ラバーマット|デッキケース|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ|プロテクト)/ui';
 
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
             $normalize = function($str) {
-                $s = mb_convert_kana((string)$str, 'asKV', 'UTF-8');
+                // 特殊文字「∑」を「Σ」に事前統一
+                $s = str_replace('∑', 'Σ', (string)$str);
+                $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
-                return preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/\-_:：]/u', '', $s);
+                // デュエマ特有の記号（+、↑、♪、！、？、・、引用符等）をすべて消去
+                return preg_replace('/[・～〜「」『』【】“”"\'()（）\s\/\-_:：+＋↑!！?？♪、,.*・]/u', '', $s);
             };
-
             foreach ($cardMap as $cardInfo) {
                 $qty = $cardInfo['quantity'];
                 $isTwinpact = $cardInfo['is_twinpact'];
 
-                // 検索用キーワードの整形（余分な記号を除去し、長すぎるサブタイトルは先頭を重視）
-                $cleanSearchName = preg_replace('/[・～〜「」『』【】“”"\'()（）\/]/u', ' ', $cardInfo['top_name']);
-                $cleanSearchName = preg_replace('/\s+/', ' ', trim($cleanSearchName));
-                
-                // 検索クエリ：ツインパクトの場合でもキーワード過多を防ぐため上面名を主軸にする
-                $keyword = $cleanSearchName;
+                $topName = $cardInfo['top_name'];
+                $bottomName = $cardInfo['bottom_name'];
 
-                $normTop = $normalize($cardInfo['top_name']);
-                $normBottom = $isTwinpact && !empty($cardInfo['bottom_name']) ? $normalize($cardInfo['bottom_name']) : '';
+                // ★ 「∑龍」を「Σ龍」に補正
+                if (str_contains($topName, '∑')) {
+                    $topName = str_replace('∑', 'Σ', $topName);
+                }
+
+                // 検索キーワード作成：
+                // 記号（♪や""や+など）を取り除き、「・」はスペースにせず繋げることでショップの表記に合わせる
+                $cleanSearchName = preg_replace('/[♪"\'「」『』【】+＋]/u', '', $topName);
+                $cleanSearchName = str_replace(['・', '／', '/'], ' ', $cleanSearchName);
+                $cleanSearchName = preg_replace('/\s+/', ' ', trim($cleanSearchName));
+
+                // 一般商品（お菓子、洋服等）の混入を防ぐため「デュエマ」を冠詞にする
+                $keyword = "デュエマ {$cleanSearchName}";
+
+                $normTop = $normalize($topName);
+                $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
                 $queryParams = [
                     'applicationId' => $appId,
                     'accessKey'     => $accessKey,
                     'keyword'       => $keyword,
                     'NGKeyword'     => $ngKeywords,
-                    'sort'          => '+itemPrice', // 価格昇順（最安値順）
-                    'hits'          => 30,           // 候補を30件まで広げて精査
+                    'sort'          => '+itemPrice',
+                    'hits'          => 30,
                     'minPrice'      => 10,
                 ];
 
@@ -872,39 +884,37 @@ public function myDecks() {
                 $itemList = $data['Items'] ?? $data['items'] ?? [];
 
                 $matchedItem = null;
-                $fallbackItem = null; // ツインパクト等で下面名はないが上面名が完全一致した候補用
+                $fallbackItem = null;
 
                 foreach ($itemList as $rawItem) {
                     $candidate = $rawItem['Item'] ?? $rawItem;
                     $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
 
-                    // サプライ・オリパ等の除外
-                    if (preg_match($ngTitlePattern, $title)) {
+                    // ★ 半角カナ（ｶｰﾄﾞｽﾘｰﾌﾞ等）を全角に統一してからスリーブ除外判定
+                    $titleNormalizedKana = mb_convert_kana($title, 'KV', 'UTF-8');
+                    if (preg_match($ngTitlePattern, $titleNormalizedKana)) {
                         continue;
                     }
 
                     $normTitle = $normalize($title);
 
-                    // 通常カード判定：商品名にカード名が含まれているか
                     if (!$isTwinpact) {
                         if (str_contains($normTitle, $normTop)) {
                             $matchedItem = $candidate;
-                            break; // 価格昇順なので、最初に合致したものが最安値
+                            break;
                         }
                     } else {
-                        // ツインパクト判定：上面名と下面名の両方が商品名に含まれているか
+                        // ツインパクト：両面一致を最優先、なければ片面（上面）一致を保持
                         if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
                             $matchedItem = $candidate;
                             break;
                         }
-                        // ショップによっては上面名しか商品名に記載しない場合があるためフォールバックとして保持
                         if ($fallbackItem === null && str_contains($normTitle, $normTop)) {
                             $fallbackItem = $candidate;
                         }
                     }
                 }
 
-                // ツインパクトで両面一致が見つからなかった場合、上面一致を採択
                 if ($matchedItem === null && $fallbackItem !== null) {
                     $matchedItem = $fallbackItem;
                 }
@@ -940,7 +950,7 @@ public function myDecks() {
                     'item_title'    => $itemName,
                 ];
 
-                usleep(400000); // 0.4秒ウェイト（レート制限対策）
+                usleep(400000);
             }
 
             echo json_encode([
