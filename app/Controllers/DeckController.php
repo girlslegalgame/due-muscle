@@ -776,21 +776,23 @@ public function myDecks() {
                 $keyword = 'デュエルマスターズ ' . $cleanName;
                 
                 // パラメータ：新アクセスキー(pk_...)をセット
+$apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
+
                 $queryParams = [
-                    'applicationId' => $appId,
-                    'accessKey'     => $appId, // 新仕様パラメータ両対応
+                    'accessKey'     => $appId, // 新APIキー (pk_...)
                     'keyword'       => $keyword,
                     'sort'          => '+itemPrice',
                     'hits'          => 1,
                     'minPrice'      => 10,
                 ];
+
                 if (!empty($affiliateId) && !str_contains($affiliateId, 'YOUR_')) {
                     $queryParams['affiliateId'] = $affiliateId;
                 }
 
-                $url = 'https://app.rakuten.co.jp/services/api/IchibaItem/Search/20220601?' . http_build_query($queryParams);
+                $url = $apiBaseUrl . '?' . http_build_query($queryParams);
 
-                // cURLで通信（新仕様のOrigin / Referer / Authorizationヘッダーを付与）
+                // cURLで通信
                 $ch = curl_init();
                 curl_setopt_array($ch, [
                     CURLOPT_URL            => $url,
@@ -801,7 +803,7 @@ public function myDecks() {
                     CURLOPT_HTTPHEADER     => [
                         'Origin: https://due-muscle.up.railway.app',
                         'Referer: https://due-muscle.up.railway.app/',
-                        'Authorization: Bearer ' . $appId // 新仕様Bearerトークン認証
+                        'Authorization: Bearer ' . $appId
                     ]
                 ]);
                 $responseBody = curl_exec($ch);
@@ -815,11 +817,20 @@ public function myDecks() {
                 $affiliateUrl = '';
                 $itemName = '';
 
-                if ($httpCode === 200 && !empty($data['Items'][0]['Item'])) {
-                    $item = $data['Items'][0]['Item'];
-                    $minPrice = (int)$item['itemPrice'];
-                    $affiliateUrl = $item['affiliateUrl'] ?? $item['itemUrl'];
-                    $itemName = $item['itemName'];
+                // 新旧レスポンス構造の差異（Items / results / itemPrice）に柔軟に対応
+                $firstItem = null;
+                if (!empty($data['Items'][0]['Item'])) {
+                    $firstItem = $data['Items'][0]['Item'];
+                } elseif (!empty($data['Items'][0])) {
+                    $firstItem = $data['Items'][0];
+                } elseif (!empty($data['items'][0])) {
+                    $firstItem = $data['items'][0];
+                }
+
+                if ($httpCode === 200 && $firstItem) {
+                    $minPrice = (int)($firstItem['itemPrice'] ?? $firstItem['price'] ?? 0);
+                    $affiliateUrl = $firstItem['affiliateUrl'] ?? $firstItem['itemUrl'] ?? '';
+                    $itemName = $firstItem['itemName'] ?? $firstItem['title'] ?? '';
                     $totalPrice += ($minPrice * $qty);
                 } else {
                     $notFoundCount++;
