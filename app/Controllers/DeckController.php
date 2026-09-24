@@ -821,11 +821,14 @@ public function myDecks() {
 
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
             $normalize = function($str) {
-                $s = str_replace('∑', 'Σ', (string)$str);
+                $s = (string)$str;
+                // 特殊文字の統一
+                $s = str_replace(['∑', 'Σ'], 'シグマ', $s);
                 $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
-                // スペース（半角・全角）と中黒「・」のみを除去して照合
-                return preg_replace('/[\s・]/u', '', $s);
+                // スペース、中黒、波ダッシュ、長音符・ハイフン類、各種括弧、句読点、感嘆符、記号類をすべて除去
+                $s = preg_replace('/[\s・\-\−\―\ー\〜\～\~\/\／\(\)\（\）\「\」\『\』\【\】\[\]\"\'\”\“\’\♪\!！\?？\=\＝\:\：\*\＊\+＋]/u', '', $s);
+                return $s;
             };
 
             // ★ キャッシュ確認用ステートメント（有効期限：12時間以内）
@@ -914,120 +917,137 @@ public function myDecks() {
                 // 2. 検索キーワードの動的決定
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
-
+                // 検索クエリ用：記号類を半角スペースに置換してクリーン化
+                $cleanSearchWord = function($str) {
+                    $s = preg_replace('/[\"\'\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：]/u', ' ', $str);
+                    $s = str_replace('・', ' ', $s);
+                    return trim(preg_replace('/\s+/u', ' ', $s));
+                };
+                
                 if ($isAmbiguous && !empty($bottomName)) {
-                    $cleanBottom = preg_replace('/[・\s\「\」\『\』\【\】\"\'\/♪!！?？]/u', '', $bottomName);
-                    $keyword = str_replace('・', ' ', trim($topName)) . " " . $cleanBottom;
+                    $keyword = $cleanSearchWord($topName) . ' ' . $cleanSearchWord($bottomName);
                 } else {
-                    // 中黒を半角スペースに変換して投げることで、中黒なしショップもヒットさせる
-                    $keyword = str_replace('・', ' ', trim($topName));
+                    $keyword = $cleanSearchWord($topName);
                 }
-
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
-                $queryParams = [
-                    'applicationId' => $appId,
-                    'accessKey'     => $accessKey,
-                    'keyword'       => $keyword,
-                    'NGKeyword'     => $ngKeywords,
-                    'sort'          => '+itemPrice',
-                    'availability'  => 1,  // ★追加：在庫あり商品のみに限定
-                    'hits'          => 30,
-                    'minPrice'      => 10,
-                ];
+                // ★ API通信処理をクロージャとして正しく定義
+                $fetchRakutenItems = function($kw) use ($apiBaseUrl, $appId, $accessKey, $ngKeywords, $targetShopCode, $affiliateId) {
+                    $queryParams = [
+                        'applicationId' => $appId,
+                        'accessKey'     => $accessKey,
+                        'keyword'       => $kw,
+                        'NGKeyword'     => $ngKeywords,
+                        'sort'          => '+itemPrice',
+                        'availability'  => 1,  // 在庫あり商品のみ
+                        'hits'          => 30,
+                        'minPrice'      => 10,
+                    ];
 
-                if (!empty($targetShopCode)) {
-                    $queryParams['shopCode'] = $targetShopCode;
-                }
+                    if (!empty($targetShopCode)) $queryParams['shopCode'] = $targetShopCode;
+                    if (!empty($affiliateId)) $queryParams['affiliateId'] = $affiliateId;
+                    
+                    $url = $apiBaseUrl . '?' . http_build_query($queryParams);
+                    $responseBody = '';
+                    $httpCode = 0;
 
-                if (!empty($affiliateId)) {
-                    $queryParams['affiliateId'] = $affiliateId;
-                }
+                    for ($attempt = 0; $attempt <= 2; $attempt++) {
+                        $ch = curl_init();
+                        curl_setopt_array($ch, [
+                            CURLOPT_URL            => $url,
+                            CURLOPT_RETURNTRANSFER => true,
+                            CURLOPT_TIMEOUT        => 8,
+                            CURLOPT_SSL_VERIFYPEER => false,
+                            CURLOPT_USERAGENT      => 'Mozilla/5.0',
+                            CURLOPT_HTTPHEADER     => [
+                                'Origin: https://due-muscle.up.railway.app',
+                                'Referer: https://due-muscle.up.railway.app/',
+                                'Authorization: Bearer ' . $accessKey
+                            ]
+                        ]);
+                        $responseBody = curl_exec($ch);
+                        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                        curl_close($ch);
 
-                $url = $apiBaseUrl . '?' . http_build_query($queryParams);
-                $responseBody = '';
-                $httpCode = 0;
-
-                for ($attempt = 0; $attempt <= 2; $attempt++) {
-                    $ch = curl_init();
-                    curl_setopt_array($ch, [
-                        CURLOPT_URL            => $url,
-                        CURLOPT_RETURNTRANSFER => true,
-                        CURLOPT_TIMEOUT        => 8,
-                        CURLOPT_SSL_VERIFYPEER => false,
-                        CURLOPT_USERAGENT      => 'Mozilla/5.0',
-                        CURLOPT_HTTPHEADER     => [
-                            'Origin: https://due-muscle.up.railway.app',
-                            'Referer: https://due-muscle.up.railway.app/',
-                            'Authorization: Bearer ' . $accessKey
-                        ]
-                    ]);
-                    $responseBody = curl_exec($ch);
-                    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                    curl_close($ch);
-
-                    if ($httpCode === 429) {
-                        usleep(1200000);
-                        continue;
-                    }
-                    break;
-                }
-
-                $data = $responseBody ? json_decode($responseBody, true) : null;
-                $itemList = $data['Items'] ?? $data['items'] ?? [];
-
-                $matchedItem = null;
-                $lowestPrice = PHP_INT_MAX; // ★ 最安値を追跡する変数
-                $fallbackItem = null;
-
-                foreach ($itemList as $rawItem) {
-                    $candidate = $rawItem['Item'] ?? $rawItem;
-                    $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
-
-                    $titleNormalizedKana = mb_convert_kana($title, 'KV', 'UTF-8');
-                    $titleNoSpace = preg_replace('/\s+/u', '', $titleNormalizedKana);
-                    if (preg_match($ngTitlePattern, $titleNormalizedKana) || preg_match($ngTitlePattern, $titleNoSpace)) {
-                        continue;
-                    }
-
-                    $normTitle = $normalize($title);
-                    $isMatched = false;
-
-                    if (!$isTwinpact) {
-                        // 通常カード
-                        if (str_contains($normTitle, $normTop)) {
-                            $isMatched = true;
+                        if ($httpCode === 429) {
+                            usleep(1200000);
+                            continue;
                         }
-                    } else {
-                        // ツインパクトカード
-                        if ($isAmbiguous) {
-                            if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
-                                $isMatched = true;
-                            } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
+                        break;
+                    }
+                    $data = $responseBody ? json_decode($responseBody, true) : null;
+                    return [$data['Items'] ?? $data['items'] ?? [], $httpCode];
+                };
+
+                // 1回目の検索を実行
+                list($itemList, $httpCode) = $fetchRakutenItems($keyword);
+
+                $findBestMatch = function($items) use ($ngTitlePattern, $normalize, $isTwinpact, $isAmbiguous, $normTop, $normBottom) {
+                    $matched = null;
+                    $lowest = PHP_INT_MAX;
+
+                    foreach ($items as $rawItem) {
+                        $candidate = $rawItem['Item'] ?? $rawItem;
+                        $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
+
+                        $titleNormalizedKana = mb_convert_kana($title, 'KV', 'UTF-8');
+                        $titleNoSpace = preg_replace('/\s+/u', '', $titleNormalizedKana);
+                        if (preg_match($ngTitlePattern, $titleNormalizedKana) || preg_match($ngTitlePattern, $titleNoSpace)) {
+                            continue;
+                        }
+
+                        $normTitle = $normalize($title);
+                        $isMatched = false;
+
+                        if (!$isTwinpact) {
+                            // 通常カード
+                            if (str_contains($normTitle, $normTop)) {
                                 $isMatched = true;
                             }
                         } else {
-                            if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
-                                $isMatched = true;
-                            } elseif (str_contains($normTitle, $normTop)) {
-                                $isMatched = true;
+                            // ツインパクトカード
+                            if ($isAmbiguous) {
+                                // 同名上面が存在する場合は上下両方の合致を優先、もしくは下面のみで合致
+                                if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
+                                    $isMatched = true;
+                                } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
+                                    $isMatched = true;
+                                }
+                            } else {
+                                // 通常のツインパクト：上面または下面のどちらかが含まれていれば合致
+                                if (str_contains($normTitle, $normTop)) {
+                                    $isMatched = true;
+                                } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
+                                    $isMatched = true;
+                                }
+                            }
+                        }
+
+                        if ($isMatched) {
+                            $itemPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
+                            if ($itemPrice > 0 && $itemPrice < $lowest) {
+                                $lowest = $itemPrice;
+                                $matched = $candidate;
                             }
                         }
                     }
+                    return $matched;
+                };
 
-                    // ★ breakせずに全件チェックし、合致した中で「一番価格が安い商品」を採択
-                    if ($isMatched) {
-                        $itemPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
-                        if ($itemPrice > 0 && $itemPrice < $lowestPrice) {
-                            $lowestPrice = $itemPrice;
-                            $matchedItem = $candidate;
+                $matchedItem = $findBestMatch($itemList);
+
+                // ★ 見つからなかった場合のフォールバック検索（中黒・スペースを完全に詰めた1単語で再試行）
+                if ($matchedItem === null && str_contains($topName, '・')) {
+                    $fallbackKeyword = str_replace(['・', ' '], '', $topName);
+                    list($fbItemList, $fbHttpCode) = $fetchRakutenItems($fallbackKeyword);
+                    if (!empty($fbItemList)) {
+                        $matchedItem = $findBestMatch($fbItemList);
+                        if ($matchedItem !== null) {
+                            $itemList = $fbItemList;
+                            $keyword = $fallbackKeyword;
                         }
                     }
-                }
-
-                if ($matchedItem === null && $fallbackItem !== null) {
-                    $matchedItem = $fallbackItem;
                 }
 
                 $minPrice = null;
@@ -1068,7 +1088,7 @@ public function myDecks() {
                     'picked_item'    => $itemName ?: null,
                     'price'          => $minPrice
                 ];
-                
+
                 $items[] = [
                     'card_name'     => $cardInfo['display_name'],
                     'quantity'      => $qty,
