@@ -725,6 +725,7 @@ public function myDecks() {
 
         $deckId = $_GET['deck_id'] ?? null;
         $targetShopCode = trim($_GET['shop_code'] ?? ''); // ★追加：選択ショップコード
+        $forceRefresh = !empty($_GET['refresh']); // ★ この1行を追加
         if (!$deckId) {
             http_response_code(400);
             echo json_encode(['error' => 'Deck ID is required']);
@@ -837,6 +838,29 @@ public function myDecks() {
                     item_title = VALUES(item_title), shop_name = VALUES(shop_name), updated_at = NOW()
             ");
 
+            $twinpactTopNames = [];
+            foreach ($cardMap as $cm) {
+                if ($cm['is_twinpact']) {
+                    $twinpactTopNames[] = $cm['top_name'];
+                }
+            }
+
+            $ambiguousTopNames = [];
+            if (!empty($twinpactTopNames)) {
+                $inClause = implode(',', array_fill(0, count($twinpactTopNames), '?'));
+                $stmtDupCheck = $pdo->prepare("
+                    SELECT c.card_name
+                    FROM card c
+                    JOIN card_combination cc ON c.card_id = cc.card_id
+                    JOIN card_detail cd ON c.card_id = cd.card_id
+                    WHERE cd.twinpact = 1 AND c.card_name IN ($inClause)
+                    GROUP BY c.card_name
+                    HAVING COUNT(DISTINCT cc.combination_id) > 1
+                ");
+                $stmtDupCheck->execute($twinpactTopNames);
+                $ambiguousTopNames = $stmtDupCheck->fetchAll(PDO::FETCH_COLUMN);
+            }
+
             foreach ($cardMap as $cardInfo) {
                 $qty = $cardInfo['quantity'];
                 $isTwinpact = $cardInfo['is_twinpact'];
@@ -844,6 +868,7 @@ public function myDecks() {
                 $topName = $cardInfo['top_name'];
                 $bottomName = $cardInfo['bottom_name'];
 
+                // 「∑」を「Σ」に補正
                 if (str_contains($topName, '∑')) {
                     $topName = str_replace('∑', 'Σ', $topName);
                 }
@@ -851,48 +876,53 @@ public function myDecks() {
                 $cacheKey = md5($cardInfo['display_name'] . '_' . $targetShopCode);
 
                 // ==========================================
-                // 1. キャッシュ確認（あればAPI通信をスキップ）
+                // 1. キャッシュ確認（強制更新でない場合のみ）
                 // ==========================================
-                $stmtCacheGet->execute([':ck' => $cacheKey]);
-                $cached = $stmtCacheGet->fetch(PDO::FETCH_ASSOC);
+                if (!$forceRefresh) {
+                    $stmtCacheGet->execute([':ck' => $cacheKey]);
+                    $cached = $stmtCacheGet->fetch(PDO::FETCH_ASSOC);
 
-                if ($cached) {
-                    $minPrice = $cached['price'] !== null ? (int)$cached['price'] : null;
-                    $affiliateUrl = $cached['affiliate_url'] ?? '';
-                    $itemName = $cached['item_title'] ?? '';
-                    $shopName = $cached['shop_name'] ?? '';
-                    $shopCode = $cached['shop_code'] ?? '';
+                    if ($cached) {
+                        $minPrice = $cached['price'] !== null ? (int)$cached['price'] : null;
+                        $affiliateUrl = $cached['affiliate_url'] ?? '';
+                        $itemName = $cached['item_title'] ?? '';
+                        $shopName = $cached['shop_name'] ?? '';
+                        $shopCode = $cached['shop_code'] ?? '';
 
-                    if ($minPrice !== null) {
-                        $totalPrice += ($minPrice * $qty);
-                    } else {
-                        $notFoundCount++;
+                        if ($minPrice !== null) {
+                            $totalPrice += ($minPrice * $qty);
+                        } else {
+                            $notFoundCount++;
+                        }
+
+                        $items[] = [
+                            'card_name'     => $cardInfo['display_name'],
+                            'quantity'      => $qty,
+                            'price'         => $minPrice,
+                            'subtotal'      => $minPrice !== null ? ($minPrice * $qty) : null,
+                            'affiliate_url' => $affiliateUrl,
+                            'item_title'    => $itemName,
+                            'shop_name'     => $shopName,
+                            'shop_code'     => $shopCode,
+                        ];
+                        continue; // 通信不要で即座に次のカードへ
                     }
-
-                    $items[] = [
-                        'card_name'     => $cardInfo['display_name'],
-                        'quantity'      => $qty,
-                        'price'         => $minPrice,
-                        'subtotal'      => $minPrice !== null ? ($minPrice * $qty) : null,
-                        'affiliate_url' => $affiliateUrl,
-                        'item_title'    => $itemName,
-                        'shop_name'     => $shopName,
-                        'shop_code'     => $shopCode,
-                    ];
-                    continue; // ★ 通信・待機なしで即座に次のカードへ
                 }
 
                 // ==========================================
-                // 2. キャッシュにない場合のみ楽天APIを呼び出し
+                // 2. 検索キーワードの動的決定
                 // ==========================================
-                if ($isTwinpact && !empty($bottomName)) {
-                    // 下面名に含まれるカギ括弧などの記号を除去して検索クエリを作成
-                    $cleanBottom = preg_replace('/[・\s\「\」\『\』\【\】\"\'\/]/u', '', $bottomName);
+                $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
+
+                if ($isAmbiguous && !empty($bottomName)) {
+                    // 同名上面が複数ある場合は下面名を添えてピンポイント検索
+                    $cleanBottom = preg_replace('/[・\s\「\」\『\』\【\】\"\'\/♪!！?？]/u', '', $bottomName);
                     $keyword = trim($topName) . " " . $cleanBottom;
                 } else {
+                    // 通常カードおよび重複のないツインパクトは上面名で広くヒットさせる
                     $keyword = trim($topName);
                 }
-                
+
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
@@ -952,6 +982,8 @@ public function myDecks() {
                 foreach ($itemList as $rawItem) {
                     $candidate = $rawItem['Item'] ?? $rawItem;
                     $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
+
+                    // 半角カナを全角化し、空白を詰めた状態でもスリーブ・サプライを除外判定
                     $titleNormalizedKana = mb_convert_kana($title, 'KV', 'UTF-8');
                     $titleNoSpace = preg_replace('/\s+/u', '', $titleNormalizedKana);
                     if (preg_match($ngTitlePattern, $titleNormalizedKana) || preg_match($ngTitlePattern, $titleNoSpace)) {
@@ -961,29 +993,39 @@ public function myDecks() {
                     $normTitle = $normalize($title);
 
                     if (!$isTwinpact) {
-                        // 通常カード：カード名が含まれていれば一致
+                        // 通常カード
                         if (str_contains($normTitle, $normTop)) {
                             $matchedItem = $candidate;
                             break;
                         }
                     } else {
-                        // ★ ツインパクト：上面名と下面名の「両方」が含まれている出品のみ採択（別カード誤認を完全防止）
-                        if (!empty($normBottom)) {
-                            if (str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
+                        // ツインパクトカード
+                        if ($isAmbiguous) {
+                            // 同名面が複数あるカード：両面一致（上面＋下面）を必須とする
+                            if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
                                 $matchedItem = $candidate;
                                 break;
                             }
+                            // 下面名のみ記載された出品の救済
+                            if (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
+                                if ($fallbackItem === null) $fallbackItem = $candidate;
+                            }
                         } else {
-                            // 下面名データがない場合のみ上面名で一致
-                            if (str_contains($normTitle, $normTop)) {
+                            // 通常ツインパクト：両面一致優先、なければ上面名のみ一致も採択
+                            if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
                                 $matchedItem = $candidate;
                                 break;
+                            }
+                            if ($fallbackItem === null && str_contains($normTitle, $normTop)) {
+                                $fallbackItem = $candidate;
                             }
                         }
                     }
                 }
 
-                // （※ $fallbackItem による別カード代用処理は削除）
+                if ($matchedItem === null && $fallbackItem !== null) {
+                    $matchedItem = $fallbackItem;
+                }
 
                 $minPrice = null;
                 $affiliateUrl = '';
@@ -1002,16 +1044,17 @@ public function myDecks() {
                     $notFoundCount++;
                 }
 
-                // ★ 取得結果をDBにキャッシュ保存
+                // 取得結果をDBにキャッシュ保存（商品の実店舗コード $shopCode を保存）
                 $stmtCacheSet->execute([
                     ':ck'    => $cacheKey,
                     ':cname' => $cardInfo['display_name'],
-                    ':scode' => $shopCode, // ★ $targetShopCode から $shopCode に修正
+                    ':scode' => $shopCode,
                     ':price' => $minPrice,
                     ':url'   => $affiliateUrl,
                     ':title' => $itemName,
                     ':sname' => $shopName
                 ]);
+
                 $items[] = [
                     'card_name'     => $cardInfo['display_name'],
                     'quantity'      => $qty,
@@ -1023,10 +1066,9 @@ public function myDecks() {
                     'shop_code'     => $shopCode,
                 ];
 
-                // ★ ウェイト時間を0.4秒から0.15秒に短縮
+                // ウェイト時間を0.15秒に短縮
                 usleep(150000);
             }
-
             usort($items, function($a, $b) {
                 $hasA = $a['price'] !== null ? 1 : 0;
                 $hasB = $b['price'] !== null ? 1 : 0;
