@@ -918,10 +918,38 @@ public function myDecks() {
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
                 // 検索クエリ用：記号類を半角スペースに置換してクリーン化
-                $cleanSearchWord = function($str) {
+                $mergeShortTokens = function($text) {
+                    $tokens = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY);
+                    if (count($tokens) <= 1) return $text;
+
+                    $result = [];
+                    $carry = '';
+                    foreach ($tokens as $t) {
+                        if ($carry !== '') {
+                            $t = $carry . $t;
+                            $carry = '';
+                        }
+                        // 1文字の場合は次の単語に持ち越して結合
+                        if (mb_strlen($t, 'UTF-8') <= 1) {
+                            $carry = $t;
+                        } else {
+                            $result[] = $t;
+                        }
+                    }
+                    if ($carry !== '') {
+                        if (!empty($result)) {
+                            $result[count($result) - 1] .= $carry;
+                        } else {
+                            $result[] = $carry;
+                        }
+                    }
+                    return implode(' ', $result);
+                };
+                $cleanSearchWord = function($str) use ($mergeShortTokens) {
                     $s = preg_replace('/[\"\'\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：]/u', ' ', $str);
                     $s = str_replace('・', ' ', $s);
-                    return trim(preg_replace('/\s+/u', ' ', $s));
+                    $s = trim(preg_replace('/\s+/u', ' ', $s));
+                    return $mergeShortTokens($s);
                 };
                 
                 if ($isAmbiguous && !empty($bottomName)) {
@@ -929,6 +957,7 @@ public function myDecks() {
                 } else {
                     $keyword = $cleanSearchWord($topName);
                 }
+
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
@@ -983,6 +1012,11 @@ public function myDecks() {
                 // 1回目の検索を実行
                 list($itemList, $httpCode) = $fetchRakutenItems($keyword);
 
+                if ($httpCode === 400 && str_contains($keyword, ' ')) {
+                    $noSpaceKw = str_replace(' ', '', $keyword);
+                    list($itemList, $httpCode) = $fetchRakutenItems($noSpaceKw);
+                    $keyword = $noSpaceKw;
+                }                
                 $findBestMatch = function($items) use ($ngTitlePattern, $normalize, $isTwinpact, $isAmbiguous, $normTop, $normBottom) {
                     $matched = null;
                     $lowest = PHP_INT_MAX;
