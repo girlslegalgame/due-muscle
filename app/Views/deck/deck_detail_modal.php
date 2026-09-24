@@ -581,9 +581,13 @@
             </div>
             <!-- デッキ価格査定 -->
             <div id="content-price" class="tab-content">
-                <div style="text-align: center; margin-bottom: 15px;">
+                <div style="text-align: center; margin-bottom: 15px; display: flex; justify-content: center; gap: 10px;">
                     <button id="btn-start-estimate" class="modal-btn-fa-setup" style="padding: 8px 24px;" onclick="runPriceEstimate()">
                         楽天市場で最安値を査定する
+                    </button>
+                    <!-- ★追加：キャッシュクリアボタン -->
+                    <button id="btn-refresh-estimate" class="modal-btn-draw-action modal-btn-draw-reload" style="padding: 8px 16px; font-size: 0.85rem;" onclick="runPriceEstimate('', true)">
+                        キャッシュをクリアして再査定
                     </button>
                 </div>
 
@@ -835,7 +839,7 @@ function onShopChange() {
     const shopCode = document.getElementById('price-shop-select').value;
     runPriceEstimate(shopCode);
 }
-function runPriceEstimate(shopCode = '') {
+function runPriceEstimate(shopCode = '', refresh = false) {
     if (!currentDeckId) return;
 
     const btn = document.getElementById('btn-start-estimate');
@@ -852,6 +856,9 @@ function runPriceEstimate(shopCode = '') {
     if (shopCode) {
         url += '&shop_code=' + encodeURIComponent(shopCode);
     }
+    if (refresh) {
+        url += '&refresh=1'; // ★キャッシュを破棄して楽天APIから最新取得
+    }
 
     fetch(url)
         .then(async res => {
@@ -864,17 +871,25 @@ function runPriceEstimate(shopCode = '') {
             }
         })
         .then(data => {
+            // ★ デバッグログをコンソールに出力
+            console.group('=== 楽天市場API 査定デバッグログ ===');
+            console.log('レスポンス全体:', data);
+            if (data.debug && data.debug.logs) {
+                console.table(data.debug.logs);
+            }
+            console.groupEnd();
+
             if (!data.success) {
                 alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
                 return;
             }
 
-            // ★ 新しく見つかったショップ情報をマージして保持
+            // 新しく見つかったショップ情報をマージして保持
             if (data.shops) {
                 Object.assign(knownShops, data.shops);
             }
 
-            // ★ 保持しているショップ一覧からドロップダウンを再構築（消えるのを防止）
+            // 保持しているショップ一覧からドロップダウンを再構築
             if (shopSelect) {
                 shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
                 Object.keys(knownShops).forEach(code => {
