@@ -824,8 +824,8 @@ public function myDecks() {
                 $s = str_replace('∑', 'Σ', (string)$str);
                 $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
-                // 空白のみを除去して、ショップ側のスペースの有無に関わらず一致させる
-                return preg_replace('/\s+/u', '', $s);
+                // スペース（半角・全角）と中黒「・」のみを除去して照合
+                return preg_replace('/[\s・]/u', '', $s);
             };
 
             // ★ キャッシュ確認用ステートメント（有効期限：12時間以内）
@@ -891,9 +891,15 @@ public function myDecks() {
                         $shopCode = $cached['shop_code'] ?? '';
 
                         if ($minPrice !== null) {
-                            $totalPrice += ($minPrice * $qty);
-                        } else {
-                            $notFoundCount++;
+                            $stmtCacheSet->execute([
+                                ':ck'    => $cacheKey,
+                                ':cname' => $cardInfo['display_name'],
+                                ':scode' => $shopCode,
+                                ':price' => $minPrice,
+                                ':url'   => $affiliateUrl,
+                                ':title' => $itemName,
+                                ':sname' => $shopName
+                            ]);
                         }
 
                         $items[] = [
@@ -915,7 +921,13 @@ public function myDecks() {
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
 
-                $keyword = trim($topName);
+                if ($isAmbiguous && !empty($bottomName)) {
+                    $cleanBottom = preg_replace('/[・\s\「\」\『\』\【\】\"\'\/♪!！?？]/u', '', $bottomName);
+                    $keyword = str_replace('・', ' ', trim($topName)) . " " . $cleanBottom;
+                } else {
+                    // 中黒を半角スペースに変換して投げることで、中黒なしショップもヒットさせる
+                    $keyword = str_replace('・', ' ', trim($topName));
+                }
 
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
