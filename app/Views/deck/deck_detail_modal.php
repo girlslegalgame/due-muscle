@@ -662,7 +662,7 @@ let modalFaHandCount = 5;
 
 function openDeckModal(deckId, deckName) {
     currentDeckId = deckId; // ★この行を追加（デッキIDを保持）
-
+    knownShops = {}; // ★ 追加：別デッキを開いた時にショップリストを初期化
     const priceResult = document.getElementById('price-estimate-result');
     const priceLoading = document.getElementById('price-estimate-loading');
     const priceTbody = document.getElementById('price-card-list-body');
@@ -828,13 +828,13 @@ function switchTab(type) {
     }
 }
 
+let knownShops = {};
+
 // ショップ選択変更時のハンドラ
 function onShopChange() {
     const shopCode = document.getElementById('price-shop-select').value;
     runPriceEstimate(shopCode);
 }
-
-// デッキ価格査定の実行（shopCode対応）
 function runPriceEstimate(shopCode = '') {
     if (!currentDeckId) return;
 
@@ -869,18 +869,22 @@ function runPriceEstimate(shopCode = '') {
                 return;
             }
 
-            // ★ 全体検索時のみ、ドロップダウンの選択肢を更新（見つかったショップ一覧を追加）
-            if (!shopCode && data.shops && shopSelect) {
+            // ★ 新しく見つかったショップ情報をマージして保持
+            if (data.shops) {
+                Object.assign(knownShops, data.shops);
+            }
+
+            // ★ 保持しているショップ一覧からドロップダウンを再構築（消えるのを防止）
+            if (shopSelect) {
                 shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
-                Object.keys(data.shops).forEach(code => {
+                Object.keys(knownShops).forEach(code => {
                     const opt = document.createElement('option');
                     opt.value = code;
-                    opt.textContent = data.shops[code];
+                    opt.textContent = knownShops[code];
+                    if (code === shopCode) opt.selected = true;
                     shopSelect.appendChild(opt);
                 });
-            }
-            if (shopSelect) {
-                shopSelect.value = shopCode; // 現在選択中のショップを反映
+                shopSelect.value = shopCode;
             }
 
             document.getElementById('deck-total-price').innerText = Number(data.total_price).toLocaleString();
@@ -891,10 +895,8 @@ function runPriceEstimate(shopCode = '') {
             const tbody = document.getElementById('price-card-list-body');
             tbody.innerHTML = '';
 
-            // サーバー側で見つかったカードが優先（上位）ソート済み
             data.cards.forEach(c => {
                 const tr = document.createElement('tr');
-                // 未発見の行は少し薄く表示
                 if (c.price === null) {
                     tr.style.backgroundColor = '#fcfcfc';
                     tr.style.color = '#888';

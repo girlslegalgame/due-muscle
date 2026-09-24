@@ -994,13 +994,12 @@ public function myDecks() {
                 $stmtCacheSet->execute([
                     ':ck'    => $cacheKey,
                     ':cname' => $cardInfo['display_name'],
-                    ':scode' => $targetShopCode,
+                    ':scode' => $shopCode, // ★ $targetShopCode から $shopCode に修正
                     ':price' => $minPrice,
                     ':url'   => $affiliateUrl,
                     ':title' => $itemName,
                     ':sname' => $shopName
                 ]);
-
                 $items[] = [
                     'card_name'     => $cardInfo['display_name'],
                     'quantity'      => $qty,
