@@ -885,7 +885,14 @@ public function myDecks() {
                 // ==========================================
                 // 2. キャッシュにない場合のみ楽天APIを呼び出し
                 // ==========================================
-                $keyword = trim($topName);
+                if ($isTwinpact && !empty($bottomName)) {
+                    // 下面名に含まれるカギ括弧などの記号を除去して検索クエリを作成
+                    $cleanBottom = preg_replace('/[・\s\「\」\『\』\【\】\"\'\/]/u', '', $bottomName);
+                    $keyword = trim($topName) . " " . $cleanBottom;
+                } else {
+                    $keyword = trim($topName);
+                }
+                
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
@@ -954,24 +961,29 @@ public function myDecks() {
                     $normTitle = $normalize($title);
 
                     if (!$isTwinpact) {
+                        // 通常カード：カード名が含まれていれば一致
                         if (str_contains($normTitle, $normTop)) {
                             $matchedItem = $candidate;
                             break;
                         }
                     } else {
-                        if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
-                            $matchedItem = $candidate;
-                            break;
-                        }
-                        if ($fallbackItem === null && str_contains($normTitle, $normTop)) {
-                            $fallbackItem = $candidate;
+                        // ★ ツインパクト：上面名と下面名の「両方」が含まれている出品のみ採択（別カード誤認を完全防止）
+                        if (!empty($normBottom)) {
+                            if (str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
+                                $matchedItem = $candidate;
+                                break;
+                            }
+                        } else {
+                            // 下面名データがない場合のみ上面名で一致
+                            if (str_contains($normTitle, $normTop)) {
+                                $matchedItem = $candidate;
+                                break;
+                            }
                         }
                     }
                 }
 
-                if ($matchedItem === null && $fallbackItem !== null) {
-                    $matchedItem = $fallbackItem;
-                }
+                // （※ $fallbackItem による別カード代用処理は削除）
 
                 $minPrice = null;
                 $affiliateUrl = '';
