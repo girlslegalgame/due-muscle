@@ -816,7 +816,7 @@ public function myDecks() {
             $debugLog = [];
 
             $apiBaseUrl = 'https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701';
-            $ngKeywords = 'スリーブ プレイマット デッキケース ケース マット オリパ くじ BOX パック 箱 ファイル バインダー キャラスリ';
+            $ngKeywords = 'オリパ くじ 福袋 スリーブ プレイマット';
             $ngTitlePattern = '/(ス\s*リーブ|カードス\s*リーブ|プレイマット|ラバーマット|デッキケース|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ|プロテクト|DXカード)/ui';
 
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
@@ -824,7 +824,8 @@ public function myDecks() {
                 $s = str_replace('∑', 'Σ', (string)$str);
                 $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
-                return trim($s);
+                // 空白のみを除去して、ショップ側のスペースの有無に関わらず一致させる
+                return preg_replace('/\s+/u', '', $s);
             };
 
             // ★ キャッシュ確認用ステートメント（有効期限：12時間以内）
@@ -914,14 +915,7 @@ public function myDecks() {
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
 
-                if ($isAmbiguous && !empty($bottomName)) {
-                    // 同名上面が複数ある場合は下面名を添えてピンポイント検索
-                    $cleanBottom = preg_replace('/[・\s\「\」\『\』\【\】\"\'\/♪!！?？]/u', '', $bottomName);
-                    $keyword = trim($topName) . " " . $cleanBottom;
-                } else {
-                    // 通常カードおよび重複のないツインパクトは上面名で広くヒットさせる
-                    $keyword = trim($topName);
-                }
+                $keyword = trim($topName);
 
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
@@ -930,6 +924,7 @@ public function myDecks() {
                     'applicationId' => $appId,
                     'accessKey'     => $accessKey,
                     'keyword'       => $keyword,
+                    'genreId'       => 566382, // ★追加：トレーディングカードゲームジャンルに限定
                     'NGKeyword'     => $ngKeywords,
                     'sort'          => '+itemPrice',
                     'hits'          => 30,
