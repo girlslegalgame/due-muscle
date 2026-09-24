@@ -891,15 +891,9 @@ public function myDecks() {
                         $shopCode = $cached['shop_code'] ?? '';
 
                         if ($minPrice !== null) {
-                            $stmtCacheSet->execute([
-                                ':ck'    => $cacheKey,
-                                ':cname' => $cardInfo['display_name'],
-                                ':scode' => $shopCode,
-                                ':price' => $minPrice,
-                                ':url'   => $affiliateUrl,
-                                ':title' => $itemName,
-                                ':sname' => $shopName
-                            ]);
+                            $totalPrice += ($minPrice * $qty);
+                        } else {
+                            $notFoundCount++;
                         }
 
                         $items[] = [
@@ -936,9 +930,9 @@ public function myDecks() {
                     'applicationId' => $appId,
                     'accessKey'     => $accessKey,
                     'keyword'       => $keyword,
-                    'genreId'       => 566382, // ★追加：トレーディングカードゲームジャンルに限定
                     'NGKeyword'     => $ngKeywords,
                     'sort'          => '+itemPrice',
+                    'availability'  => 1,  // ★追加：在庫あり商品のみに限定
                     'hits'          => 30,
                     'minPrice'      => 10,
                 ];
@@ -984,13 +978,13 @@ public function myDecks() {
                 $itemList = $data['Items'] ?? $data['items'] ?? [];
 
                 $matchedItem = null;
+                $lowestPrice = PHP_INT_MAX; // ★ 最安値を追跡する変数
                 $fallbackItem = null;
 
                 foreach ($itemList as $rawItem) {
                     $candidate = $rawItem['Item'] ?? $rawItem;
                     $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
 
-                    // 半角カナを全角化し、空白を詰めた状態でもスリーブ・サプライを除外判定
                     $titleNormalizedKana = mb_convert_kana($title, 'KV', 'UTF-8');
                     $titleNoSpace = preg_replace('/\s+/u', '', $titleNormalizedKana);
                     if (preg_match($ngTitlePattern, $titleNormalizedKana) || preg_match($ngTitlePattern, $titleNoSpace)) {
@@ -998,34 +992,36 @@ public function myDecks() {
                     }
 
                     $normTitle = $normalize($title);
+                    $isMatched = false;
 
                     if (!$isTwinpact) {
                         // 通常カード
                         if (str_contains($normTitle, $normTop)) {
-                            $matchedItem = $candidate;
-                            break;
+                            $isMatched = true;
                         }
                     } else {
                         // ツインパクトカード
                         if ($isAmbiguous) {
-                            // 同名面が複数あるカード：両面一致（上面＋下面）を必須とする
                             if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
-                                $matchedItem = $candidate;
-                                break;
-                            }
-                            // 下面名のみ記載された出品の救済
-                            if (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
-                                if ($fallbackItem === null) $fallbackItem = $candidate;
+                                $isMatched = true;
+                            } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
+                                $isMatched = true;
                             }
                         } else {
-                            // 通常ツインパクト：両面一致優先、なければ上面名のみ一致も採択
                             if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
-                                $matchedItem = $candidate;
-                                break;
+                                $isMatched = true;
+                            } elseif (str_contains($normTitle, $normTop)) {
+                                $isMatched = true;
                             }
-                            if ($fallbackItem === null && str_contains($normTitle, $normTop)) {
-                                $fallbackItem = $candidate;
-                            }
+                        }
+                    }
+
+                    // ★ breakせずに全件チェックし、合致した中で「一番価格が安い商品」を採択
+                    if ($isMatched) {
+                        $itemPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
+                        if ($itemPrice > 0 && $itemPrice < $lowestPrice) {
+                            $lowestPrice = $itemPrice;
+                            $matchedItem = $candidate;
                         }
                     }
                 }
@@ -1052,16 +1048,27 @@ public function myDecks() {
                 }
 
                 // 取得結果をDBにキャッシュ保存（商品の実店舗コード $shopCode を保存）
-                $stmtCacheSet->execute([
-                    ':ck'    => $cacheKey,
-                    ':cname' => $cardInfo['display_name'],
-                    ':scode' => $shopCode,
-                    ':price' => $minPrice,
-                    ':url'   => $affiliateUrl,
-                    ':title' => $itemName,
-                    ':sname' => $shopName
-                ]);
+                if ($minPrice !== null) {
+                    $stmtCacheSet->execute([
+                        ':ck'    => $cacheKey,
+                        ':cname' => $cardInfo['display_name'],
+                        ':scode' => $shopCode,
+                        ':price' => $minPrice,
+                        ':url'   => $affiliateUrl,
+                        ':title' => $itemName,
+                        ':sname' => $shopName
+                    ]);
+                }
 
+                $debugLog[] = [
+                    'card_name'      => $cardInfo['display_name'],
+                    'search_keyword' => $keyword,
+                    'http_code'      => $httpCode,
+                    'hit_count'      => count($itemList),
+                    'picked_item'    => $itemName ?: null,
+                    'price'          => $minPrice
+                ];
+                
                 $items[] = [
                     'card_name'     => $cardInfo['display_name'],
                     'quantity'      => $qty,
