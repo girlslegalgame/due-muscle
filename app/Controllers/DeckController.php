@@ -754,13 +754,7 @@ public function myDecks() {
             $deckModel = new Deck($pdo);
             $cards = $deckModel->getCardsByDeckId((int)$deckId);
 
-            $mainCards = array_filter($cards, function($c) {
-                $isSpecial = ($c['card_type_in_deck'] ?? '') === 'special' 
-                    || (isset($c['card_name']) && (str_contains($c['card_name'], 'ドルマゲドン') || str_contains($c['card_name'], '零龍')));
-                if ($isSpecial) return false;
-                $type = $c['card_type_in_deck'] ?? 'main';
-                return empty($type) || $type === 'main';
-            });
+            $mainCards = $cards;
 
             $pdo->exec("
                 CREATE TABLE IF NOT EXISTS card_price_cache (
