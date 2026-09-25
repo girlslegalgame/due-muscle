@@ -822,12 +822,11 @@ public function myDecks() {
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
             $normalize = function($str) {
                 $s = (string)$str;
-                // 特殊文字の統一
                 $s = str_replace(['∑', 'Σ'], 'シグマ', $s);
                 $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
-                // スペース、中黒、波ダッシュ、長音符・ハイフン類、各種括弧、句読点、感嘆符、記号類をすべて除去
-                $s = preg_replace('/[\s・\-\−\―\ー\〜\～\~\/\／\(\)\（\）\「\」\『\』\【\】\[\]\"\'\”\“\’\♪\!！\?？\=\＝\:\：\*\＊\+＋]/u', '', $s);
+                // 記号類（長音符・ハイフン類、中黒、波ダッシュ、引用符、括弧、&等）をすべて除去して照合
+                $s = preg_replace('/[\s・\-\−\―\ー\〜\～\~\/\／\(\)\（\）\「\」\『\』\【\】\[\]\"\'\”\“\’\♪\!！\?？\=\＝\:\：\*\＊\+＋\&＆]/u', '', $s);
                 return $s;
             };
 
@@ -918,9 +917,14 @@ public function myDecks() {
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
                 // 検索クエリ用：記号類を半角スペースに置換してクリーン化
-                $mergeShortTokens = function($text) {
-                    $tokens = preg_split('/\s+/u', trim($text), -1, PREG_SPLIT_NO_EMPTY);
-                    if (count($tokens) <= 1) return $text;
+                $cleanSearchWord = function($str) {
+                    // 1. 引用符、括弧、波ダッシュ、感嘆符、NOT検索の原因となるハイフン・長音符、& を半角スペースに変換
+                    $s = preg_replace('/[\"\'\”\“\’\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―\ー\&＆]/u', ' ', $str);
+                    $s = trim(preg_replace('/\s+/u', ' ', $s));
+
+                    // 2. 万一「A B C」のように1文字の単語がスペースで孤立している場合のみ結合（400エラー防止）
+                    $tokens = preg_split('/\s+/u', $s, -1, PREG_SPLIT_NO_EMPTY);
+                    if (count($tokens) <= 1) return $s;
 
                     $result = [];
                     $carry = '';
@@ -929,7 +933,6 @@ public function myDecks() {
                             $t = $carry . $t;
                             $carry = '';
                         }
-                        // 1文字の場合は次の単語に持ち越して結合
                         if (mb_strlen($t, 'UTF-8') <= 1) {
                             $carry = $t;
                         } else {
@@ -944,23 +947,14 @@ public function myDecks() {
                         }
                     }
                     return implode(' ', $result);
-                };
-                $cleanSearchWord = function($str) use ($mergeShortTokens) {
-                    $s = preg_replace('/[\"\'\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：]/u', ' ', $str);
-                    $s = str_replace('・', ' ', $s);
-                    $s = trim(preg_replace('/\s+/u', ' ', $s));
-                    return $mergeShortTokens($s);
-                };
-                
+                };                
                 if ($isAmbiguous && !empty($bottomName)) {
                     $keyword = $cleanSearchWord($topName) . ' ' . $cleanSearchWord($bottomName);
                 } else {
                     $keyword = $cleanSearchWord($topName);
                 }
-
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
-
                 // ★ API通信処理をクロージャとして正しく定義
                 $fetchRakutenItems = function($kw) use ($apiBaseUrl, $appId, $accessKey, $ngKeywords, $targetShopCode, $affiliateId) {
                     $queryParams = [
