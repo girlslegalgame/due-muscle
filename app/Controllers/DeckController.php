@@ -719,7 +719,7 @@ public function myDecks() {
      * 楽天市場APIを用いたデッキ価格査定API
      */
     public function estimatePriceApi() {
-        set_time_limit(120);
+        set_time_limit(240);
 
         header('Content-Type: application/json; charset=utf-8');
 
@@ -941,13 +941,15 @@ public function myDecks() {
 
 
                 // ==========================================
-                // 2. 検索キーワードの動的決定（汎用ルールによる複数パターン試行）
+                // 2. 検索キーワードの動的決定（最安値を逃さない網羅的検索）
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
 
-                // 記号クレンジング（NOT検索になるハイフン等を除去し、安全な単語列を生成）
+                // 全ショップの表記ゆれ（&, ＆, &amp;, -, ー）を1発で拾う広域クレンジング
                 $cleanSearchWord = function($str) {
-                    $s = preg_replace('/[\"\'\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―]/u', ' ', $str);
+                    // &、引用符、ハイフン、括弧等をすべて半角スペースにしてAND検索化
+                    $s = str_replace(['&amp;', '&AMP;'], ' ', $str);
+                    $s = preg_replace('/[\"\'\”\“\’\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―\&＆]/u', ' ', $s);
                     $s = trim(preg_replace('/\s+/u', ' ', $s));
 
                     $tokens = preg_split('/\s+/u', $s, -1, PREG_SPLIT_NO_EMPTY);
@@ -976,36 +978,28 @@ public function myDecks() {
                     return implode(' ', $result);
                 };
 
-                // ★ 汎用キーワード候補の生成
-                $keywordsToTry = [];
                 $baseSearchName = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
 
-                // 1. カード名そのまま（公式表記）
-                $keywordsToTry[] = $baseSearchName;
+                // ★ 最安値を確実に拾う精鋭キーワードリスト
+                $keywordsToTry = [];
 
-                // 2. NOT検索になる記号等を除去した安全なキーワード
+                // 1. 公式カード名そのまま（生キーワード）
+                // ※ただしハイフン「-」が含まれる場合はNOT検索（除外）になって最安値が消えるため除外
+                if (!str_contains($baseSearchName, '-')) {
+                    $keywordsToTry[] = $baseSearchName;
+                }
+
+                // 2. 全表記ゆれ（&, ＆, &amp;, 記号違い）を丸ごと拾う広域キーワード
                 $safeKw = $cleanSearchWord($baseSearchName);
                 $keywordsToTry[] = $safeKw;
 
-                // 3. 【汎用】一般名詞・日用品・アパレル等への埋没を防止する「デュエマ [カード名]」
-                $keywordsToTry[] = 'デュエマ ' . $safeKw;
-
-                // 4. 「&」を含む場合の表記ゆれ対応（全角「＆」、「&amp;」、スペース）
-                if (str_contains($baseSearchName, '&') || str_contains($baseSearchName, '＆')) {
-                    $keywordsToTry[] = $cleanSearchWord(str_replace(['&', '＆'], '＆', $baseSearchName));
-                    $keywordsToTry[] = $cleanSearchWord(str_replace(['&', '＆'], '&amp;', $baseSearchName));
-                    $keywordsToTry[] = $cleanSearchWord(str_replace(['&', '＆'], ' ', $baseSearchName));
+                // 3. 特殊記号や一般名詞を含むカード用（アパレル・日用品埋没の防止）
+                if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"') || mb_strlen($safeKw, 'UTF-8') <= 5) {
+                    $keywordsToTry[] = 'デュエマ ' . $safeKw;
                 }
 
-                // 5. 引用符を含む場合の表記ゆれ対応（全角引用符「“”」および引用符完全除去）
-                if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"')) {
-                    $noQuoteName = str_replace(['"', '“', '”'], '', $baseSearchName);
-                    $keywordsToTry[] = $cleanSearchWord($noQuoteName);
-                    $keywordsToTry[] = 'デュエマ ' . $cleanSearchWord($noQuoteName);
-                }
-
-                // 重複キーワードを排除
                 $keywordsToTry = array_values(array_unique(array_filter($keywordsToTry)));
+
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
@@ -1015,7 +1009,7 @@ public function myDecks() {
                         'applicationId' => $appId,
                         'accessKey'     => $accessKey,
                         'keyword'       => $kw,
-                        'sort'          => 'standard', // 関連度順で本命カードを優先取得
+                        'sort'          => 'standard', // 関連度順で本命カードを確実に30件取得
                         'hits'          => 30,
                         'minPrice'      => 10,
                     ];
@@ -1027,12 +1021,12 @@ public function myDecks() {
                     $responseBody = '';
                     $httpCode = 0;
 
-                    for ($attempt = 0; $attempt <= 2; $attempt++) {
+                    for ($attempt = 0; $attempt <= 1; $attempt++) {
                         $ch = curl_init();
                         curl_setopt_array($ch, [
                             CURLOPT_URL            => $url,
                             CURLOPT_RETURNTRANSFER => true,
-                            CURLOPT_TIMEOUT        => 8,
+                            CURLOPT_TIMEOUT        => 4,
                             CURLOPT_SSL_VERIFYPEER => false,
                             CURLOPT_USERAGENT      => 'Mozilla/5.0',
                             CURLOPT_HTTPHEADER     => [
@@ -1046,7 +1040,7 @@ public function myDecks() {
                         curl_close($ch);
 
                         if ($httpCode === 429) {
-                            usleep(1200000);
+                            usleep(800000);
                             continue;
                         }
                         break;
@@ -1111,15 +1105,12 @@ public function myDecks() {
                 $itemList = [];
                 $httpCode = 200;
 
-                // ★ 各キーワードで検索し、最も価格が安い合致商品を採用
+                // ★ すべての候補キーワードで検索を実行し、全結果の中から「一番安い価格の商品」を必ず採択！
                 foreach ($keywordsToTry as $kw) {
-                    if (empty($kw)) continue;
-
                     list($currentItems, $currentCode) = $fetchRakutenItems($kw);
                     $lastApiHitCount = count($currentItems);
                     $httpCode = $currentCode;
 
-                    // 400エラー時はスペース除去単語で救済
                     if ($currentCode === 400 && str_contains($kw, ' ')) {
                         $noSpaceKw = str_replace(' ', '', $kw);
                         list($currentItems, $currentCode) = $fetchRakutenItems($noSpaceKw);
@@ -1131,6 +1122,7 @@ public function myDecks() {
                         $candidate = $findBestMatch($currentItems);
                         if ($candidate !== null) {
                             $p = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
+                            // ★ より安い価格の商品が見つかったら更新（打ち切らずに比較継続）
                             if ($p > 0 && $p < $lowestFoundPrice) {
                                 $lowestFoundPrice = $p;
                                 $matchedItem = $candidate;
@@ -1139,10 +1131,10 @@ public function myDecks() {
                             }
                         }
                     }
-                    usleep(100000);
+                    usleep(70000); // 0.07秒ウェイト
                 }
 
-                // ★ どのパターンでも見つからなかった場合の最終フォールバック（中黒全除去）
+                // ★ どのパターンでも見つからなかった場合のみの最終手段（中黒全除去）
                 if ($matchedItem === null && str_contains($topName, '・')) {
                     $fallbackKeyword = str_replace(['・', ' '], '', $topName);
                     list($fbItemList, $fbHttpCode) = $fetchRakutenItems($fallbackKeyword);
@@ -1159,7 +1151,6 @@ public function myDecks() {
                 }
 
                 $keyword = $bestKeywordUsed;
-
                 $minPrice = null;
                 $affiliateUrl = '';
                 $itemName = '';
