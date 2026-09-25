@@ -965,11 +965,19 @@ public function myDecks() {
                     $keywordsToTry[] = $cleanSearchWord(str_replace(['&', '＆'], ' ', $baseSearchName));
                 }
 
-                // パターン4: 「“」や「”」を含む場合（引用符完全除去 ＆ デュエマ接頭辞）
+                // パターン4: 「“」や「”」を含む場合
                 if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"')) {
                     $noQuoteName = str_replace(['"', '“', '”'], '', $baseSearchName);
                     $keywordsToTry[] = $cleanSearchWord($noQuoteName);              // 例: ↑↑ブランド
                     $keywordsToTry[] = 'デュエマ ' . $cleanSearchWord($noQuoteName); // 例: デュエマ ↑↑ブランド
+
+                    // ★ 決定打：矢印「↑」等の特殊記号でAPIが0件になるのを防ぐため、
+                    // 記号を完全に除外した「デュエマ [文字部分]」（例: デュエマ ブランド）を検索候補に追加。
+                    // 楽天からデュエマのブランド商品をまとめて引き出し、PHP側の照合で「↑↑」を含むものを一本釣りする
+                    $lettersOnly = preg_replace('/[^\p{L}\p{N}]/u', '', $baseSearchName);
+                    if (!empty($lettersOnly)) {
+                        $keywordsToTry[] = 'デュエマ ' . $lettersOnly; // 例: デュエマ ブランド
+                    }
                 }
 
                 $keywordsToTry = array_values(array_unique(array_filter($keywordsToTry)));
