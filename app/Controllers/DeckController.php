@@ -821,7 +821,8 @@ public function myDecks() {
 
             // 文字列正規化関数（ひらがなカタカナ・記号・英数字を統一して比較）
             $normalize = function($str) {
-                $s = (string)$str;
+                // ★ &amp; や &quot; などのHTML特殊文字を事前にデコード
+                $s = html_entity_decode((string)$str, ENT_QUOTES | ENT_HTML5, 'UTF-8');
                 $s = str_replace(['∑', 'Σ'], 'シグマ', $s);
                 $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
@@ -965,21 +966,39 @@ public function myDecks() {
                 // ★ 試行キーワード一覧の作成
                 $keywordsToTry = [];
 
-                // パターン1: カード名そのまま（生キーワード）
-                $rawKw = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
-                $keywordsToTry[] = $rawKw;
+                $baseSearchName = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
 
-                // パターン2: 変換 ＋ 記号除去クレンジング済みキーワード
-                $fmtTop = $formatCardName($topName);
-                $fmtBottom = !empty($bottomName) ? $formatCardName($bottomName) : null;
-                $cleanKw = ($isAmbiguous && !empty($fmtBottom))
-                    ? $cleanSearchWord($fmtTop) . ' ' . $cleanSearchWord($fmtBottom)
-                    : $cleanSearchWord($fmtTop);
+                // パターン1: 生キーワード（そのまま）
+                $keywordsToTry[] = $baseSearchName;
 
-                if ($cleanKw !== $rawKw) {
-                    $keywordsToTry[] = $cleanKw;
+                // パターン2: ハイフン等のNOT検索記号を除去した安全なキーワード
+                $safeKw = $cleanSearchWord($baseSearchName);
+                $keywordsToTry[] = $safeKw;
+
+                // パターン3: 「&」を含む場合（全角「＆」およびご指示の「&amp;」変換）
+                if (str_contains($baseSearchName, '&')) {
+                    $keywordsToTry[] = $cleanSearchWord(str_replace('&', '＆', $baseSearchName));
+                    $keywordsToTry[] = $cleanSearchWord(str_replace('&', '&amp;', $baseSearchName));
+                    $keywordsToTry[] = $cleanSearchWord(str_replace('&', ' ', $baseSearchName));
                 }
 
+                // パターン4: 「"」を含む場合（「“」「”」変換および完全除去）
+                if (str_contains($baseSearchName, '"')) {
+                    // 1つ目を「“」、2つ目を「”」に変換
+                    $count = 0;
+                    $curlyName = preg_replace_callback('/"/', function($m) use (&$count) {
+                        $count++;
+                        return ($count % 2 === 1) ? '“' : '”';
+                    }, $baseSearchName);
+                    $keywordsToTry[] = $cleanSearchWord($curlyName);
+
+                    // 引用符を完全に除去して結合（「↑↑ブランド」などアパレル除外用）
+                    $noQuoteName = str_replace(['"', '“', '”'], '', $baseSearchName);
+                    $keywordsToTry[] = $cleanSearchWord($noQuoteName);
+                    $keywordsToTry[] = 'デュエマ ' . $cleanSearchWord($noQuoteName);
+                }
+
+                $keywordsToTry = array_values(array_unique(array_filter($keywordsToTry)));
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
@@ -1082,7 +1101,7 @@ public function myDecks() {
 
                 $matchedItem = null;
                 $lowestFoundPrice = PHP_INT_MAX;
-                $bestKeywordUsed = $rawKw;
+                $bestKeywordUsed = $baseSearchName;
                 $itemList = [];
                 $httpCode = 200;
 
@@ -1099,7 +1118,6 @@ public function myDecks() {
                     }
 
                     if (!empty($currentItems)) {
-                        $itemList = $currentItems;
                         $candidate = $findBestMatch($currentItems);
                         if ($candidate !== null) {
                             $p = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
@@ -1107,13 +1125,14 @@ public function myDecks() {
                                 $lowestFoundPrice = $p;
                                 $matchedItem = $candidate;
                                 $bestKeywordUsed = $kw;
+                                $itemList = $currentItems;
                             }
                         }
                     }
-                    usleep(100000);
+                    usleep(100000); // 0.1秒待機
                 }
 
-                // ★ どちらでも見つからなかった場合の最終フォールバック（中黒全除去）
+                // ★ どのパターンでも見つからなかった場合の最終フォールバック（中黒全除去）
                 if ($matchedItem === null && str_contains($topName, '・')) {
                     $fallbackKeyword = str_replace(['・', ' '], '', $topName);
                     list($fbItemList, $fbHttpCode) = $fetchRakutenItems($fallbackKeyword);
@@ -1128,7 +1147,7 @@ public function myDecks() {
                 }
 
                 $keyword = $bestKeywordUsed;
-                
+
                 $minPrice = null;
                 $affiliateUrl = '';
                 $itemName = '';
