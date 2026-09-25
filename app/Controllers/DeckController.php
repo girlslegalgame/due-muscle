@@ -825,8 +825,8 @@ public function myDecks() {
                 $s = str_replace(['∑', 'Σ'], 'シグマ', $s);
                 $s = mb_convert_kana($s, 'asKV', 'UTF-8');
                 $s = mb_strtolower($s, 'UTF-8');
-                // 伸ばし棒「ー」は残し、記号類（ハイフン類、中黒、波ダッシュ、引用符、括弧、&等）のみを除去
-                $s = preg_replace('/[\s・\-\−\―\〜\～\~\/\／\(\)\（\）\「\」\『\』\【\】\[\]\"\'\”\“\’\♪\!！\?？\=\＝\:\：\*\＊\+＋\&＆]/u', '', $s);
+                // 記号類（長音符・ハイフン類、中黒、波ダッシュ、引用符、括弧、&等）をすべて除去して照合
+                $s = preg_replace('/[\s・\-\−\―\ー\〜\～\~\/\／\(\)\（\）\「\」\『\』\【\】\[\]\"\'\”\“\’\♪\!！\?？\=\＝\:\：\*\＊\+＋\&＆]/u', '', $s);
                 return $s;
             };
 
@@ -870,6 +870,25 @@ public function myDecks() {
 
                 $topName = $cardInfo['top_name'];
                 $bottomName = $cardInfo['bottom_name'];
+
+                $formatCardName = function($str) {
+                    if (empty($str)) return $str;
+                    $s = str_replace('&', '＆', $str);
+                    if (substr_count($s, '"') >= 2) {
+                        $count = 0;
+                        $s = preg_replace_callback('/"/', function($m) use (&$count) {
+                            $count++;
+                            return ($count % 2 === 1) ? '“' : '”';
+                        }, $s);
+                    }
+                    return $s;
+                };
+
+                $topName = $formatCardName($topName);
+                if ($bottomName !== null) {
+                    $bottomName = $formatCardName($bottomName);
+                }
+
 
                 // 「∑」を「Σ」に補正
                 if (str_contains($topName, '∑')) {
@@ -918,8 +937,7 @@ public function myDecks() {
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
                 // 検索クエリ用：記号類を半角スペースに置換してクリーン化
                 $cleanSearchWord = function($str) {
-                    // 1. 引用符、括弧、波ダッシュ、感嘆符、NOT検索の原因となるハイフン類、& を半角スペースに変換（※伸ばし棒「ー」は残す）
-                    $s = preg_replace('/[\"\'\”\“\’\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―\&＆]/u', ' ', $str);
+                    $s = preg_replace('/[\"\'\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―]/u', ' ', $str);
                     $s = trim(preg_replace('/\s+/u', ' ', $s));
 
                     // 2. 万一「A B C」のように1文字の単語がスペースで孤立している場合のみ結合（400エラー防止）
