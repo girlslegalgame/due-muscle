@@ -726,6 +726,8 @@ public function myDecks() {
         $deckId = $_GET['deck_id'] ?? null;
         $targetShopCode = trim($_GET['shop_code'] ?? ''); // ★追加：選択ショップコード
         $forceRefresh = !empty($_GET['refresh']); // ★ この1行を追加
+        $excludeCardsRaw = $_GET['exclude_cards'] ?? '';
+        $excludeCards = $excludeCardsRaw !== '' ? array_map('trim', explode('|||', $excludeCardsRaw)) : [];
         if (!$deckId) {
             http_response_code(400);
             echo json_encode(['error' => 'Deck ID is required']);
@@ -791,7 +793,9 @@ public function myDecks() {
                 }
 
                 $key = $isTwinpact ? "{$topName} / {$bottomName}" : $name;
-
+                if (in_array($key, $excludeCards, true)) {
+                    continue;
+                }
                 if (!isset($cardMap[$key])) {
                     $cardMap[$key] = [
                         'display_name' => $key,

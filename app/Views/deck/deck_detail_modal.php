@@ -581,47 +581,65 @@
             </div>
             <!-- デッキ価格査定 -->
             <div id="content-price" class="tab-content">
-                <div style="text-align: center; margin-bottom: 15px; display: flex; justify-content: center; gap: 10px;">
-                    <button id="btn-start-estimate" class="modal-btn-fa-setup" style="padding: 8px 24px;" onclick="runPriceEstimate()">
-                        楽天市場で最安値を査定する
-                    </button>
-                    <!-- ★追加：キャッシュクリアボタン -->
-                    <button id="btn-refresh-estimate" class="modal-btn-draw-action modal-btn-draw-reload" style="padding: 8px 16px; font-size: 0.85rem;" onclick="runPriceEstimate('', true)">
-                        キャッシュをクリアして再査定
-                    </button>
+                <!-- 操作パネル -->
+                <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px 15px; margin-bottom: 15px;">
+                    <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+                        <!-- 査定対象の選択 -->
+                        <div style="display: flex; align-items: center; gap: 15px; font-size: 0.9rem; font-weight: bold;">
+                            <span>査定対象:</span>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="price_estimate_target" value="unowned" checked> 未購入のみ
+                            </label>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="price_estimate_target" value="all"> 全カード
+                            </label>
+                        </div>
+
+                        <!-- ショップ指定 -->
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <label for="price-shop-select" style="font-size: 0.85rem; font-weight: bold; color: #555;">ショップ:</label>
+                            <select id="price-shop-select" onchange="onShopChange()" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; font-weight: bold;">
+                                <option value="">すべてのショップ（最安値）</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; justify-content: center; gap: 10px; margin-top: 12px;">
+                        <button id="btn-start-estimate" class="modal-btn-fa-setup" style="padding: 8px 24px;" onclick="runPriceEstimate()">
+                            楽天市場で査定する
+                        </button>
+                        <button id="btn-refresh-estimate" class="modal-btn-draw-action modal-btn-draw-reload" style="padding: 8px 16px; font-size: 0.85rem;" onclick="runPriceEstimate('', true)">
+                            キャッシュをクリアして再査定
+                        </button>
+                    </div>
                 </div>
 
                 <!-- ローディング表示 -->
-                <div id="price-estimate-loading" style="display: none; text-align: center; padding: 30px 0; color: #666;">
+                <div id="price-estimate-loading" style="display: none; text-align: center; padding: 20px 0; color: #666;">
                     <p style="font-weight: bold; margin-bottom: 5px;">楽天市場から最安値情報を取得しています...</p>
                     <p style="font-size: 0.85rem; color: #999;">（カードの種類数に応じて十数秒かかる場合があります）</p>
                 </div>
 
-                <!-- 査定結果表示エリア -->
-                <div id="price-estimate-result" style="display: none;">
-                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 12px;">
-                        <label for="price-shop-select" style="font-size: 0.85rem; font-weight: bold; color: #555;">ショップ指定:</label>
-                        <select id="price-shop-select" onchange="onShopChange()" style="padding: 5px 10px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; font-weight: bold;">
-                            <option value="">すべてのショップ（最安値）</option>
-                        </select>
-                    </div>
-                    
-                    <div style="background: #eef9f1; border: 1px solid #b7ebc5; border-radius: 8px; padding: 15px; margin-bottom: 15px; text-align: center;">
-                        <span style="font-size: 0.95rem; color: #333;">デッキ最安合計金額（概算）: </span>
-                        <span id="deck-total-price" style="font-size: 1.8rem; font-weight: bold; color: #d9534f; margin-left: 8px;">0</span>
-                        <span style="font-size: 1.1rem; font-weight: bold; color: #d9534f;"> 円</span>
-                        <div id="price-not-found-warn" style="font-size: 0.8rem; color: #888; margin-top: 4px;"></div>
-                    </div>
+                <!-- 合計金額エリア -->
+                <div style="background: #eef9f1; border: 1px solid #b7ebc5; border-radius: 8px; padding: 12px; margin-bottom: 12px; text-align: center;">
+                    <span style="font-size: 0.95rem; color: #333;">合計金額（未購入分）: </span>
+                    <span id="deck-total-price" style="font-size: 1.8rem; font-weight: bold; color: #d9534f; margin-left: 8px;">-</span>
+                    <span style="font-size: 1.1rem; font-weight: bold; color: #d9534f;"> 円</span>
+                    <div id="price-not-found-warn" style="font-size: 0.8rem; color: #888; margin-top: 4px;"></div>
+                </div>
 
-                    <table class="analysis-table" style="font-size: 0.85rem;">
-                        <thead>
+                <!-- カードテーブル（初期から表示） -->
+                <div style="max-height: 48vh; overflow-y: auto;">
+                    <table class="analysis-table" style="font-size: 0.85rem; width: 100%;">
+                        <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 2;">
                             <tr>
+                                <th style="width: 65px;">購入済み</th>
                                 <th style="text-align: left; padding-left: 8px;">カード名</th>
                                 <th style="width: 50px;">枚数</th>
                                 <th style="width: 80px;">最安単価</th>
                                 <th style="width: 80px;">小計</th>
-                                <th style="width: 120px;">ショップ</th> <!-- ★追加 -->
-                                <th style="width: 70px;">リンク</th>
+                                <th style="width: 120px;">ショップ</th>
+                                <th style="width: 60px;">リンク</th>
                             </tr>
                         </thead>
                         <tbody id="price-card-list-body"></tbody>
@@ -663,21 +681,19 @@ let modalAdditionalDrawCount = 0;
 
 let modalFaSelectedCardIds = new Set();
 let modalFaHandCount = 5;
+let priceEstimateCache = {};
 
+
+/**
+ * モーダルオープン時の処理更新
+ */
 function openDeckModal(deckId, deckName) {
-    currentDeckId = deckId; // ★この行を追加（デッキIDを保持）
-    knownShops = {}; // ★ 追加：別デッキを開いた時にショップリストを初期化
-    const priceResult = document.getElementById('price-estimate-result');
-    const priceLoading = document.getElementById('price-estimate-loading');
-    const priceTbody = document.getElementById('price-card-list-body');
-    const btnEstimate = document.getElementById('btn-start-estimate');
-    if (priceResult) priceResult.style.display = 'none';
-    if (priceLoading) priceLoading.style.display = 'none';
-    if (priceTbody) priceTbody.innerHTML = '';
-    if (btnEstimate) {
-        btnEstimate.disabled = false;
-        btnEstimate.style.opacity = '1';
-    }    
+    currentDeckId = deckId;
+    knownShops = {};
+    priceEstimateCache = {};
+    document.getElementById('deck-total-price').innerText = '-';
+    document.getElementById('price-not-found-warn').innerText = '';
+
     document.getElementById('modal-deck-title').innerText = deckName;
     const mainList = document.getElementById('modal-main-list');
     mainList.innerHTML = '読み込み中...';
@@ -692,14 +708,153 @@ function openDeckModal(deckId, deckName) {
     fetch('/api/decks/view?deck_id=' + deckId)
         .then(res => res.json())
         .then(data => {
-            currentDeckCards = data; // データを保存
+            currentDeckCards = data;
             renderImages(data);
             initCharts(data);
+            initPriceTable(data); // ★追加: 査定前でもカード一覧を描画
         })
         .catch(err => {
             mainList.innerHTML = 'データの読み込みに失敗しました。';
             console.error(err);
         });
+}
+
+/**
+ * LocalStorageから購入済みカード一覧を取得
+ */
+function getOwnedCardsFromStorage(deckId) {
+    try {
+        const val = localStorage.getItem('owned_cards_deck_' + deckId);
+        return val ? JSON.parse(val) : [];
+    } catch(e) {
+        return [];
+    }
+}
+
+/**
+ * LocalStorageに購入済みカード一覧を保存
+ */
+function saveOwnedCardsToStorage(deckId, ownedList) {
+    try {
+        localStorage.setItem('owned_cards_deck_' + deckId, JSON.stringify(ownedList));
+    } catch(e) {}
+}
+
+/**
+ * 査定テーブルの初期構築（査定前でも全カードを表示）
+ */
+function initPriceTable(cards) {
+    const tbody = document.getElementById('price-card-list-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const ownedList = getOwnedCardsFromStorage(currentDeckId);
+
+    // デッキ内カード（全ゾーン）を集約
+    const cardMap = {};
+    cards.forEach(c => {
+        let name = (c.card_name || '').trim();
+        const isTwinpact = !empty(c.twinpact) && !empty(c.partner_card_id);
+        if (isTwinpact) {
+            const selfId = parseInt(c.card_id);
+            const partnerId = parseInt(c.partner_card_id);
+            if (selfId < partnerId) {
+                name = `${c.card_name} / ${c.partner_card_name}`;
+            } else {
+                name = `${c.partner_card_name} / ${c.card_name}`;
+            }
+        }
+        const qty = parseInt(c.quantity || 1);
+        if (!cardMap[name]) {
+            cardMap[name] = { name: name, quantity: 0 };
+        }
+        cardMap[name].quantity += qty;
+    });
+
+    Object.values(cardMap).forEach(c => {
+        const isOwned = ownedList.includes(c.name);
+        const tr = document.createElement('tr');
+        tr.dataset.cardName = c.name;
+        tr.className = isOwned ? 'card-row-owned' : '';
+        if (isOwned) {
+            tr.style.backgroundColor = '#f1f3f4';
+            tr.style.opacity = '0.6';
+        }
+
+        tr.innerHTML = `
+            <td>
+                <input type="checkbox" class="owned-checkbox" ${isOwned ? 'checked' : ''} onchange="toggleCardOwned(this, '${escapeHtmlAttr(c.name)}')">
+            </td>
+            <td style="text-align: left; padding: 6px 8px;">${c.name}</td>
+            <td>${c.quantity}</td>
+            <td class="cell-unit-price">-</td>
+            <td class="cell-subtotal" style="font-weight: bold;">-</td>
+            <td class="cell-shop">-</td>
+            <td class="cell-link">-</td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+function empty(val) {
+    return !val || val === '0' || val === 0 || val === false;
+}
+
+function escapeHtmlAttr(str) {
+    return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+}
+
+/**
+ * 「購入済み」チェック切り替え時
+ */
+function toggleCardOwned(checkbox, cardName) {
+    let ownedList = getOwnedCardsFromStorage(currentDeckId);
+    if (checkbox.checked) {
+        if (!ownedList.includes(cardName)) ownedList.push(cardName);
+    } else {
+        ownedList = ownedList.filter(n => n !== cardName);
+    }
+    saveOwnedCardsToStorage(currentDeckId, ownedList);
+
+    // 行スタイルの更新
+    const row = checkbox.closest('tr');
+    if (row) {
+        row.classList.toggle('card-row-owned', checkbox.checked);
+        row.style.backgroundColor = checkbox.checked ? '#f1f3f4' : '';
+        row.style.opacity = checkbox.checked ? '0.6' : '1';
+    }
+
+    // 査定結果が表示されていれば合計金額を再計算
+    recalculateTotalPrice();
+}
+
+/**
+ * チェック状態に応じた合計金額の再計算
+ */
+function recalculateTotalPrice() {
+    const ownedList = getOwnedCardsFromStorage(currentDeckId);
+    let total = 0;
+    let hasPrice = false;
+
+    const rows = document.querySelectorAll('#price-card-list-body tr');
+    rows.forEach(tr => {
+        const name = tr.dataset.cardName;
+        const subtotalCell = tr.querySelector('.cell-subtotal');
+        if (!subtotalCell) return;
+
+        const val = subtotalCell.dataset.val;
+        if (val !== undefined && val !== '') {
+            hasPrice = true;
+            // 未購入のカードのみ合計に加算
+            if (!ownedList.includes(name)) {
+                total += parseInt(val) || 0;
+            }
+        }
+    });
+
+    if (hasPrice) {
+        document.getElementById('deck-total-price').innerText = total.toLocaleString();
+    }
 }
 
 function renderImages(cards) {
@@ -839,26 +994,34 @@ function onShopChange() {
     const shopCode = document.getElementById('price-shop-select').value;
     runPriceEstimate(shopCode);
 }
+/**
+ * 査定実行
+ */
 function runPriceEstimate(shopCode = '', refresh = false) {
     if (!currentDeckId) return;
 
     const btn = document.getElementById('btn-start-estimate');
     const loading = document.getElementById('price-estimate-loading');
-    const resultArea = document.getElementById('price-estimate-result');
     const shopSelect = document.getElementById('price-shop-select');
 
     btn.disabled = true;
     btn.style.opacity = '0.6';
     loading.style.display = 'block';
-    resultArea.style.display = 'none';
+
+    const targetMode = document.querySelector('input[name="price_estimate_target"]:checked')?.value || 'unowned';
+    let excludeCardsParam = '';
+
+    if (targetMode === 'unowned') {
+        const ownedList = getOwnedCardsFromStorage(currentDeckId);
+        if (ownedList.length > 0) {
+            excludeCardsParam = encodeURIComponent(ownedList.join('|||'));
+        }
+    }
 
     let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
-    if (shopCode) {
-        url += '&shop_code=' + encodeURIComponent(shopCode);
-    }
-    if (refresh) {
-        url += '&refresh=1'; // ★キャッシュを破棄して楽天APIから最新取得
-    }
+    if (shopCode) url += '&shop_code=' + encodeURIComponent(shopCode);
+    if (refresh) url += '&refresh=1';
+    if (excludeCardsParam) url += '&exclude_cards=' + excludeCardsParam;
 
     fetch(url)
         .then(async res => {
@@ -871,71 +1034,57 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             }
         })
         .then(data => {
-            // ★ デバッグログをコンソールに出力
-            console.group('=== 楽天市場API 査定デバッグログ ===');
-            console.log('レスポンス全体:', data);
-            if (data.debug && data.debug.logs) {
-                console.table(data.debug.logs);
-            }
-            console.groupEnd();
-
             if (!data.success) {
                 alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
                 return;
             }
 
-            // 新しく見つかったショップ情報をマージして保持
             if (data.shops) {
                 Object.assign(knownShops, data.shops);
+                if (shopSelect) {
+                    shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
+                    Object.keys(knownShops).forEach(code => {
+                        const opt = document.createElement('option');
+                        opt.value = code;
+                        opt.textContent = knownShops[code];
+                        if (code === shopCode) opt.selected = true;
+                        shopSelect.appendChild(opt);
+                    });
+                    shopSelect.value = shopCode;
+                }
             }
 
-            // 保持しているショップ一覧からドロップダウンを再構築
-            if (shopSelect) {
-                shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
-                Object.keys(knownShops).forEach(code => {
-                    const opt = document.createElement('option');
-                    opt.value = code;
-                    opt.textContent = knownShops[code];
-                    if (code === shopCode) opt.selected = true;
-                    shopSelect.appendChild(opt);
-                });
-                shopSelect.value = shopCode;
-            }
+            // カード毎の取得結果をテーブル行に反映
+            const cardResultMap = {};
+            data.cards.forEach(c => {
+                cardResultMap[c.card_name] = c;
+            });
 
-            document.getElementById('deck-total-price').innerText = Number(data.total_price).toLocaleString();
-            
+            const rows = document.querySelectorAll('#price-card-list-body tr');
+            rows.forEach(tr => {
+                const name = tr.dataset.cardName;
+                const c = cardResultMap[name];
+                if (c) {
+                    const priceStr = c.price !== null ? `¥${Number(c.price).toLocaleString()}` : '-';
+                    const subtotalStr = c.subtotal !== null ? `¥${Number(c.subtotal).toLocaleString()}` : '-';
+                    const shopStr = c.shop_name ? `<span style="font-size:0.75rem; word-break:break-all;">${c.shop_name}</span>` : '-';
+                    const linkHtml = c.affiliate_url 
+                        ? `<a href="${c.affiliate_url}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline; font-weight: bold;">購入</a>`
+                        : '<span style="color: #999;">-</span>';
+
+                    tr.querySelector('.cell-unit-price').innerText = priceStr;
+                    const subCell = tr.querySelector('.cell-subtotal');
+                    subCell.innerText = subtotalStr;
+                    subCell.dataset.val = c.subtotal !== null ? c.subtotal : 0;
+                    tr.querySelector('.cell-shop').innerHTML = shopStr;
+                    tr.querySelector('.cell-link').innerHTML = linkHtml;
+                }
+            });
+
             const warnEl = document.getElementById('price-not-found-warn');
             warnEl.innerText = data.not_found_cards > 0 ? `※ ${data.not_found_cards} 種のカードは見つかりませんでした（0円として計算）` : '';
 
-            const tbody = document.getElementById('price-card-list-body');
-            tbody.innerHTML = '';
-
-            data.cards.forEach(c => {
-                const tr = document.createElement('tr');
-                if (c.price === null) {
-                    tr.style.backgroundColor = '#fcfcfc';
-                    tr.style.color = '#888';
-                }
-
-                const priceStr = c.price !== null ? `¥${Number(c.price).toLocaleString()}` : '-';
-                const subtotalStr = c.subtotal !== null ? `¥${Number(c.subtotal).toLocaleString()}` : '-';
-                const shopStr = c.shop_name ? `<span style="font-size:0.75rem; word-break:break-all;">${c.shop_name}</span>` : '-';
-                const linkHtml = c.affiliate_url 
-                    ? `<a href="${c.affiliate_url}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline; font-weight: bold;">購入</a>`
-                    : '<span style="color: #999;">-</span>';
-
-                tr.innerHTML = `
-                    <td style="text-align: left; padding: 6px 8px;">${c.card_name}</td>
-                    <td>${c.quantity}</td>
-                    <td>${priceStr}</td>
-                    <td style="font-weight: bold;">${subtotalStr}</td>
-                    <td>${shopStr}</td>
-                    <td>${linkHtml}</td>
-                `;
-                tbody.appendChild(tr);
-            });
-
-            resultArea.style.display = 'block';
+            recalculateTotalPrice();
         })
         .catch(err => {
             alert('通信エラーが発生しました');
