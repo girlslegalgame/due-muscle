@@ -871,25 +871,6 @@ public function myDecks() {
                 $topName = $cardInfo['top_name'];
                 $bottomName = $cardInfo['bottom_name'];
 
-                $formatCardName = function($str) {
-                    if (empty($str)) return $str;
-                    $s = str_replace('&', '＆', $str);
-                    if (substr_count($s, '"') >= 2) {
-                        $count = 0;
-                        $s = preg_replace_callback('/"/', function($m) use (&$count) {
-                            $count++;
-                            return ($count % 2 === 1) ? '“' : '”';
-                        }, $s);
-                    }
-                    return $s;
-                };
-
-                $topName = $formatCardName($topName);
-                if ($bottomName !== null) {
-                    $bottomName = $formatCardName($bottomName);
-                }
-
-
                 // 「∑」を「Σ」に補正
                 if (str_contains($topName, '∑')) {
                     $topName = str_replace('∑', 'Σ', $topName);
@@ -932,15 +913,29 @@ public function myDecks() {
                 }
 
                 // ==========================================
-                // 2. 検索キーワードの動的決定
+                // 2. 検索キーワードの動的決定（生キーワード & 変換キーワード比較）
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
-                // 検索クエリ用：記号類を半角スペースに置換してクリーン化
+
+                // 表記変換ルール：「&」→「＆」、「"」→「“」「”」
+                $formatCardName = function($str) {
+                    if (empty($str)) return $str;
+                    $s = str_replace('&', '＆', $str);
+                    if (substr_count($s, '"') >= 2) {
+                        $count = 0;
+                        $s = preg_replace_callback('/"/', function($m) use (&$count) {
+                            $count++;
+                            return ($count % 2 === 1) ? '“' : '”';
+                        }, $s);
+                    }
+                    return $s;
+                };
+
+                // 記号除去・クレンジング処理
                 $cleanSearchWord = function($str) {
                     $s = preg_replace('/[\"\'\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―]/u', ' ', $str);
                     $s = trim(preg_replace('/\s+/u', ' ', $s));
 
-                    // 2. 万一「A B C」のように1文字の単語がスペースで孤立している場合のみ結合（400エラー防止）
                     $tokens = preg_split('/\s+/u', $s, -1, PREG_SPLIT_NO_EMPTY);
                     if (count($tokens) <= 1) return $s;
 
@@ -965,15 +960,30 @@ public function myDecks() {
                         }
                     }
                     return implode(' ', $result);
-                };                
-                if ($isAmbiguous && !empty($bottomName)) {
-                    $keyword = $cleanSearchWord($topName) . ' ' . $cleanSearchWord($bottomName);
-                } else {
-                    $keyword = $cleanSearchWord($topName);
+                };
+
+                // ★ 試行キーワード一覧の作成
+                $keywordsToTry = [];
+
+                // パターン1: カード名そのまま（生キーワード）
+                $rawKw = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
+                $keywordsToTry[] = $rawKw;
+
+                // パターン2: 変換 ＋ 記号除去クレンジング済みキーワード
+                $fmtTop = $formatCardName($topName);
+                $fmtBottom = !empty($bottomName) ? $formatCardName($bottomName) : null;
+                $cleanKw = ($isAmbiguous && !empty($fmtBottom))
+                    ? $cleanSearchWord($fmtTop) . ' ' . $cleanSearchWord($fmtBottom)
+                    : $cleanSearchWord($fmtTop);
+
+                if ($cleanKw !== $rawKw) {
+                    $keywordsToTry[] = $cleanKw;
                 }
+
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
-                // ★ API通信処理をクロージャとして正しく定義
+
+                // API通信処理
                 $fetchRakutenItems = function($kw) use ($apiBaseUrl, $appId, $accessKey, $ngKeywords, $targetShopCode, $affiliateId) {
                     $queryParams = [
                         'applicationId' => $appId,
@@ -981,7 +991,7 @@ public function myDecks() {
                         'keyword'       => $kw,
                         'NGKeyword'     => $ngKeywords,
                         'sort'          => '+itemPrice',
-                        'availability'  => 1,  // 在庫あり商品のみ
+                        'availability'  => 1,
                         'hits'          => 30,
                         'minPrice'      => 10,
                     ];
@@ -1021,14 +1031,7 @@ public function myDecks() {
                     return [$data['Items'] ?? $data['items'] ?? [], $httpCode];
                 };
 
-                // 1回目の検索を実行
-                list($itemList, $httpCode) = $fetchRakutenItems($keyword);
-
-                if ($httpCode === 400 && str_contains($keyword, ' ')) {
-                    $noSpaceKw = str_replace(' ', '', $keyword);
-                    list($itemList, $httpCode) = $fetchRakutenItems($noSpaceKw);
-                    $keyword = $noSpaceKw;
-                }                
+                // 合致判定処理
                 $findBestMatch = function($items) use ($ngTitlePattern, $normalize, $isTwinpact, $isAmbiguous, $normTop, $normBottom) {
                     $matched = null;
                     $lowest = PHP_INT_MAX;
@@ -1047,21 +1050,17 @@ public function myDecks() {
                         $isMatched = false;
 
                         if (!$isTwinpact) {
-                            // 通常カード
                             if (str_contains($normTitle, $normTop)) {
                                 $isMatched = true;
                             }
                         } else {
-                            // ツインパクトカード
                             if ($isAmbiguous) {
-                                // 同名上面が存在する場合は上下両方の合致を優先、もしくは下面のみで合致
                                 if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
                                     $isMatched = true;
                                 } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
                                     $isMatched = true;
                                 }
                             } else {
-                                // 通常のツインパクト：上面または下面のどちらかが含まれていれば合致
                                 if (str_contains($normTitle, $normTop)) {
                                     $isMatched = true;
                                 } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
@@ -1081,21 +1080,55 @@ public function myDecks() {
                     return $matched;
                 };
 
-                $matchedItem = $findBestMatch($itemList);
+                $matchedItem = null;
+                $lowestFoundPrice = PHP_INT_MAX;
+                $bestKeywordUsed = $rawKw;
+                $itemList = [];
+                $httpCode = 200;
 
-                // ★ 見つからなかった場合のフォールバック検索（中黒・スペースを完全に詰めた1単語で再試行）
+                // ★ 各キーワードで検索し、最も価格が安い合致商品を採用
+                foreach ($keywordsToTry as $kw) {
+                    if (empty($kw)) continue;
+
+                    list($currentItems, $currentCode) = $fetchRakutenItems($kw);
+
+                    // 400エラー時はスペース除去単語で救済
+                    if ($currentCode === 400 && str_contains($kw, ' ')) {
+                        $noSpaceKw = str_replace(' ', '', $kw);
+                        list($currentItems, $currentCode) = $fetchRakutenItems($noSpaceKw);
+                    }
+
+                    if (!empty($currentItems)) {
+                        $itemList = $currentItems;
+                        $candidate = $findBestMatch($currentItems);
+                        if ($candidate !== null) {
+                            $p = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
+                            if ($p > 0 && $p < $lowestFoundPrice) {
+                                $lowestFoundPrice = $p;
+                                $matchedItem = $candidate;
+                                $bestKeywordUsed = $kw;
+                            }
+                        }
+                    }
+                    usleep(100000);
+                }
+
+                // ★ どちらでも見つからなかった場合の最終フォールバック（中黒全除去）
                 if ($matchedItem === null && str_contains($topName, '・')) {
                     $fallbackKeyword = str_replace(['・', ' '], '', $topName);
                     list($fbItemList, $fbHttpCode) = $fetchRakutenItems($fallbackKeyword);
                     if (!empty($fbItemList)) {
-                        $matchedItem = $findBestMatch($fbItemList);
-                        if ($matchedItem !== null) {
+                        $candidate = $findBestMatch($fbItemList);
+                        if ($candidate !== null) {
+                            $matchedItem = $candidate;
+                            $bestKeywordUsed = $fallbackKeyword;
                             $itemList = $fbItemList;
-                            $keyword = $fallbackKeyword;
                         }
                     }
                 }
 
+                $keyword = $bestKeywordUsed;
+                
                 $minPrice = null;
                 $affiliateUrl = '';
                 $itemName = '';
