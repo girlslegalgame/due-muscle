@@ -908,15 +908,44 @@ public function myDecks() {
                 // 1. キャッシュ確認（強制更新でない場合のみ）
                 // ==========================================
                 if (!$forceRefresh) {
-                    // ...（既存のキャッシュ確認コード）...
+                    $stmtCacheGet->execute([':ck' => $cacheKey]);
+                    $cached = $stmtCacheGet->fetch(PDO::FETCH_ASSOC);
+
+                    if ($cached) {
+                        $minPrice = $cached['price'] !== null ? (int)$cached['price'] : null;
+                        $affiliateUrl = $cached['affiliate_url'] ?? '';
+                        $itemName = $cached['item_title'] ?? '';
+                        $shopName = $cached['shop_name'] ?? '';
+                        $shopCode = $cached['shop_code'] ?? '';
+
+                        if ($minPrice !== null) {
+                            $totalPrice += ($minPrice * $qty);
+                        } else {
+                            $notFoundCount++;
+                        }
+
+                        $items[] = [
+                            'card_name'     => $cardInfo['display_name'],
+                            'quantity'      => $qty,
+                            'price'         => $minPrice,
+                            'subtotal'      => $minPrice !== null ? ($minPrice * $qty) : null,
+                            'affiliate_url' => $affiliateUrl,
+                            'item_title'    => $itemName,
+                            'shop_name'     => $shopName,
+                            'shop_code'     => $shopCode,
+                        ];
+                        continue; // 通信不要で即座に次のカードへ
+                    }
                 }
 
+
+
                 // ==========================================
-                // 2. 検索キーワードの動的決定（複数パターン試行 & 最安値採択）
+                // 2. 検索キーワードの動的決定（汎用ルールによる複数パターン試行）
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
 
-                // 記号クレンジング（NOT検索になるハイフン等を除去）
+                // 記号クレンジング（NOT検索になるハイフン等を除去し、安全な単語列を生成）
                 $cleanSearchWord = function($str) {
                     $s = preg_replace('/[\"\'\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―]/u', ' ', $str);
                     $s = trim(preg_replace('/\s+/u', ' ', $s));
@@ -947,52 +976,46 @@ public function myDecks() {
                     return implode(' ', $result);
                 };
 
-                // ★ 試行キーワード一覧の作成
+                // ★ 汎用キーワード候補の生成
                 $keywordsToTry = [];
                 $baseSearchName = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
 
-                // パターン1: 変換後カード名そのまま（例: “↑↑”ブランド）
+                // 1. カード名そのまま（公式表記）
                 $keywordsToTry[] = $baseSearchName;
 
-                // パターン2: ハイフン等のNOT検索記号を除去したキーワード
+                // 2. NOT検索になる記号等を除去した安全なキーワード
                 $safeKw = $cleanSearchWord($baseSearchName);
                 $keywordsToTry[] = $safeKw;
 
-                // パターン3: 「&」を含む場合（全角「＆」、「&amp;」、スペース置換）
+                // 3. 【汎用】一般名詞・日用品・アパレル等への埋没を防止する「デュエマ [カード名]」
+                $keywordsToTry[] = 'デュエマ ' . $safeKw;
+
+                // 4. 「&」を含む場合の表記ゆれ対応（全角「＆」、「&amp;」、スペース）
                 if (str_contains($baseSearchName, '&') || str_contains($baseSearchName, '＆')) {
                     $keywordsToTry[] = $cleanSearchWord(str_replace(['&', '＆'], '＆', $baseSearchName));
                     $keywordsToTry[] = $cleanSearchWord(str_replace(['&', '＆'], '&amp;', $baseSearchName));
                     $keywordsToTry[] = $cleanSearchWord(str_replace(['&', '＆'], ' ', $baseSearchName));
                 }
 
-                // パターン4: 「“」や「”」を含む場合
+                // 5. 引用符を含む場合の表記ゆれ対応（全角引用符「“”」および引用符完全除去）
                 if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"')) {
                     $noQuoteName = str_replace(['"', '“', '”'], '', $baseSearchName);
-                    $keywordsToTry[] = $cleanSearchWord($noQuoteName);              // 例: ↑↑ブランド
-                    $keywordsToTry[] = 'デュエマ ' . $cleanSearchWord($noQuoteName); // 例: デュエマ ↑↑ブランド
-
-                    // ★ 決定打：矢印「↑」等の特殊記号でAPIが0件になるのを防ぐため、
-                    // 記号を完全に除外した「デュエマ [文字部分]」（例: デュエマ ブランド）を検索候補に追加。
-                    // 楽天からデュエマのブランド商品をまとめて引き出し、PHP側の照合で「↑↑」を含むものを一本釣りする
-                    $lettersOnly = preg_replace('/[^\p{L}\p{N}]/u', '', $baseSearchName);
-                    if (!empty($lettersOnly)) {
-                        $keywordsToTry[] = 'デュエマ ' . $lettersOnly; // 例: デュエマ ブランド
-                    }
+                    $keywordsToTry[] = $cleanSearchWord($noQuoteName);
+                    $keywordsToTry[] = 'デュエマ ' . $cleanSearchWord($noQuoteName);
                 }
 
+                // 重複キーワードを排除
                 $keywordsToTry = array_values(array_unique(array_filter($keywordsToTry)));
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
                 // API通信処理
-                $fetchRakutenItems = function($kw) use ($apiBaseUrl, $appId, $accessKey, $ngKeywords, $targetShopCode, $affiliateId) {
+                $fetchRakutenItems = function($kw) use ($apiBaseUrl, $appId, $accessKey, $targetShopCode, $affiliateId) {
                     $queryParams = [
                         'applicationId' => $appId,
                         'accessKey'     => $accessKey,
                         'keyword'       => $kw,
-                        'NGKeyword'     => $ngKeywords,
-                        'sort'          => '+itemPrice',
-                        'availability'  => 1,
+                        'sort'          => 'standard', // 関連度順で本命カードを優先取得
                         'hits'          => 30,
                         'minPrice'      => 10,
                     ];
@@ -1084,6 +1107,7 @@ public function myDecks() {
                 $matchedItem = null;
                 $lowestFoundPrice = PHP_INT_MAX;
                 $bestKeywordUsed = $baseSearchName;
+                $lastApiHitCount = 0;
                 $itemList = [];
                 $httpCode = 200;
 
@@ -1092,11 +1116,15 @@ public function myDecks() {
                     if (empty($kw)) continue;
 
                     list($currentItems, $currentCode) = $fetchRakutenItems($kw);
+                    $lastApiHitCount = count($currentItems);
+                    $httpCode = $currentCode;
 
                     // 400エラー時はスペース除去単語で救済
                     if ($currentCode === 400 && str_contains($kw, ' ')) {
                         $noSpaceKw = str_replace(' ', '', $kw);
                         list($currentItems, $currentCode) = $fetchRakutenItems($noSpaceKw);
+                        $lastApiHitCount = count($currentItems);
+                        $httpCode = $currentCode;
                     }
 
                     if (!empty($currentItems)) {
@@ -1111,13 +1139,15 @@ public function myDecks() {
                             }
                         }
                     }
-                    usleep(100000); // 0.1秒待機
+                    usleep(100000);
                 }
 
                 // ★ どのパターンでも見つからなかった場合の最終フォールバック（中黒全除去）
                 if ($matchedItem === null && str_contains($topName, '・')) {
                     $fallbackKeyword = str_replace(['・', ' '], '', $topName);
                     list($fbItemList, $fbHttpCode) = $fetchRakutenItems($fallbackKeyword);
+                    $lastApiHitCount = count($fbItemList);
+                    $httpCode = $fbHttpCode;
                     if (!empty($fbItemList)) {
                         $candidate = $findBestMatch($fbItemList);
                         if ($candidate !== null) {
@@ -1164,7 +1194,7 @@ public function myDecks() {
                     'card_name'      => $cardInfo['display_name'],
                     'search_keyword' => $keyword,
                     'http_code'      => $httpCode,
-                    'hit_count'      => count($itemList),
+                    'hit_count'      => $lastApiHitCount, // 実際にAPIが返した件数を正確に記録
                     'picked_item'    => $itemName ?: null,
                     'price'          => $minPrice
                 ];
