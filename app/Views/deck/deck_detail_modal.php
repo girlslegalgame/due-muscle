@@ -1043,12 +1043,19 @@ function runPriceEstimate(shopCode = '', refresh = false) {
                 Object.assign(knownShops, data.shops);
                 if (shopSelect) {
                     shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
+                    
+                    const renderedNames = new Set();
                     Object.keys(knownShops).forEach(code => {
-                        const opt = document.createElement('option');
-                        opt.value = code;
-                        opt.textContent = knownShops[code];
-                        if (code === shopCode) opt.selected = true;
-                        shopSelect.appendChild(opt);
+                        const name = knownShops[code];
+                        // 同名の店舗がすでにセレクトボックスに追加されている場合は除外
+                        if (!renderedNames.has(name)) {
+                            renderedNames.add(name);
+                            const opt = document.createElement('option');
+                            opt.value = code;
+                            opt.textContent = name;
+                            if (code === shopCode) opt.selected = true;
+                            shopSelect.appendChild(opt);
+                        }
                     });
                     shopSelect.value = shopCode;
                 }

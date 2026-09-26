@@ -1035,6 +1035,19 @@ public function myDecks() {
 
                     foreach ($items as $rawItem) {
                         $candidate = $rawItem['Item'] ?? $rawItem;
+                        
+                        if (!empty($targetShopCode)) {
+                            $itemShopCode = $candidate['shopCode'] ?? '';
+                            if (empty($itemShopCode) && !empty($candidate['shopUrl'])) {
+                                if (preg_match('#rakuten\.co\.jp/([^/]+)/#', $candidate['shopUrl'], $m)) {
+                                    $itemShopCode = $m[1];
+                                }
+                            }
+                            if ($itemShopCode !== $targetShopCode) {
+                                continue;
+                            }
+                        }
+
                         $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
 
                         $titleNormalizedKana = mb_convert_kana($title, 'KV', 'UTF-8');
@@ -1186,9 +1199,16 @@ public function myDecks() {
 
             // ★追加：結果に含まれるショップ一覧を抽出（ドロップダウン用）
             $availableShops = [];
+            $seenShopNames = [];
             foreach ($items as $item) {
-                if (!empty($item['shop_code']) && !empty($item['shop_name'])) {
-                    $availableShops[$item['shop_code']] = $item['shop_name'];
+                $sCode = trim($item['shop_code'] ?? '');
+                $sName = trim($item['shop_name'] ?? '');
+                if ($sCode !== '' && $sName !== '') {
+                    // 同一の店名がすでに登録されている場合はスキップ
+                    if (!isset($seenShopNames[$sName])) {
+                        $availableShops[$sCode] = $sName;
+                        $seenShopNames[$sName] = true;
+                    }
                 }
             }
 
