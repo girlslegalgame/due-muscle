@@ -826,6 +826,7 @@ function toggleCardOwned(checkbox, cardName) {
 
     // 査定結果が表示されていれば合計金額を再計算
     recalculateTotalPrice();
+    sortPriceTableRows();
 }
 
 /**
@@ -855,6 +856,34 @@ function recalculateTotalPrice() {
     if (hasPrice) {
         document.getElementById('deck-total-price').innerText = total.toLocaleString();
     }
+}
+
+/**
+ * 査定テーブルの行を並び替え
+ * 1. 未購入 & ヒットしたカード
+ * 2. 未購入 & ヒットしなかったカード
+ * 3. 購入済みのカード
+ */
+function sortPriceTableRows() {
+    const tbody = document.getElementById('price-card-list-body');
+    if (!tbody) return;
+
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    rows.sort((a, b) => {
+        const getPriority = (tr) => {
+            const isOwned = tr.querySelector('.owned-checkbox')?.checked || false;
+            if (isOwned) return 3; // 3: 購入済み（最後）
+
+            const unitPrice = tr.querySelector('.cell-unit-price')?.innerText.trim();
+            const isHit = unitPrice && unitPrice !== '-';
+            return isHit ? 1 : 2;  // 1: ヒット（最優先）, 2: 未ヒット
+        };
+
+        return getPriority(a) - getPriority(b);
+    });
+
+    // 順序通りに再配置
+    rows.forEach(tr => tbody.appendChild(tr));
 }
 
 function renderImages(cards) {
@@ -1090,7 +1119,7 @@ function runPriceEstimate(shopCode = '', refresh = false) {
 
             const warnEl = document.getElementById('price-not-found-warn');
             warnEl.innerText = data.not_found_cards > 0 ? `※ ${data.not_found_cards} 種のカードは見つかりませんでした（0円として計算）` : '';
-
+            sortPriceTableRows();
             recalculateTotalPrice();
         })
         .catch(err => {
