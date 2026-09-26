@@ -69,7 +69,24 @@ class Deck {
                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_cardtype_ids,
                     (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_typename,
                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_race_ids,
-                    (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_race_names
+                    (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_race_names,
+                    (
+                        SELECT JSON_ARRAYAGG(
+                            JSON_OBJECT(
+                                'card_id', c_sub.card_id,
+                                'card_name', c_sub.card_name,
+                                'cost', c_sub.cost,
+                                'pow', c_sub.pow,
+                                'text', c_sub.text,
+                                'imagepath', cd_sub.imagepath,
+                                'is_main_side', cc_sub.is_main_side
+                            )
+                        )
+                        FROM card_combination cc_sub
+                        JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
+                        JOIN card_detail cd_sub ON c_sub.card_id = cd_sub.card_id
+                        WHERE cc_sub.combination_id = cc.combination_id
+                    ) as combination_members_json
                 FROM deck_cards dc 
                 JOIN card c ON dc.card_id = c.card_id 
                 JOIN card_detail cd ON c.card_id = cd.card_id 

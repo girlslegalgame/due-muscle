@@ -332,13 +332,12 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /**
- * ZIPファイル形式での出力処理（thumbnail_card_id を用いたパートナー分離対応）
+ * ZIPファイル形式での出力処理（超次元・GR・特殊・ドキンダム対応）
  */
 async function executeZipExport(deckId, deckName, formatName, thumbnailId, buttonElement) {
     const includeText = document.getElementById('zip-include-text')?.checked || false;
     const separatePartner = document.getElementById('zip-separate-partner')?.checked || false;
 
-    // 出力中ローディングモーダルの表示
     const loadingModal = document.getElementById('zip-export-loading-modal');
     if (loadingModal) loadingModal.style.display = 'flex';
 
@@ -362,8 +361,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
         try {
             const tokenRes = await fetch('/images/.token');
             if (tokenRes.ok) {
-                const tokenBlob = await tokenRes.blob();
-                zip.file('.token', tokenBlob);
+                zip.file('.token', await tokenRes.blob());
             } else {
                 zip.file('.token', '');
             }
@@ -371,9 +369,13 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             zip.file('.token', '');
         }
 
-        const deckItemsObj = {};
         const standaloneItemsObj = {};
+        const decksObj = {};
         const resourcesObj = {};
+
+        const mainDeckItems = {};
+        const grDeckItems = {};
+        const zeroDecksItems = {}; // 零龍の儀式用山札
         
         function generateId(length = 20) {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -387,12 +389,49 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
         async function calculateSha256(blob) {
             const buffer = await blob.arrayBuffer();
             const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            return hashHex;
+            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
         }
 
-    // 単一カードのテキスト行を組み立てるヘルパー
+        // 画像Blob・ハッシュ・アスペクト比のキャッシュローダー
+        const loadedImageMap = {};
+        async function fetchImageMeta(imgPath) {
+            if (!imgPath) return null;
+            if (loadedImageMap[imgPath]) return loadedImageMap[imgPath];
+
+            const fullPath = '/images/card' + (imgPath.startsWith('/') ? imgPath : '/' + imgPath);
+            try {
+                const imgRes = await fetch(fullPath);
+                if (!imgRes.ok) return null;
+                const blob = await imgRes.blob();
+                const hash = await calculateSha256(blob);
+                let ext = 'webp';
+                if (blob.type === 'image/jpeg') ext = 'jpeg';
+                else if (blob.type === 'image/png') ext = 'png';
+
+                const filename = `${hash}.${ext}`;
+                if (!resourcesObj[filename]) {
+                    zip.file(filename, blob);
+                    resourcesObj[filename] = { type: blob.type || 'image/webp' };
+                }
+
+                // アスペクト比取得
+                const aspectRatio = await new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
+                    img.onerror = () => resolve(51 / 73);
+                    img.src = URL.createObjectURL(blob);
+                });
+
+                const meta = { filename, blob, aspectRatio };
+                loadedImageMap[imgPath] = meta;
+                return meta;
+            } catch (err) {
+                console.warn(`画像取得失敗: ${fullPath}`, err);
+                return null;
+            }
+        }
+
+        // 単一カードのテキスト行を組み立てるヘルパー
         function buildCardMemo(cardData) {
             let line1Parts = [];
             const cardName = cardData.card_name ? cardData.card_name.trim() : '';
@@ -401,8 +440,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             let civs = [];
             if (cardData.civ_ids) {
                 civs = cardData.civ_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-            } else if (cardData.civilizations_ids) {
-                civs = cardData.civilizations_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
             }
             const civNamesMap = { 1: '光', 2: '水', 3: '闇', 4: '火', 5: '自然', 6: 'ゼロ' };
             if (civs.length > 0) {
@@ -416,35 +453,14 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             }
             let line1 = line1Parts.join('　');
 
-            let cardTypeStr = cardData.typename || cardData.cardtype_names || cardData.cardtype_name || cardData.cardtype || '';
+            let cardTypeStr = cardData.typename || cardData.cardtype_names || cardData.cardtype_name || '';
             let raceStr = cardData.race_names || cardData.race_name || '';
-            
-            let cardTypeIds = [];
-            if (cardData.cardtype_ids) {
-                cardTypeIds = cardData.cardtype_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-            }
-            
-            let raceIds = [];
-            if (cardData.race_ids) {
-                raceIds = cardData.race_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
-            }
+            let cardTypeIds = cardData.cardtype_ids ? cardData.cardtype_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : [];
+            let raceIds = cardData.race_ids ? cardData.race_ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : [];
 
             let isNonCreatureWithNoRace = (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) && (raceIds.length === 0 || (raceIds.length === 1 && raceIds[0] === 1));
 
-            let line2Head = "";
-            if (isNonCreatureWithNoRace) {
-                line2Head = cardTypeStr;
-            } else {
-                let line2Parts = [];
-                if (cardTypeStr) line2Parts.push(cardTypeStr);
-                if (raceStr) {
-                    line2Parts.push(raceStr);
-                } else if (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) {
-                    line2Parts.push('(種族なし)');
-                }
-                line2Head = line2Parts.join('：');
-            }
-
+            let line2Head = isNonCreatureWithNoRace ? cardTypeStr : [cardTypeStr, raceStr || (cardTypeIds.length > 0 && !cardTypeIds.includes(1) ? '(種族なし)' : '')].filter(Boolean).join('：');
             let line2Pow = (cardData.pow !== null && cardData.pow !== undefined && cardData.pow !== '') ? cardData.pow : '';
             let line2 = (line2Head && line2Pow) ? `${line2Head}　${line2Pow}` : (line2Head || line2Pow);
 
@@ -457,33 +473,18 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return memoLines.join('\n');
         }
 
-        // ツインパクト / ハイパーモード対応のメモ生成関数（同期処理）
         function createMemoText(card) {
             const isTwinpact = card.twinpact == 1 || card.twinpact === '1' || card.twinpact === true;
             const hasCombination = !!card.combination_id && !!card.partner_card_id;
-            const isSelfHyper = card.hypermode == 1 || card.hypermode === '1' || card.hypermode === true;
-            const isPartnerHyper = card.partner_hypermode == 1 || card.partner_hypermode === '1' || card.partner_hypermode === true;
+            const isSelfHyper = card.hypermode == 1 || card.hypermode === '1';
+            const isPartnerHyper = card.partner_hypermode == 1 || card.partner_hypermode === '1';
             const isHypermode = hasCombination && (isSelfHyper || isPartnerHyper);
 
-            // コンビネーションカード（ツインパクトまたはハイパーモード）のデータ整理
             if (hasCombination && (isTwinpact || isHypermode)) {
                 const selfId = parseInt(card.card_id);
                 const partnerId = parseInt(card.partner_card_id);
 
-                const selfData = {
-                    card_id: selfId,
-                    card_name: card.card_name,
-                    cost: card.cost,
-                    pow: card.pow,
-                    text: card.text || '',
-                    civ_ids: card.civ_ids,
-                    typename: card.typename,
-                    cardtype_ids: card.cardtype_ids,
-                    race_ids: card.race_ids,
-                    race_names: card.race_names,
-                    is_hyper: isSelfHyper
-                };
-
+                const selfData = { ...card, card_id: selfId, is_hyper: isSelfHyper };
                 const partnerData = {
                     card_id: partnerId,
                     card_name: card.partner_card_name,
@@ -501,136 +502,236 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 const minCard = selfId < partnerId ? selfData : partnerData;
                 const otherCard = selfId < partnerId ? partnerData : selfData;
 
-                // --- ハイパーモードの処理 ---
                 if (isHypermode) {
                     const hyperCard = minCard.is_hyper ? minCard : otherCard;
                     const baseCard = minCard.is_hyper ? otherCard : minCard;
-
-                    // 通常面（card_idが小さい方）の情報を記述
                     const baseMemo = buildCardMemo(minCard);
-
-                    // ハイパー面のtextから通常面のtextを除去
-                    let hyperOnlyText = hyperCard.text;
-                    if (baseCard.text) {
-                        hyperOnlyText = hyperOnlyText.split(baseCard.text).join('').trim();
-                    }
-
-                    const hyperPowStr = hyperCard.pow !== null && hyperCard.pow !== undefined && hyperCard.pow !== '' ? hyperCard.pow : '';
-                    let memoResult = `${baseMemo}\n\nハイパーモード　${hyperPowStr}`;
-                    if (hyperOnlyText) {
-                        memoResult += `\n${hyperOnlyText}`;
-                    }
-                    return memoResult;
+                    let hyperOnlyText = hyperCard.text || '';
+                    if (baseCard.text) hyperOnlyText = hyperOnlyText.split(baseCard.text).join('').trim();
+                    const hyperPowStr = hyperCard.pow ? `　${hyperCard.pow}` : '';
+                    return `${baseMemo}\n\nハイパーモード${hyperPowStr}${hyperOnlyText ? '\n' + hyperOnlyText : ''}`;
                 }
 
-                // --- ツインパクトの処理 ---
                 if (isTwinpact) {
-                    const topMemo = buildCardMemo(minCard);
-                    const bottomMemo = buildCardMemo(otherCard);
-                    return `上面\n${topMemo}\n\n下面\n${bottomMemo}`;
+                    return `上面\n${buildCardMemo(minCard)}\n\n下面\n${buildCardMemo(otherCard)}`;
                 }
             }
-
             return buildCardMemo(card);
         }
 
-        // 最初にヒットしたパートナーカードを1枚だけ独立させるためのフラグ
+        // 単体カードを独立配置(standalone)に追加するヘルパー
+        function addStandaloneCard(imgFilename, coverFilename, memo, posX, posY, width = 4, height = 6) {
+            const itemId = generateId();
+            standaloneItemsObj[itemId] = {
+                "x": posX,
+                "y": posY,
+                "z": 999,
+                "angle": 0,
+                "width": width,
+                "height": height,
+                "deckId": null,
+                "locked": false,
+                "visible": true,
+                "closed": false,
+                "withoutOwner": false,
+                "freezed": true,
+                "type": "object",
+                "active": true,
+                "memo": memo || "",
+                "imageUrl": imgFilename,
+                "coverImageUrl": coverFilename || null,
+                "clickAction": null,
+                "order": 1
+            };
+        }
+
         let partnerExtracted = false;
+        let standaloneX = -12; // 個別カード配置のX座標起点
 
         for (const card of cards) {
-            const path = card.imagepath || '';
-            if (!path) continue;
-
             const zone = (card.card_type_in_deck || 'main').toLowerCase();
-            if (zone !== 'main') continue;
-
             const cardName = card.card_name ? card.card_name.trim() : '';
-            if (cardName === '禁断 ～封印されしX～' || cardName === '伝説の禁断 ドキンダムX') {
+            const qty = parseInt(card.quantity || 1);
+
+            // コンビネーションメンバー配列パース
+            let combinationMembers = [];
+            if (card.combination_members_json) {
+                try {
+                    combinationMembers = typeof card.combination_members_json === 'string' 
+                        ? JSON.parse(card.combination_members_json) 
+                        : card.combination_members_json;
+                } catch(e) {}
+            }
+
+            // ----------------------------------------------------
+            // 1. 特殊カード (special) または ドキンダムX
+            // ----------------------------------------------------
+            const isDokindam = (cardName === '禁断 ～封印されしX～' || cardName === '伝説の禁断 ドキンダムX');
+            if (zone === 'special' || isDokindam) {
+                // 《終焉の禁断 ドルマゲドンX》の場合: FORBIDDEN STARと分けて1枚ずつ出力
+                if (cardName.includes('ドルマゲドン')) {
+                    for (let m of combinationMembers) {
+                        const meta = await fetchImageMeta(m.imagepath);
+                        if (meta) {
+                            addStandaloneCard(meta.filename, null, includeText ? buildCardMemo(m) : "", standaloneX, -3);
+                            standaloneX -= 5;
+                        }
+                    }
+                    continue;
+                }
+
+                // 《零龍》の場合: 零龍は個別、儀式4種＋零無は山札にまとめる
+                if (cardName.includes('零龍') || cardName.includes('零無') || cardName.includes('の儀')) {
+                    for (let m of combinationMembers) {
+                        const meta = await fetchImageMeta(m.imagepath);
+                        if (!meta) continue;
+                        const memo = includeText ? buildCardMemo(m) : "";
+
+                        if (m.card_name.trim() === '零龍') {
+                            addStandaloneCard(meta.filename, null, memo, standaloneX, -3);
+                            standaloneX -= 5;
+                        } else {
+                            // 滅亡の起源 零無、手札の儀、墓地の儀、破壊の儀、復活の儀
+                            zeroDecksItems[generateId()] = {
+                                "imageUrl": meta.filename,
+                                "memo": memo
+                            };
+                        }
+                    }
+                    continue;
+                }
+
+                // 《伝説の禁断 ドキンダムX》・その他特殊カード
+                const meta = await fetchImageMeta(card.imagepath);
+                if (meta) {
+                    addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", standaloneX, -3);
+                    standaloneX -= 5;
+                }
                 continue;
             }
 
-            const fullImagePath = '/images/card' + (path.startsWith('/') ? path : '/' + path);
+            // ----------------------------------------------------
+            // 2. 超次元ゾーン (super_dimensional)
+            // ----------------------------------------------------
+            if (zone === 'super_dimensional') {
+                for (let q = 0; q < qty; q++) {
+                    if (combinationMembers.length === 2) {
+                        const front = combinationMembers.find(m => m.is_main_side == 1) || combinationMembers[0];
+                        const back = combinationMembers.find(m => m.is_main_side == 0) || combinationMembers[1];
 
-            try {
-                const imgRes = await fetch(fullImagePath);
-                if (imgRes.ok) {
-                    const imgBlob = await imgRes.blob();
-                    
-                    const sha256Hash = await calculateSha256(imgBlob);
-                    let ext = 'webp';
-                    if (imgBlob.type === 'image/jpeg') ext = 'jpeg';
-                    else if (imgBlob.type === 'image/png') ext = 'png';
+                        const frontMeta = await fetchImageMeta(front.imagepath);
+                        const backMeta = await fetchImageMeta(back.imagepath);
 
-                    const hashedFilename = `${sha256Hash}.${ext}`;
+                        // 両方の画像比率がほぼ同じか判定 (差が0.05以内)
+                        const isSameAspect = frontMeta && backMeta && Math.abs(frontMeta.aspectRatio - backMeta.aspectRatio) < 0.05;
 
-                    if (!resourcesObj[hashedFilename]) {
-                        zip.file(hashedFilename, imgBlob);
-                        resourcesObj[hashedFilename] = {
-                            "type": imgBlob.type || "image/webp"
-                        };
-                    }
-
-                    const memoText = includeText ? createMemoText(card) : "";
-                    const itemId = generateId();
-
-                    // パートナー分離が有効、かつ未抽出で、カードIDが thumbnailId と一致する場合
-                    if (separatePartner && !partnerExtracted && thumbnailId && String(card.card_id) === String(thumbnailId)) {
-                        standaloneItemsObj[itemId] = {
-                            "x": -6,
-                            "y": -3,
-                            "z": 999,
-                            "angle": 0,
-                            "width": 4,
-                            "height": 6,
-                            "deckId": null,
-                            "locked": false,
-                            "visible": true,
-                            "closed": false,
-                            "withoutOwner": false,
-                            "freezed": true,
-                            "type": "object",
-                            "active": true,
-                            "memo": memoText,
-                            "imageUrl": hashedFilename,
-                            "coverImageUrl": null,
-                            "clickAction": null,
-                            "order": 1
-                        };
-                        partnerExtracted = true; // 2枚目以降の同一カードはデッキ側に含めるためフラグを立てる
+                        if (isSameAspect) {
+                            // 表面 + 裏面として出力
+                            const memo = includeText ? buildCardMemo(front) : "";
+                            addStandaloneCard(frontMeta.filename, backMeta.filename, memo, standaloneX, -10);
+                            standaloneX -= 5;
+                        } else {
+                            // 画像比率が違う、または片方取得失敗時は別々に出力
+                            if (frontMeta) {
+                                addStandaloneCard(frontMeta.filename, null, includeText ? buildCardMemo(front) : "", standaloneX, -10);
+                                standaloneX -= 5;
+                            }
+                            if (backMeta) {
+                                addStandaloneCard(backMeta.filename, null, includeText ? buildCardMemo(back) : "", standaloneX, -10);
+                                standaloneX -= 5;
+                            }
+                        }
+                    } else if (combinationMembers.length >= 3) {
+                        // 3枚セットなどはそれぞれ別々に出力
+                        for (let m of combinationMembers) {
+                            const meta = await fetchImageMeta(m.imagepath);
+                            if (meta) {
+                                addStandaloneCard(meta.filename, null, includeText ? buildCardMemo(m) : "", standaloneX, -10);
+                                standaloneX -= 5;
+                            }
+                        }
                     } else {
-                        deckItemsObj[itemId] = {
-                            "imageUrl": hashedFilename,
-                            "memo": memoText
-                        };
+                        // 単面超次元
+                        const meta = await fetchImageMeta(card.imagepath);
+                        if (meta) {
+                            addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", standaloneX, -10);
+                            standaloneX -= 5;
+                        }
                     }
                 }
-            } catch (err) {
-                console.warn(`画像取得失敗: ${fullImagePath}`, err);
+                continue;
+            }
+
+            // ----------------------------------------------------
+            // 3. 超GRゾーン (gr)
+            // ----------------------------------------------------
+            if (zone === 'gr') {
+                const meta = await fetchImageMeta(card.imagepath);
+                if (!meta) continue;
+                for (let q = 0; q < qty; q++) {
+                    grDeckItems[generateId()] = {
+                        "imageUrl": meta.filename,
+                        "memo": includeText ? createMemoText(card) : ""
+                    };
+                }
+                continue;
+            }
+
+            // ----------------------------------------------------
+            // 4. メインデッキ (main)
+            // ----------------------------------------------------
+            const meta = await fetchImageMeta(card.imagepath);
+            if (!meta) continue;
+
+            const memoText = includeText ? createMemoText(card) : "";
+
+            for (let q = 0; q < qty; q++) {
+                // パートナー独立抽出の処理
+                if (separatePartner && !partnerExtracted && thumbnailId && String(card.card_id) === String(thumbnailId)) {
+                    addStandaloneCard(meta.filename, null, memoText, -6, -3);
+                    partnerExtracted = true;
+                } else {
+                    mainDeckItems[generateId()] = {
+                        "imageUrl": meta.filename,
+                        "memo": memoText
+                    };
+                }
             }
         }
 
-        const deckRandomId = generateId();
+        // デッキ（山札）オブジェクトの構築
+        if (Object.keys(mainDeckItems).length > 0) {
+            decksObj[generateId()] = {
+                "x": -2, "y": -3, "z": 99, "zIndex": 1,
+                "width": 4, "height": 6, "locked": false, "freezed": true,
+                "coverImageUrl": null, "items": mainDeckItems
+            };
+        }
+
+        // 超GRゾーンの山札
+        if (Object.keys(grDeckItems).length > 0) {
+            decksObj[generateId()] = {
+                "x": 3, "y": -3, "z": 99, "zIndex": 1,
+                "width": 4, "height": 6, "locked": false, "freezed": true,
+                "coverImageUrl": null, "items": grDeckItems
+            };
+        }
+
+        // 零龍（零無＋儀式4枚）の山札
+        if (Object.keys(zeroDecksItems).length > 0) {
+            decksObj[generateId()] = {
+                "x": 8, "y": -3, "z": 99, "zIndex": 1,
+                "width": 4, "height": 6, "locked": false, "freezed": true,
+                "coverImageUrl": null, "items": zeroDecksItems
+            };
+        }
+
         const dataJson = {
-            "meta": {
-                "version": "1.1.0"
-            },
+            "meta": { "version": "1.1.0" },
             "entities": {
                 "room": {},
                 "items": standaloneItemsObj,
-                "decks": {
-                    [deckRandomId]: {
-                        "x": -2,
-                        "y": -3,
-                        "z": 99,
-                        "zIndex": 1,
-                        "width": 4,
-                        "height": 6,
-                        "locked": false,
-                        "freezed": true,
-                        "coverImageUrl": null,
-                        "items": deckItemsObj
-                    }
-                },
+                "decks": decksObj,
                 "notes": {},
                 "characters": {},
                 "effects": {},
@@ -657,9 +758,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
     }
 
     function resetBtn() {
-        // 出力中ローディングモーダルを閉じる
         if (loadingModal) loadingModal.style.display = 'none';
-
         if (buttonElement) {
             buttonElement.innerText = 'デッキ出力';
             buttonElement.disabled = false;
