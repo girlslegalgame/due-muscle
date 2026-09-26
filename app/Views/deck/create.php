@@ -1903,6 +1903,7 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     img.draggable = false; // ★追加：ブラウザ標準の画像ドラッグを禁止する
     img.dataset.cardId = card.card_id;
     img.dataset.cardName = card.card_name;
+    img.dataset.reading = card.reading || '';
     img.dataset.comboNames = card.combo_names || '';
     img.dataset.charIds = card.char_ids;
     img.dataset.imagepath = card.imagepath;
@@ -2737,6 +2738,7 @@ function fetchAndRender() {
                     img.draggable = false; // ★追加：ブラウザ標準の画像ドラッグを禁止する
                     img.dataset.cardId = card.card_id;
                     img.dataset.cardName = card.card_name;
+                    img.dataset.reading = card.reading || '';
                     img.dataset.comboNames = card.combo_names || ''; // ★ 追記：コンビネーション名をデータ属性に格納
                     img.dataset.charIds = card.char_ids;
                     img.dataset.imagepath = card.imagepath;
@@ -3239,13 +3241,31 @@ function compareCardsByKey(a, b, key) {
 }
 
 /**
- * 対象 of カードリストを指定された条件で並び替えてDOMを再配置
+ * 読み仮名（reading）に基づく50音順比較（同名カードを完全に固める）
+ */
+function compareReading(a, b) {
+    const readA = a.dataset.reading || a.dataset.cardName || '';
+    const readB = b.dataset.reading || b.dataset.cardName || '';
+    const res = readA.localeCompare(readB, 'ja');
+    if (res !== 0) return res;
+
+    // 読みが同じ場合はカード名で比較
+    const nameA = a.dataset.cardName || '';
+    const nameB = b.dataset.cardName || '';
+    const nameRes = nameA.localeCompare(nameB, 'ja');
+    if (nameRes !== 0) return nameRes;
+
+    // 完全な同名カードはカードID順で並べて完全にひとかたまりにする
+    return (parseInt(a.dataset.cardId, 10) || 0) - (parseInt(b.dataset.cardId, 10) || 0);
+}
+
+/**
+ * 対象のカードリストを指定された条件で並び替えてDOMを再配置
  */
 function sortDeckList(listElement, key, order) {
     const imgs = Array.from(listElement.querySelectorAll('img'));
     if (imgs.length === 0) return;
 
-    // 同名カード数順ソート用の枚数マップを作成
     const counts = {};
     if (key === 'count') {
         imgs.forEach(img => {
@@ -3258,34 +3278,45 @@ function sortDeckList(listElement, key, order) {
 
     imgs.sort((a, b) => {
         let res = 0;
+
         if (key === 'count') {
             const countA = counts[a.dataset.cardName] || 0;
             const countB = counts[b.dataset.cardName] || 0;
             res = countA - countB;
+        } else if (key === 'name') {
+            // カード名順の場合は最初から読み仮名で比較
+            res = compareReading(a, b);
         } else {
             res = compareCardsByKey(a, b, key);
         }
 
-        // メインのソート基準が異なる場合は、指定方向（昇順 / 降順）に従う
+        // メインのソート基準に差がある場合は、指定方向（昇順/降順）に従う
         if (res !== 0) return res * direction;
 
-        // メイン基準が同じだった場合のタイブレーク（サブソート）。こちらは常に昇順固定にすることで、規則的な整列を維持します
-        if (key !== 'civ') {
-            res = compareCardsByKey(a, b, 'civ');
-            if (res !== 0) return res;
+        // --- メイン基準が同じ場合（同コスト・同文明など）の整列ルール ---
+        // コスト順の場合：同コスト内は「読み仮名の50音順 (昇順)」で並べる
+        if (key === 'cost') {
+            return compareReading(a, b);
         }
-        if (key !== 'cost') {
-            res = compareCardsByKey(a, b, 'cost');
-            if (res !== 0) return res;
+
+        // 文明順の場合：同文明内は「コスト昇順」→「読み仮名50音順」
+        if (key === 'civ') {
+            const costRes = compareCardsByKey(a, b, 'cost');
+            if (costRes !== 0) return costRes;
+            return compareReading(a, b);
         }
-        if (key !== 'name') {
-            res = compareCardsByKey(a, b, 'name');
-            if (res !== 0) return res;
+
+        // 採用順の場合：同枚数内は「コスト昇順」→「読み仮名50音順」
+        if (key === 'count') {
+            const costRes = compareCardsByKey(a, b, 'cost');
+            if (costRes !== 0) return costRes;
+            return compareReading(a, b);
         }
-        return 0;
+
+        return compareReading(a, b);
     });
 
-    // ソート順に沿ってDOMを再登録する
+    // ソート順に沿ってDOMを再登録
     imgs.forEach(img => listElement.appendChild(img));
 }
 

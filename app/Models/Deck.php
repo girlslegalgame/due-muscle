@@ -39,6 +39,7 @@ class Deck {
         $sql = "SELECT 
                     c.card_id, 
                     c.card_name, 
+                    c.reading,
                     c.cost, 
                     c.pow,
                     c.text,
