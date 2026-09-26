@@ -83,8 +83,8 @@ if ($q !== '') {
                 // 読み仮名検索（同様にスペースを除去して比較）
                 if (in_array('name', $scope) || in_array('reading', $scope)) {
                     $conds[] = "(
-                        REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
-                        OR REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
+                        REPLACE(REPLACE(REPLACE(c_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_read_kata_clean
+                        OR REPLACE(REPLACE(REPLACE(c_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_read_hira_clean
                     )";
                     $params[':q_read_kata_clean'] = "%$q_kata_clean%";
                     $params[':q_read_hira_clean'] = "%$q_hira_clean%";
@@ -101,15 +101,12 @@ if ($q !== '') {
                         FROM card_race cr_search
                         JOIN race r_search ON cr_search.race_id = r_search.race_id
                         WHERE REPLACE(REPLACE(REPLACE(r_search.race_name, '・', ''), ' ', ''), '　', '') LIKE :q_race_clean
-                           OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_kata_clean
-                           OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_hira_clean
+                           OR REPLACE(REPLACE(REPLACE(r_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_race_read_kata_clean
+                           OR REPLACE(REPLACE(REPLACE(r_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_race_read_hira_clean
                     )";
                     $params[':q_race_clean'] = "%$q_clean%";
                     $params[':q_race_read_kata_clean'] = "%$q_kata_clean%";
                     $params[':q_race_read_hira_clean'] = "%$q_hira_clean%";
-                }
-                if (!empty($conds)) {
-                    $searchSql .= " AND (" . implode(' OR ', $conds) . ")";
                 }
             }
             if ($costMin !== '') { $searchSql .= " AND c_search.cost >= :cMin"; $params[':cMin'] = (int)$costMin; }
@@ -717,12 +714,11 @@ if ($q !== '') {
                 $conds = [];
 
                 if ($rawQuery) {
-                    // ★ 変換せずそのまま（生入力）でLIKE検索
                     if (in_array('name', $scope)) {
                         $conds[] = "c_search.card_name LIKE :q_raw_name";
                         $params[':q_raw_name'] = "%$q%";
                     }
-                    if (in_array('reading', $scope)) {
+                    if (in_array('name', $scope) || in_array('reading', $scope)) {
                         $conds[] = "c_search.reading LIKE :q_raw_read";
                         $params[':q_raw_read'] = "%$q%";
                     }
