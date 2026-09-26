@@ -962,25 +962,27 @@ public function myDecks() {
                 };
 
                 $baseSearchName = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
-                $isSpecialFiveSet = (str_contains($topName, '終焉の禁断 ドルマゲドンX') || str_contains($topName, '零龍'));
+                $isSpecialFiveSet = (str_contains($topName, '終焉の禁断 ドルマゲドン') || str_contains($topName, '零龍'));
                 // ① 記号処理済み（最優先）
                 $safeKw = $cleanSearchWord($baseSearchName);
-                $keywordsToTry = [$safeKw];
 
                 if ($isSpecialFiveSet) {
-                    // ★ 特殊カードの場合は「5枚セット」付きを最優先で検索
-                    $keywordsToTry[] = $safeKw . ' 5枚セット';
-                    $keywordsToTry[] = $baseSearchName . ' 5枚セット';
-                }
-                $keywordsToTry[] = $safeKw;               
-                // ② 生カード名（記号処理でヒットしなかった場合のフォールバック）
-                if (!str_contains($baseSearchName, '-') && $baseSearchName !== $safeKw) {
-                    $keywordsToTry[] = $baseSearchName;
-                }
+                    $keywordsToTry = [
+                        $safeKw . ' 5枚セット',
+                        $baseSearchName . ' 5枚セット'
+                    ];
+                } else {
+                    $keywordsToTry = [$safeKw];
 
-                // ③ 短いカード名用
-                if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"') || mb_strlen($safeKw, 'UTF-8') <= 5) {
-                    $keywordsToTry[] = 'デュエマ ' . $safeKw;
+                    // ② 生カード名（記号処理でヒットしなかった場合のフォールバック）
+                    if (!str_contains($baseSearchName, '-') && $baseSearchName !== $safeKw) {
+                        $keywordsToTry[] = $baseSearchName;
+                    }
+
+                    // ③ 短いカード名用
+                    if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"') || mb_strlen($safeKw, 'UTF-8') <= 5) {
+                        $keywordsToTry[] = 'デュエマ ' . $safeKw;
+                    }
                 }
 
                 $keywordsToTry = array_values(array_unique(array_filter($keywordsToTry)));
@@ -1035,13 +1037,14 @@ public function myDecks() {
                 };
 
                 // 合致判定処理（30件の中から最も安い商品を厳選）
-                $findBestMatch = function($items) use ($ngTitlePattern, $normalize, $isTwinpact, $isAmbiguous, $normTop, $normBottom) {
+                $findBestMatch = function($items) use ($ngTitlePattern, $normalize, $isTwinpact, $isAmbiguous, $normTop, $normBottom, $targetShopCode, $isSpecialFiveSet) {
                     $matched = null;
                     $lowest = PHP_INT_MAX;
 
                     foreach ($items as $rawItem) {
                         $candidate = $rawItem['Item'] ?? $rawItem;
-                        
+
+                        // ショップ指定チェック
                         if (!empty($targetShopCode)) {
                             $itemShopCode = $candidate['shopCode'] ?? '';
                             if (empty($itemShopCode) && !empty($candidate['shopUrl'])) {
@@ -1063,6 +1066,14 @@ public function myDecks() {
                         }
 
                         $normTitle = $normalize($title);
+
+                        // ★追加: ドルマゲドンX / 零龍の場合、「5枚セット」が商品名に含まれていない場合は除外
+                        if ($isSpecialFiveSet) {
+                            if (!str_contains($normTitle, '5枚セット')) {
+                                continue;
+                            }
+                        }
+
                         $isMatched = false;
 
                         if (!$isTwinpact) {
