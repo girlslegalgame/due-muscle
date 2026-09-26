@@ -33,6 +33,7 @@ class CardController {
         $cardtypeLogic = $_GET['cardtype_logic'] ?? 'OR';
         $goods = isset($_GET['goods']) ? explode(',', $_GET['goods']) : [];
         $twinpact = $_GET['twinpact'] ?? ''; // ★追加
+        $sort = $_GET['sort'] ?? 'release_desc'; // ★追加
         $limit = 50;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -300,9 +301,34 @@ if ($q !== '') {
                 || $twinpact !== '' // ★追加
             );
 
-            // 共通の洗練されたソート順：
-            // 発売日が新しい順 ＞ 収録商品IDの降順 ＞ カードIDの降順
-            $orderBy = "ORDER BY cd.release_date DESC, cd.goods_id, c.card_id ";
+            // ★ ソート条件の分岐
+            switch ($sort) {
+                case 'release_asc':
+                    $orderBy = "ORDER BY cd.release_date ASC, cd.goods_id ASC, c.card_id ASC ";
+                    break;
+                case 'cost_desc':
+                    $orderBy = "ORDER BY c.cost DESC, cd.release_date DESC, c.card_id DESC ";
+                    break;
+                case 'cost_asc':
+                    $orderBy = "ORDER BY c.cost ASC, cd.release_date DESC, c.card_id ASC ";
+                    break;
+                case 'pow_desc':
+                    $orderBy = "ORDER BY c.pow DESC, cd.release_date DESC, c.card_id DESC ";
+                    break;
+                case 'pow_asc':
+                    $orderBy = "ORDER BY c.pow ASC, cd.release_date DESC, c.card_id ASC ";
+                    break;
+                case 'name_asc':
+                    $orderBy = "ORDER BY (CASE WHEN c.reading = '' OR c.reading IS NULL THEN 1 ELSE 0 END), c.reading ASC, c.card_name ASC ";
+                    break;
+                case 'name_desc':
+                    $orderBy = "ORDER BY (CASE WHEN c.reading = '' OR c.reading IS NULL THEN 1 ELSE 0 END), c.reading DESC, c.card_name DESC ";
+                    break;
+                case 'release_desc':
+                default:
+                    $orderBy = "ORDER BY cd.release_date DESC, cd.goods_id DESC, c.card_id DESC ";
+                    break;
+            }
 
             // 絞り込みの有無によってSQLクエリを分岐（ソート順はどちらも統一）
             if (!$isFiltered) {

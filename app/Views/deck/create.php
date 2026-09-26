@@ -836,8 +836,31 @@
         color: #b91c1c;
     }
 
+    .btn-settings {
+        padding: 10px 8px;
+        background: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 13px;
+        box-sizing: border-box;
+        text-align: center;
+    }
+    .btn-settings:hover { background: #5a6268; }
+
     /* --- 7. スマートフォン環境（ボトムシート＆縦並びフォールバック） --- */
     @media (max-width: 768px) {
+
+        .btn-settings {
+            padding: 8px 12px !important;
+            font-size: 12px !important;
+            white-space: nowrap !important;
+        }
+        #settings-position-group {
+            display: none !important;
+        }
         /* タブバー自体の高さ制限を解除し、要素を均等幅にして改行を防ぐ */
         #deck-tabs {
             height: auto !important;
@@ -1130,6 +1153,11 @@
             margin: 10px 0 5px 0 !important;
             font-size: 0.9rem;
         }
+        .btn-sort, .btn-analysis, #save-deck-btn {
+            flex: none !important; /* 引き伸ばさない */
+            font-size: 12px !important;
+            padding: 6px 12px !important;
+        }
     }
     /* デッキ内および検索結果の画像単体における、ブラウザ標準のドラッグ＆選択操作を徹底的に無効化 */
     #main-deck-list img, 
@@ -1157,8 +1185,9 @@
         </div>
         <div id="deck-header">
             <h3>デッキ内容</h3>
-            <div style="display: flex; align-items: center; gap: 15px;">
-                <!-- 利き手（検索エリアの左右）切り替えスイッチ -->
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <!-- ★「分析」ボタンの左隣に「並び替え」ボタンを配置 -->
+                <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
                 <button class="btn-analysis" onclick="openAnalysisModal()">分析</button>
                 <button id="save-deck-btn" onclick="openSaveModal()" style="padding: 8px 20px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>
             </div>
@@ -1202,18 +1231,16 @@
             <div id="search-controls">
                 <!-- 入力フォーム -->
                 <input type="text" id="card-search-input" placeholder="カード名を入力..." autocomplete="off">
-                <!-- 絞り込み & 並び替えボタンの横並び行 -->
+                <!-- 絞り込み & 設定ボタン -->
                 <div id="search-buttons-row">
                     <button class="btn-filter" onclick="toggleFilterModal()">絞り込み</button>
-                    <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
+                    <button class="btn-sort" onclick="toggleSearchSettingsModal()">設定</button>
                 </div>
             </div>
             <div class="search-scope">
                 <label><input type="checkbox" class="scope-check" value="name" checked> カード名</label>
                 <label><input type="checkbox" class="scope-check" value="text"> テキスト</label>
-                <!-- ★追加：種族のチェックボックス -->
                 <label><input type="checkbox" class="scope-check" value="race"> 種族</label>
-                <button class="hand-switch-btn" onclick="toggleSearchPosition()">⇄ 位置切り替え</button>
             </div>
         </div>
         
@@ -1631,6 +1658,43 @@
         </div>
     </div>
 </div>
+
+<!-- 検索設定モーダル -->
+<div id="searchSettingsModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 400px; height: auto; margin: 15vh auto;">
+        <div class="sub-modal-header">
+            <span>検索・表示設定</span>
+            <span onclick="toggleSettingsModal()" style="cursor:pointer; font-size: 24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 20px;">
+            <!-- 検索結果の並び替え -->
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">検索結果の並び順</label>
+                <select id="search-sort-select" style="width: 100%; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer;" onchange="changeSearchSort(this.value)">
+                    <option value="release_desc">発売日が新しい順</option>
+                    <option value="release_asc">発売日が古い順</option>
+                    <option value="cost_desc">コストが高い順</option>
+                    <option value="cost_asc">コストが低い順</option>
+                    <option value="pow_desc">パワーが高い順</option>
+                    <option value="pow_asc">パワーが低い順</option>
+                    <option value="name_asc">カード名 50音順 (昇順)</option>
+                    <option value="name_desc">カード名 50音順 (降順)</option>
+                </select>
+            </div>
+
+            <!-- 検索エリア位置切り替え（スマホ時はCSSで非表示） -->
+            <div id="settings-position-group" style="border-top: 1px solid #eee; padding-top: 15px;">
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">検索エリアの表示位置</label>
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" class="hand-switch-btn" style="flex: 1; padding: 10px; font-size: 13px;" onclick="toggleSearchPosition()">⇄ 左右位置を切り替える</button>
+                </div>
+            </div>
+        </div>
+        <div style="padding: 15px 20px; border-top: 1px solid #eee; background: #fff;">
+            <button onclick="toggleSettingsModal()" style="width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">閉じる</button>
+        </div>
+    </div>
+</div>
 <!-- 既存のモーダル類の直後や、最下部に配置 -->
 <?php include __DIR__ . '/analysis_modal.php'; ?>
 
@@ -1667,8 +1731,18 @@ let currentFilters = {
     characteristic_logic: 'OR', cardtype_logic: 'OR',
     reg: [],
     civ_type: '', civ_match_type: 'include', exclude_civs: [],
-    twinpact: '' // ★追加: 'only', 'exclude', ''
+    twinpact: '',
+    sort: 'release_desc' // ★追加
 };
+function toggleSettingsModal() {
+    const m = document.getElementById('searchSettingsModal');
+    m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+}
+
+function changeSearchSort(val) {
+    currentFilters.sort = val;
+    searchCards();
+}
 let currentOffset = 0, isFetching = false, hasMoreCards = true;
 let searchTimeout = null, abortController = null;
 
@@ -2599,6 +2673,10 @@ function fetchAndRender() {
         
     if (currentFilters.reg.length) p.append('reg', currentFilters.reg.join(','));
     p.append('offset', currentOffset);
+
+    if (currentFilters.sort) {
+        p.append('sort', currentFilters.sort);
+    }
 
     fetch('/api/cards?' + p.toString(), { signal: abortController.signal })
         .then(res => {
