@@ -633,7 +633,14 @@
                     <table class="analysis-table" style="font-size: 0.85rem; width: 100%;">
                         <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 2;">
                             <tr>
-                                <th style="width: 65px;">購入済み</th>
+                                <th style="width: 80px; padding: 4px 2px;">
+                                    <div style="font-size: 0.8rem; margin-bottom: 2px;">購入済み</div>
+                                    <div style="font-size: 0.7rem; font-weight: normal;">
+                                        <a href="javascript:void(0)" onclick="toggleAllOwned(true)" style="color: #007bff; text-decoration: underline;">全選</a>
+                                        <span style="color: #ccc;">|</span>
+                                        <a href="javascript:void(0)" onclick="toggleAllOwned(false)" style="color: #dc3545; text-decoration: underline;">全解</a>
+                                    </div>
+                                </th>
                                 <th style="text-align: left; padding-left: 8px;">カード名</th>
                                 <th style="width: 50px;">枚数</th>
                                 <th style="width: 80px;">最安単価</th>
@@ -719,12 +726,18 @@ function openDeckModal(deckId, deckName) {
         });
 }
 
+const currentLoggedInUserId = '<?= isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : '' ?>';
+
+
 /**
  * LocalStorageから購入済みカード一覧を取得
+ * （本人のマイデッキのみ復元。他人のデッキや未ログイン時は復元しない）
  */
 function getOwnedCardsFromStorage(deckId) {
+    if (!currentLoggedInUserId) return [];
     try {
-        const val = localStorage.getItem('owned_cards_deck_' + deckId);
+        const key = `owned_cards_u${currentLoggedInUserId}_d${deckId}`;
+        const val = localStorage.getItem(key);
         return val ? JSON.parse(val) : [];
     } catch(e) {
         return [];
@@ -733,11 +746,45 @@ function getOwnedCardsFromStorage(deckId) {
 
 /**
  * LocalStorageに購入済みカード一覧を保存
+ * （本人のユーザーIDと紐づけて保存し、他人に混ざらないようにする）
  */
 function saveOwnedCardsToStorage(deckId, ownedList) {
+    if (!currentLoggedInUserId) return;
     try {
-        localStorage.setItem('owned_cards_deck_' + deckId, JSON.stringify(ownedList));
+        const key = `owned_cards_u${currentLoggedInUserId}_d${deckId}`;
+        localStorage.setItem(key, JSON.stringify(ownedList));
     } catch(e) {}
+}
+
+/**
+ * 「購入済み」の全選択 / 全解除
+ * @param {boolean} selectAll true: 全選択 / false: 全解除
+ */
+function toggleAllOwned(selectAll) {
+    const checkboxes = document.querySelectorAll('#price-card-list-body .owned-checkbox');
+    const newOwnedList = [];
+
+    checkboxes.forEach(cb => {
+        cb.checked = selectAll;
+        const row = cb.closest('tr');
+        const cardName = row?.dataset.cardName;
+
+        if (row) {
+            row.classList.toggle('card-row-owned', selectAll);
+            row.style.backgroundColor = selectAll ? '#f1f3f4' : '';
+            row.style.opacity = selectAll ? '0.6' : '1';
+        }
+
+        if (selectAll && cardName) {
+            newOwnedList.push(cardName);
+        }
+    });
+
+    saveOwnedCardsToStorage(currentDeckId, newOwnedList);
+
+    // 金額再計算と並び替え
+    recalculateTotalPrice();
+    sortPriceTableRows();
 }
 
 /**
