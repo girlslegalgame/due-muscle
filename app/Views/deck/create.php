@@ -1234,7 +1234,7 @@
                 <!-- 絞り込み & 設定ボタン -->
                 <div id="search-buttons-row">
                     <button class="btn-filter" onclick="toggleFilterModal()">絞り込み</button>
-                    <button class="btn-sort" onclick="toggleSearchSettingsModal()">設定</button>
+                    <button class="btn-settings" onclick="toggleSettingsModal()">設定</button>
                 </div>
             </div>
             <div class="search-scope">
