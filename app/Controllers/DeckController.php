@@ -962,7 +962,7 @@ public function myDecks() {
                 };
 
                 $baseSearchName = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
-
+                $isSpecialFiveSet = (str_contains($topName, '終焉の禁断 ドルマゲドンX') || str_contains($topName, '零龍'));
                 // ① 記号処理済み（最優先）
                 $safeKw = $cleanSearchWord($baseSearchName);
                 $keywordsToTry = [$safeKw];
