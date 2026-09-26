@@ -247,6 +247,10 @@ try {
                         <input type="checkbox" id="zip-include-special" checked style="width: 16px; height: 16px;">
                         特殊カード（ドキンダム / ドルマゲドン / 零龍等）を出力する
                     </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #444; font-size: 0.85rem;">
+                        <input type="checkbox" id="zip-include-linked" checked style="width: 16px; height: 16px;">
+                        リンク後のカードを出力する
+                    </label>
                 </div>
             </div>
         </div>
@@ -625,11 +629,29 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                     continue;
                 }
 
-                // 《伝説の禁断 ドキンダムX》・その他特殊カード
-                const meta = await fetchImageMeta(card.imagepath);
-                if (meta) {
-                    addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", standaloneX, -3, 4, 6);
-                    standaloneX -= 5;
+                if (isDokindam && combinationMembers.length === 2) {
+                    // is_main_side = 1 を表面（封印されしX）、is_main_side = 0 を裏面（ドキンダムX）に設定
+                    combinationMembers.sort((a, b) => (b.is_main_side || 0) - (a.is_main_side || 0) || a.card_id - b.card_id);
+                    const front = combinationMembers[0];
+                    const back = combinationMembers[1];
+
+                    const frontMeta = await fetchImageMeta(front.imagepath);
+                    const backMeta = await fetchImageMeta(back.imagepath);
+
+                    if (frontMeta && backMeta) {
+                        // 表面画像と裏面画像をセットした両面カードとして出力
+                        addStandaloneCard(frontMeta.filename, backMeta.filename, includeText ? buildCardMemo(front) : "", standaloneX, -3, 4, 6);
+                        standaloneX -= 5;
+                    } else if (frontMeta) {
+                        addStandaloneCard(frontMeta.filename, null, includeText ? buildCardMemo(front) : "", standaloneX, -3, 4, 6);
+                        standaloneX -= 5;
+                    }
+                } else {
+                    const meta = await fetchImageMeta(card.imagepath);
+                    if (meta) {
+                        addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", standaloneX, -3, 4, 6);
+                        standaloneX -= 5;
+                    }
                 }
                 continue;
             }
