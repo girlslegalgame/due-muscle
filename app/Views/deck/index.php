@@ -233,6 +233,21 @@ try {
                     <input type="checkbox" id="zip-separate-partner" style="width: 16px; height: 16px;">
                     パートナー（サムネイル）をデッキから独立して出力する (デュエパーティ用)
                 </label>
+                <!-- ★追加: ゾーン別出力オプション -->
+                <div style="border-top: 1px dashed #eee; padding-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #444; font-size: 0.85rem;">
+                        <input type="checkbox" id="zip-include-dim" checked style="width: 16px; height: 16px;">
+                        超次元ゾーンを出力する
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #444; font-size: 0.85rem;">
+                        <input type="checkbox" id="zip-include-gr" checked style="width: 16px; height: 16px;">
+                        超GRゾーンを出力する
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #444; font-size: 0.85rem;">
+                        <input type="checkbox" id="zip-include-special" checked style="width: 16px; height: 16px;">
+                        特殊カード（ドキンダム / ドルマゲドン / 零龍等）を出力する
+                    </label>
+                </div>
             </div>
         </div>
     </div>
@@ -337,7 +352,10 @@ document.addEventListener('DOMContentLoaded', () => {
 async function executeZipExport(deckId, deckName, formatName, thumbnailId, buttonElement) {
     const includeText = document.getElementById('zip-include-text')?.checked || false;
     const separatePartner = document.getElementById('zip-separate-partner')?.checked || false;
-
+    const includeDim = document.getElementById('zip-include-dim')?.checked ?? true;
+    const includeGr = document.getElementById('zip-include-gr')?.checked ?? true;
+    const includeSpecial = document.getElementById('zip-include-special')?.checked ?? true;
+    const includeLinked = document.getElementById('zip-include-linked')?.checked ?? true;
     const loadingModal = document.getElementById('zip-export-loading-modal');
     if (loadingModal) loadingModal.style.display = 'flex';
 
@@ -567,6 +585,10 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             // ----------------------------------------------------
             const isDokindam = (cardName === '禁断 ～封印されしX～' || cardName === '伝説の禁断 ドキンダムX');
             if (zone === 'special' || isDokindam) {
+                // ★ 特殊カード除外チェック
+                if (!includeSpecial) {
+                    continue;
+                }
                 // 《終焉の禁断 ドルマゲドンX》の場合: FORBIDDEN STARと分けて1枚ずつ出力
                 if (cardName.includes('ドルマゲドン')) {
                     for (let m of combinationMembers) {
@@ -616,6 +638,10 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             // 2. 超次元ゾーン (super_dimensional)
             // ----------------------------------------------------
             if (zone === 'super_dimensional') {
+                // ★ 超次元カード除外チェック
+                if (!includeDim) {
+                    continue;
+                }
                 const superDimX = -8; // 超次元カードは一か所にまとめて出力
                 const superDimY = -10;
 
@@ -633,11 +659,22 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         const m2CharIds = m2.char_ids ? String(m2.char_ids).split(',').map(v => parseInt(v.trim())) : [];
                         const m2Aspect = meta2 ? meta2.aspectRatio : (51 / 73);
 
+                        // ★ 追加: 2枚目がリンク後カードかどうかの判定
+                        const isLinkedCard = m2CharIds.includes(4) || m2.card_name.includes('極真龍魂 オール・オーバー・ザ・ワールド');
+
+                        // リンク後カードを出力しない設定で、かつ2枚目がリンク後カードの場合は1枚目のみ単体出力
+                        if (!includeLinked && isLinkedCard) {
+                            if (meta1) {
+                                addStandaloneCard(meta1.filename, null, includeText ? buildCardMemo(m1) : "", superDimX, superDimY, 4, 6);
+                            }
+                            continue;
+                        }
+
                         let separateCards = false;
                         let m2Width = 4, m2Height = 6;
 
                         // 《極真龍魂 オール・オーバー・ザ・ワールド》の場合: 縦18、横10
-                        if (m2.card_name.includes('オール・オーバー・ザ・ワールド')) {
+                        if (m2.card_name.includes('極真龍魂 オール・オーバー・ザ・ワールド')) {
                             separateCards = true;
                             m2Width = 10;
                             m2Height = 18;
@@ -728,6 +765,10 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             // 3. 超GRゾーン (gr)
             // ----------------------------------------------------
             if (zone === 'gr') {
+                // ★ 超GRカード除外チェック
+                if (!includeGr) {
+                    continue;
+                }
                 const meta = await fetchImageMeta(card.imagepath);
                 if (!meta) continue;
                 for (let q = 0; q < qty; q++) {
