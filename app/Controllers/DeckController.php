@@ -967,6 +967,12 @@ public function myDecks() {
                 $safeKw = $cleanSearchWord($baseSearchName);
                 $keywordsToTry = [$safeKw];
 
+                if ($isSpecialFiveSet) {
+                    // ★ 特殊カードの場合は「5枚セット」付きを最優先で検索
+                    $keywordsToTry[] = $safeKw . ' 5枚セット';
+                    $keywordsToTry[] = $baseSearchName . ' 5枚セット';
+                }
+                $keywordsToTry[] = $safeKw;               
                 // ② 生カード名（記号処理でヒットしなかった場合のフォールバック）
                 if (!str_contains($baseSearchName, '-') && $baseSearchName !== $safeKw) {
                     $keywordsToTry[] = $baseSearchName;
