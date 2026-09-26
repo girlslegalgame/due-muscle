@@ -710,10 +710,13 @@ if ($q !== '') {
             }
             
             // キーワード検索（スコープ対応）
+            // app/Controllers/CardController.php ($searchSql の WHERE 1=1 の直後)
+
             if ($q !== '') {
                 $conds = [];
 
-                if ($rawQuery) {
+                if (!empty($rawQuery)) {
+                    // ★ 自動変換OFFのとき：REPLACEや文字変換を一切行わず、生文字列で比較
                     if (in_array('name', $scope)) {
                         $conds[] = "c_search.card_name LIKE :q_raw_name";
                         $params[':q_raw_name'] = "%$q%";
@@ -738,9 +741,10 @@ if ($q !== '') {
                         $params[':q_raw_race_read'] = "%$q%";
                     }
                 } else {
-                    // 通常時：ひらがな・カタカナ変換・記号スペース除去検索（既存ロジック）
+                    // ★ 自動変換ONのとき：中黒・スペース除去＋かな・カナ両対応
                     $q_kata = mb_convert_kana($q, "C", "UTF-8");
                     $q_hira = mb_convert_kana($q, "c", "UTF-8");
+
                     $q_clean = str_replace(['・', ' ', '　'], '', $q);
                     $q_kata_clean = str_replace(['・', ' ', '　'], '', $q_kata);
                     $q_hira_clean = str_replace(['・', ' ', '　'], '', $q_hira);
@@ -758,8 +762,8 @@ if ($q !== '') {
                     
                     if (in_array('name', $scope) || in_array('reading', $scope)) {
                         $conds[] = "(
-                            REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
-                            OR REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
+                            REPLACE(REPLACE(REPLACE(c_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_read_kata_clean
+                            OR REPLACE(REPLACE(REPLACE(c_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_read_hira_clean
                         )";
                         $params[':q_read_kata_clean'] = "%$q_kata_clean%";
                         $params[':q_read_hira_clean'] = "%$q_hira_clean%";
@@ -769,15 +773,15 @@ if ($q !== '') {
                         $conds[] = "c_search.text LIKE :q_text";
                         $params[':q_text'] = "%$q%";
                     }
-                    
+
                     if (in_array('race', $scope)) {
                         $conds[] = "c_search.card_id IN (
                             SELECT cr_search.card_id 
                             FROM card_race cr_search
                             JOIN race r_search ON cr_search.race_id = r_search.race_id
                             WHERE REPLACE(REPLACE(REPLACE(r_search.race_name, '・', ''), ' ', ''), '　', '') LIKE :q_race_clean
-                               OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_kata_clean
-                               OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_hira_clean
+                               OR REPLACE(REPLACE(REPLACE(r_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_race_read_kata_clean
+                               OR REPLACE(REPLACE(REPLACE(r_search.reading, '・', ''), ' ', ''), '　', '') LIKE :q_race_read_hira_clean
                         )";
                         $params[':q_race_clean'] = "%$q_clean%";
                         $params[':q_race_read_kata_clean'] = "%$q_kata_clean%";

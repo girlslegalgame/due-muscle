@@ -2719,6 +2719,11 @@ function fetchAndRender() {
             return res.json();
         })
         .then(data => {
+            if (!Array.isArray(data)) {
+                console.error("サーバーエラー:", data);
+                resultsDiv.innerHTML = '<div class="search-msg">検索中にエラーが発生しました。</div>';
+                return;
+            }
             if (currentOffset === 0) resultsDiv.innerHTML = '';
             if (data.length === 0 && currentOffset === 0) {
                 resultsDiv.innerHTML = '<div class="search-msg">検索条件に該当するカードがみつかりませんでした。</div>';
