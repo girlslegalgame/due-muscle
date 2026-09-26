@@ -569,6 +569,8 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
 
         let partnerExtracted = false;
         let standaloneX = -12; // 個別カード配置のX座標起点
+        // ★ 追加: 重複出力を防ぐための出力済み2枚目カード名Set
+        const exportedSecondCardNames = new Set();
 
         for (const card of cards) {
             const zone = (card.card_type_in_deck || 'main').toLowerCase();
@@ -726,8 +728,11 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                             if (meta1) {
                                 addStandaloneCard(meta1.filename, null, includeText ? buildCardMemo(m1) : "", superDimX, superDimY, 4, 6);
                             }
-                            if (meta2) {
+                            // ★ 2枚目のカード名重複チェックを追加
+                            const m2Name = m2.card_name.trim();
+                            if (meta2 && !exportedSecondCardNames.has(m2Name)) {
                                 addStandaloneCard(meta2.filename, null, includeText ? buildCardMemo(m2) : "", superDimX, superDimY, m2Width, m2Height);
+                                exportedSecondCardNames.add(m2Name); // 出力済みに記録
                             }
                         }
                     } else if (combinationMembers.length === 3) {
