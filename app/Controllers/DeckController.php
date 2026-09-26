@@ -936,16 +936,12 @@ public function myDecks() {
                     }
                 }
 
-
-
                 // ==========================================
-                // 2. 検索キーワードの動的決定（最安値を逃さない網羅的検索）
+                // 2. 検索キーワードの動的決定（高速＆最安値取得）
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
 
-                // 全ショップの表記ゆれ（&, ＆, &amp;, -, ー）を1発で拾う広域クレンジング
                 $cleanSearchWord = function($str) {
-                    // &、引用符、ハイフン、括弧等をすべて半角スペースにしてAND検索化
                     $s = str_replace(['&amp;', '&AMP;'], ' ', $str);
                     $s = preg_replace('/[\"\'\”\“\’\(\)\（\）\「\」\『\』\【\】\[\]\〜\～\~\/\／\!！\?？\♪\=\＝\:\：\-\−\―\&＆]/u', ' ', $s);
                     $s = trim(preg_replace('/\s+/u', ' ', $s));
@@ -956,43 +952,30 @@ public function myDecks() {
                     $result = [];
                     $carry = '';
                     foreach ($tokens as $t) {
-                        if ($carry !== '') {
-                            $t = $carry . $t;
-                            $carry = '';
-                        }
-                        if (mb_strlen($t, 'UTF-8') <= 1) {
-                            $carry = $t;
-                        } else {
-                            $result[] = $t;
-                        }
+                        if ($carry !== '') { $t = $carry . $t; $carry = ''; }
+                        if (mb_strlen($t, 'UTF-8') <= 1) { $carry = $t; } else { $result[] = $t; }
                     }
                     if ($carry !== '') {
-                        if (!empty($result)) {
-                            $result[count($result) - 1] .= $carry;
-                        } else {
-                            $result[] = $carry;
-                        }
+                        if (!empty($result)) { $result[count($result) - 1] .= $carry; } else { $result[] = $carry; }
                     }
                     return implode(' ', $result);
                 };
 
                 $baseSearchName = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
 
-                // ★ 最安値を確実に拾う精鋭キーワードリスト
+                // ★ 高速化：優先度順に並べ、ヒットした時点で打ち切る
                 $keywordsToTry = [];
-
-                // 1. 公式カード名そのまま（生キーワード）
-                // ※ただしハイフン「-」が含まれる場合はNOT検索（除外）になって最安値が消えるため除外
-                if (!str_contains($baseSearchName, '-')) {
-                    $keywordsToTry[] = $baseSearchName;
-                }
-
-                // 2. 全表記ゆれ（&, ＆, &amp;, 記号違い）を丸ごと拾う広域キーワード
+                // ① 記号処理済みキーワード（最優先：最もヒット率が高い）
                 $safeKw = $cleanSearchWord($baseSearchName);
                 $keywordsToTry[] = $safeKw;
 
-                // 3. 特殊記号や一般名詞を含むカード用（アパレル・日用品埋没の防止）
-                if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"') || mb_strlen($safeKw, 'UTF-8') <= 5) {
+                // ② 生カード名（記号処理で落ちた場合のフォールバック）
+                if (!str_contains($baseSearchName, '-') && $baseSearchName !== $safeKw) {
+                    $keywordsToTry[] = $baseSearchName;
+                }
+
+                // ③ 短いカード名用の「デュエマ」付与
+                if (mb_strlen($safeKw, 'UTF-8') <= 4) {
                     $keywordsToTry[] = 'デュエマ ' . $safeKw;
                 }
 
@@ -1001,13 +984,14 @@ public function myDecks() {
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
-                // API通信処理
+                // API通信処理（ジャンル指定＆価格昇順ソートで最安値を確実に拾う）
                 $fetchRakutenItems = function($kw) use ($apiBaseUrl, $appId, $accessKey, $targetShopCode, $affiliateId) {
                     $queryParams = [
                         'applicationId' => $appId,
                         'accessKey'     => $accessKey,
                         'keyword'       => $kw,
-                        'sort'          => 'standard', // 関連度順で本命カードを確実に30件取得
+                        'genreId'       => '566382', // ★TCGジャンルに限定してノイズを完全排除
+                        'sort'          => '+itemPrice', // ★価格の安い順で取得（最安値を逃さない）
                         'hits'          => 30,
                         'minPrice'      => 10,
                     ];
@@ -1047,11 +1031,8 @@ public function myDecks() {
                     return [$data['Items'] ?? $data['items'] ?? [], $httpCode];
                 };
 
-                // 合致判定処理
+                // 合致判定処理（価格昇順のため、最初に合致したものが最安値）
                 $findBestMatch = function($items) use ($ngTitlePattern, $normalize, $isTwinpact, $isAmbiguous, $normTop, $normBottom) {
-                    $matched = null;
-                    $lowest = PHP_INT_MAX;
-
                     foreach ($items as $rawItem) {
                         $candidate = $rawItem['Item'] ?? $rawItem;
                         $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
@@ -1073,8 +1054,6 @@ public function myDecks() {
                             if ($isAmbiguous) {
                                 if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
                                     $isMatched = true;
-                                } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
-                                    $isMatched = true;
                                 }
                             } else {
                                 if (str_contains($normTitle, $normTop)) {
@@ -1085,25 +1064,23 @@ public function myDecks() {
                             }
                         }
 
+                        // ★ +itemPrice でソートされているため、最初にマッチしたものが最安値
                         if ($isMatched) {
                             $itemPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
-                            if ($itemPrice > 0 && $itemPrice < $lowest) {
-                                $lowest = $itemPrice;
-                                $matched = $candidate;
+                            if ($itemPrice > 0) {
+                                return $candidate;
                             }
                         }
                     }
-                    return $matched;
+                    return null;
                 };
 
                 $matchedItem = null;
-                $lowestFoundPrice = PHP_INT_MAX;
                 $bestKeywordUsed = $baseSearchName;
                 $lastApiHitCount = 0;
-                $itemList = [];
                 $httpCode = 200;
 
-                // ★ すべての候補キーワードで検索を実行し、全結果の中から「一番安い価格の商品」を必ず採択！
+                // ★ 優先度順に検索し、ヒットしたら即時終了（break）して次のカードへ
                 foreach ($keywordsToTry as $kw) {
                     list($currentItems, $currentCode) = $fetchRakutenItems($kw);
                     $lastApiHitCount = count($currentItems);
@@ -1119,20 +1096,15 @@ public function myDecks() {
                     if (!empty($currentItems)) {
                         $candidate = $findBestMatch($currentItems);
                         if ($candidate !== null) {
-                            $p = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
-                            // ★ より安い価格の商品が見つかったら更新（打ち切らずに比較継続）
-                            if ($p > 0 && $p < $lowestFoundPrice) {
-                                $lowestFoundPrice = $p;
-                                $matchedItem = $candidate;
-                                $bestKeywordUsed = $kw;
-                                $itemList = $currentItems;
-                            }
+                            $matchedItem = $candidate;
+                            $bestKeywordUsed = $kw;
+                            break; // ★ 見つかったため後続の再検索をスキップ（大幅な高速化）
                         }
                     }
-                    usleep(70000); // 0.07秒ウェイト
+                    usleep(50000);
                 }
 
-                // ★ どのパターンでも見つからなかった場合のみの最終手段（中黒全除去）
+                // 見つからず、中黒（・）を含む場合のみ最終フォールバック
                 if ($matchedItem === null && str_contains($topName, '・')) {
                     $fallbackKeyword = str_replace(['・', ' '], '', $topName);
                     list($fbItemList, $fbHttpCode) = $fetchRakutenItems($fallbackKeyword);
@@ -1143,11 +1115,9 @@ public function myDecks() {
                         if ($candidate !== null) {
                             $matchedItem = $candidate;
                             $bestKeywordUsed = $fallbackKeyword;
-                            $itemList = $fbItemList;
                         }
                     }
                 }
-
                 $keyword = $bestKeywordUsed;
                 $minPrice = null;
                 $affiliateUrl = '';
