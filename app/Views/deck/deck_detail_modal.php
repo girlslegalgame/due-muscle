@@ -784,7 +784,6 @@ function toggleAllOwned(selectAll) {
 
     // 金額再計算と並び替え
     recalculateTotalPrice();
-    sortPriceTableRows();
 }
 
 /**
@@ -863,7 +862,7 @@ function toggleCardOwned(checkbox, cardName) {
     }
     saveOwnedCardsToStorage(currentDeckId, ownedList);
 
-    // 行スタイルの更新
+    // 行スタイルの更新（グレーアウト等の見た目のみ更新）
     const row = checkbox.closest('tr');
     if (row) {
         row.classList.toggle('card-row-owned', checkbox.checked);
@@ -873,7 +872,6 @@ function toggleCardOwned(checkbox, cardName) {
 
     // 査定結果が表示されていれば合計金額を再計算
     recalculateTotalPrice();
-    sortPriceTableRows();
 }
 
 /**
