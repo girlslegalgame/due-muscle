@@ -34,6 +34,7 @@ class CardController {
         $goods = isset($_GET['goods']) ? explode(',', $_GET['goods']) : [];
         $twinpact = $_GET['twinpact'] ?? ''; // ★追加
         $sort = $_GET['sort'] ?? 'release_desc'; // ★追加
+        $rawQuery = isset($_GET['raw_query']) && $_GET['raw_query'] === '1';
         $limit = 50;
         $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
 
@@ -713,62 +714,83 @@ if ($q !== '') {
             
             // キーワード検索（スコープ対応）
             if ($q !== '') {
-                $q_kata = mb_convert_kana($q, "C", "UTF-8");
-                $q_hira = mb_convert_kana($q, "c", "UTF-8");
-
-                // 比較用として、中黒（・）やスペース（半角・全角）を除去したクエリを作成
-                $q_clean = str_replace(['・', ' ', '　'], '', $q);
-                $q_kata_clean = str_replace(['・', ' ', '　'], '', $q_kata);
-                $q_hira_clean = str_replace(['・', ' ', '　'], '', $q_hira);
-
                 $conds = [];
-                // カード名
-                if (in_array('name', $scopes)) {
-                    $conds[] = "(
-                        REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_clean
-                        OR REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_kata_clean
-                        OR REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_hira_clean
-                    )";
-                    $params[':q_name_clean'] = "%$q_clean%";
-                    $params[':q_name_kata_clean'] = "%$q_kata_clean%";
-                    $params[':q_name_hira_clean'] = "%$q_hira_clean%";
+
+                if ($rawQuery) {
+                    // ★ 変換せずそのまま（生入力）でLIKE検索
+                    if (in_array('name', $scope)) {
+                        $conds[] = "c_search.card_name LIKE :q_raw_name";
+                        $params[':q_raw_name'] = "%$q%";
+                    }
+                    if (in_array('reading', $scope)) {
+                        $conds[] = "c_search.reading LIKE :q_raw_read";
+                        $params[':q_raw_read'] = "%$q%";
+                    }
+                    if (in_array('text', $scope)) {
+                        $conds[] = "c_search.text LIKE :q_raw_text";
+                        $params[':q_raw_text'] = "%$q%";
+                    }
+                    if (in_array('race', $scope)) {
+                        $conds[] = "c_search.card_id IN (
+                            SELECT cr_search.card_id 
+                            FROM card_race cr_search
+                            JOIN race r_search ON cr_search.race_id = r_search.race_id
+                            WHERE r_search.race_name LIKE :q_raw_race
+                               OR r_search.reading LIKE :q_raw_race_read
+                        )";
+                        $params[':q_raw_race'] = "%$q%";
+                        $params[':q_raw_race_read'] = "%$q%";
+                    }
+                } else {
+                    // 通常時：ひらがな・カタカナ変換・記号スペース除去検索（既存ロジック）
+                    $q_kata = mb_convert_kana($q, "C", "UTF-8");
+                    $q_hira = mb_convert_kana($q, "c", "UTF-8");
+                    $q_clean = str_replace(['・', ' ', '　'], '', $q);
+                    $q_kata_clean = str_replace(['・', ' ', '　'], '', $q_kata);
+                    $q_hira_clean = str_replace(['・', ' ', '　'], '', $q_hira);
+
+                    if (in_array('name', $scope)) {
+                        $conds[] = "(
+                            REPLACE(REPLACE(REPLACE(c_search.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_clean
+                            OR REPLACE(REPLACE(REPLACE(c_search.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_kata_clean
+                            OR REPLACE(REPLACE(REPLACE(c_search.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_name_hira_clean
+                        )";
+                        $params[':q_name_clean'] = "%$q_clean%";
+                        $params[':q_name_kata_clean'] = "%$q_kata_clean%";
+                        $params[':q_name_hira_clean'] = "%$q_hira_clean%";
+                    }
+                    
+                    if (in_array('name', $scope) || in_array('reading', $scope)) {
+                        $conds[] = "(
+                            REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
+                            OR REPLACE(REPLACE(c_search.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
+                        )";
+                        $params[':q_read_kata_clean'] = "%$q_kata_clean%";
+                        $params[':q_read_hira_clean'] = "%$q_hira_clean%";
+                    }
+                    
+                    if (in_array('text', $scope)) {
+                        $conds[] = "c_search.text LIKE :q_text";
+                        $params[':q_text'] = "%$q%";
+                    }
+                    
+                    if (in_array('race', $scope)) {
+                        $conds[] = "c_search.card_id IN (
+                            SELECT cr_search.card_id 
+                            FROM card_race cr_search
+                            JOIN race r_search ON cr_search.race_id = r_search.race_id
+                            WHERE REPLACE(REPLACE(REPLACE(r_search.race_name, '・', ''), ' ', ''), '　', '') LIKE :q_race_clean
+                               OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_kata_clean
+                               OR REPLACE(REPLACE(r_search.reading, ' ', ''), '　', '') LIKE :q_race_read_hira_clean
+                        )";
+                        $params[':q_race_clean'] = "%$q_clean%";
+                        $params[':q_race_read_kata_clean'] = "%$q_kata_clean%";
+                        $params[':q_race_read_hira_clean'] = "%$q_hira_clean%";
+                    }
                 }
 
-                // ★ 修正：カード名の読み
-                if (in_array('reading', $scopes)) {
-                    $conds[] = "(
-                        REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_kata_clean
-                        OR REPLACE(REPLACE(c.reading, ' ', ''), '　', '') LIKE :q_read_hira_clean
-                    )";
-                    $params[':q_read_kata_clean'] = "%$q_kata_clean%";
-                    $params[':q_read_hira_clean'] = "%$q_hira_clean%";
-                }
-
-                // ★ 修正：種族
-                if (in_array('race', $scopes)) {
-                    $conds[] = "EXISTS (
-                        SELECT 1 FROM card_race cr_s 
-                        JOIN race r_s ON cr_s.race_id = r_s.race_id 
-                        WHERE cr_s.card_id = c.card_id AND (
-                            REPLACE(REPLACE(REPLACE(r_s.race_name, '・', ''), ' ', ''), '　', '') LIKE :q_race_clean
-                            OR REPLACE(REPLACE(r_s.reading, ' ', ''), '　', '') LIKE :q_race_read_kata_clean
-                            OR REPLACE(REPLACE(r_s.reading, ' ', ''), '　', '') LIKE :q_race_read_hira_clean
-                        )
-                    )";
-                    $params[':q_race_clean'] = "%$q_clean%";
-                    $params[':q_race_read_kata_clean'] = "%$q_kata_clean%";
-                    $params[':q_race_read_hira_clean'] = "%$q_hira_clean%";
-                }
-
-                // ★ 修正：テキスト
-                if (in_array('text', $scopes)) {
-                    $conds[] = "c.text LIKE :q_text";
-                    $params[':q_text'] = "%$q%";
-                }
-
-                // ★ 追加：構築した条件式をSQL文に結合します
                 if (!empty($conds)) {
-                    $sql .= " AND (" . implode(' OR ', $conds) . ")";
+                    $searchSql .= " AND (" . implode(' OR ', $conds) . ")";
                 }
             }
 

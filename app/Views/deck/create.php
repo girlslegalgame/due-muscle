@@ -1682,6 +1682,18 @@
                 </select>
             </div>
 
+            <!-- 検索ワードの変換設定 -->
+            <div style="border-top: 1px solid #eee; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="padding-right: 15px; flex: 1;">
+                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 2px; color: #444;">検索ワードの自動変換</label>
+                    <span style="font-size: 11px; color: #666; display: block; line-height: 1.4;">OFFにすると、ひらがな/カタカナ変換などを行わず、入力した文字通りのままで検索します。</span>
+                </div>
+                <label class="toggle-switch" style="flex-shrink: 0;">
+                    <input type="checkbox" id="search-convert-toggle" checked onchange="toggleSearchConvert(this.checked)">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
             <!-- 検索エリア位置切り替え（スマホ時はCSSで非表示） -->
             <div id="settings-position-group" style="border-top: 1px solid #eee; padding-top: 15px;">
                 <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">検索エリアの表示位置</label>
@@ -1702,6 +1714,8 @@
 
 <script>
 // --- A. グローバル状態管理 ---
+let isInitializing = true; // ★追加: 初期読み込み中の自動保存防止フラグ
+let isDeckSaved = false;    // ★追加: 保存完了後の自動保存防止フラグ
 const isEdit = <?php echo !empty($isEdit) ? 'true' : 'false'; ?>;
 const deckId = <?php echo isset($deck['deck_id']) ? $deck['deck_id'] : 'null'; ?>;
 const initialDeckName = <?php echo isset($deck['deck_name']) ? json_encode($deck['deck_name']) : '"マイデッキ"'; ?>;
@@ -1732,11 +1746,18 @@ let currentFilters = {
     reg: [],
     civ_type: '', civ_match_type: 'include', exclude_civs: [],
     twinpact: '',
-    sort: 'release_desc' // ★追加
+    sort: 'release_desc',
+    raw_query: 0 // ★追加: 0=変換あり(通常), 1=変換なし(生入力)
 };
 function toggleSettingsModal() {
     const m = document.getElementById('searchSettingsModal');
     m.style.display = (m.style.display === 'block') ? 'none' : 'block';
+}
+
+function toggleSearchConvert(isAutoConvert) {
+    // スイッチがONなら通常変換(raw_query=0)、OFFなら生入力検索(raw_query=1)
+    currentFilters.raw_query = isAutoConvert ? 0 : 1;
+    searchCards();
 }
 
 function changeSearchSort(val) {
@@ -2674,6 +2695,10 @@ function fetchAndRender() {
     if (currentFilters.reg.length) p.append('reg', currentFilters.reg.join(','));
     p.append('offset', currentOffset);
 
+    if (currentFilters.raw_query) {
+        p.append('raw_query', '1');
+    }
+
     if (currentFilters.sort) {
         p.append('sort', currentFilters.sort);
     }
@@ -3065,6 +3090,7 @@ function submitDeckSave() {
     .then(data => {
         if (!data) return;
         if (data.success) { 
+            isDeckSaved = true; // ★追加: 保存完了フラグを立てて以後の自動保存を完全に阻止
             localStorage.removeItem('unsaved_deck_draft');
             localStorage.removeItem('pending_deck_save');
             localStorage.removeItem('pending_deck_payload');
@@ -3510,20 +3536,22 @@ function getSerializedCards() {
  * ローカルストレージに下書きを保存
  */
 function saveDraftToLocalStorage() {
+    // ★追加: 初期化中または保存完了後は自動保存しない
+    if (isInitializing || isDeckSaved) return;
+
     const cards = getSerializedCards();
     const nameEl = document.getElementById('save-deck-name');
     const formatEl = document.getElementById('save-deck-format');
     const deckName = nameEl ? nameEl.value : '';
     const formatId = formatEl ? formatEl.value : null;
 
-    // デッキにカードが1枚もない場合は、古い下書きをクリーンアップ
     if (cards.length === 0) {
         localStorage.removeItem('unsaved_deck_draft');
         return;
     }
 
     const draft = {
-        deckId: deckId, // グローバル変数deckId（新規はnull、編集は数値）
+        deckId: deckId,
         deckName: deckName,
         formatId: formatId,
         cards: cards,
@@ -3537,11 +3565,13 @@ function saveDraftToLocalStorage() {
  */
 function checkAndRestoreDraft() {
     const draftStr = localStorage.getItem('unsaved_deck_draft');
-    if (!draftStr) return;
+    if (!draftStr) {
+        isInitializing = false; // ★追加
+        return;
+    }
 
     try {
         const draft = JSON.parse(draftStr);
-        // 現在開いているデッキ（新規同士、あるいは同じデッキIDの編集同士）と一致するか判定
         const isSameDeck = (draft.deckId === deckId);
 
         if (isSameDeck && draft.cards && draft.cards.length > 0) {
@@ -3549,12 +3579,13 @@ function checkAndRestoreDraft() {
             if (confirmRestore) {
                 restoreDraft(draft);
             } else {
-                // 不要と判断された場合は下書きをクリア
                 localStorage.removeItem('unsaved_deck_draft');
             }
         }
     } catch (e) {
         console.error("ドラフトの復元処理中にエラーが発生しました", e);
+    } finally {
+        isInitializing = false; // ★追加: 復元チェック完了後に自動保存を解禁
     }
 }
 
