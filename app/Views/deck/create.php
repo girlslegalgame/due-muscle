@@ -3102,15 +3102,19 @@ function toggleSpecial(slotId) {
 }
 
 function fetchSpecialCard(slotId) {
-    const cardName = slotId === 'slot-dolmagedon' ? '終焉の禁断 ドルマゲドンX' : '零龍';
-    fetch(`/api/cards?q=${encodeURIComponent(cardName)}&limit=1`)
+    const targetNames = slotId === 'slot-dolmagedon' 
+        ? ['終焉の禁断 ドルマゲドンX', 'FORBIDDEN STAR ～世界最後の日～'] 
+        : ['零龍', '滅亡の起源 零無'];
+
+    fetch(`/api/cards?q=${encodeURIComponent(targetNames[0])}`)
         .then(res => res.json())
         .then(data => {
-            if (data.length > 0) {
+            // 完全一致するカードのみを探索
+            const exactCard = data.find(c => targetNames.includes(c.card_name));
+            if (exactCard) {
                 const slot = document.getElementById(slotId);
                 slot.innerHTML = '';
-                // 引数に slotId を追加
-                addCardToDeck(data[0], 'special', slotId);
+                addCardToDeck(exactCard, 'special', slotId);
             }
         });
 }
