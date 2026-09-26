@@ -937,7 +937,7 @@ public function myDecks() {
                 }
 
                 // ==========================================
-                // 2. 検索キーワードの動的決定（高速＆最安値取得）
+                // 2. 検索キーワードの動的決定（ヒット率維持＆高速化）
                 // ==========================================
                 $isAmbiguous = $isTwinpact && in_array($topName, $ambiguousTopNames);
 
@@ -963,19 +963,17 @@ public function myDecks() {
 
                 $baseSearchName = ($isAmbiguous && !empty($bottomName)) ? trim($topName . ' ' . $bottomName) : trim($topName);
 
-                // ★ 高速化：優先度順に並べ、ヒットした時点で打ち切る
-                $keywordsToTry = [];
-                // ① 記号処理済みキーワード（最優先：最もヒット率が高い）
+                // ① 記号処理済み（最優先）
                 $safeKw = $cleanSearchWord($baseSearchName);
-                $keywordsToTry[] = $safeKw;
+                $keywordsToTry = [$safeKw];
 
-                // ② 生カード名（記号処理で落ちた場合のフォールバック）
+                // ② 生カード名（記号処理でヒットしなかった場合のフォールバック）
                 if (!str_contains($baseSearchName, '-') && $baseSearchName !== $safeKw) {
                     $keywordsToTry[] = $baseSearchName;
                 }
 
-                // ③ 短いカード名用の「デュエマ」付与
-                if (mb_strlen($safeKw, 'UTF-8') <= 4) {
+                // ③ 短いカード名用
+                if (str_contains($baseSearchName, '“') || str_contains($baseSearchName, '”') || str_contains($baseSearchName, '"') || mb_strlen($safeKw, 'UTF-8') <= 5) {
                     $keywordsToTry[] = 'デュエマ ' . $safeKw;
                 }
 
@@ -984,14 +982,13 @@ public function myDecks() {
                 $normTop = $normalize($topName);
                 $normBottom = $isTwinpact && !empty($bottomName) ? $normalize($bottomName) : '';
 
-                // API通信処理（ジャンル指定＆価格昇順ソートで最安値を確実に拾う）
+                // API通信処理（前と同じ関連度順＋ジャンル制限なしで最大のヒット率を確保）
                 $fetchRakutenItems = function($kw) use ($apiBaseUrl, $appId, $accessKey, $targetShopCode, $affiliateId) {
                     $queryParams = [
                         'applicationId' => $appId,
                         'accessKey'     => $accessKey,
                         'keyword'       => $kw,
-                        'genreId'       => '566382', // ★TCGジャンルに限定してノイズを完全排除
-                        'sort'          => '+itemPrice', // ★価格の安い順で取得（最安値を逃さない）
+                        'sort'          => 'standard', // ★本命カードを確実に拾う関連度順
                         'hits'          => 30,
                         'minPrice'      => 10,
                     ];
@@ -1031,8 +1028,11 @@ public function myDecks() {
                     return [$data['Items'] ?? $data['items'] ?? [], $httpCode];
                 };
 
-                // 合致判定処理（価格昇順のため、最初に合致したものが最安値）
+                // 合致判定処理（30件の中から最も安い商品を厳選）
                 $findBestMatch = function($items) use ($ngTitlePattern, $normalize, $isTwinpact, $isAmbiguous, $normTop, $normBottom) {
+                    $matched = null;
+                    $lowest = PHP_INT_MAX;
+
                     foreach ($items as $rawItem) {
                         $candidate = $rawItem['Item'] ?? $rawItem;
                         $title = $candidate['itemName'] ?? $candidate['title'] ?? '';
@@ -1054,6 +1054,8 @@ public function myDecks() {
                             if ($isAmbiguous) {
                                 if (!empty($normBottom) && str_contains($normTitle, $normTop) && str_contains($normTitle, $normBottom)) {
                                     $isMatched = true;
+                                } elseif (!empty($normBottom) && str_contains($normTitle, $normBottom)) {
+                                    $isMatched = true;
                                 }
                             } else {
                                 if (str_contains($normTitle, $normTop)) {
@@ -1064,23 +1066,25 @@ public function myDecks() {
                             }
                         }
 
-                        // ★ +itemPrice でソートされているため、最初にマッチしたものが最安値
                         if ($isMatched) {
                             $itemPrice = (int)($candidate['itemPrice'] ?? $candidate['price'] ?? 0);
-                            if ($itemPrice > 0) {
-                                return $candidate;
+                            if ($itemPrice > 0 && $itemPrice < $lowest) {
+                                $lowest = $itemPrice;
+                                $matched = $candidate;
                             }
                         }
                     }
-                    return null;
+                    return $matched;
                 };
 
                 $matchedItem = null;
+                $lowestFoundPrice = PHP_INT_MAX;
                 $bestKeywordUsed = $baseSearchName;
                 $lastApiHitCount = 0;
+                $itemList = [];
                 $httpCode = 200;
 
-                // ★ 優先度順に検索し、ヒットしたら即時終了（break）して次のカードへ
+                // ★ 検索処理：記号処理キーワードでヒットしたら即座に完了（大幅な高速化）
                 foreach ($keywordsToTry as $kw) {
                     list($currentItems, $currentCode) = $fetchRakutenItems($kw);
                     $lastApiHitCount = count($currentItems);
@@ -1098,13 +1102,14 @@ public function myDecks() {
                         if ($candidate !== null) {
                             $matchedItem = $candidate;
                             $bestKeywordUsed = $kw;
-                            break; // ★ 見つかったため後続の再検索をスキップ（大幅な高速化）
+                            $itemList = $currentItems;
+                            break; // ★ 1発でカードが見つかったため後続のAPIリクエストをスキップ
                         }
                     }
                     usleep(50000);
                 }
 
-                // 見つからず、中黒（・）を含む場合のみ最終フォールバック
+                // ★ 上記で見つからなかった場合のみの最終手段（中黒全除去）
                 if ($matchedItem === null && str_contains($topName, '・')) {
                     $fallbackKeyword = str_replace(['・', ' '], '', $topName);
                     list($fbItemList, $fbHttpCode) = $fetchRakutenItems($fallbackKeyword);
@@ -1115,6 +1120,7 @@ public function myDecks() {
                         if ($candidate !== null) {
                             $matchedItem = $candidate;
                             $bestKeywordUsed = $fallbackKeyword;
+                            $itemList = $fbItemList;
                         }
                     }
                 }
