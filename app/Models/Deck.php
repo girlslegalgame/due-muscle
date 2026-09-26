@@ -79,7 +79,8 @@ class Deck {
                                 'pow', c_sub.pow,
                                 'text', c_sub.text,
                                 'imagepath', cd_sub.imagepath,
-                                'is_main_side', cc_sub.is_main_side
+                                'is_main_side', cc_sub.is_main_side,
+                                'char_ids', (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c_sub.card_id)
                             )
                         )
                         FROM card_combination cc_sub

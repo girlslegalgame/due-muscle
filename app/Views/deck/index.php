@@ -562,7 +562,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         : card.combination_members_json;
                 } catch(e) {}
             }
-
             // ----------------------------------------------------
             // 1. 特殊カード (special) または ドキンダムX
             // ----------------------------------------------------
@@ -573,8 +572,11 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                     for (let m of combinationMembers) {
                         const meta = await fetchImageMeta(m.imagepath);
                         if (meta) {
-                            addStandaloneCard(meta.filename, null, includeText ? buildCardMemo(m) : "", standaloneX, -3);
-                            standaloneX -= 5;
+                            const isDormageddon = m.card_name.includes('終焉の禁断 ドルマゲドンX');
+                            const w = isDormageddon ? 12 : 4;
+                            const h = isDormageddon ? 17 : 6;
+                            addStandaloneCard(meta.filename, null, includeText ? buildCardMemo(m) : "", standaloneX, -3, w, h);
+                            standaloneX -= (w + 1);
                         }
                     }
                     continue;
@@ -588,10 +590,10 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         const memo = includeText ? buildCardMemo(m) : "";
 
                         if (m.card_name.trim() === '零龍') {
-                            addStandaloneCard(meta.filename, null, memo, standaloneX, -3);
-                            standaloneX -= 5;
+                            // 《零龍》は縦12、横12
+                            addStandaloneCard(meta.filename, null, memo, standaloneX, -3, 12, 12);
+                            standaloneX -= 13;
                         } else {
-                            // 滅亡の起源 零無、手札の儀、墓地の儀、破壊の儀、復活の儀
                             zeroDecksItems[generateId()] = {
                                 "imageUrl": meta.filename,
                                 "memo": memo
@@ -604,7 +606,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 // 《伝説の禁断 ドキンダムX》・その他特殊カード
                 const meta = await fetchImageMeta(card.imagepath);
                 if (meta) {
-                    addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", standaloneX, -3);
+                    addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", standaloneX, -3, 4, 6);
                     standaloneX -= 5;
                 }
                 continue;
@@ -614,48 +616,108 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             // 2. 超次元ゾーン (super_dimensional)
             // ----------------------------------------------------
             if (zone === 'super_dimensional') {
+                const superDimX = -8; // 超次元カードは一か所にまとめて出力
+                const superDimY = -10;
+
                 for (let q = 0; q < qty; q++) {
+                    // card_id 昇順、is_main_side = 1 を先頭にしてソート
+                    combinationMembers.sort((a, b) => (b.is_main_side || 0) - (a.is_main_side || 0) || a.card_id - b.card_id);
+
                     if (combinationMembers.length === 2) {
-                        const front = combinationMembers.find(m => m.is_main_side == 1) || combinationMembers[0];
-                        const back = combinationMembers.find(m => m.is_main_side == 0) || combinationMembers[1];
+                        const m1 = combinationMembers[0];
+                        const m2 = combinationMembers[1];
 
-                        const frontMeta = await fetchImageMeta(front.imagepath);
-                        const backMeta = await fetchImageMeta(back.imagepath);
+                        const meta1 = await fetchImageMeta(m1.imagepath);
+                        const meta2 = await fetchImageMeta(m2.imagepath);
 
-                        // 両方の画像比率がほぼ同じか判定 (差が0.05以内)
-                        const isSameAspect = frontMeta && backMeta && Math.abs(frontMeta.aspectRatio - backMeta.aspectRatio) < 0.05;
+                        const m2CharIds = m2.char_ids ? String(m2.char_ids).split(',').map(v => parseInt(v.trim())) : [];
+                        const m2Aspect = meta2 ? meta2.aspectRatio : (51 / 73);
 
-                        if (isSameAspect) {
-                            // 表面 + 裏面として出力
-                            const memo = includeText ? buildCardMemo(front) : "";
-                            addStandaloneCard(frontMeta.filename, backMeta.filename, memo, standaloneX, -10);
-                            standaloneX -= 5;
-                        } else {
-                            // 画像比率が違う、または片方取得失敗時は別々に出力
-                            if (frontMeta) {
-                                addStandaloneCard(frontMeta.filename, null, includeText ? buildCardMemo(front) : "", standaloneX, -10);
-                                standaloneX -= 5;
-                            }
-                            if (backMeta) {
-                                addStandaloneCard(backMeta.filename, null, includeText ? buildCardMemo(back) : "", standaloneX, -10);
-                                standaloneX -= 5;
+                        let separateCards = false;
+                        let m2Width = 4, m2Height = 6;
+
+                        // 《極真龍魂 オール・オーバー・ザ・ワールド》の場合: 縦18、横10
+                        if (m2.card_name.includes('オール・オーバー・ザ・ワールド')) {
+                            separateCards = true;
+                            m2Width = 10;
+                            m2Height = 18;
+                        } 
+                        // 2枚目の characteristics_id が 4 の場合
+                        else if (m2CharIds.includes(4)) {
+                            separateCards = true;
+                            // 400:859 ≒ 0.4657
+                            if (Math.abs(m2Aspect - (400 / 859)) < 0.08) {
+                                m2Width = 6;
+                                m2Height = 12;
+                            } 
+                            // 160:229 ≒ 0.6987
+                            else if (Math.abs(m2Aspect - (160 / 229)) < 0.08) {
+                                m2Width = 6;
+                                m2Height = 8;
                             }
                         }
-                    } else if (combinationMembers.length >= 3) {
-                        // 3枚セットなどはそれぞれ別々に出力
+
+                        // サイズが異なる場合、またはアスペクト比が違う場合は個別に分けて出力
+                        const isSameAspect = meta1 && meta2 && Math.abs(meta1.aspectRatio - meta2.aspectRatio) < 0.05;
+                        if (!separateCards && isSameAspect) {
+                            // 両面カードとして表裏一体で出力
+                            const memo = includeText ? buildCardMemo(m1) : "";
+                            addStandaloneCard(meta1.filename, meta2.filename, memo, superDimX, superDimY, 4, 6);
+                        } else {
+                            if (meta1) {
+                                addStandaloneCard(meta1.filename, null, includeText ? buildCardMemo(m1) : "", superDimX, superDimY, 4, 6);
+                            }
+                            if (meta2) {
+                                addStandaloneCard(meta2.filename, null, includeText ? buildCardMemo(m2) : "", superDimX, superDimY, m2Width, m2Height);
+                            }
+                        }
+                    } else if (combinationMembers.length === 3) {
+                        // 3枚セット
+                        const m1 = combinationMembers[0];
+                        const m2 = combinationMembers[1];
+                        const m3 = combinationMembers[2];
+
+                        const charIds = (m1.char_ids ? String(m1.char_ids).split(',') : []).map(v => parseInt(v.trim()));
+
+                        let m2W = 4, m2H = 6;
+                        let m3W = 4, m3H = 6;
+
+                        if (charIds.includes(6)) {
+                            // characteristics_id が 6: 2枚目(縦6,横8)、3枚目(縦12,横6)
+                            m2W = 8; m2H = 6;
+                            m3W = 6; m3H = 12;
+                        } else if (charIds.includes(3)) {
+                            // characteristics_id が 3: 2枚目(縦8,横6)、3枚目(縦12,横6)
+                            m2W = 6; m2H = 8;
+                            m3W = 6; m3H = 12;
+                        }
+
+                        const sizes = [
+                            { w: 4, h: 6 },
+                            { w: m2W, h: m2H },
+                            { w: m3W, h: m3H }
+                        ];
+
+                        for (let i = 0; i < 3; i++) {
+                            const m = combinationMembers[i];
+                            const meta = await fetchImageMeta(m.imagepath);
+                            if (meta) {
+                                addStandaloneCard(meta.filename, null, includeText ? buildCardMemo(m) : "", superDimX, superDimY, sizes[i].w, sizes[i].h);
+                            }
+                        }
+                    } else if (combinationMembers.length > 3) {
+                        // 4枚以上のセット
                         for (let m of combinationMembers) {
                             const meta = await fetchImageMeta(m.imagepath);
                             if (meta) {
-                                addStandaloneCard(meta.filename, null, includeText ? buildCardMemo(m) : "", standaloneX, -10);
-                                standaloneX -= 5;
+                                addStandaloneCard(meta.filename, null, includeText ? buildCardMemo(m) : "", superDimX, superDimY, 4, 6);
                             }
                         }
                     } else {
                         // 単面超次元
                         const meta = await fetchImageMeta(card.imagepath);
                         if (meta) {
-                            addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", standaloneX, -10);
-                            standaloneX -= 5;
+                            addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", superDimX, superDimY, 4, 6);
                         }
                     }
                 }
