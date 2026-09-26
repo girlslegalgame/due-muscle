@@ -80,7 +80,12 @@ class Deck {
                                 'text', c_sub.text,
                                 'imagepath', cd_sub.imagepath,
                                 'is_main_side', cc_sub.is_main_side,
-                                'char_ids', (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c_sub.card_id)
+                                'char_ids', (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c_sub.card_id),
+                                'civ_ids', (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c_sub.card_id),
+                                'cardtype_ids', (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c_sub.card_id),
+                                'typename', (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c_sub.card_id),
+                                'race_ids', (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c_sub.card_id),
+                                'race_names', (SELECT GROUP_CONCAT(r_sub.race_name SEPARATOR '/') FROM card_race cr_sub JOIN race r_sub ON cr_sub.race_id = r_sub.race_id WHERE cr_sub.card_id = c_sub.card_id)
                             )
                         )
                         FROM card_combination cc_sub
