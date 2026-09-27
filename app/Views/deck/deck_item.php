@@ -125,25 +125,25 @@ if (!empty($deck['thumbnail_imagepath'])) {
         <span><?php echo date('Y/m/d', strtotime($deck['updated_at'])); ?></span>
     </div>
 
-    <!-- 6. ボタン群 -->
-    <div class="btn-group" style="display: grid; grid-template-columns: 1fr 1fr 1fr 38px; gap: 5px; margin-top: auto; padding-top: 5px; align-items: stretch;">
-        <?php if ($context === 'search'): ?>
-            <!-- 【公開デッキ検索用】ボタン -->
+    <!-- 6. ボタン群 (コンテキストによってレイアウトを分岐) -->
+    <?php if ($context === 'search'): ?>
+        <!-- 【公開デッキ検索用】3つのボタンを均等（1:1:1）配置 -->
+        <div class="btn-group" style="display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
             <button class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">デッキ<br>内容確認</button>
             <button class="btn-edit" onclick="copyDeck(<?php echo $deck['deck_id']; ?>)" style="background-color: #ffc107; color: #212529;">コピー</button>
             <button type="button" 
-                    class="btn-delete" 
+                    class="btn-report" 
                     title="通報する"
-                    style="background-color: #6c757d; font-size: 0.8rem; padding: 0;"
                     data-deck-id="<?php echo $deck['deck_id']; ?>"
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-creator-name="<?php echo htmlspecialchars($deck['creator_name'] ?? '作成者', ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openReportModal(this.dataset.deckId, this.dataset.deckName, this.dataset.creatorName)">通報</button>
-        <?php elseif ($context === 'index'): ?>
-            
-            <!-- 【マイデッキ一覧用】ボタン -->
+        </div>
+    <?php elseif ($context === 'index'): ?>
+        <!-- 【マイデッキ一覧用】均等3つ ＋ ✕ボタン（固定42px） -->
+        <div class="btn-group" style="display: grid; grid-template-columns: 1fr 1fr 1fr 42px; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
             <button class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">デッキ<br>内容確認</button>
@@ -155,6 +155,7 @@ if (!empty($deck['thumbnail_imagepath'])) {
                     onclick="exportDeckImage(this.dataset.deckId, this.dataset.deckName, this.dataset.formatName, this.dataset.thumbnailId, this)">デッキ<br>出力</button>
             <a href="/decks/edit?deck_id=<?php echo $deck['deck_id']; ?>" class="btn-edit">編集</a>
             <button class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
-        <?php endif; ?>
+        </div>
+    <?php endif; ?>
     </div>
 </div>
