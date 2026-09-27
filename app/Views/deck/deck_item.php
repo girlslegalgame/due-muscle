@@ -128,7 +128,7 @@ if (!empty($deck['thumbnail_imagepath'])) {
     <!-- 6. ボタン群 (コンテキストによってレイアウトを分岐) -->
     <?php if ($context === 'search'): ?>
         <!-- 【公開デッキ検索用】3つのボタンを均等（1:1:1）配置 -->
-        <div class="btn-group btn-group-search" style="margin-top: auto; padding-top: 6px;">
+        <div class="btn-group btn-group-search" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
             <button class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">デッキ<br>内容確認</button>
@@ -157,5 +157,4 @@ if (!empty($deck['thumbnail_imagepath'])) {
             <button class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
         </div>
     <?php endif; ?>
-    </div>
 </div>
