@@ -20,15 +20,17 @@ try {
 <style>
 /* 3. 画像出力用の一時的な非表示コンテナのスタイル（1200px固定）のみ残します */
 #deck-export-container {
-    position: absolute;
+    position: fixed;
     left: -9999px;
     top: 0;
     width: 1200px;
-    background-color: #000000; /* 背景を真っ黒に */
-    color: #ffffff;            /* 文字色を白に */
+    background-color: #000000;
+    color: #ffffff;
     font-family: sans-serif;
     padding: 30px;
     box-sizing: border-box;
+    pointer-events: none;
+    z-index: -1;
 }
 
 /* 画像化レイアウトのCSS */
