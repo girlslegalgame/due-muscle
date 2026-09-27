@@ -158,17 +158,20 @@
         <?php echo $content ?? ''; ?>
     </main>
 
-    <!-- ★追加: フッターエリア -->
+    <!-- ★修正: hideFooter が真の場合はフッターを表示しない -->
+    <?php if (empty($hideFooter)): ?>
     <footer>
         <ul>
+            <li><a href="/help">ヘルプ</a></li>
             <li><a href="/terms">利用規約</a></li>
         </ul>
         <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">
             &copy; <?= date('Y') ?> デュエ筋 All rights reserved.
         </div>
     </footer>
+    <?php endif; ?>
 
-<script src="/js/main.js"></script>
+    <script src="/js/main.js"></script>
     
 <script>
         // ==========================================================

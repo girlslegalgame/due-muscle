@@ -129,12 +129,10 @@ if (!empty($deck['thumbnail_imagepath'])) {
     <div class="btn-group" style="margin-top: auto; padding-top: 5px;">
         <?php if ($context === 'search'): ?>
             <!-- 【公開デッキ検索用】ボタン -->
-            <!-- ★修正: onclick内の文字列引数を dataset 参照に変更 -->
             <button class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">内容表示</button>
+                    onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">デッキ<br>内容確認</button>
             <button class="btn-edit" onclick="copyDeck(<?php echo $deck['deck_id']; ?>)" style="background-color: #ffc107; color: #212529;">コピー</button>
-            <!-- ★修正: 通報ボタン -->
             <button type="button" 
                     class="btn-delete" 
                     title="通報する"
@@ -146,16 +144,15 @@ if (!empty($deck['thumbnail_imagepath'])) {
         <?php elseif ($context === 'index'): ?>
             
             <!-- 【マイデッキ一覧用】ボタン -->
-            <!-- ★修正: onclick内の文字列引数を dataset 参照に変更 -->
             <button class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">内容表示</button>
+                    onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">デッキ<br>内容確認</button>
             <button class="btn-image" 
                     data-deck-id="<?php echo $deck['deck_id']; ?>"
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-format-name="<?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-thumbnail-id="<?php echo htmlspecialchars($deck['thumbnail_card_id'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                    onclick="exportDeckImage(this.dataset.deckId, this.dataset.deckName, this.dataset.formatName, this.dataset.thumbnailId, this)">デッキ出力</button>
+                    onclick="exportDeckImage(this.dataset.deckId, this.dataset.deckName, this.dataset.formatName, this.dataset.thumbnailId, this)">デッキ<br>出力</button>
             <a href="/decks/edit?deck_id=<?php echo $deck['deck_id']; ?>" class="btn-edit">編集</a>
             <button class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
         <?php endif; ?>
