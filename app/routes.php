@@ -39,6 +39,7 @@ $routes = [
                 
         '/help' => 'DeckController@help',
         '/help/search' => 'DeckController@helpSearch',
+        '/terms' => 'HomeController@terms', // ★ HomeController へ変更
         '/admin' => 'AdminController@index',
         '/api/admin/users' => 'AdminController@usersApi',
         '/api/admin/user-decks' => 'AdminController@userDecksApi',

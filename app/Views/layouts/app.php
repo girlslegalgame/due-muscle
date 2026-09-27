@@ -158,6 +158,17 @@
         <?php echo $content ?? ''; ?>
     </main>
 
+    <!-- ★追加: フッターエリア -->
+    <footer>
+        <ul>
+            <li><a href="/help">ヘルプ</a></li>
+            <li><a href="/terms">利用規約</a></li>
+        </ul>
+        <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">
+            &copy; <?= date('Y') ?> デュエ筋 All rights reserved.
+        </div>
+    </footer>
+
 <script src="/js/main.js"></script>
     
 <script>

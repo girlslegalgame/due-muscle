@@ -6,4 +6,11 @@ class HomeController {
     public function index() {
         renderView('home/index.php');
     }
+
+    /**
+     * 利用規約画面の表示
+     */
+    public function terms() {
+        renderView('legal/terms.php');
+    }
 }
