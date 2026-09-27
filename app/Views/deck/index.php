@@ -184,7 +184,8 @@ try {
     <h2>マイデッキ一覧</h2>
     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
         <a href="/decks/new" class="create-btn" style="margin-bottom: 0;">＋ 新規作成</a>
-        <button type="button" id="btn-open-proxy-modal" class="create-btn" style="background-color: #6f42c1; margin-bottom: 0;" onclick="openProxyModal()">
+        <!-- 他のボタンと共通の create-btn スタイルを適用 -->
+        <button type="button" id="btn-proxy-action" class="create-btn" style="margin-bottom: 0; border: none; cursor: pointer;" onclick="handleProxyButtonClick()">
             プロキシPDF出力
         </button>
     </div>
@@ -1188,6 +1189,67 @@ function openProxyModal() {
     document.getElementById('proxy-export-modal').style.display = 'flex';
 }
 
+// プロキシ選択モードの状態フラグ
+let isProxySelectMode = false;
+
+/**
+ * 「プロキシPDF出力」ボタンのクリック制御
+ */
+function handleProxyButtonClick() {
+    const btn = document.getElementById('btn-proxy-action');
+
+    if (!isProxySelectMode) {
+        // 1. 選択モードの開始: チェックボックスを表示し、ボタンを「キャンセル」へ
+        isProxySelectMode = true;
+        document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
+            cb.checked = false;
+            cb.style.display = 'inline-block';
+        });
+        updateProxyButtonState();
+    } else {
+        const selectedCount = document.querySelectorAll('.deck-select-checkbox:checked').length;
+        if (selectedCount > 0) {
+            // 2. チェックが1件以上ある場合: モーダルを開く
+            document.getElementById('proxy-selected-count').innerText = selectedCount;
+            document.getElementById('proxy-export-modal').style.display = 'flex';
+        } else {
+            // 3. 0件の状態で押された場合: キャンセル処理（元に戻す）
+            resetProxySelectionMode();
+        }
+    }
+}
+
+/**
+ * チェックボックスの選択状態に応じてボタンの文言・スタイルを更新
+ */
+function updateProxyButtonState() {
+    if (!isProxySelectMode) return;
+    const btn = document.getElementById('btn-proxy-action');
+    const selectedCount = document.querySelectorAll('.deck-select-checkbox:checked').length;
+
+    if (selectedCount > 0) {
+        btn.innerText = `${selectedCount}件のデッキを出力`;
+        btn.style.backgroundColor = '#28a745'; // 出力可能な緑色
+    } else {
+        btn.innerText = 'キャンセル';
+        btn.style.backgroundColor = '#6c757d'; // キャンセル用のグレー
+    }
+}
+
+/**
+ * 選択モードの初期化（非表示・リセット）
+ */
+function resetProxySelectionMode() {
+    isProxySelectMode = false;
+    document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
+        cb.checked = false;
+        cb.style.display = 'none';
+    });
+    const btn = document.getElementById('btn-proxy-action');
+    btn.innerText = 'プロキシPDF出力';
+    btn.style.backgroundColor = '#007bff'; // デフォルトの青色
+}
+
 function closeProxyModal() {
     document.getElementById('proxy-export-modal').style.display = 'none';
 }
@@ -1306,7 +1368,7 @@ async function generateProxyPdf() {
 
         pdf.save('proxy_cards.pdf');
         closeProxyModal();
-
+        resetProxySelectionMode(); // ★「プロキシPDF出力」ボタンの初期状態に戻す
     } catch (e) {
         console.error(e);
         alert('PDF作成中にエラーが発生しました。');
