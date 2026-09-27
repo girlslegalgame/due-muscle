@@ -66,8 +66,13 @@ if (!empty($deck['thumbnail_imagepath'])) {
 ?>
 
 <div class="deck-item">
-    <!-- 1. デッキ名 -->
-    <h3><?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?></h3>
+    <!-- 1. デッキ名 (チェックボックス追加) -->
+    <div style="display: flex; align-items: center; gap: 8px;">
+        <?php if ($context === 'index'): ?>
+            <input type="checkbox" class="deck-select-checkbox" value="<?php echo $deck['deck_id']; ?>" style="width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;" title="プロキシ出力用に選択">
+        <?php endif; ?>
+        <h3 style="margin: 0;"><?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?></h3>
+    </div>
 
     <!-- 2. サムネイル画像 -->
     <div class="deck-thumbnail-wrapper">

@@ -15,6 +15,7 @@ try {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <!-- index.php の <style> 変更後 -->
 <style>
 /* 3. 画像出力用の一時的な非表示コンテナのスタイル（1200px固定）のみ残します */
@@ -181,7 +182,12 @@ try {
 
 <div class="container">
     <h2>マイデッキ一覧</h2>
-    <a href="/decks/new" class="create-btn">＋ 新規作成</a>
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+        <a href="/decks/new" class="create-btn" style="margin-bottom: 0;">＋ 新規作成</a>
+        <button type="button" id="btn-open-proxy-modal" class="create-btn" style="background-color: #6f42c1; margin-bottom: 0;" onclick="openProxyModal()">
+            プロキシPDF出力
+        </button>
+    </div>
 
     <div class="deck-list">
         <?php if (!empty($decks)): ?>
@@ -281,6 +287,47 @@ try {
             <!-- ========================================== -->
             <!-- ▲▲▲ 広告掲載スペース（ここまで） ▲▲▲ -->
             <!-- ========================================== -->
+        </div>
+    </div>
+</div>
+
+<!-- プロキシPDF出力設定モーダル -->
+<div id="proxy-export-modal" class="sub-modal" style="display: none;">
+    <div class="sub-modal-content" style="max-width: 480px;">
+        <div class="sub-modal-header">
+            <span>プロキシ印刷用PDF出力</span>
+            <button type="button" onclick="closeProxyModal()" style="background:none; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">×</button>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px; text-align: left;">
+            <div style="margin-bottom: 15px;">
+                <label style="font-weight: bold; font-size: 0.9rem; color: #333;">対象カード:</label>
+                <div style="display: flex; gap: 20px; margin-top: 8px;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.9rem;">
+                        <input type="radio" name="proxy_card_target" value="all" checked> 全カードを出力
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.9rem;">
+                        <input type="radio" name="proxy_card_target" value="unowned"> 未購入のカードのみ出力
+                    </label>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <label for="proxy-spacing" style="font-weight: bold; font-size: 0.9rem; color: #333;">カード同士の間隔 (mm):</label>
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                    <input type="number" id="proxy-spacing" min="0" max="10" step="0.5" value="0" style="width: 80px; padding: 6px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+                    <span style="font-size: 0.85rem; color: #666;">mm (推奨: 0 〜 3mm / A4用紙 3×3配置)</span>
+                </div>
+            </div>
+
+            <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 6px; padding: 10px; font-size: 0.8rem; color: #555; margin-bottom: 20px;">
+                ※ A4用紙に 63mm × 88mm で最大9枚（3×3）印刷されます。<br>
+                ※ 選択中のデッキ数: <strong id="proxy-selected-count">0</strong> 件
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                <button type="button" onclick="closeProxyModal()" style="padding: 8px 16px; background: #e0e0e0; color: #333; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">キャンセル</button>
+                <button type="button" id="btn-generate-proxy" onclick="generateProxyPdf()" style="padding: 8px 20px; background: #6f42c1; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">PDFを生成・ダウンロード</button>
+            </div>
         </div>
     </div>
 </div>
@@ -1126,6 +1173,147 @@ function toggleDeckPublic(btn) {
         btn.disabled = false;
         btn.style.opacity = '1';
     });
+}
+
+/**
+ * プロキシモーダルの開閉
+ */
+function openProxyModal() {
+    const selectedDecks = document.querySelectorAll('.deck-select-checkbox:checked');
+    if (selectedDecks.length === 0) {
+        alert('出力対象のデッキを1つ以上選択してください。');
+        return;
+    }
+    document.getElementById('proxy-selected-count').innerText = selectedDecks.length;
+    document.getElementById('proxy-export-modal').style.display = 'flex';
+}
+
+function closeProxyModal() {
+    document.getElementById('proxy-export-modal').style.display = 'none';
+}
+
+/**
+ * プロキシPDF生成
+ */
+async function generateProxyPdf() {
+    const selectedCheckboxes = Array.from(document.querySelectorAll('.deck-select-checkbox:checked'));
+    if (selectedCheckboxes.length === 0) return;
+
+    const targetMode = document.querySelector('input[name="proxy_card_target"]:checked').value;
+    const spacingMm = parseFloat(document.getElementById('proxy-spacing').value) || 0;
+    const btn = document.getElementById('btn-generate-proxy');
+    
+    btn.disabled = true;
+    btn.innerText = 'カード取得中...';
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+        const pageWidth = 210;
+        const pageHeight = 297;
+        const cardWidth = 63;
+        const cardHeight = 88;
+        const cols = 3;
+        const rows = 3;
+
+        // グリッド全体の幅と高さ、および余白の中央配置計算
+        const gridWidth = (cols * cardWidth) + ((cols - 1) * spacingMm);
+        const gridHeight = (rows * cardHeight) + ((rows - 1) * spacingMm);
+        const startX = Math.max(0, (pageWidth - gridWidth) / 2);
+        const startY = Math.max(0, (pageHeight - gridHeight) / 2);
+
+        // 1. 各デッキのカードリストを取得してまとめる
+        let allPrintCards = [];
+        const currentUserId = '<?= isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : '' ?>';
+
+        for (const cb of selectedCheckboxes) {
+            const deckId = cb.value;
+            const res = await fetch(`/api/decks/view?deck_id=${deckId}`);
+            const cards = await res.json();
+            if (!Array.isArray(cards)) continue;
+
+            // 購入済みカードの取得
+            let ownedList = [];
+            if (targetMode === 'unowned' && currentUserId) {
+                try {
+                    const saved = localStorage.getItem(`owned_cards_u${currentUserId}_d${deckId}`);
+                    if (saved) ownedList = JSON.parse(saved);
+                } catch(e) {}
+            }
+
+            for (const c of cards) {
+                let name = (c.card_name || '').trim();
+                const isTwin = !empty(c.twinpact) && !empty(c.partner_card_id);
+                if (isTwin) {
+                    const sid = parseInt(c.card_id);
+                    const pid = parseInt(c.partner_card_id);
+                    name = sid < pid ? `${c.card_name} / ${c.partner_card_name}` : `${c.partner_card_name} / ${c.card_name}`;
+                }
+
+                if (targetMode === 'unowned' && ownedList.includes(name)) {
+                    continue; // 購入済みはスキップ
+                }
+
+                const qty = parseInt(c.quantity || 1);
+                const imgPath = c.imagepath ? '/images/card' + (c.imagepath.startsWith('/') ? c.imagepath : '/' + c.imagepath) : '/images/card/noimage.webp';
+                
+                for (let q = 0; q < qty; q++) {
+                    allPrintCards.push({ name, imgPath });
+                }
+            }
+        }
+
+        if (allPrintCards.length === 0) {
+            alert('出力対象のカードが1枚もありません。');
+            btn.disabled = false;
+            btn.innerText = 'PDFを生成・ダウンロード';
+            return;
+        }
+
+        btn.innerText = `PDF描画中 (全 ${allPrintCards.length} 枚)...`;
+
+        // 2. 画像の読み込みヘルパー
+        const loadImage = (url) => new Promise((resolve) => {
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => {
+                const fallback = new Image();
+                fallback.onload = () => resolve(fallback);
+                fallback.src = '/images/card/noimage.webp';
+            };
+            img.src = url;
+        });
+
+        // 3. PDFにカードを順番に配置
+        let currentIndex = 0;
+        for (let i = 0; i < allPrintCards.length; i++) {
+            if (i > 0 && i % (cols * rows) === 0) {
+                pdf.addPage();
+            }
+
+            const slot = i % (cols * rows);
+            const col = slot % cols;
+            const row = Math.floor(slot / cols);
+
+            const x = startX + (col * (cardWidth + spacingMm));
+            const y = startY + (row * (cardHeight + spacingMm));
+
+            const imgEl = await loadImage(allPrintCards[i].imgPath);
+            pdf.addImage(imgEl, 'WEBP', x, y, cardWidth, cardHeight, undefined, 'FAST');
+        }
+
+        pdf.save('proxy_cards.pdf');
+        closeProxyModal();
+
+    } catch (e) {
+        console.error(e);
+        alert('PDF作成中にエラーが発生しました。');
+    } finally {
+        btn.disabled = false;
+        btn.innerText = 'PDFを生成・ダウンロード';
+    }
 }
 </script>
 
