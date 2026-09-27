@@ -65,15 +65,15 @@ if (!empty($deck['thumbnail_imagepath'])) {
 }
 ?>
 
-<div class="deck-item">
-    <!-- 1. デッキ名 (プロキシ選択用チェックボックス連動) -->
+<div class="deck-item" data-deck-id="<?php echo $deck['deck_id']; ?>" onclick="handleDeckItemClick(event, this)">
+    <!-- 1. デッキ名 (プロキシ選択用チェックボックス) -->
     <div style="display: flex; align-items: center; gap: 8px;">
         <?php if ($context === 'index'): ?>
             <input type="checkbox" class="deck-select-checkbox" value="<?php echo $deck['deck_id']; ?>" 
-                   style="display: none; width: 18px; height: 18px; cursor: pointer; flex-shrink: 0;" 
-                   onchange="updateProxyButtonState()">
+                   style="display: none; width: 20px; height: 20px; cursor: pointer; flex-shrink: 0;" 
+                   onclick="event.stopPropagation()" onchange="updateProxyButtonState()">
         <?php endif; ?>
-        <h3 style="margin: 0;"><?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?></h3>
+        <h3 style="margin: 0; user-select: none;"><?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?></h3>
     </div>
 
     <!-- 2. サムネイル画像 -->

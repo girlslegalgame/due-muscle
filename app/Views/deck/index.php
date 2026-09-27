@@ -1199,55 +1199,93 @@ function handleProxyButtonClick() {
     const btn = document.getElementById('btn-proxy-action');
 
     if (!isProxySelectMode) {
-        // 1. 選択モードの開始: チェックボックスを表示し、ボタンを「キャンセル」へ
         isProxySelectMode = true;
         document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
             cb.checked = false;
             cb.style.display = 'inline-block';
+            const item = cb.closest('.deck-item');
+            if (item) item.style.cursor = 'pointer'; // 全体がクリッカブルであることを示す
         });
         updateProxyButtonState();
     } else {
         const selectedCount = document.querySelectorAll('.deck-select-checkbox:checked').length;
         if (selectedCount > 0) {
-            // 2. チェックが1件以上ある場合: モーダルを開く
             document.getElementById('proxy-selected-count').innerText = selectedCount;
             document.getElementById('proxy-export-modal').style.display = 'flex';
         } else {
-            // 3. 0件の状態で押された場合: キャンセル処理（元に戻す）
             resetProxySelectionMode();
         }
     }
 }
 
 /**
- * チェックボックスの選択状態に応じてボタンの文言・スタイルを更新
+ * 選択モード中にデッキアイテム全体をクリックしてトグルする処理
  */
-function updateProxyButtonState() {
+function handleDeckItemClick(event, itemEl) {
     if (!isProxySelectMode) return;
-    const btn = document.getElementById('btn-proxy-action');
-    const selectedCount = document.querySelectorAll('.deck-select-checkbox:checked').length;
 
-    if (selectedCount > 0) {
-        btn.innerText = `${selectedCount}件のデッキを出力`;
-        btn.style.backgroundColor = '#28a745'; // 出力可能な緑色
-    } else {
-        btn.innerText = 'キャンセル';
-        btn.style.backgroundColor = '#6c757d'; // キャンセル用のグレー
+    // ボタンやリンクをクリックした場合は選択トグルを行わない
+    if (event.target.closest('button, a')) return;
+
+    const cb = itemEl.querySelector('.deck-select-checkbox');
+    if (cb) {
+        cb.checked = !cb.checked;
+        itemEl.style.borderColor = cb.checked ? '#007bff' : '#ddd';
+        itemEl.style.boxShadow = cb.checked ? '0 0 0 2px #007bff' : '';
+        updateProxyButtonState();
     }
 }
 
 /**
- * 選択モードの初期化（非表示・リセット）
+ * 選択状態に応じてボタンの文言・スタイル、および枠線を更新
+ */
+function updateProxyButtonState() {
+    if (!isProxySelectMode) return;
+    const btn = document.getElementById('btn-proxy-action');
+    const checkboxes = document.querySelectorAll('.deck-select-checkbox');
+    let selectedCount = 0;
+
+    checkboxes.forEach(cb => {
+        const item = cb.closest('.deck-item');
+        if (cb.checked) {
+            selectedCount++;
+            if (item) {
+                item.style.borderColor = '#007bff';
+                item.style.boxShadow = '0 0 0 2px #007bff';
+            }
+        } else if (item) {
+            item.style.borderColor = '#ddd';
+            item.style.boxShadow = '';
+        }
+    });
+
+    if (selectedCount > 0) {
+        btn.innerText = `${selectedCount}件のデッキを出力`;
+        btn.style.backgroundColor = '#28a745';
+    } else {
+        btn.innerText = 'キャンセル';
+        btn.style.backgroundColor = '#6c757d';
+    }
+}
+
+/**
+ * 選択モードの解除（枠線リセット含む）
  */
 function resetProxySelectionMode() {
     isProxySelectMode = false;
     document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
         cb.checked = false;
         cb.style.display = 'none';
+        const item = cb.closest('.deck-item');
+        if (item) {
+            item.style.cursor = '';
+            item.style.borderColor = '#ddd';
+            item.style.boxShadow = '';
+        }
     });
     const btn = document.getElementById('btn-proxy-action');
     btn.innerText = 'プロキシPDF出力';
-    btn.style.backgroundColor = '#007bff'; // デフォルトの青色
+    btn.style.backgroundColor = '#007bff';
 }
 
 function closeProxyModal() {
@@ -1255,7 +1293,7 @@ function closeProxyModal() {
 }
 
 /**
- * プロキシPDF生成
+ * ページごとの単一PDFを生成し、ZIPにまとめてダウンロード
  */
 async function generateProxyPdf() {
     const selectedCheckboxes = Array.from(document.querySelectorAll('.deck-select-checkbox:checked'));
@@ -1270,7 +1308,7 @@ async function generateProxyPdf() {
 
     try {
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const zip = new JSZip();
 
         const pageWidth = 210;
         const pageHeight = 297;
@@ -1278,14 +1316,15 @@ async function generateProxyPdf() {
         const cardHeight = 88;
         const cols = 3;
         const rows = 3;
+        const cardsPerPage = cols * rows; // 9枚/ページ
 
-        // グリッド全体の幅と高さ、および余白の中央配置計算
+        // グリッド全体の幅と高さ、中央配置のオフセット計算
         const gridWidth = (cols * cardWidth) + ((cols - 1) * spacingMm);
         const gridHeight = (rows * cardHeight) + ((rows - 1) * spacingMm);
         const startX = Math.max(0, (pageWidth - gridWidth) / 2);
         const startY = Math.max(0, (pageHeight - gridHeight) / 2);
 
-        // 1. 各デッキのカードリストを取得してまとめる
+        // 1. 各デッキのカードリストを取得
         let allPrintCards = [];
         const currentUserId = '<?= isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : '' ?>';
 
@@ -1295,7 +1334,6 @@ async function generateProxyPdf() {
             const cards = await res.json();
             if (!Array.isArray(cards)) continue;
 
-            // 購入済みカードの取得
             let ownedList = [];
             if (targetMode === 'unowned' && currentUserId) {
                 try {
@@ -1314,7 +1352,7 @@ async function generateProxyPdf() {
                 }
 
                 if (targetMode === 'unowned' && ownedList.includes(name)) {
-                    continue; // 購入済みはスキップ
+                    continue;
                 }
 
                 const qty = parseInt(c.quantity || 1);
@@ -1333,9 +1371,9 @@ async function generateProxyPdf() {
             return;
         }
 
-        btn.innerText = `PDF描画中 (全 ${allPrintCards.length} 枚)...`;
+        const totalPages = Math.ceil(allPrintCards.length / cardsPerPage);
+        btn.innerText = `PDF生成中 (全 ${totalPages} ページ)...`;
 
-        // 2. 画像の読み込みヘルパー
         const loadImage = (url) => new Promise((resolve) => {
             const img = new Image();
             img.crossOrigin = 'Anonymous';
@@ -1348,30 +1386,41 @@ async function generateProxyPdf() {
             img.src = url;
         });
 
-        // 3. PDFにカードを順番に配置
-        let currentIndex = 0;
-        for (let i = 0; i < allPrintCards.length; i++) {
-            if (i > 0 && i % (cols * rows) === 0) {
-                pdf.addPage();
+        // 2. 9枚ごとに単一ページのPDFを作成し、ZIPに追加
+        for (let page = 0; page < totalPages; page++) {
+            const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const pageCards = allPrintCards.slice(page * cardsPerPage, (page + 1) * cardsPerPage);
+
+            for (let i = 0; i < pageCards.length; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+
+                const x = startX + (col * (cardWidth + spacingMm));
+                const y = startY + (row * (cardHeight + spacingMm));
+
+                const imgEl = await loadImage(pageCards[i].imgPath);
+                pdf.addImage(imgEl, 'WEBP', x, y, cardWidth, cardHeight, undefined, 'FAST');
             }
 
-            const slot = i % (cols * rows);
-            const col = slot % cols;
-            const row = Math.floor(slot / cols);
-
-            const x = startX + (col * (cardWidth + spacingMm));
-            const y = startY + (row * (cardHeight + spacingMm));
-
-            const imgEl = await loadImage(allPrintCards[i].imgPath);
-            pdf.addImage(imgEl, 'WEBP', x, y, cardWidth, cardHeight, undefined, 'FAST');
+            const pdfBlob = pdf.output('blob');
+            zip.file(`page_${page + 1}.pdf`, pdfBlob);
         }
 
-        pdf.save('proxy_cards.pdf');
+        btn.innerText = 'ZIP圧縮中...';
+        const zipContent = await zip.generateAsync({ type: 'blob' });
+
+        // 3. まとめてダウンロード
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(zipContent);
+        link.download = `proxy_cards.zip`;
+        link.click();
+
         closeProxyModal();
-        resetProxySelectionMode(); // ★「プロキシPDF出力」ボタンの初期状態に戻す
+        resetProxySelectionMode();
+
     } catch (e) {
         console.error(e);
-        alert('PDF作成中にエラーが発生しました。');
+        alert('ZIP/PDF作成中にエラーが発生しました。');
     } finally {
         btn.disabled = false;
         btn.innerText = 'PDFを生成・ダウンロード';
