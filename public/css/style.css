@@ -222,6 +222,9 @@ footer li a {
     margin-top: 10px; 
     align-items: stretch;
 }
+.btn-group-search {
+    grid-template-columns: repeat(3, 1fr) !important;
+}
 .btn-view,
 .btn-image,
 .btn-edit,
@@ -284,9 +287,6 @@ footer li a {
     align-items: center;
     justify-content: center;
     box-sizing: border-box;
-}
-.btn-image:hover {
-    background: #138496;
 }
 
 /* トグルスイッチ */
