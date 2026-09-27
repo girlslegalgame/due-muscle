@@ -695,6 +695,7 @@ let priceEstimateCache = {};
  * モーダルオープン時の処理更新
  */
 function openDeckModal(deckId, deckName) {
+    if (typeof isProxySelectMode !== 'undefined' && isProxySelectMode) return;
     currentDeckId = deckId;
     knownShops = {};
     priceEstimateCache = {};

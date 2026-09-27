@@ -147,6 +147,16 @@ try {
     object-fit: contain;
 }
 
+/* プロキシ選択モード中の各種操作無効化 */
+.proxy-select-mode .deck-item .btn-group,
+.proxy-select-mode .deck-item .btn-deck-public-toggle {
+    pointer-events: none;
+    opacity: 0.4;
+}
+.proxy-select-mode .deck-item .deck-thumbnail {
+    pointer-events: none; /* サムネイルクリックによるモーダル起動を無効化 */
+}
+
 /* 公開状態切り替えボタン */
     .btn-deck-public-toggle {
         border: none;
@@ -1197,14 +1207,17 @@ let isProxySelectMode = false;
  */
 function handleProxyButtonClick() {
     const btn = document.getElementById('btn-proxy-action');
+    const deckList = document.querySelector('.deck-list');
 
     if (!isProxySelectMode) {
         isProxySelectMode = true;
+        if (deckList) deckList.classList.add('proxy-select-mode'); // 操作ロッククラスを付与
+
         document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
             cb.checked = false;
             cb.style.display = 'inline-block';
             const item = cb.closest('.deck-item');
-            if (item) item.style.cursor = 'pointer'; // 全体がクリッカブルであることを示す
+            if (item) item.style.cursor = 'pointer';
         });
         updateProxyButtonState();
     } else {
@@ -1224,14 +1237,12 @@ function handleProxyButtonClick() {
 function handleDeckItemClick(event, itemEl) {
     if (!isProxySelectMode) return;
 
-    // ボタンやリンクをクリックした場合は選択トグルを行わない
-    if (event.target.closest('button, a')) return;
+    // チェックボックス自体のクリック時は多重発火を防ぐ
+    if (event.target.classList.contains('deck-select-checkbox')) return;
 
     const cb = itemEl.querySelector('.deck-select-checkbox');
     if (cb) {
         cb.checked = !cb.checked;
-        itemEl.style.borderColor = cb.checked ? '#007bff' : '#ddd';
-        itemEl.style.boxShadow = cb.checked ? '0 0 0 2px #007bff' : '';
         updateProxyButtonState();
     }
 }
@@ -1269,10 +1280,13 @@ function updateProxyButtonState() {
 }
 
 /**
- * 選択モードの解除（枠線リセット含む）
+ * 選択モードの解除（操作ロック解除）
  */
 function resetProxySelectionMode() {
     isProxySelectMode = false;
+    const deckList = document.querySelector('.deck-list');
+    if (deckList) deckList.classList.remove('proxy-select-mode'); // 操作ロック解除
+
     document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
         cb.checked = false;
         cb.style.display = 'none';
