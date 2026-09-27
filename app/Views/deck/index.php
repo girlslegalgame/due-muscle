@@ -1315,10 +1315,13 @@ async function generateProxyPdf() {
 
     const targetMode = document.querySelector('input[name="proxy_card_target"]:checked').value;
     const spacingMm = parseFloat(document.getElementById('proxy-spacing').value) || 0;
-    const btn = document.getElementById('btn-generate-proxy');
     
-    btn.disabled = true;
-    btn.innerText = 'カード取得中...';
+    // 設定モーダルを閉じて、広告付き待機モーダルを表示
+    closeProxyModal();
+    const loadingModal = document.getElementById('zip-export-loading-modal');
+    const modalHeaderTitle = loadingModal ? loadingModal.querySelector('.sub-modal-header span') : null;
+    if (modalHeaderTitle) modalHeaderTitle.innerText = 'プロキシPDF出力中';
+    if (loadingModal) loadingModal.style.display = 'flex';
 
     try {
         const { jsPDF } = window.jspdf;
@@ -1330,9 +1333,8 @@ async function generateProxyPdf() {
         const cardHeight = 88;
         const cols = 3;
         const rows = 3;
-        const cardsPerPage = cols * rows; // 9枚/ページ
+        const cardsPerPage = cols * rows;
 
-        // グリッド全体の幅と高さ、中央配置のオフセット計算
         const gridWidth = (cols * cardWidth) + ((cols - 1) * spacingMm);
         const gridHeight = (rows * cardHeight) + ((rows - 1) * spacingMm);
         const startX = Math.max(0, (pageWidth - gridWidth) / 2);
@@ -1380,13 +1382,11 @@ async function generateProxyPdf() {
 
         if (allPrintCards.length === 0) {
             alert('出力対象のカードが1枚もありません。');
-            btn.disabled = false;
-            btn.innerText = 'PDFを生成・ダウンロード';
+            if (loadingModal) loadingModal.style.display = 'none';
             return;
         }
 
         const totalPages = Math.ceil(allPrintCards.length / cardsPerPage);
-        btn.innerText = `PDF生成中 (全 ${totalPages} ページ)...`;
 
         const loadImage = (url) => new Promise((resolve) => {
             const img = new Image();
@@ -1400,7 +1400,7 @@ async function generateProxyPdf() {
             img.src = url;
         });
 
-        // 2. 9枚ごとに単一ページのPDFを作成し、ZIPに追加
+        // 2. 9枚ごとに単一ページのPDFを作成しZIPに追加
         for (let page = 0; page < totalPages; page++) {
             const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             const pageCards = allPrintCards.slice(page * cardsPerPage, (page + 1) * cardsPerPage);
@@ -1420,24 +1420,21 @@ async function generateProxyPdf() {
             zip.file(`page_${page + 1}.pdf`, pdfBlob);
         }
 
-        btn.innerText = 'ZIP圧縮中...';
+        // 3. ZIP圧縮してダウンロード
         const zipContent = await zip.generateAsync({ type: 'blob' });
-
-        // 3. まとめてダウンロード
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipContent);
         link.download = `proxy_cards.zip`;
         link.click();
 
-        closeProxyModal();
         resetProxySelectionMode();
 
     } catch (e) {
         console.error(e);
         alert('ZIP/PDF作成中にエラーが発生しました。');
     } finally {
-        btn.disabled = false;
-        btn.innerText = 'PDFを生成・ダウンロード';
+        // ★ 待機モーダルを非表示に戻す
+        if (loadingModal) loadingModal.style.display = 'none';
     }
 }
 </script>
