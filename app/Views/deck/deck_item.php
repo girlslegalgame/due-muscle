@@ -125,8 +125,8 @@ if (!empty($deck['thumbnail_imagepath'])) {
         <span><?php echo date('Y/m/d', strtotime($deck['updated_at'])); ?></span>
     </div>
 
-    <!-- 6. ボタン群 (コンテキストによって分岐) -->
-    <div class="btn-group" style="margin-top: auto; padding-top: 5px;">
+    <!-- 6. ボタン群 -->
+    <div class="btn-group" style="display: grid; grid-template-columns: 1fr 1fr 1fr 38px; gap: 5px; margin-top: auto; padding-top: 5px; align-items: stretch;">
         <?php if ($context === 'search'): ?>
             <!-- 【公開デッキ検索用】ボタン -->
             <button class="btn-view" 
@@ -136,7 +136,7 @@ if (!empty($deck['thumbnail_imagepath'])) {
             <button type="button" 
                     class="btn-delete" 
                     title="通報する"
-                    style="background-color: #6c757d; font-size: 0.8rem; padding: 10px 8px;"
+                    style="background-color: #6c757d; font-size: 0.8rem; padding: 0;"
                     data-deck-id="<?php echo $deck['deck_id']; ?>"
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-creator-name="<?php echo htmlspecialchars($deck['creator_name'] ?? '作成者', ENT_QUOTES, 'UTF-8'); ?>"

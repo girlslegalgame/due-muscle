@@ -216,24 +216,25 @@ footer li a {
     vertical-align: middle;
 }
 .btn-group { 
-    display: flex; 
-    gap: 5px; 
+    display: grid !important; 
+    grid-template-columns: 1fr 1fr 1fr 38px !important; 
+    gap: 5px !important; 
     margin-top: 10px; 
-    align-items: stretch; /* ボタンの高さを揃える */
+    align-items: stretch;
 }
 .btn-view,
 .btn-image,
 .btn-edit {
-    flex: 1 1 0px;        /* 完全に均等な幅に固定 */
-    width: 0;             /* 中身の文字幅に引っ張られないようにする */
-    min-width: 0;
-    padding: 6px 2px;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 40px !important;       /* 高さを完全に統一 */
+    padding: 2px !important;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     font-weight: bold;
     font-size: 0.8rem;
-    line-height: 1.25;    /* 2行になった時の行間 */
+    line-height: 1.25;
     text-align: center;
     text-decoration: none;
     display: inline-flex;
@@ -258,9 +259,9 @@ footer li a {
     color: #212529;
 }
 .btn-delete { 
-    flex-shrink: 0;
-    width: 38px;
-    padding: 0;
+    width: 38px !important;
+    height: 40px !important;       /* ✕ボタンも高さを統一 */
+    padding: 0 !important;
     background: #dc3545; 
     color: white; 
     border: none; 
@@ -270,6 +271,7 @@ footer li a {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-sizing: border-box;
 }
 .btn-image {
     flex: 1.5;
