@@ -15,6 +15,16 @@ class Database {
      */
     public static function connect() {
         if (self::$pdo === null) {
+
+            $envPath = __DIR__ . '/../../.env';
+            if (file_exists($envPath)) {
+                $envVars = parse_ini_file($envPath, false, INI_SCANNER_RAW);
+                if ($envVars !== false) {
+                    foreach ($envVars as $key => $val) {
+                        putenv("{$key}={$val}");
+                    }
+                }
+            }
             
             // 1. Railwayの環境変数(MYSQL...)を最優先し、なければLaravel用(DB_...)やローカルの初期値を使用します
             $host     = getenv('MYSQLHOST')     ?: (getenv('DB_HOST')     ?: '127.0.0.1');

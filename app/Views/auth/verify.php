@@ -96,12 +96,24 @@
 
     <?php 
         $isLogin = ($action_url ?? '') === '/login/verify';
+
+        // ★ローカル環境判定（Railway等の環境変数がなければローカルと判定）
+        $isLocal = !getenv('RAILWAY_ENVIRONMENT');
+        // セッションから一時保存されているコードを取得（キー名はAuthControllerの実装に合わせて調整してください）
+        $devCode = $isLocal ? ($_SESSION['verification_code'] ?? $_SESSION['login_verify_code'] ?? '') : '';
     ?>
+
+    <?php if ($isLocal && !empty($devCode)): ?>
+        <!-- ローカル環境限定の通知 -->
+        <div class="alert alert-success" style="background-color: #fff3cd; color: #856404; border-color: #ffeeca;">
+            【ローカル環境】認証コード: <strong><?php echo htmlspecialchars($devCode); ?></strong>
+        </div>
+    <?php endif; ?>
 
     <form action="<?php echo htmlspecialchars($action_url ?? '/register/verify'); ?>" method="POST">
         <div class="form-group">
-            <!-- 認証コード入力フィールド -->
-            <input type="text" id="code" name="code" class="input-code" required placeholder="123456" maxlength="6" pattern="[0-9]{6}" autocomplete="off">
+            <!-- 認証コード入力フィールド（ローカル時は自動入力） -->
+            <input type="text" id="code" name="code" class="input-code" required placeholder="123456" maxlength="6" pattern="[0-9]{6}" autocomplete="off" value="<?php echo htmlspecialchars($devCode); ?>">
         </div>
         <button type="submit" class="btn-submit"><?php echo $isLogin ? 'ログインする' : 'アカウントを作成する'; ?></button>
     </form>

@@ -116,15 +116,19 @@ class AuthController {
 
                     if ($user && password_verify($password, $user['password_hash'])) {
                         
-                        // ★修正：既知の端末（Cookieあり）であるかチェック
-                        if ($this->isKnownDevice($user)) {
+                        // ★ローカル環境判定（Railway等の環境変数がなければローカルとみなす）
+                        $isLocal = !getenv('RAILWAY_ENVIRONMENT');
+
+                        // ★修正：ローカル環境、または既知の端末（Cookieあり）であるかチェック
+                        if ($isLocal || $this->isKnownDevice($user)) {
                             // 認証コードをスキップしてログイン状態にする
                             $_SESSION['user_id'] = $user['user_id'];
                             $_SESSION['username'] = $user['username'];
-                            $_SESSION['role'] = $user['role'] ?? 'user'; // ★追加: ロール情報を保持
+                            $_SESSION['role'] = $user['role'] ?? 'user';
                             
-                            // 修正箇所：既知の端末でのログイン時はメールを送信しないため、
-                            // fastcgi_finish_request() は使用せず、即座にリダイレクトします。
+                            // ローカル時も端末Cookieを保存しておく
+                            $this->saveDeviceCookie($user['user_id'], $user['password_hash']);
+
                             header('Location: /mydecks');
                             exit;
                         }
