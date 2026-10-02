@@ -449,7 +449,7 @@
             <div id="tab-main" class="tab-item active" onclick="switchTab('main')">メイン</div>
             <div id="tab-extra" class="tab-item" onclick="switchTab('extra')">GR / 超次元 / 特殊</div>
             <div id="tab-analysis" class="tab-item" onclick="switchTab('analysis')">分析</div>
-            <div id="tab-price" class="tab-item" onclick="switchTab('price')">価格査定(PR)</div>
+            <div id="tab-price" class="tab-item" onclick="switchTab('price')">価格査定</div>
         </div>
 
         <div class="scroll-area">

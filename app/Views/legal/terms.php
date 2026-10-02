@@ -23,12 +23,6 @@
         <p>当サイトの一部機能には、オンラインセッションツール「ココフォリア（<a href="https://ccfolia.com/" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">https://ccfolia.com/</a>）」用のルームデータを生成・出力するものがありますが、これは当サイト独自の実装であり、ココフォリア公式が開発・推奨・提供するものではありません。</p>
     </section>
 
-    <!-- 4. アフィリエイトプログラム -->
-    <section style="margin-bottom: 25px;">
-        <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第4条（アフィリエイトプログラム等の利用）</h3>
-        <p>当サイトは、楽天グループ株式会社が提供する「楽天アフィリエイトプログラム」に参加しています。価格査定機能やリンクを経由して商品が購入された場合、当サイト運営者に紹介料等が発生することがあります。</p>
-    </section>
-
     <!-- 5. 個人情報の取り扱い（メールアドレス保護） -->
     <section style="margin-bottom: 25px;">
         <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第5条（個人情報の保護）</h3>
