@@ -470,8 +470,26 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
 
         async function calculateSha256(blob) {
             const buffer = await blob.arrayBuffer();
-            const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-            return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+                    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) {
+                    // フォールバックへ移行
+                }
+            }
+            // crypto.subtle が利用できない非HTTPS環境用の簡易ハッシュフォールバック
+            const bytes = new Uint8Array(buffer);
+            let h1 = 0xdeadbeef, h2 = 0x41c64e6d;
+            for (let i = 0; i < bytes.length; i++) {
+                h1 = Math.imul(h1 ^ bytes[i], 2654435761);
+                h2 = Math.imul(h2 ^ bytes[i], 1597334677);
+            }
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            const part1 = (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16).padStart(16, '0');
+            const part2 = (4294967296 * (2097151 & h1) + (h2 >>> 0)).toString(16).padStart(16, '0');
+            return (part1 + part2).repeat(2); // 64文字の16進数文字列を生成
         }
 
         // 画像Blob・ハッシュ・アスペクト比のキャッシュローダー
