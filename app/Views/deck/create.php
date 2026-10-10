@@ -3174,21 +3174,19 @@ function toggleSortModal() {
     const m = document.getElementById('sortModal');
     m.style.display = (m.style.display === 'block') ? 'none' : 'block';
 }
-
 function applySort() {
     const key = document.getElementById('sort-key').value;
     const order = document.querySelector('input[name="sort-order"]:checked').value;
-    const selectedKey = document.getElementById('sort-key').value;
-    // 各カードリストを並び替え
-    sortDeckList(mainList, key, order);
-    sortDeckList(superDimList, key, order);
-    sortDeckList(grList, key, order);
 
-    if (selectedKey === 'free') {
-        currentSort.key = null; // 自動整列を解除
+    if (key === 'free') {
+        currentSort.key = null; // 自動整列を解除（直前の並び順をそのまま維持）
     } else {
-        currentSort.key = selectedKey;
-        currentSort.order = document.querySelector('input[name="sort-order"]:checked').value;
+        currentSort.key = key;
+        currentSort.order = order;
+        // 各カードリストを並び替え
+        sortDeckList(mainList, key, order);
+        sortDeckList(superDimList, key, order);
+        sortDeckList(grList, key, order);
     }
     
     updateDeckDisplay();

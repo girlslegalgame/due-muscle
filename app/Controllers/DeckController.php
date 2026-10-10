@@ -742,6 +742,14 @@ public function myDecks() {
             $affiliateId = null;
         }
 
+        $buildAffiliateUrl = function($targetUrl) use ($affiliateId) {
+            if (empty($targetUrl)) return '';
+            if (!empty($affiliateId)) {
+                return 'https://hb.afl.rakuten.co.jp/hgc/' . $affiliateId . '/?pc=' . rawurlencode($targetUrl);
+            }
+            return $targetUrl;
+        };
+
         if (empty($appId)) {
             http_response_code(500);
             echo json_encode([
@@ -1154,6 +1162,7 @@ public function myDecks() {
                         }
                     }
                 }
+                
                 $keyword = $bestKeywordUsed;
                 $minPrice = null;
                 $affiliateUrl = '';
@@ -1163,13 +1172,20 @@ public function myDecks() {
 
                 if ($matchedItem !== null) {
                     $minPrice = (int)($matchedItem['itemPrice'] ?? $matchedItem['price'] ?? 0);
-                    $affiliateUrl = $matchedItem['affiliateUrl'] ?? $matchedItem['itemUrl'] ?? '';
+                    // API返却のアフィリエイトURL、無ければ商品URLからアフィリエイトURLを生成
+                    $itemRawUrl = $matchedItem['itemUrl'] ?? '';
+                    $affiliateUrl = !empty($matchedItem['affiliateUrl']) 
+                        ? $matchedItem['affiliateUrl'] 
+                        : $buildAffiliateUrl($itemRawUrl);
                     $itemName = $matchedItem['itemName'] ?? $matchedItem['title'] ?? '';
                     $shopName = $matchedItem['shopName'] ?? '';
                     $shopCode = $matchedItem['shopCode'] ?? '';
                     $totalPrice += ($minPrice * $qty);
                 } else {
                     $notFoundCount++;
+                    // 未ヒット時は楽天市場の検索結果へのアフィリエイトリンクを生成
+                    $searchUrl = 'https://search.rakuten.co.jp/search/mall/' . rawurlencode($baseSearchName) . '/';
+                    $affiliateUrl = $buildAffiliateUrl($searchUrl);
                 }
 
                 // 取得結果をDBにキャッシュ保存（商品の実店舗コード $shopCode を保存）
