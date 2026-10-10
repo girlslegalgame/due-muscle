@@ -213,29 +213,35 @@ class CardController {
             if (!empty($excludeCivs)) {
                 $hasExcludeZero = in_array(6, $excludeCivs);
                 $otherExcludeCivs = array_filter($excludeCivs, function($v) { return $v != 6; });
-                
-                // 自カード、または同一combination_idを持つすべてのカードが該当するかチェックする条件句
-                $targetCardCond = "cc.card_id = c_search.card_id 
-                    OR cc.card_id IN (
-                        SELECT ccb_sub.card_id 
-                        FROM card_combination ccb_main 
-                        JOIN card_combination ccb_sub ON ccb_main.combination_id = ccb_sub.combination_id 
-                        WHERE ccb_main.card_id = c_search.card_id
-                    )";
 
                 if (!empty($otherExcludeCivs)) {
                     $excludeList = implode(',', array_map('intval', $otherExcludeCivs));
+
+                    // 1. 自カード自身が除外対象文明を持っていないこと
+                    $searchSql .= " AND NOT EXISTS (
+                        SELECT 1 FROM card_civilization cc 
+                        WHERE cc.card_id = c_search.card_id AND cc.civilization_id IN ($excludeList)
+                    )";
+
+                    // 2. ツインパクト等の組み合わせカードの場合、別面も除外対象文明を持っていないこと
+                    $searchSql .= " AND (
+                        ccb_search.combination_id IS NULL OR NOT EXISTS (
+                            SELECT 1 FROM card_combination ccb_sub
+                            JOIN card_civilization cc ON ccb_sub.card_id = cc.card_id
+                            WHERE ccb_sub.combination_id = ccb_search.combination_id 
+                              AND cc.civilization_id IN ($excludeList)
+                        )
+                    )";
+
                     if ($hasExcludeZero) {
-                        // 他の文明を除外、かつ無色も除外
-                        $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond))";
-                        $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond) AND cc.civilization_id IN ($excludeList, 6))";
-                    } else {
-                        $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond) AND cc.civilization_id IN ($excludeList))";
+                        // 無色も除外する場合：文明中間テーブルにレコードが存在すること（無色カードを排除）
+                        $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id)";
+                        $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id = 6)";
                     }
                 } elseif ($hasExcludeZero) {
                     // 無色（ID: 6）のみを除外
-                    $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond))";
-                    $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE ($targetCardCond) AND cc.civilization_id = 6)";
+                    $searchSql .= " AND EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id)";
+                    $searchSql .= " AND NOT EXISTS (SELECT 1 FROM card_civilization cc WHERE cc.card_id = c_search.card_id AND cc.civilization_id = 6)";
                 }
             }
             
