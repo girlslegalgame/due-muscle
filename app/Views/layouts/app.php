@@ -2,11 +2,13 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="google-adsense-account" content="ca-pub-1782055298829063">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>デュエ筋</title>
     <link rel="stylesheet" href="/css/style.css?v=<?php echo time(); ?>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
-    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1782055298829063" crossorigin="anonymous"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1782055298829063"
+     crossorigin="anonymous"></script>
     <style>
         /* --- ヘッダーを黒背景・白文字に変更 --- */
         header {
