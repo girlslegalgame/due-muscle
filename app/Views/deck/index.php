@@ -276,35 +276,54 @@ try {
     </div>
 </div>
 
-<!-- ZIP出力中待機モーダル（広告スペース付き） -->
+<!-- ZIP出力中待機モーダル -->
 <div id="zip-export-loading-modal" class="sub-modal" style="display: none; z-index: 3100;">
-    <div class="sub-modal-content" style="max-width: 450px; text-align: center;">
+    <div class="sub-modal-content" style="max-width: 400px; text-align: center;">
         <div class="sub-modal-header" style="justify-content: center;">
-            <span>ZIP出力中</span>
+            <span>出力処理中</span>
         </div>
-        <div class="sub-modal-body" style="padding: 25px 20px;">
+        <div class="sub-modal-body" style="padding: 30px 20px;">
             <p style="font-weight: bold; color: #d9534f; font-size: 1.05rem; margin: 0 0 10px 0;">
                 出力中です。他の画面に移動しないでください。
             </p>
-            <p style="color: #666; font-size: 0.85rem; margin: 0 0 20px 0;">
-                カード画像を生成・圧縮しています。完了すると自動でダウンロードが開始されます。
+            <p style="color: #666; font-size: 0.85rem; margin: 0;">
+                データを生成・圧縮しています。完了までしばらくお待ちください。
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- 出力完了モーダル（広告スペース付き） -->
+<div id="export-complete-modal" class="sub-modal" style="display: none; z-index: 3100;">
+    <div class="sub-modal-content" style="max-width: 450px; text-align: center;">
+        <div class="sub-modal-header" style="justify-content: center;">
+            <span>ダウンロード完了</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px;">
+            <p style="font-weight: bold; color: #28a745; font-size: 1.1rem; margin: 0 0 8px 0;">
+                ファイルの生成が完了しました！
+            </p>
+            <p style="color: #666; font-size: 0.85rem; margin: 0 0 15px 0;">
+                自動的にダウンロードが開始されない場合は、再度お試しください。
             </p>
 
-            <!-- ========================================== -->
-            <!-- ▼▼▼ 広告掲載スペース（ここから） ▼▼▼ -->
-            <!-- ========================================== -->
-            <div id="export-ad-area" style="width: 100%; min-height: 250px; margin-top: 15px; display: flex; justify-content: center;">
-                <!-- 発行されたAdSenseユニットタグ -->
-                <ins class="adsbygoogle"
-                     style="display:block; width: 100%;"
-                     data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                     data-ad-slot="YYYYYYYYYY"
-                     data-ad-format="rectangle"
-                     data-full-width-responsive="true"></ins>
+            <!-- 広告枠（誤タップを防ぐため上下マージンを確保しラベルを明記） -->
+            <div style="margin: 15px 0;">
+                <div style="font-size: 0.75rem; color: #888; margin-bottom: 4px;">スポンサーリンク</div>
+                <div style="min-height: 250px; background-color: #f9f9f9; display: flex; align-items: center; justify-content: center;">
+                    <!-- AdSense 広告ユニットタグ -->
+                    <ins class="adsbygoogle"
+                         style="display:block; width:100%;"
+                         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+                         data-ad-slot="YYYYYYYYYY"
+                         data-ad-format="rectangle"></ins>
+                </div>
             </div>
-            <!-- ========================================== -->
-            <!-- ▲▲▲ 広告掲載スペース（ここまで） ▲▲▲ -->
-            <!-- ========================================== -->
+
+            <!-- 広告との誤タップを防ぐため、十分な余白を取った閉じるボタン -->
+            <button type="button" onclick="closeExportCompleteModal()" style="margin-top: 15px; padding: 10px 30px; background: #6c757d; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                閉じる
+            </button>
         </div>
     </div>
 </div>
@@ -1030,6 +1049,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
         link.click();
 
         resetBtn();
+        openExportCompleteModal();
     } catch (err) {
         console.error(err);
         alert('ZIP作成中にエラーが発生しました。');
@@ -1525,7 +1545,7 @@ async function generateProxyPdf() {
         link.click();
 
         resetProxySelectionMode();
-
+        openExportCompleteModal();
     } catch (e) {
         console.error(e);
         alert('ZIP/PDF作成中にエラーが発生しました。');
@@ -1533,6 +1553,22 @@ async function generateProxyPdf() {
         // ★ 待機モーダルを非表示に戻す
         if (loadingModal) loadingModal.style.display = 'none';
     }
+}
+
+function openExportCompleteModal() {
+    const modal = document.getElementById('export-complete-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // モーダル表示時に広告をロード
+        try {
+            (adsbygoogle = window.adsbygoogle || []).push({});
+        } catch (e) {}
+    }
+}
+
+function closeExportCompleteModal() {
+    const modal = document.getElementById('export-complete-modal');
+    if (modal) modal.style.display = 'none';
 }
 </script>
 

@@ -43,7 +43,18 @@
         <p>当サイトのユーザー登録時にご入力いただいたメールアドレスは、本人確認（認証コード送信）およびサイトの重要な連絡・運営目的にのみ使用します。法令に基づく開示請求がある場合を除き、第三者へ提供、譲渡、または外部へ流出させることは一切ありません。</p>
     </section>
 
-    <!-- ★追加: 禁止事項 -->
+    <!-- 6. 免責事項 -->
+    <section style="margin-bottom: 25px;">
+        <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第6条（免責事項）</h3>
+        <ol style="padding-left: 20px; margin: 0;">
+            <li style="margin-bottom: 6px;">当サイトの利用、または利用できなかったことによって生じたいかなる損害・トラブル・損失についても、運営者は一切の責任を負いません。</li>
+            <li style="margin-bottom: 6px;">当サイト内で公開されたデッキデータ、ユーザー間のやり取りによって生じた紛争、および本サービスを利用して行われた犯罪行為や規約違反行為について、運営者は一切の責任を負いません。</li>
+            <li style="margin-bottom: 6px;">当サイトで提供するカード情報や価格情報は、正確性を保証するものではありません。</li>
+            <li>当サイトは、予告なくサービスの提供を中断、終了、または内容を変更することがあります。</li>
+        </ol>
+    </section>
+    
+    <!-- 7. 禁止事項 -->
     <section style="margin-bottom: 25px;">
         <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第7条（禁止事項）</h3>
         <p>利用者は、当サイトの利用にあたり、以下の行為を行ってはならないものとします。違反が確認された場合、予告なくデッキの非公開化、削除、またはアカウントの停止等の措置を講じる場合があります。</p>
@@ -56,16 +67,6 @@
         </ol>
     </section>
 
-    <!-- 6. 免責事項 -->
-    <section style="margin-bottom: 25px;">
-        <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第6条（免責事項）</h3>
-        <ol style="padding-left: 20px; margin: 0;">
-            <li style="margin-bottom: 6px;">当サイトの利用、または利用できなかったことによって生じたいかなる損害・トラブル・損失についても、運営者は一切の責任を負いません。</li>
-            <li style="margin-bottom: 6px;">当サイト内で公開されたデッキデータ、ユーザー間のやり取りによって生じた紛争、および本サービスを利用して行われた犯罪行為や規約違反行為について、運営者は一切の責任を負いません。</li>
-            <li style="margin-bottom: 6px;">当サイトで提供するカード情報や価格情報は、正確性を保証するものではありません。</li>
-            <li>当サイトは、予告なくサービスの提供を中断、終了、または内容を変更することがあります。</li>
-        </ol>
-    </section>
 
     <div style="margin-top: 40px; text-align: right; font-size: 0.85rem; color: #777;">
         制定日：<?php echo date('Y年m月d日'); ?>
