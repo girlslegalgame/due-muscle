@@ -293,9 +293,14 @@ try {
             <!-- ========================================== -->
             <!-- ▼▼▼ 広告掲載スペース（ここから） ▼▼▼ -->
             <!-- ========================================== -->
-            <div id="export-ad-area" style="width: 100%; min-height: 250px; background-color: #f0f0f0; border: 2px dashed #bbb; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #888; font-size: 0.9rem; margin-top: 15px;">
-                <p style="margin: 0; font-weight: bold;">Ad</p>
-                <p style="margin: 5px 0 0 0; font-size: 0.75rem; color: #aaa;">※ここにAdSense等の広告タグを配置してください</p>
+            <div id="export-ad-area" style="width: 100%; min-height: 250px; margin-top: 15px; display: flex; justify-content: center;">
+                <!-- 発行されたAdSenseユニットタグ -->
+                <ins class="adsbygoogle"
+                     style="display:block; width: 100%;"
+                     data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+                     data-ad-slot="YYYYYYYYYY"
+                     data-ad-format="rectangle"
+                     data-full-width-responsive="true"></ins>
             </div>
             <!-- ========================================== -->
             <!-- ▲▲▲ 広告掲載スペース（ここまで） ▲▲▲ -->
@@ -422,6 +427,11 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
     const includeLinked = document.getElementById('zip-include-linked')?.checked ?? true;
     const loadingModal = document.getElementById('zip-export-loading-modal');
     if (loadingModal) loadingModal.style.display = 'flex';
+    try {
+    (adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (e) {
+        console.error('AdSense error:', e);
+    }
 
     if (buttonElement) {
         buttonElement.innerText = 'ZIP生成中...';
@@ -1403,6 +1413,12 @@ async function generateProxyPdf() {
     const modalHeaderTitle = loadingModal ? loadingModal.querySelector('.sub-modal-header span') : null;
     if (modalHeaderTitle) modalHeaderTitle.innerText = 'プロキシPDF出力中';
     if (loadingModal) loadingModal.style.display = 'flex';
+
+    try {
+    (adsbygoogle = window.adsbygoogle || []).push({});
+    } catch (e) {
+        console.error('AdSense error:', e);
+    }
 
     try {
         const { jsPDF } = window.jspdf;

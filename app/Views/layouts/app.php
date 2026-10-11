@@ -6,7 +6,7 @@
     <title>デュエ筋</title>
     <link rel="stylesheet" href="/css/style.css?v=<?php echo time(); ?>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
-    
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1782055298829063" crossorigin="anonymous"></script>
     <style>
         /* --- ヘッダーを黒背景・白文字に変更 --- */
         header {
