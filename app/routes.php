@@ -45,6 +45,7 @@ $routes = [
         '/api/admin/user-decks' => 'AdminController@userDecksApi',
         '/notifications' => 'NotificationController@index',
         '/users/decks' => 'DeckController@userPublicDecks',
+        '/decks/share' => 'DeckController@share',
         '/api/decks/estimate-price' => 'DeckController@estimatePriceApi',
     ],
     'POST' => [

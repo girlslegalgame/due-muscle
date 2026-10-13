@@ -1570,6 +1570,54 @@ function closeExportCompleteModal() {
     const modal = document.getElementById('export-complete-modal');
     if (modal) modal.style.display = 'none';
 }
+function copyShareUrlFromItem(event, btnElement) {
+    if (event && event.stopPropagation) {
+        event.stopPropagation();
+    }
+
+    // ボタン要素の dataset または 直接数値が渡された場合の両方に対応
+    const deckId = (btnElement && btnElement.dataset) ? btnElement.dataset.deckId : btnElement;
+    if (!deckId) {
+        alert('デッキIDの取得に失敗しました。');
+        return;
+    }
+
+    const url = window.location.origin + '/decks/share?deck_id=' + deckId;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('共有用URLをクリップボードにコピーしました！\n' + url);
+        }).catch(() => {
+            fallbackCopyText(url);
+        });
+    } else {
+        fallbackCopyText(url);
+    }
+}
+
+function fallbackCopyText(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-9999px';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+            alert('共有用URLをクリップボードにコピーしました！\n' + text);
+        } else {
+            prompt('以下のURLをコピーしてください:', text);
+        }
+    } catch (err) {
+        document.body.removeChild(textArea);
+        prompt('以下のURLをコピーしてください:', text);
+    }
+}
 </script>
 
 </body>

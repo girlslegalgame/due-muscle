@@ -23,6 +23,23 @@
     .btn-modal-confirm:hover {
         background: #c82333;
     }
+    .btn-report-user {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 14px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        white-space: nowrap;
+    }
+    .btn-report-user:hover {
+        background-color: #c82333;
+    }
 </style>
 
 <div class="container">
@@ -33,8 +50,7 @@
             <span style="font-size: 0.85rem; color: #666;">公開デッキ数: <?= count($decks) ?> 件</span>
         </div>
         <div>
-            <button type="button" class="btn-delete" style="background-color: #dc3545; font-size: 0.85rem; padding: 8px 14px; border-radius: 4px;" onclick="openUserReportModal()">ユーザーを通報</button>
-        </div>
+            <button type="button" class="btn-report-user" onclick="openUserReportModal()">ユーザーを通報</button>        </div>
     </div>
 
     <!-- デッキ一覧 -->
@@ -236,5 +252,53 @@ function submitDeckReportFromUserDecks() {
         }
     })
     .catch(err => alert('通信エラーが発生しました。'));
+}
+function copyShareUrlFromItem(event, btnElement) {
+    if (event && event.stopPropagation) {
+        event.stopPropagation();
+    }
+
+    // ボタン要素の dataset または 直接数値が渡された場合の両方に対応
+    const deckId = (btnElement && btnElement.dataset) ? btnElement.dataset.deckId : btnElement;
+    if (!deckId) {
+        alert('デッキIDの取得に失敗しました。');
+        return;
+    }
+
+    const url = window.location.origin + '/decks/share?deck_id=' + deckId;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('共有用URLをクリップボードにコピーしました！\n' + url);
+        }).catch(() => {
+            fallbackCopyText(url);
+        });
+    } else {
+        fallbackCopyText(url);
+    }
+}
+
+function fallbackCopyText(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-9999px';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+            alert('共有用URLをクリップボードにコピーしました！\n' + text);
+        } else {
+            prompt('以下のURLをコピーしてください:', text);
+        }
+    } catch (err) {
+        document.body.removeChild(textArea);
+        prompt('以下のURLをコピーしてください:', text);
+    }
 }
 </script>

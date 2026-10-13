@@ -1264,4 +1264,39 @@ public function myDecks() {
         }
         exit;
     }
+    /**
+     * デッキ共有・個別閲覧画面
+     */
+    public function share() {
+        $deckId = (int)($_GET['deck_id'] ?? 0);
+        if (!$deckId) {
+            header('Location: /search');
+            exit;
+        }
+
+        $pdo = Database::connect();
+        $stmt = $pdo->prepare("
+            SELECT d.*, f.format_name, u.username as creator_name, cd.imagepath as thumbnail_imagepath
+            FROM decks d
+            JOIN formats f ON d.format_id = f.format_id
+            JOIN users u ON d.user_id = u.user_id
+            LEFT JOIN card_detail cd ON d.thumbnail_card_id = cd.card_id
+            WHERE d.deck_id = :deck_id
+        ");
+        $stmt->execute([':deck_id' => $deckId]);
+        $deck = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        // デッキが存在しない、または非公開かつ作成者本人でない場合はアクセス不可
+        $currentUserId = $_SESSION['user_id'] ?? null;
+        if (!$deck || (!$deck['is_public'] && (int)$deck['user_id'] !== (int)$currentUserId)) {
+            renderView('deck/share_not_found.php');
+            return;
+        }
+
+        renderView('deck/share.php', [
+            'deck' => $deck,
+            'pdo_db' => $pdo
+        ]);
+    }
 }
+
