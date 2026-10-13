@@ -226,6 +226,7 @@ footer li a {
     grid-template-columns: repeat(3, 1fr) !important;
 }
 .btn-view,
+.btn-share,
 .btn-image,
 .btn-edit,
 .btn-report {
@@ -261,6 +262,14 @@ footer li a {
 .btn-edit {
     background: #ffc107;
     color: #212529;
+}
+/* 共有ボタンの色指定を追加 */
+.btn-share {
+    background: #17a2b8;
+    color: white;
+}
+.btn-share:hover {
+    background: #138496;
 }
 /* 検索画面用通報ボタン */
 .btn-report {

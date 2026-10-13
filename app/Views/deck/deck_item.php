@@ -126,40 +126,42 @@ if (!empty($deck['thumbnail_imagepath'])) {
     </div>
 
     <!-- 6. ボタン群 (コンテキストによってレイアウトを分岐) -->
-    <!-- 6. ボタン群 (コンテキストによってレイアウトを分岐) -->
     <?php if ($context === 'search'): ?>
         <!-- 【公開デッキ検索用】4つのボタンを均等配置 -->
         <div class="btn-group btn-group-search" style="display: grid; grid-template-columns: repeat(4, 1fr) !important; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
-            <button class="btn-view" 
+            <button type="button" class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">確認</button>
-            <button type="button" class="btn-share" onclick="copyShareUrlFromItem(event, <?php echo $deck['deck_id']; ?>)"style="background: #17a2b8; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">共有</button>
-            <button class="btn-edit" onclick="copyDeck(<?php echo $deck['deck_id']; ?>)" style="background-color: #ffc107; color: #212529;">コピー</button>
-            <button type="button" 
-                class="btn-share" 
-                data-deck-id="<?php echo (int)$deck['deck_id']; ?>"
-                onclick="copyShareUrlFromItem(event, this)" 
-                style="background: #17a2b8; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">共有</button>
+            <button type="button" class="btn-share" 
+                    data-deck-id="<?php echo (int)$deck['deck_id']; ?>"
+                    onclick="copyShareUrlFromItem(event, this)">共有</button>
+            <button type="button" class="btn-edit" 
+                    onclick="copyDeck(<?php echo $deck['deck_id']; ?>)" 
+                    style="background-color: #ffc107; color: #212529;">コピー</button>
+            <button type="button" class="btn-report" 
+                    title="通報する"
+                    data-deck-id="<?php echo $deck['deck_id']; ?>"
+                    data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
+                    data-creator-name="<?php echo htmlspecialchars($deck['creator_name'] ?? '作成者', ENT_QUOTES, 'UTF-8'); ?>"
+                    onclick="openReportModal(this.dataset.deckId, this.dataset.deckName, this.dataset.creatorName)">通報</button>
         </div>
     <?php elseif ($context === 'index'): ?>
         <!-- 【マイデッキ一覧用】均等4つ ＋ ✕ボタン（固定42px） -->
         <div class="btn-group" style="display: grid; grid-template-columns: repeat(4, 1fr) 42px; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
-            <button class="btn-view" 
+            <button type="button" class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">確認</button>
-            <button type="button" 
-                class="btn-share" 
-                data-deck-id="<?php echo (int)$deck['deck_id']; ?>"
-                onclick="copyShareUrlFromItem(event, this)" 
-                style="background: #17a2b8; color: #fff; font-weight: bold; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">共有</button>
-            <button class="btn-image" 
+            <button type="button" class="btn-share" 
+                    data-deck-id="<?php echo (int)$deck['deck_id']; ?>"
+                    onclick="copyShareUrlFromItem(event, this)">共有</button>
+            <button type="button" class="btn-image" 
                     data-deck-id="<?php echo $deck['deck_id']; ?>"
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-format-name="<?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-thumbnail-id="<?php echo htmlspecialchars($deck['thumbnail_card_id'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="exportDeckImage(this.dataset.deckId, this.dataset.deckName, this.dataset.formatName, this.dataset.thumbnailId, this)">出力</button>
             <a href="/decks/edit?deck_id=<?php echo $deck['deck_id']; ?>" class="btn-edit">編集</a>
-            <button class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
+            <button type="button" class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
         </div>
     <?php endif; ?>
 </div>
