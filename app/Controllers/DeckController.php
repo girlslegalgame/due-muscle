@@ -1298,5 +1298,107 @@ public function myDecks() {
             'pdo_db' => $pdo
         ]);
     }
+    /**
+     * 購入済みカード一覧の取得API（作成者本人のみ取得可能）
+     */
+    public function getOwnedCardsApi() {
+        header('Content-Type: application/json; charset=utf-8');
+        $deckId = (int)($_GET['deck_id'] ?? 0);
+        $userId = $_SESSION['user_id'] ?? null;
+
+        if (!$deckId || !$userId) {
+            echo json_encode([]);
+            exit;
+        }
+
+        try {
+            $pdo = Database::connect();
+            // 作成者本人チェック
+            $stmt = $pdo->prepare("SELECT user_id FROM decks WHERE deck_id = :did");
+            $stmt->execute([':did' => $deckId]);
+            $deck = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$deck || (int)$deck['user_id'] !== (int)$userId) {
+                echo json_encode([]);
+                exit;
+            }
+
+            $pdo->exec("
+                CREATE TABLE IF NOT EXISTS deck_owned_cards (
+                    deck_id INT NOT NULL,
+                    card_name VARCHAR(255) NOT NULL,
+                    PRIMARY KEY (deck_id, card_name),
+                    INDEX idx_deck_id (deck_id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            ");
+
+            $stmtOwned = $pdo->prepare("SELECT card_name FROM deck_owned_cards WHERE deck_id = :did");
+            $stmtOwned->execute([':did' => $deckId]);
+            $list = $stmtOwned->fetchAll(PDO::FETCH_COLUMN);
+
+            echo json_encode($list, JSON_UNESCAPED_UNICODE);
+        } catch (\Exception $e) {
+            http_response_code(500);
+            echo json_encode(['error' => $e->getMessage()]);
+        }
+        exit;
+    }
+
+    /**
+     * 購入済みカード一覧の保存API（作成者本人のみ保存可能）
+     */
+    public function saveOwnedCardsApi() {
+        header('Content-Type: application/json; charset=utf-8');
+        $userId = $_SESSION['user_id'] ?? null;
+        if (!$userId) {
+            http_response_code(401);
+            echo json_encode(['success' => false, 'error' => 'ログインが必要です。']);
+            exit;
+        }
+
+        $input = json_decode(file_get_contents('php://input'), true);
+        $deckId = (int)($input['deck_id'] ?? 0);
+        $ownedList = $input['owned_cards'] ?? [];
+
+        if (!$deckId) {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'デッキIDが不足しています。']);
+            exit;
+        }
+
+        try {
+            $pdo = Database::connect();
+            // 作成者本人チェック
+            $stmt = $pdo->prepare("SELECT user_id FROM decks WHERE deck_id = :did");
+            $stmt->execute([':did' => $deckId]);
+            $deck = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$deck || (int)$deck['user_id'] !== (int)$userId) {
+                http_response_code(403);
+                echo json_encode(['success' => false, 'error' => 'デッキの作成者のみ変更できます。']);
+                exit;
+            }
+
+            $pdo->beginTransaction();
+            $pdo->prepare("DELETE FROM deck_owned_cards WHERE deck_id = :did")->execute([':did' => $deckId]);
+
+            if (!empty($ownedList)) {
+                $stmtInsert = $pdo->prepare("INSERT INTO deck_owned_cards (deck_id, card_name) VALUES (:did, :cname)");
+                foreach ($ownedList as $name) {
+                    $cName = trim((string)$name);
+                    if ($cName !== '') {
+                        $stmtInsert->execute([':did' => $deckId, ':cname' => $cName]);
+                    }
+                }
+            }
+            $pdo->commit();
+            echo json_encode(['success' => true]);
+        } catch (\Exception $e) {
+            if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
+            http_response_code(500);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+        }
+        exit;
+    }
 }
 

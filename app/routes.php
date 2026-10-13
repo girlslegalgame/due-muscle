@@ -47,6 +47,7 @@ $routes = [
         '/users/decks' => 'DeckController@userPublicDecks',
         '/decks/share' => 'DeckController@share',
         '/api/decks/estimate-price' => 'DeckController@estimatePriceApi',
+        '/api/decks/owned-cards' => 'DeckController@getOwnedCardsApi',
     ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信
@@ -71,7 +72,9 @@ $routes = [
         '/api/notifications/delete' => 'NotificationController@deleteNotificationsApi',
         '/api/admin/users/role' => 'AdminController@updateUserRoleApi',
         '/api/admin/users/delete' => 'AdminController@deleteUserApi',
-        '/api/admin/reports/clean' => 'AdminController@cleanReportsApi',        ],
+        '/api/admin/reports/clean' => 'AdminController@cleanReportsApi',
+        '/api/decks/owned-cards' => 'DeckController@saveOwnedCardsApi',
+        ],
     'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',
         '/api/decks/set_public' => 'DeckController@setDeckPublicApi',

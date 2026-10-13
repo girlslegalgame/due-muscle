@@ -38,14 +38,29 @@
         border-bottom: 2px solid #ddd; 
         margin-top: 10px;
         flex-shrink: 0;
+        width: 100%;
     }
     .tab-item { 
-        padding: 10px 20px; cursor: pointer; 
+        flex: 1;
+        padding: 10px 4px;
+        cursor: pointer; 
         border-bottom: 3px solid transparent; 
-        font-weight: bold; color: #666;
+        font-weight: bold; 
+        color: #666;
+        text-align: center;
+        white-space: nowrap;
+        font-size: clamp(0.68rem, 2.6vw, 0.95rem); /* 画面幅に応じて文字サイズを可変 */
     }
     .tab-item.active { border-bottom: 3px solid #007bff; color: #007bff; }
-    
+    /* --- 価格査定のカード名省略スタイル --- */
+    .price-card-name-cell {
+        text-align: left;
+        padding: 6px 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis; /* 長いカード名を「...」で省略 */
+        max-width: 130px;
+    }
     .scroll-area {
         flex: 1;
         overflow-y: auto;
@@ -434,6 +449,30 @@
         font-weight: bold;
     }    
     @media (max-width: 768px) {
+        /* モーダル余白の最適化 */
+        .modal-content {
+            width: 95% !important;
+            padding: 15px 10px !important;
+            height: 94vh !important;
+            margin: 3vh auto !important;
+        }
+
+        /* 分析タブ：グラフを縦並びに切り替え */
+        .analysis-grid { 
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 16px !important;
+        }
+        .chart-box { 
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+
+        /* カード名列の幅調整 */
+        .price-card-name-cell {
+            max-width: 95px;
+            font-size: 0.75rem;
+        }
         .modal-draw-card-list img { height: 85px; }
         .modal-draw-card-list { min-height: 105px; }
         .modal-fa-selected-cards { grid-template-columns: repeat(4, 1fr); }
@@ -630,23 +669,23 @@
 
                 <!-- カードテーブル（初期から表示） -->
                 <div style="max-height: 48vh; overflow-y: auto;">
-                    <table class="analysis-table" style="font-size: 0.85rem; width: 100%;">
+                    <table class="analysis-table" style="font-size: 0.85rem; width: 100%; table-layout: fixed;">
                         <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 2;">
                             <tr>
-                                <th style="width: 80px; padding: 4px 2px;">
-                                    <div style="font-size: 0.8rem; margin-bottom: 2px;">購入済み</div>
-                                    <div style="font-size: 0.7rem; font-weight: normal;">
+                                <th style="width: 55px; padding: 4px 2px;">
+                                    <div style="font-size: 0.75rem; margin-bottom: 2px;">購入</div>
+                                    <div style="font-size: 0.65rem; font-weight: normal;">
                                         <a href="javascript:void(0)" onclick="toggleAllOwned(true)" style="color: #007bff; text-decoration: underline;">全選</a>
                                         <span style="color: #ccc;">|</span>
                                         <a href="javascript:void(0)" onclick="toggleAllOwned(false)" style="color: #dc3545; text-decoration: underline;">全解</a>
                                     </div>
                                 </th>
-                                <th style="text-align: left; padding-left: 8px;">カード名</th>
-                                <th style="width: 50px;">枚数</th>
-                                <th style="width: 80px;">最安単価</th>
-                                <th style="width: 80px;">小計</th>
-                                <th style="width: 120px;">ショップ</th>
-                                <th style="width: 60px;">リンク</th>
+                                <th style="text-align: left; padding-left: 6px;">カード名</th>
+                                <th style="width: 36px;">枚数</th>
+                                <th style="width: 65px;">最安単価</th>
+                                <th style="width: 65px;">小計</th>
+                                <th style="width: 75px;">ショップ</th>
+                                <th style="width: 45px;">リンク</th>
                             </tr>
                         </thead>
                         <tbody id="price-card-list-body"></tbody>
@@ -691,6 +730,8 @@ let modalFaHandCount = 5;
 let priceEstimateCache = {};
 
 
+let currentDeckOwnedCards = []; // 現在開いているデッキの購入済みリスト
+
 /**
  * モーダルオープン時の処理更新
  */
@@ -699,6 +740,7 @@ function openDeckModal(deckId, deckName) {
     currentDeckId = deckId;
     knownShops = {};
     priceEstimateCache = {};
+    currentDeckOwnedCards = [];
     document.getElementById('deck-total-price').innerText = '-';
     document.getElementById('price-not-found-warn').innerText = '';
 
@@ -713,18 +755,39 @@ function openDeckModal(deckId, deckName) {
     document.body.style.overflow = 'hidden'; 
     switchTab('main'); 
 
-    fetch('/api/decks/view?deck_id=' + deckId)
-        .then(res => res.json())
-        .then(data => {
-            currentDeckCards = data;
-            renderImages(data);
-            initCharts(data);
-            initPriceTable(data); // ★追加: 査定前でもカード一覧を描画
+    // デッキカードと購入済みリストを並行取得
+    Promise.all([
+        fetch('/api/decks/view?deck_id=' + deckId).then(res => res.json()),
+        fetch('/api/decks/owned-cards?deck_id=' + deckId).then(res => res.json()).catch(() => [])
+    ])
+    .then(([cardsData, ownedData]) => {
+        currentDeckCards = cardsData;
+        currentDeckOwnedCards = Array.isArray(ownedData) ? ownedData : [];
+        renderImages(cardsData);
+        initCharts(cardsData);
+        initPriceTable(cardsData);
+    })
+    .catch(err => {
+        mainList.innerHTML = 'データの読み込みに失敗しました。';
+        console.error(err);
+    });
+}
+function getOwnedCardsFromStorage(deckId) {
+    return currentDeckOwnedCards;
+}
+
+function saveOwnedCardsToStorage(deckId, ownedList) {
+    currentDeckOwnedCards = ownedList;
+    if (!currentLoggedInUserId || !deckId) return;
+
+    fetch('/api/decks/owned-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            deck_id: deckId,
+            owned_cards: ownedList
         })
-        .catch(err => {
-            mainList.innerHTML = 'データの読み込みに失敗しました。';
-            console.error(err);
-        });
+    }).catch(err => console.error('購入済み状態の同期に失敗しました:', err));
 }
 
 const currentLoggedInUserId = '<?= isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : '' ?>';
@@ -832,7 +895,7 @@ function initPriceTable(cards) {
             <td>
                 <input type="checkbox" class="owned-checkbox" ${isOwned ? 'checked' : ''} onchange="toggleCardOwned(this, '${escapeHtmlAttr(c.name)}')">
             </td>
-            <td style="text-align: left; padding: 6px 8px;">${c.name}</td>
+            <td class="price-card-name-cell" title="${escapeHtmlAttr(c.name)}">${c.name}</td>
             <td>${c.quantity}</td>
             <td class="cell-unit-price">-</td>
             <td class="cell-subtotal" style="font-weight: bold;">-</td>

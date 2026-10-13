@@ -1470,8 +1470,9 @@ async function generateProxyPdf() {
             let ownedList = [];
             if (targetMode === 'unowned' && currentUserId) {
                 try {
-                    const saved = localStorage.getItem(`owned_cards_u${currentUserId}_d${deckId}`);
-                    if (saved) ownedList = JSON.parse(saved);
+                    const ownedRes = await fetch(`/api/decks/owned-cards?deck_id=${deckId}`);
+                    ownedList = await ownedRes.json();
+                    if (!Array.isArray(ownedList)) ownedList = [];
                 } catch(e) {}
             }
 
