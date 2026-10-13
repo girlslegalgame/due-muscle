@@ -66,6 +66,41 @@
         overflow-y: auto;
         padding: 15px 5px;
     }
+    /* --- 価格査定テーブル用スタイル --- */
+    .price-table-container {
+        max-height: 48vh;
+        overflow-y: auto;
+        overflow-x: auto; /* スマホで横スクロールを許可 */
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+    }
+
+    .price-table {
+        width: 100%;
+        min-width: 540px; /* 列が潰れないための最低幅 */
+        border-collapse: collapse;
+        font-size: 0.85rem;
+    }
+
+    .price-table th, .price-table td {
+        border: 1px solid #ddd;
+        padding: 6px 4px;
+        text-align: center;
+        vertical-align: middle;
+    }
+
+    /* カード名列（左寄せ・長すぎる場合は ... で省略） */
+    .price-card-name-col {
+        text-align: left !important;
+        padding-left: 8px !important;
+        padding-right: 6px !important;
+        min-width: 140px;
+        max-width: 180px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 
     .tab-content { display: none; }
     .tab-content.active { display: block; }
@@ -668,11 +703,11 @@
                 </div>
 
                 <!-- カードテーブル（初期から表示） -->
-                <div style="max-height: 48vh; overflow-y: auto;">
-                    <table class="analysis-table" style="font-size: 0.85rem; width: 100%; table-layout: fixed;">
+                <div class="price-table-container">
+                    <table class="price-table">
                         <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 2;">
                             <tr>
-                                <th style="width: 55px; padding: 4px 2px;">
+                                <th style="width: 55px;">
                                     <div style="font-size: 0.75rem; margin-bottom: 2px;">購入</div>
                                     <div style="font-size: 0.65rem; font-weight: normal;">
                                         <a href="javascript:void(0)" onclick="toggleAllOwned(true)" style="color: #007bff; text-decoration: underline;">全選</a>
@@ -680,12 +715,12 @@
                                         <a href="javascript:void(0)" onclick="toggleAllOwned(false)" style="color: #dc3545; text-decoration: underline;">全解</a>
                                     </div>
                                 </th>
-                                <th style="text-align: left; padding-left: 6px;">カード名</th>
-                                <th style="width: 36px;">枚数</th>
-                                <th style="width: 65px;">最安単価</th>
-                                <th style="width: 65px;">小計</th>
-                                <th style="width: 75px;">ショップ</th>
-                                <th style="width: 45px;">リンク</th>
+                                <th class="price-card-name-col">カード名</th>
+                                <th style="width: 42px;">枚数</th>
+                                <th style="width: 75px;">最安単価</th>
+                                <th style="width: 75px;">小計</th>
+                                <th style="width: 110px;">ショップ</th>
+                                <th style="width: 50px;">リンク</th>
                             </tr>
                         </thead>
                         <tbody id="price-card-list-body"></tbody>
@@ -895,7 +930,7 @@ function initPriceTable(cards) {
             <td>
                 <input type="checkbox" class="owned-checkbox" ${isOwned ? 'checked' : ''} onchange="toggleCardOwned(this, '${escapeHtmlAttr(c.name)}')">
             </td>
-            <td class="price-card-name-cell" title="${escapeHtmlAttr(c.name)}">${c.name}</td>
+            <td class="price-card-name-col" title="${escapeHtmlAttr(c.name)}">${c.name}</td>
             <td>${c.quantity}</td>
             <td class="cell-unit-price">-</td>
             <td class="cell-subtotal" style="font-weight: bold;">-</td>
