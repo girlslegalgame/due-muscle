@@ -65,7 +65,7 @@ if (!empty($deck['thumbnail_imagepath'])) {
 }
 ?>
 
-<div class="deck-item" data-deck-id="<?php echo $deck['deck_id']; ?>" <?php if ($context === 'index'): ?>onclick="handleDeckItemClick(event, this)"<?php endif; ?>>
+<div class="deck-item mydeck-clickable" data-deck-id="<?php echo $deck['deck_id']; ?>" <?php if ($context === 'index'): ?>onclick="handleDeckItemClick(event, this)"<?php endif; ?>>
     <!-- 1. デッキ名 (プロキシ選択用チェックボックス) -->
     <div style="display: flex; align-items: center; gap: 8px;">
         <?php if ($context === 'index'): ?>
@@ -78,10 +78,8 @@ if (!empty($deck['thumbnail_imagepath'])) {
 
     <!-- 2. サムネイル画像 -->
     <div class="deck-thumbnail-wrapper">
-        <!-- ★修正: onclick内の引数を文字列から dataset 参照に変更。XSSテスト用テキスト（シングルクォーテーション含む）でも文法を壊さず安全に値を渡せます -->
         <img src="<?php echo htmlspecialchars($thumbPath, ENT_QUOTES, 'UTF-8'); ?>" alt="Thumbnail" class="deck-thumbnail" 
-             data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
-             onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)" 
+             style="pointer-events: none;" 
              onerror="this.src='/images/card/noimage.webp'; this.onerror=null;">
     </div>
 
@@ -109,14 +107,13 @@ if (!empty($deck['thumbnail_imagepath'])) {
     <div class="deck-meta-info">
         <span class="format-badge"><?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?></span>
         
-        <!-- ★追加: マイデッキ一覧の場合のみ、クリックで切り替え可能な公開トグルボタンを表示 -->
         <?php if ($context === 'index'): ?>
             <?php $isPub = !empty($deck['is_public']); ?>
             <button type="button" 
                     class="btn-deck-public-toggle <?php echo $isPub ? 'status-public' : 'status-private'; ?>"
                     data-deck-id="<?php echo $deck['deck_id']; ?>"
                     data-is-public="<?php echo $isPub ? '1' : '0'; ?>"
-                    onclick="toggleDeckPublic(this)"
+                    onclick="event.stopPropagation(); toggleDeckPublic(this)"
                     title="クリックして公開/非公開を切り替え">
                 <?php echo $isPub ? '● 公開中' : '▲ 非公開'; ?>
             </button>
@@ -125,9 +122,8 @@ if (!empty($deck['thumbnail_imagepath'])) {
         <span><?php echo date('Y/m/d', strtotime($deck['updated_at'])); ?></span>
     </div>
 
-    <!-- 6. ボタン群 (コンテキストによってレイアウトを分岐) -->
+    <!-- 6. ボタン群：公開デッキ検索時のみ表示（マイデッキ一覧では全削除） -->
     <?php if ($context === 'search'): ?>
-        <!-- 【公開デッキ検索用】4つのボタンを均等配置 -->
         <div class="btn-group btn-group-search" style="display: grid; grid-template-columns: repeat(4, 1fr) !important; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
             <button type="button" class="btn-view" 
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
@@ -144,24 +140,6 @@ if (!empty($deck['thumbnail_imagepath'])) {
                     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     data-creator-name="<?php echo htmlspecialchars($deck['creator_name'] ?? '作成者', ENT_QUOTES, 'UTF-8'); ?>"
                     onclick="openReportModal(this.dataset.deckId, this.dataset.deckName, this.dataset.creatorName)">通報</button>
-        </div>
-    <?php elseif ($context === 'index'): ?>
-        <!-- 【マイデッキ一覧用】均等4つ ＋ ✕ボタン（固定42px） -->
-        <div class="btn-group" style="display: grid; grid-template-columns: repeat(4, 1fr) 42px; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
-            <button type="button" class="btn-view" 
-                    data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    onclick="openDeckModal(<?php echo $deck['deck_id']; ?>, this.dataset.deckName)">確認</button>
-            <button type="button" class="btn-share" 
-                    data-deck-id="<?php echo (int)$deck['deck_id']; ?>"
-                    onclick="copyShareUrlFromItem(event, this)">共有</button>
-            <button type="button" class="btn-image" 
-                    data-deck-id="<?php echo $deck['deck_id']; ?>"
-                    data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    data-format-name="<?php echo htmlspecialchars($deck['format_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    data-thumbnail-id="<?php echo htmlspecialchars($deck['thumbnail_card_id'] ?? '', ENT_QUOTES, 'UTF-8'); ?>"
-                    onclick="exportDeckImage(this.dataset.deckId, this.dataset.deckName, this.dataset.formatName, this.dataset.thumbnailId, this)">出力</button>
-            <a href="/decks/edit?deck_id=<?php echo $deck['deck_id']; ?>" class="btn-edit">編集</a>
-            <button type="button" class="btn-delete" onclick="deleteDeck(<?php echo $deck['deck_id']; ?>)">✕</button>
         </div>
     <?php endif; ?>
 </div>

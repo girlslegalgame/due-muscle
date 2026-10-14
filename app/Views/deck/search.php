@@ -153,6 +153,60 @@ try {
         cursor: pointer;
         font-weight: bold;
     }
+/* --- ページネーション（サイトに合わせたモノトーンデザイン） --- */
+.pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    color: #2d3748 !important;
+    text-decoration: none !important;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.pagination-link:hover {
+    background-color: #f7fafc;
+    border-color: #cbd5e0;
+}
+
+.pagination-link.active {
+    background-color: #1a202c !important;
+    color: #ffffff !important;
+    border-color: #1a202c !important;
+    cursor: default;
+    pointer-events: none;
+}
+
+.pagination-link.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: not-allowed;
+    background-color: #edf2f7;
+}
+
+.pagination-ellipsis {
+    padding: 0 4px;
+    color: #a0aec0;
+    font-weight: bold;
+}
 </style>
 
 <div class="container">
@@ -237,6 +291,51 @@ try {
             <p style="grid-column: 1 / -1; text-align: center; color: #666;">該当する公開デッキが見つかりませんでした。</p>
         <?php endif; ?>
     </div>
+    <?php if (isset($totalPages) && $totalPages > 1): ?>
+        <?php
+        // 検索パラメータを引き継ぐURL生成ヘルパー関数
+        $buildPageUrl = function($pageNum) {
+            $params = $_GET;
+            $params['page'] = $pageNum;
+            return '?' . http_build_query($params);
+        };
+        ?>
+        <nav class="pagination-wrapper" aria-label="Page navigation">
+            <!-- 前へ -->
+            <a href="<?php echo $buildPageUrl($currentPage - 1); ?>" 
+               class="pagination-link <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>" 
+               aria-label="Previous">«</a>
+
+            <?php
+            $startPage = max(1, $currentPage - 2);
+            $endPage = min($totalPages, $currentPage + 2);
+
+            if ($startPage > 1) {
+                echo '<a href="' . $buildPageUrl(1) . '" class="pagination-link">1</a>';
+                if ($startPage > 2) echo '<span class="pagination-ellipsis">…</span>';
+            }
+
+            for ($p = $startPage; $p <= $endPage; $p++):
+            ?>
+                <a href="<?php echo $buildPageUrl($p); ?>" 
+                   class="pagination-link <?php echo $p === $currentPage ? 'active' : ''; ?>">
+                    <?php echo $p; ?>
+                </a>
+            <?php endfor; ?>
+
+            <?php
+            if ($endPage < $totalPages) {
+                if ($endPage < $totalPages - 1) echo '<span class="pagination-ellipsis">…</span>';
+                echo '<a href="' . $buildPageUrl($totalPages) . '" class="pagination-link">' . $totalPages . '</a>';
+            }
+            ?>
+
+            <!-- 次へ -->
+            <a href="<?php echo $buildPageUrl($currentPage + 1); ?>" 
+               class="pagination-link <?php echo $currentPage >= $totalPages ? 'disabled' : ''; ?>" 
+               aria-label="Next">»</a>
+        </nav>
+    <?php endif; ?>
 </div>
 
 <!-- デッキ詳細モーダル（共通）の読み込み -->

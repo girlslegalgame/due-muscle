@@ -158,6 +158,68 @@ try {
 .proxy-select-mode .deck-item .deck-thumbnail {
     pointer-events: none; /* サムネイルクリックによるモーダル起動を無効化 */
 }
+/* --- デッキ操作メニュー用ボタンスタイル --- */
+.deck-menu-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 15px;
+}
+
+.deck-menu-btn {
+    width: 100%;
+    height: 44px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #2d3748;
+    font-size: 0.95rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+    box-sizing: border-box;
+}
+
+.deck-menu-btn:hover {
+    background-color: #f7fafc;
+    border-color: #cbd5e0;
+}
+
+/* メイン操作「確認」：サイトヘッダーに合わせたシックな黒 */
+.deck-menu-btn-primary {
+    background-color: #1a202c;
+    color: #ffffff;
+    border-color: #1a202c;
+}
+.deck-menu-btn-primary:hover {
+    background-color: #2d3748;
+    border-color: #2d3748;
+}
+
+/* 危険操作「削除」：落ち着いた薄赤アウトライン */
+.deck-menu-btn-danger {
+    color: #e53e3e;
+    background-color: #fff;
+    border-color: #fed7d7;
+    margin-top: 4px;
+}
+.deck-menu-btn-danger:hover {
+    background-color: #fff5f5;
+    border-color: #feb2b2;
+}
+/* マイデッキ一覧のカード全体をクリック可能に */
+.mydeck-clickable {
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.mydeck-clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    border-color: #bbb;
+}
 
 /* 公開状態切り替えボタン */
     .btn-deck-public-toggle {
@@ -188,6 +250,62 @@ try {
     .btn-deck-public-toggle.status-private:hover {
         background-color: #e8eaed;
     }
+/* --- ページネーション（サイトに合わせたモノトーンデザイン） --- */
+.pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    margin-top: 30px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background-color: #ffffff;
+    color: #2d3748 !important;
+    text-decoration: none !important;
+    font-size: 0.9rem;
+    font-weight: bold;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+}
+
+.pagination-link:hover {
+    background-color: #f7fafc;
+    border-color: #cbd5e0;
+}
+
+/* 現在のページ */
+.pagination-link.active {
+    background-color: #1a202c !important;
+    color: #ffffff !important;
+    border-color: #1a202c !important;
+    cursor: default;
+    pointer-events: none;
+}
+
+/* 無効化（前へ・次への端） */
+.pagination-link.disabled {
+    opacity: 0.35;
+    pointer-events: none;
+    cursor: not-allowed;
+    background-color: #edf2f7;
+}
+
+.pagination-ellipsis {
+    padding: 0 4px;
+    color: #a0aec0;
+    font-weight: bold;
+}
 </style>
 </head>
 <body>
@@ -222,11 +340,66 @@ try {
             </div>
         <?php endif; ?>
     </div>
+    <!-- ページネーション -->
+    <?php if (isset($totalPages) && $totalPages > 1): ?>
+        <nav class="pagination-wrapper" aria-label="Page navigation">
+            <!-- 前へ -->
+            <a href="?page=<?php echo $currentPage - 1; ?>" 
+               class="pagination-link <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>" 
+               aria-label="Previous">«</a>
+
+            <?php
+            // 表示するページ番号の範囲（前後2ページ）
+            $startPage = max(1, $currentPage - 2);
+            $endPage = min($totalPages, $currentPage + 2);
+
+            if ($startPage > 1) {
+                echo '<a href="?page=1" class="pagination-link">1</a>';
+                if ($startPage > 2) echo '<span class="pagination-ellipsis">…</span>';
+            }
+
+            for ($p = $startPage; $p <= $endPage; $p++):
+            ?>
+                <a href="?page=<?php echo $p; ?>" 
+                   class="pagination-link <?php echo $p === $currentPage ? 'active' : ''; ?>">
+                    <?php echo $p; ?>
+                </a>
+            <?php endfor; ?>
+
+            <?php
+            if ($endPage < $totalPages) {
+                if ($endPage < $totalPages - 1) echo '<span class="pagination-ellipsis">…</span>';
+                echo '<a href="?page=' . $totalPages . '" class="pagination-link">' . $totalPages . '</a>';
+            }
+            ?>
+
+            <!-- 次へ -->
+            <a href="?page=<?php echo $currentPage + 1; ?>" 
+               class="pagination-link <?php echo $currentPage >= $totalPages ? 'disabled' : ''; ?>" 
+               aria-label="Next">»</a>
+        </nav>
+    <?php endif; ?>
 </div>
 
 <?php include __DIR__ . '/deck_detail_modal.php'; ?>
 <?php include __DIR__ . '/card_detail_modal.php'; ?>
-
+<!-- デッキ操作メニューモーダル -->
+<div id="deck-action-menu-modal" class="sub-modal" style="display: none;">
+    <div class="sub-modal-content" style="max-width: 320px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
+        <div class="sub-modal-header" style="background: #1a202c; padding: 12px 16px;">
+            <span id="action-menu-deck-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; font-size: 0.95rem;">デッキメニュー</span>
+            <button type="button" onclick="closeDeckActionMenu()" style="background:none; border:none; color:#a0aec0; font-size:1.4rem; cursor:pointer; line-height: 1;">×</button>
+        </div>
+        <div class="deck-menu-list">
+            <button type="button" class="deck-menu-btn deck-menu-btn-primary" onclick="onMenuAction('view')">デッキを確認</button>
+            <button type="button" class="deck-menu-btn" onclick="onMenuAction('edit')">編集する</button>
+            <button type="button" class="deck-menu-btn" onclick="onMenuAction('share')">共有URLをコピー</button>
+            <button type="button" class="deck-menu-btn" onclick="onMenuAction('export')">画像 / ZIPで出力</button>
+            <button type="button" class="deck-menu-btn" onclick="onMenuAction('copy')">デッキを複製</button>
+            <button type="button" class="deck-menu-btn deck-menu-btn-danger" onclick="onMenuAction('delete')">削除する</button>
+        </div>
+    </div>
+</div>
 <!-- デッキ出力方法選択モーダル -->
 <div id="deck-export-choice-modal" class="sub-modal" style="display: none;">
     <div class="sub-modal-content" style="max-width: 420px;">
@@ -1345,17 +1518,39 @@ function handleProxyButtonClick() {
 /**
  * 選択モード中にデッキアイテム全体をクリックしてトグルする処理
  */
+// --- index.php の handleDeckItemClick() を差し替え ---
 function handleDeckItemClick(event, itemEl) {
-    if (!isProxySelectMode) return;
-
-    // チェックボックス自体のクリック時は多重発火を防ぐ
-    if (event.target.classList.contains('deck-select-checkbox')) return;
-
-    const cb = itemEl.querySelector('.deck-select-checkbox');
-    if (cb) {
-        cb.checked = !cb.checked;
-        updateProxyButtonState();
+    // リンク（製作者リンク等）や公開トグルボタン、チェックボックス本体のクリック時は除外
+    if (event.target.closest('a') || event.target.closest('.btn-deck-public-toggle') || event.target.closest('.deck-select-checkbox')) {
+        return;
     }
+
+    // プロキシ選択モード時はチェックボックスをトグル
+    if (isProxySelectMode) {
+        const cb = itemEl.querySelector('.deck-select-checkbox');
+        if (cb) {
+            cb.checked = !cb.checked;
+            updateProxyButtonState();
+        }
+        return;
+    }
+
+    // 通常時はカード全体のどこをクリックしても操作メニューモーダルを表示
+    const deckId = itemEl.dataset.deckId;
+    const deckName = itemEl.querySelector('h3')?.innerText.trim() || '';
+    const formatName = itemEl.querySelector('.format-badge')?.innerText.trim() || '';
+    const thumbImg = itemEl.querySelector('.deck-thumbnail');
+    const thumbnailId = thumbImg ? thumbImg.dataset.thumbnailId : '';
+
+    selectedActionDeck = {
+        id: deckId,
+        name: deckName,
+        format: formatName,
+        thumbnailId: thumbnailId
+    };
+
+    document.getElementById('action-menu-deck-name').innerText = deckName;
+    document.getElementById('deck-action-menu-modal').style.display = 'flex';
 }
 
 /**
@@ -1618,6 +1813,100 @@ function fallbackCopyText(text) {
         document.body.removeChild(textArea);
         prompt('以下のURLをコピーしてください:', text);
     }
+}
+let selectedActionDeck = null;
+
+/**
+ * デッキアイテムクリック時の処理
+ */
+function handleDeckItemClick(event, itemEl) {
+    // プロキシ選択モード時はチェックボックスをトグル
+    if (isProxySelectMode) {
+        if (event.target.classList.contains('deck-select-checkbox')) return;
+        const cb = itemEl.querySelector('.deck-select-checkbox');
+        if (cb) {
+            cb.checked = !cb.checked;
+            updateProxyButtonState();
+        }
+        return;
+    }
+
+    // 通常時はデッキ操作メニューモーダルを表示
+    const deckId = itemEl.dataset.deckId;
+    const deckName = itemEl.querySelector('h3')?.innerText.trim() || '';
+    const formatName = itemEl.querySelector('.format-badge')?.innerText.trim() || '';
+    
+    // サムネイル画像のIDを取得（出力で使用）
+    const thumbImg = itemEl.querySelector('.deck-thumbnail');
+    const thumbnailId = thumbImg ? thumbImg.dataset.thumbnailId : '';
+
+    selectedActionDeck = {
+        id: deckId,
+        name: deckName,
+        format: formatName,
+        thumbnailId: thumbnailId
+    };
+
+    document.getElementById('action-menu-deck-name').innerText = deckName;
+    document.getElementById('deck-action-menu-modal').style.display = 'flex';
+}
+
+function closeDeckActionMenu() {
+    document.getElementById('deck-action-menu-modal').style.display = 'none';
+    selectedActionDeck = null;
+}
+
+/**
+ * 操作メニュー選択時の処理
+ */
+function onMenuAction(action) {
+    if (!selectedActionDeck) return;
+    const deck = selectedActionDeck;
+    closeDeckActionMenu();
+
+    switch (action) {
+        case 'view':
+            openDeckModal(deck.id, deck.name);
+            break;
+        case 'edit':
+            window.location.href = '/decks/edit?deck_id=' + deck.id;
+            break;
+        case 'share':
+            copyShareUrlFromItem(null, deck.id);
+            break;
+        case 'export':
+            exportDeckImage(deck.id, deck.name, deck.format, deck.thumbnailId, null);
+            break;
+        case 'copy':
+            copyDeck(deck.id);
+            break;
+        case 'delete':
+            deleteDeck(deck.id);
+            break;
+    }
+}
+
+/**
+ * デッキ複製APIの実行
+ */
+function copyDeck(deckId) {
+    if (!confirm('このデッキをコピーしてマイデッキに保存しますか？')) return;
+
+    fetch('/api/decks/copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deckId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('デッキをコピーしました！');
+            location.reload();
+        } else {
+            alert('コピーに失敗しました: ' + (data.error || '不明なエラー'));
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
 }
 </script>
 

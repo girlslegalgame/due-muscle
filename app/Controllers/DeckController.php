@@ -7,19 +7,34 @@ use PDO;
 require_once __DIR__ . '/../Views/view_helper.php';
 
 class DeckController {
-public function myDecks() {
-        // ★修正: 未ログインでもアクセスできるようにリダイレクトを解除し、セッションにuser_idがなければ空の配列を渡す
+    public function myDecks() {
         $myDecks = [];
+        $totalDecks = 0;
+        $perPage = 15; // 1ページあたり15件 (3×5)
+        $currentPage = max(1, (int)($_GET['page'] ?? 1));
         
         if (isset($_SESSION['user_id'])) {
             $pdo = Database::connect();
             $deckModel = new Deck($pdo);
-            // ログインユーザーのデッキを取得
-            $myDecks = $deckModel->getByUserId($_SESSION['user_id']);
+            $allDecks = $deckModel->getByUserId($_SESSION['user_id']);
+            
+            $totalDecks = count($allDecks);
+            $totalPages = max(1, (int)ceil($totalDecks / $perPage));
+            if ($currentPage > $totalPages) $currentPage = $totalPages;
+
+            // 15件ごとにスライス
+            $offset = ($currentPage - 1) * $perPage;
+            $myDecks = array_slice($allDecks, $offset, $perPage);
+        } else {
+            $totalPages = 1;
         }
 
-        // 取得したデータを 'decks' という名前でビューに渡す
-        renderView('deck/index.php', ['decks' => $myDecks]);
+        renderView('deck/index.php', [
+            'decks' => $myDecks,
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalDecks' => $totalDecks
+        ]);
     }
     /**
      * 公開デッキ検索画面
@@ -103,13 +118,23 @@ public function myDecks() {
 
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
-        $decks = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+        $allDecks = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        // ページネーション設定 (1ページ15件)
+        $perPage = 15;
+        $totalDecks = count($allDecks);
+        $currentPage = max(1, (int)($_GET['page'] ?? 1));
+        $totalPages = max(1, (int)ceil($totalDecks / $perPage));
+        if ($currentPage > $totalPages) $currentPage = $totalPages;
+
+        $offset = ($currentPage - 1) * $perPage;
+        $decks = array_slice($allDecks, $offset, $perPage);
 
         // 検索セレクトボックス用のフォーマット一覧（昇順）
         $stmtFormats = $pdo->query("SELECT format_id, format_name FROM formats ORDER BY format_id ASC");
         $formats = $stmtFormats->fetchAll(\PDO::FETCH_ASSOC);
 
-        // 文明マスターデータ（DB依存を避けるための安全なハードコーディング）
+        // 文明マスターデータ
         $civilizations = [
             ['civilization_id' => 1, 'civilization_name' => '光'],
             ['civilization_id' => 2, 'civilization_name' => '水'],
@@ -123,6 +148,9 @@ public function myDecks() {
             'decks' => $decks,
             'formats' => $formats,
             'civilizations' => $civilizations,
+            'currentPage' => $currentPage,
+            'totalPages' => $totalPages,
+            'totalDecks' => $totalDecks,
             'searchValues' => [
                 'deck_name' => $deckName,
                 'format_id' => $formatId,
