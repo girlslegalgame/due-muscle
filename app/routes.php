@@ -73,10 +73,10 @@ $routes = [
         '/api/notifications/delete' => 'NotificationController@deleteNotificationsApi',
         '/api/admin/users/role' => 'AdminController@updateUserRoleApi',
         '/api/admin/users/delete' => 'AdminController@deleteUserApi',
-        '/api/admin/reports/clean' => 'AdminController@cleanReportsApi',
+'/api/admin/reports/clean' => 'AdminController@cleanReportsApi',
         '/api/decks/owned-cards' => 'DeckController@saveOwnedCardsApi',
-        ],
-    'PUT' => [
+        '/api/bot/chat' => 'RuleBotController@chatApi',
+    ],    'PUT' => [
         '/api/decks' => 'DeckController@updateDeckApi',
         '/api/decks/set_public' => 'DeckController@setDeckPublicApi',
         '/decks/edit' => 'DeckController@edit',

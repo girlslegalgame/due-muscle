@@ -5,6 +5,7 @@
     <meta name="google-adsense-account" content="ca-pub-1782055298829063">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>デュエ筋</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="/css/style.css?v=<?php echo time(); ?>">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1782055298829063"
@@ -23,7 +24,7 @@
             align-items: center;
         }
 
-        /* ロゴ画像のサイズ調整（必要に応じて調整してください） */
+        /* ロゴ画像のサイズ調整 */
         .header-logo {
             height: 35px;
             width: auto;
@@ -44,7 +45,6 @@
 
         /* --- スマートフォン環境（レスポンシブ） --- */
         @media (max-width: 768px) {
-            /* ハンバーガーボタン（三本線）の表示（スマホ時は白） */
             .menu-toggle {
                 display: flex;
                 flex-direction: column;
@@ -60,11 +60,10 @@
             .menu-toggle span {
                 width: 100%;
                 height: 2px;
-                background-color: #fff; /* スマホ時は白に */
+                background-color: #fff;
                 transition: all 0.3s ease;
             }
 
-            /* 三本線から「×」へのアニメーション変形 */
             .menu-toggle.active span:nth-child(1) {
                 transform: translateY(8px) rotate(45deg);
             }
@@ -75,14 +74,13 @@
                 transform: translateY(-8px) rotate(-45deg);
             }
 
-            /* スマホ時のメニュー展開エリアの設定（スマホ時は黒ベースまたは白ベース：ここでは統一して黒背景） */
             .header-right {
                 display: none !important;
                 position: fixed;
                 top: 60px;
                 left: 0;
                 width: 100%;
-                background-color: #000; /* スマホ展開時も黒背景に */
+                background-color: #000;
                 border-bottom: 1px solid #333;
                 flex-direction: column;
                 align-items: center;
@@ -92,12 +90,10 @@
                 z-index: 1999;
             }
 
-            /* トグル展開時の表示クラス */
             .header-right.active {
                 display: flex !important;
             }
 
-            /* メニュー内のリンク要素をブロック化 */
             .header-right a {
                 display: block;
                 width: 100%;
@@ -111,12 +107,45 @@
                 border-bottom: none;
             }
         }
+
+        /* --- ルールボット サジェスト候補（重複なし） --- */
+        .rule-bot-input-area {
+            position: relative;
+        }
+        .rule-bot-suggest-list {
+            position: absolute;
+            bottom: 100%;
+            left: 8px;
+            right: 8px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 -4px 12px rgba(0,0,0,0.15);
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 2600;
+        }
+        .rule-bot-suggest-item {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.15s;
+        }
+        .rule-bot-suggest-item:hover {
+            background-color: #e0f2fe;
+            color: #0369a1;
+        }
+        .rule-bot-suggest-item:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
     <header>
         <div class="header-left">
-            <!-- ロゴ画像を配置し、トップ画面（/）へリンク -->
             <h1>
                 <a href="/">
                     <img src="/images/logo.webp" alt="DECK MAKER" class="header-logo">
@@ -124,7 +153,6 @@
             </h1>
         </div>
         
-        <!-- スマホ用ハンバーガーメニューボタン -->
         <button class="menu-toggle" onclick="toggleMobileMenu()" aria-label="メニューを開閉する">
             <span></span>
             <span></span>
@@ -148,7 +176,6 @@
                     </span>
                 <?php endif; ?>
             </a>
-            <!-- ★修正: ログイン状態に応じてリンク先を動的に変更 -->
             <a href="<?php echo isset($_SESSION['user_id']) ? '/account' : '/login'; ?>">アカウント</a>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
                 <a href="/admin" style="color: #ffc107 !important; font-weight: bold;">管理者画面</a>
@@ -160,7 +187,6 @@
         <?php echo $content ?? ''; ?>
     </main>
 
-    <!-- ★修正: hideFooter が真の場合はフッターを表示しない -->
     <?php if (empty($hideFooter)): ?>
     <footer>
         <ul>
@@ -175,28 +201,19 @@
 
     <script src="/js/main.js"></script>
     
-<script>
-        // ==========================================================
-        // ログイン完了直後の自動保存スクリプト（完全二重実行防止ロック付き）
-        // ==========================================================
+    <script>
+        // ログイン完了直後の自動保存スクリプト
         (function() {
-            // このスクリプトブロック自体が同一ページ内で2回読み込まれても、
-            // ウィンドウ全体で一度だけ実行されるようにロックフラグを立てます
             if (window._deckAutoSaveExecuted) return;
             window._deckAutoSaveExecuted = true;
 
             window.addEventListener('DOMContentLoaded', () => {
                 const currentPath = window.location.pathname;
                 const authPaths = ['/login', '/register', '/login/verify', '/register/verify', '/logout'];
-                if (authPaths.includes(currentPath)) {
-                    return; 
-                }
+                if (authPaths.includes(currentPath)) return; 
 
-                // 保存待ちフラグがあるかチェック
                 if (localStorage.getItem('pending_deck_save') === 'true') {
                     const savedPayloadStr = localStorage.getItem('pending_deck_payload');
-                    
-                    // 即座にフラグを消去して重複を防ぐ
                     localStorage.removeItem('pending_deck_save');
                     localStorage.removeItem('pending_deck_payload');
                     localStorage.removeItem('unsaved_deck_draft');
@@ -204,8 +221,6 @@
                     if (savedPayloadStr) {
                         try {
                             const payload = JSON.parse(savedPayloadStr);
-                            console.log("ログイン完了後の自動保存を実行します（二重ガード適用）...");
-
                             fetch('/api/decks', {
                                 method: payload.deck_id ? 'PUT' : 'POST',
                                 headers: { 'Content-Type': 'application/json' },
@@ -232,7 +247,6 @@
             });
         })();
 
-        /* ハンバーガーメニューの開閉処理 */
         function toggleMobileMenu() {
             const menuToggle = document.querySelector('.menu-toggle');
             const headerRight = document.querySelector('.header-right');
@@ -311,5 +325,179 @@ function selectDeckType(url) {
     window.location.href = url;
 }
 </script>
+
+    <!-- ★ ルールAIボット ウィジェット -->
+    <button class="rule-bot-launcher" onclick="toggleRuleBot()" title="ルール判定AIに聞く">⚖️</button>
+
+    <div class="rule-bot-window" id="ruleBotWindow">
+        <div class="rule-bot-header">
+            <span>デュエマ ルール相談AI</span>
+            <button class="rule-bot-close" onclick="toggleRuleBot()">✕</button>
+        </div>
+        <div class="rule-bot-messages" id="ruleBotMessages">
+            <div class="rule-bot-msg bot">こんにちは！デュエマのルールや裁定、効果の解決順などで気になることがあれば質問してください。<br>カード名は《》で囲むと予測変換から正確に入力できます。</div>
+        </div>
+        
+        <!-- サジェストリスト付き入力エリア -->
+        <div class="rule-bot-input-area">
+            <div id="ruleBotSuggestList" class="rule-bot-suggest-list"></div>
+            <input type="text" id="ruleBotInput" class="rule-bot-input" placeholder="質問を入力 (例: 《ヘブンズ・ゲート》で...)">
+            <button id="ruleBotSendBtn" class="rule-bot-send" onclick="sendRuleBotMessage()">送信</button>
+        </div>
+    </div>
+
+    <script>
+        function toggleRuleBot() {
+            const win = document.getElementById('ruleBotWindow');
+            win.classList.toggle('active');
+            if (win.classList.contains('active')) {
+                document.getElementById('ruleBotInput').focus();
+            }
+        }
+
+        async function sendRuleBotMessage() {
+            const input = document.getElementById('ruleBotInput');
+            const sendBtn = document.getElementById('ruleBotSendBtn');
+            const container = document.getElementById('ruleBotMessages');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // サジェストを閉じる
+            document.getElementById('ruleBotSuggestList').style.display = 'none';
+
+            // ユーザーメッセージ描画
+            const userMsg = document.createElement('div');
+            userMsg.className = 'rule-bot-msg user';
+            userMsg.textContent = text;
+            container.appendChild(userMsg);
+            input.value = '';
+            input.disabled = true;
+            sendBtn.disabled = true;
+
+            // ローディング表示
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'rule-bot-msg bot';
+            loadingMsg.textContent = '判定中...';
+            container.appendChild(loadingMsg);
+            container.scrollTop = container.scrollHeight;
+
+            try {
+                const res = await fetch('/api/bot/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    loadingMsg.textContent = data.error || 'エラーが発生しました。(Status: ' + res.status + ')';
+                } else {
+                    // ★ marked.parse を使ってマークダウン記号を綺麗なHTMLに変換
+                    loadingMsg.innerHTML = marked.parse(data.reply || '回答を取得できませんでした。');
+                }
+            } catch (err) {
+                loadingMsg.textContent = '通信エラーが発生しました: ' + err.message;
+            } finally {
+                input.disabled = false;
+                sendBtn.disabled = false;
+                input.focus();
+                container.scrollTop = container.scrollHeight;
+            }
+        }
+
+        // Enterキー送信対応
+        document.getElementById('ruleBotInput').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                sendRuleBotMessage();
+            }
+        });
+
+        // ==========================================
+        // 《》カード名オートコンプリート（重複完全排除対応）
+        // ==========================================
+        const botInput = document.getElementById('ruleBotInput');
+        const suggestList = document.getElementById('ruleBotSuggestList');
+        let suggestTimer = null;
+
+        botInput.addEventListener('input', function() {
+            clearTimeout(suggestTimer);
+            const val = this.value;
+            const cursorPos = this.selectionStart;
+            
+            // カーソル直前の「《」を検索（「》」で閉じられていない部分）
+            const textBeforeCursor = val.slice(0, cursorPos);
+            const match = textBeforeCursor.match(/《([^》\n]*)$/);
+
+            if (!match) {
+                suggestList.style.display = 'none';
+                return;
+            }
+
+            const query = match[1].trim();
+            if (query.length === 0) {
+                suggestList.style.display = 'none';
+                return;
+            }
+
+            // 入力後250ms待ってからカード検索APIを呼び出し
+            suggestTimer = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/cards?q=${encodeURIComponent(query)}`);
+                    const cards = await res.json();
+                    
+                    if (!cards || cards.length === 0) {
+                        suggestList.style.display = 'none';
+                        return;
+                    }
+
+                    suggestList.innerHTML = '';
+                    const uniqueNames = new Set();
+                    let count = 0;
+
+                    // ★ 重複（同名カードの別バージョン等）を完全に排除して最大8件追加
+                    for (const card of cards) {
+                        if (!card.card_name || uniqueNames.has(card.card_name)) {
+                            continue;
+                        }
+                        uniqueNames.add(card.card_name);
+
+                        const item = document.createElement('div');
+                        item.className = 'rule-bot-suggest-item';
+                        item.textContent = card.card_name;
+                        item.onclick = () => selectCardName(card.card_name, match.index, cursorPos);
+                        suggestList.appendChild(item);
+
+                        count++;
+                        if (count >= 8) break; // 上位8件まで表示
+                    }
+
+                    suggestList.style.display = count > 0 ? 'block' : 'none';
+                } catch (e) {
+                    suggestList.style.display = 'none';
+                }
+            }, 250);
+        });
+
+        // 候補クリック時のカード名挿入処理
+        function selectCardName(cardName, startIndex, endIndex) {
+            const val = botInput.value;
+            const before = val.slice(0, startIndex);
+            const after = val.slice(endIndex);
+            botInput.value = before + '《' + cardName + '》' + after;
+            
+            suggestList.style.display = 'none';
+            botInput.focus();
+            
+            // カーソルを「》」の後ろへ自動移動
+            const newCursor = (before + '《' + cardName + '》').length;
+            botInput.setSelectionRange(newCursor, newCursor);
+        }
+
+        // 外側クリックでサジェストを閉じる
+        document.addEventListener('click', function(e) {
+            if (!botInput.contains(e.target) && !suggestList.contains(e.target)) {
+                suggestList.style.display = 'none';
+            }
+        });
+    </script>
 </body>
 </html>
