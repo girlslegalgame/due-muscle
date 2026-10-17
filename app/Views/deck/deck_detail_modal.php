@@ -774,56 +774,7 @@ const MODAL_CIV_COLORS = {
 };
 
 function getModalCardImagePath(card) {
-    if (!card) return '/images/card/noimage.webp';
-    
-    // ダミーカード、または画像パスが存在しない場合はCanvasで自動生成
-    if (card.is_dummy == 1 || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_')) || !card.imagepath) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 220; canvas.height = 308;
-        const ctx = canvas.getContext('2d');
-        const civIds = (card.civ_ids || '').toString().split(',').filter(Boolean);
-
-        // 背景色
-        if (civIds.length === 1) {
-            ctx.fillStyle = MODAL_CIV_COLORS[civIds[0]] || '#bdc3c7';
-            ctx.fillRect(0, 0, 220, 308);
-        } else if (civIds.length > 1) {
-            const grad = ctx.createLinearGradient(0, 0, 220, 308);
-            civIds.forEach((id, idx) => grad.addColorStop(idx / (civIds.length - 1), MODAL_CIV_COLORS[id] || '#bdc3c7'));
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, 220, 308);
-        } else {
-            ctx.fillStyle = '#bdc3c7';
-            ctx.fillRect(0, 0, 220, 308);
-        }
-
-        // 枠線・白背景
-        ctx.lineWidth = 8; ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(4, 4, 212, 300);
-        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(16, 16, 188, 276);
-
-        // コスト
-        ctx.beginPath(); ctx.arc(42, 46, 18, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textBaseline = 'middle';
-        ctx.fillText((card.cost !== null && card.cost !== undefined) ? card.cost : '?', 42, 47);
-
-        // カード名（折り返し描画）
-        ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textBaseline = 'top';
-        const words = (card.card_name || 'カード名未設定').split('');
-        let line = '', y = 82;
-        for (let n = 0; n < words.length; n++) {
-            let testLine = line + words[n];
-            if (ctx.measureText(testLine).width > 160 && n > 0) {
-                ctx.fillText(line, 110, y); line = words[n]; y += 22;
-            } else { line = testLine; }
-        }
-        ctx.fillText(line, 110, y);
-
-        return canvas.toDataURL('image/png');
-    }
-
-    if (card.imagepath.startsWith('data:image')) return card.imagepath;
-    const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
-    return '/images/card' + path;
+    return getCardImageUrl(card);
 }
 
 /**
