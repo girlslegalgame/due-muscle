@@ -48,7 +48,8 @@ $routes = [
         '/decks/share' => 'DeckController@share',
         '/api/decks/estimate-price' => 'DeckController@estimatePriceApi',
         '/api/decks/owned-cards' => 'DeckController@getOwnedCardsApi',
-    ],
+        // ★追加: ココフォリア用汎用デッキ作成ツール
+        '/tools/ccfolia' => 'HomeController@ccfolia',    ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信
         '/register/verify' => 'AuthController@verifyRegister', // ★変更：DBへ本登録するメソッド名を verifyRegister に統一

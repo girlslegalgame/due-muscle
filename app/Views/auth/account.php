@@ -131,6 +131,19 @@
             <input type="password" id="password_confirm" name="password_confirm" placeholder="新しいパスワードを再入力">
         </div>
 
+        <!-- ★追加: デフォルトのデッキ作成画面設定 -->
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="default_deck_builder">デフォルトのデッキ作成画面</label>
+            <select id="default_deck_builder" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; background: #fff;">
+                <option value="ask">毎回選択する（モーダル表示）</option>
+                <option value="dm">デュエル・マスターズ（通常）</option>
+                <option value="other">デュエマ以外（ココフォリア出力）</option>
+            </select>
+            <span style="font-size: 0.8rem; color: #666; margin-top: 4px; display: block;">
+                ヘッダーの「デッキ作成」を押した際の遷移先を設定します。
+            </span>
+        </div>
+
         <button type="submit" class="btn-save">設定を保存する</button>
     </form>
 
@@ -141,3 +154,30 @@
         </form>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const select = document.getElementById('default_deck_builder');
+    const saved = localStorage.getItem('default_deck_builder') || 'ask';
+    select.value = saved;
+
+    // 「設定を保存する」ボタンが押された時、またはセレクト変更時に保存
+    select.addEventListener('change', () => {
+        if (select.value === 'ask') {
+            localStorage.removeItem('default_deck_builder');
+        } else {
+            localStorage.setItem('default_deck_builder', select.value);
+        }
+    });
+
+    const form = select.closest('form');
+    if (form) {
+        form.addEventListener('submit', () => {
+            if (select.value === 'ask') {
+                localStorage.removeItem('default_deck_builder');
+            } else {
+                localStorage.setItem('default_deck_builder', select.value);
+            }
+        });
+    }
+});
+</script>

@@ -4179,7 +4179,7 @@ function generateDummyCardImage(name, cost, civIdsStr, cardType = 'normal', pNam
         const btmCostY = splitRightY + 22;
 
         ctx.beginPath();
-        ctx.roundRect ? ctx.roundRect(btmCostX - 16, btmCostY - 18, 32, 36, 6) : ctx.rect(btmCostX - 16, btmCostY - 18, 32, 36);
+        ctx.arc(btmCostX, btmCostY, 17, 0, Math.PI * 2); // 上面と同じ半径17の円形に変更
         ctx.fillStyle = btmColor;
         ctx.fill();
         ctx.lineWidth = 2.5;
@@ -4187,7 +4187,7 @@ function generateDummyCardImage(name, cost, civIdsStr, cardType = 'normal', pNam
         ctx.stroke();
 
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 18px sans-serif';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(btmCostVal, btmCostX, btmCostY);

@@ -13,4 +13,10 @@ class HomeController {
     public function terms() {
         renderView('legal/terms.php');
     }
+    /**
+     * ココフォリア用汎用出力ツールの表示
+     */
+    public function ccfolia() {
+        renderView('tools/ccfolia.php');
+    }
 }

@@ -134,7 +134,7 @@
         <div class="header-right">
             <a href="/mydecks">マイデッキ</a>
             <a href="/search">デッキ検索</a>
-            <a href="/decks/new">デッキ作成</a>
+            <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
             <a href="/help">ヘルプ</a>
             <?php 
                 $unreadCnt = getUnreadNotificationCount(); 
@@ -242,5 +242,65 @@
             }
         }
     </script>
+<!-- デッキ作成先 選択モーダル -->
+<div id="deck-type-select-modal" class="sub-modal" style="display: none; z-index: 3500;">
+    <div class="sub-modal-content" style="max-width: 420px; border-radius: 12px; overflow: hidden;">
+        <div class="sub-modal-header" style="background: #111; color: #fff; padding: 14px 20px;">
+            <span style="font-weight: bold; font-size: 1rem;">作成するデッキを選択</span>
+            <button type="button" onclick="closeDeckTypeSelectModal()" style="background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer;">×</button>
+        </div>
+        <div class="sub-modal-body" style="padding: 24px; text-align: center;">
+            <p style="margin-top: 0; margin-bottom: 20px; font-size: 0.95rem; color: #333; font-weight: bold;">
+                どちらのデッキを作成しますか？
+            </p>
+            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                <button type="button" onclick="selectDeckType('/decks/new')" style="flex: 1; padding: 16px 10px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+                    デュエル・マスターズ
+                </button>
+                <button type="button" onclick="selectDeckType('/tools/ccfolia')" style="flex: 1; padding: 16px 10px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+                    デュエマ以外<br><span style="font-size: 0.75rem; font-weight: normal;">(ココフォリア出力)</span>
+                </button>
+            </div>
+            
+            <div style="border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
+                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
+                    <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
+                    次回からこの画面を表示しない
+                </label>
+                <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 22px; line-height: 1.3;">
+                    ※この設定は後から「アカウント設定」画面で変更・リセットできます。
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// デッキ作成クリック時の振り分け
+function handleDeckCreateClick(e) {
+    e.preventDefault();
+    const savedTarget = localStorage.getItem('default_deck_builder');
+    if (savedTarget === 'dm') {
+        window.location.href = '/decks/new';
+        return;
+    } else if (savedTarget === 'other') {
+        window.location.href = '/tools/ccfolia';
+        return;
+    }
+    document.getElementById('deck-type-select-modal').style.display = 'flex';
+}
+
+function closeDeckTypeSelectModal() {
+    document.getElementById('deck-type-select-modal').style.display = 'none';
+}
+
+function selectDeckType(url) {
+    const remember = document.getElementById('deck-type-remember').checked;
+    if (remember) {
+        localStorage.setItem('default_deck_builder', url === '/decks/new' ? 'dm' : 'other');
+    }
+    window.location.href = url;
+}
+</script>
 </body>
 </html>

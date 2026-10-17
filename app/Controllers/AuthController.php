@@ -48,7 +48,7 @@ class AuthController {
         // 送信データの設定（JSON形式）
         $data = [
             'sender' => [
-                'name' => 'デュエマデッキメーカー',
+                'name' => 'デュエ筋',
                 'email' => $fromEmail
             ],
             'to' => [
@@ -146,7 +146,7 @@ class AuthController {
                             'role' => $user['role'] ?? 'user' // ★追加: 一時領域にロールを保持
                         ];
 
-                        $subject = "【デュエマデッキメーカー】ログイン認証コード";
+                        $subject = "【デュエ筋】ログイン認証コード";
                         $body = "<p>ログインを完了するには、制限時間内に以下の認証コードを入力してください。</p>";
                         $body .= "<h2 style='color:#007bff; letter-spacing:2px;'>{$code}</h2>";
                         $body .= "<p>有効期限: 10分間</p>";
@@ -323,7 +323,7 @@ class AuthController {
             ];
 
             // 新規登録用認証コードを送信
-            $subject = "【デュエマデッキメーカー】アカウント新規作成 認証コード";
+            $subject = "【デュエ筋】アカウント新規作成 認証コード";
             $body = "<p>アカウント登録を完了するには、制限時間内に以下の認証コードを入力してください。</p>";
             $body .= "<h2 style='color:#007bff; letter-spacing:2px;'>{$code}</h2>";
             $body .= "<p>有効期限: 10分間</p>";
