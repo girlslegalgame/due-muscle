@@ -451,7 +451,42 @@ class DeckController {
             VALUES (:did, :cid, :dname, :dcost, :dciv, :dtype, :dpname, :dpcost, :dpciv, 1, :type, :order)
         ");
 
-        $stmtCheckReal = $pdo->prepare("SELECT card_id FROM card WHERE card_name = :name LIMIT 1");
+        // 通常カード探索（相方・コンビネーションを持たないカード）
+        $stmtCheckNormal = $pdo->prepare("
+            SELECT c.card_id 
+            FROM card c
+            LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
+            WHERE c.card_name = :name AND ccb.combination_id IS NULL
+            LIMIT 1
+        ");
+
+        // ツインパクトカード探索（メイン面名と相方面名が一致し、cd.twinpact = 1 であるもの）
+        $stmtCheckTwinpact = $pdo->prepare("
+            SELECT c_main.card_id 
+            FROM card c_main
+            JOIN card_combination ccb_main ON c_main.card_id = ccb_main.card_id AND ccb_main.is_main_side = 1
+            JOIN card_combination ccb_partner ON ccb_main.combination_id = ccb_partner.combination_id AND ccb_main.card_id <> ccb_partner.card_id
+            JOIN card c_partner ON ccb_partner.card_id = c_partner.card_id
+            JOIN card_detail cd ON c_main.card_id = cd.card_id
+            WHERE c_main.card_name = :top_name 
+              AND c_partner.card_name = :bottom_name
+              AND cd.twinpact = 1
+            LIMIT 1
+        ");
+
+        // 両面カード探索（表面名と裏面名が一致し、cd.twinpact = 0 または NULL であるもの）
+        $stmtCheckDouble = $pdo->prepare("
+            SELECT c_main.card_id 
+            FROM card c_main
+            JOIN card_combination ccb_main ON c_main.card_id = ccb_main.card_id AND ccb_main.is_main_side = 1
+            JOIN card_combination ccb_partner ON ccb_main.combination_id = ccb_partner.combination_id AND ccb_main.card_id <> ccb_partner.card_id
+            JOIN card c_partner ON ccb_partner.card_id = c_partner.card_id
+            JOIN card_detail cd ON c_main.card_id = cd.card_id
+            WHERE c_main.card_name = :front_name 
+              AND c_partner.card_name = :back_name
+              AND (cd.twinpact = 0 OR cd.twinpact IS NULL)
+            LIMIT 1
+        ");
 
         $order = 1;
         foreach ($cards as $c) {
@@ -466,24 +501,38 @@ class DeckController {
 
             if (!empty($c['is_dummy']) || !empty($c['dummy_name'])) {
                 $dName = trim($c['dummy_name'] ?? $c['card_name'] ?? '');
-                
-                // 本物カードが既に追加されているかチェック（上面／表面名で探索）
-                $stmtCheckReal->execute([':name' => $dName]);
-                $realCard = $stmtCheckReal->fetch(PDO::FETCH_ASSOC);
+                $dummyCardType = $c['dummy_card_type'] ?? 'normal';
+                $dummyPartnerName = !empty($c['dummy_partner_name']) ? trim($c['dummy_partner_name']) : null;
+                $dummyCost = isset($c['cost']) && is_numeric($c['cost']) ? (int)$c['cost'] : (isset($c['dummy_cost']) ? (int)$c['dummy_cost'] : null);
+                $dummyCivIds = !empty($c['civ_ids']) ? (is_array($c['civ_ids']) ? implode(',', $c['civ_ids']) : $c['civ_ids']) : ($c['dummy_civ_ids'] ?? null);
+                $dummyPartnerCost = isset($c['dummy_partner_cost']) && is_numeric($c['dummy_partner_cost']) ? (int)$c['dummy_partner_cost'] : null;
+                $dummyPartnerCivIds = !empty($c['dummy_partner_civ_ids']) ? (is_array($c['dummy_partner_civ_ids']) ? implode(',', $c['dummy_partner_civ_ids']) : $c['dummy_partner_civ_ids']) : null;
+
+                $realCard = null;
+
+                if ($dummyCardType === 'twinpact' && !empty($dummyPartnerName)) {
+                    $stmtCheckTwinpact->execute([':top_name' => $dName, ':bottom_name' => $dummyPartnerName]);
+                    $realCard = $stmtCheckTwinpact->fetch(PDO::FETCH_ASSOC);
+                } elseif ($dummyCardType === 'double' && !empty($dummyPartnerName)) {
+                    $stmtCheckDouble->execute([':front_name' => $dName, ':back_name' => $dummyPartnerName]);
+                    $realCard = $stmtCheckDouble->fetch(PDO::FETCH_ASSOC);
+                } elseif ($dummyCardType === 'normal') {
+                    $stmtCheckNormal->execute([':name' => $dName]);
+                    $realCard = $stmtCheckNormal->fetch(PDO::FETCH_ASSOC);
+                }
 
                 if ($realCard) {
                     $cardId = (int)$realCard['card_id'];
+                    $dummyName = null;
+                    $dummyCost = null;
+                    $dummyCivIds = null;
+                    $dummyCardType = 'normal';
+                    $dummyPartnerName = null;
+                    $dummyPartnerCost = null;
+                    $dummyPartnerCivIds = null;
                 } else {
                     $cardId = null;
                     $dummyName = $dName;
-                    $dummyCost = isset($c['cost']) && is_numeric($c['cost']) ? (int)$c['cost'] : (isset($c['dummy_cost']) ? (int)$c['dummy_cost'] : null);
-                    $dummyCivIds = !empty($c['civ_ids']) ? (is_array($c['civ_ids']) ? implode(',', $c['civ_ids']) : $c['civ_ids']) : ($c['dummy_civ_ids'] ?? null);
-                    
-                    // ツインパクト・両面情報
-                    $dummyCardType = $c['dummy_card_type'] ?? 'normal';
-                    $dummyPartnerName = !empty($c['dummy_partner_name']) ? trim($c['dummy_partner_name']) : null;
-                    $dummyPartnerCost = isset($c['dummy_partner_cost']) && is_numeric($c['dummy_partner_cost']) ? (int)$c['dummy_partner_cost'] : null;
-                    $dummyPartnerCivIds = !empty($c['dummy_partner_civ_ids']) ? (is_array($c['dummy_partner_civ_ids']) ? implode(',', $c['dummy_partner_civ_ids']) : $c['dummy_partner_civ_ids']) : null;
                 }
             }
 
