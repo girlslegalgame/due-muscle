@@ -1709,52 +1709,95 @@
     </div>
 </div>
 <!-- ダミーカード作成モーダル -->
+<!-- ダミーカード作成モーダル -->
 <div id="dummyCardModal" class="sub-modal">
-    <div class="sub-modal-content" style="max-width: 420px; height: auto; margin: 10vh auto;">
+    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
         <div class="sub-modal-header" style="background: #fd7e14;">
-            <span>未実装カードの追加 (ダミー)</span>
+            <span>未実装カードの追加</span>
             <span onclick="closeDummyCardModal()" style="cursor:pointer; font-size:24px;">&times;</span>
         </div>
-        <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+            <!-- カード形式選択 -->
             <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード名 <span style="color:red;">*</span></label>
-                <input type="text" id="dummy-input-name" placeholder="例: 頂上混成 ガリュディアス・モモミーズ'22" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
-            </div>
-            <div style="display: flex; gap: 12px;">
-                <div style="flex: 1;">
-                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">コスト</label>
-                    <input type="number" id="dummy-input-cost" placeholder="例: 5" min="0" max="99" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">ゾーン</label>
-                    <select id="dummy-input-zone" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box; background:#fff;">
-                        <option value="main">メインデッキ</option>
-                        <option value="super_dimensional">超次元ゾーン</option>
-                        <option value="gr">超GRゾーン</option>
-                    </select>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード形式</label>
+                <div style="display: flex; gap: 10px;">
+                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="normal" checked onchange="toggleDummyCardType('create')"> 通常</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="twinpact" onchange="toggleDummyCardType('create')"> ツインパクト</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="double" onchange="toggleDummyCardType('create')"> 両面カード</label>
                 </div>
             </div>
+
+            <!-- 所属ゾーン -->
             <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">文明</label>
-                <div class="civ-checkboxes" style="grid-template-columns: repeat(3, 1fr); gap: 6px;">
-                    <label><input type="checkbox" class="dummy-civ-check" value="1"> 光</label>
-                    <label><input type="checkbox" class="dummy-civ-check" value="2"> 水</label>
-                    <label><input type="checkbox" class="dummy-civ-check" value="3"> 闇</label>
-                    <label><input type="checkbox" class="dummy-civ-check" value="4"> 火</label>
-                    <label><input type="checkbox" class="dummy-civ-check" value="5"> 自然</label>
-                    <label><input type="checkbox" class="dummy-civ-check" value="6"> ゼロ</label>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px;">所属ゾーン</label>
+                <select id="dummy-input-zone" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; background:#fff;">
+                    <option value="main">メインデッキ</option>
+                    <option value="super_dimensional">超次元ゾーン</option>
+                    <option value="gr">超GRゾーン</option>
+                </select>
+                <span id="dummy-zone-hint" style="display: none; font-size: 11px; color: #dc3545; margin-top: 2px;">※両面カードは超次元ゾーン限定となります。</span>
+            </div>
+
+            <!-- 第1面（上面／表面） -->
+            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span id="dummy-face1-title" style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">カード情報</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名 <span style="color:red;">*</span></label>
+                    <input type="text" id="dummy-input-name" placeholder="カード名を入力" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
+                        <input type="number" id="dummy-input-cost" placeholder="例: 5" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="6"> ゼロ</label>
+                    </div>
                 </div>
             </div>
-            <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">プレビュー</label>
-                <div style="display:flex; justify-content:center; background:#eee; padding:10px; border-radius:8px;">
-                    <img id="dummy-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+
+            <!-- 第2面（下面／裏面：ツインパクトまたは両面時のみ表示） -->
+            <div id="dummy-partner-section" style="display: none; background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span id="dummy-face2-title" style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">下面 / 裏面情報</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名</label>
+                    <input type="text" id="dummy-input-partner-name" placeholder="第2面のカード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
                 </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
+                        <input type="number" id="dummy-input-partner-cost" placeholder="例: 3" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- プレビュー表示 -->
+            <div style="display: flex; justify-content: center; background: #eee; padding: 8px; border-radius: 6px;">
+                <img id="dummy-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
             </div>
         </div>
-        <div style="padding: 15px 20px; border-top: 1px solid #eee; display: flex; gap: 10px;">
-            <button type="button" onclick="closeDummyCardModal()" style="flex:1; padding:10px; background:#f2f2f7; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">キャンセル</button>
-            <button type="button" onclick="createAndAddDummyCard()" style="flex:2; padding:10px; background:#fd7e14; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">デッキに追加</button>
+        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button type="button" onclick="closeDummyCardModal()" style="flex:1; padding:8px; background:#f2f2f7; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">キャンセル</button>
+            <button type="button" onclick="createAndAddDummyCard()" style="flex:2; padding:8px; background:#fd7e14; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">デッキに追加</button>
         </div>
     </div>
 </div>
@@ -3167,6 +3210,7 @@ function submitDeckSave() {
     // ★ここから：ダミーカード情報も正確に抽出して収集する処理
     const extractCardData = (img, type) => {
         const isDummy = img.dataset.isDummy === "1";
+        const cached = cardCache[img.dataset.cardId] || {};
         return {
             id: isDummy ? null : img.dataset.cardId,
             type: type,
@@ -3174,6 +3218,11 @@ function submitDeckSave() {
             dummy_name: isDummy ? img.dataset.cardName : null,
             dummy_cost: isDummy ? (parseInt(img.dataset.cost, 10) || null) : null,
             dummy_civ_ids: isDummy ? (img.dataset.civ || null) : null,
+            // ★追加
+            dummy_card_type: cached.dummy_card_type || 'normal',
+            dummy_partner_name: cached.dummy_partner_name || null,
+            dummy_partner_cost: cached.dummy_partner_cost || null,
+            dummy_partner_civ_ids: cached.dummy_partner_civ_ids || null,
             card_name: img.dataset.cardName,
             cost: img.dataset.cost,
             civ_ids: img.dataset.civ
@@ -3845,115 +3894,152 @@ const CIV_COLORS = {
     '6': '#95a5a6'  // ゼロ (灰)
 };
 
+// カード形式変更時のUI連動（両面は超次元限定に固定）
+function toggleDummyCardType(mode = 'create') {
+    const type = document.querySelector('input[name="dummy-type"]:checked').value;
+    const partnerSection = document.getElementById('dummy-partner-section');
+    const zoneSelect = document.getElementById('dummy-input-zone');
+    const zoneHint = document.getElementById('dummy-zone-hint');
+    const face1Title = document.getElementById('dummy-face1-title');
+    const face2Title = document.getElementById('dummy-face2-title');
+
+    if (type === 'normal') {
+        partnerSection.style.display = 'none';
+        zoneSelect.disabled = false;
+        zoneHint.style.display = 'none';
+        face1Title.innerText = 'カード情報';
+    } else if (type === 'twinpact') {
+        partnerSection.style.display = 'block';
+        zoneSelect.disabled = false;
+        zoneHint.style.display = 'none';
+        face1Title.innerText = '上面（クリーチャー等）';
+        face2Title.innerText = '下面（呪文等）';
+    } else if (type === 'double') {
+        partnerSection.style.display = 'block';
+        zoneSelect.value = 'super_dimensional'; // ★超次元ゾーンに強制固定
+        zoneSelect.disabled = true;
+        zoneHint.style.display = 'block';
+        face1Title.innerText = '表面';
+        face2Title.innerText = '裏面（覚醒後など）';
+    }
+    updateDummyPreview();
+}
+
 /**
  * Canvasを使って文明色・コスト・カード名が描画された画像を動的生成
  */
-function generateDummyCardImage(name, cost, civIdsStr) {
+function generateDummyCardImage(name, cost, civIdsStr, cardType = 'normal', pName = '', pCost = '', pCivIdsStr = '') {
     const canvas = document.createElement('canvas');
-    canvas.width = 220;
-    canvas.height = 308;
+    canvas.width = 220; canvas.height = 308;
     const ctx = canvas.getContext('2d');
 
+    // --- ツインパクトの場合：上下分割デザイン ---
+    if (cardType === 'twinpact') {
+        // 背景・外枠
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(0, 0, 220, 308);
+
+        // 上面（上半分）
+        renderCardHalf(ctx, name, cost, civIdsStr, 8, 8, 204, 140, '上面');
+
+        // 下面（下半分）
+        renderCardHalf(ctx, pName || '下面カード名', pCost, pCivIdsStr || civIdsStr, 8, 154, 204, 146, '下面');
+
+        return canvas.toDataURL('image/png');
+    }
+
+    // --- 通常カード & 両面カード（表面） ---
     const civIds = (civIdsStr || '').toString().split(',').filter(Boolean);
-
-    // 1. 背景のグラデーションまたは単色塗り
-    if (civIds.length === 0) {
-        ctx.fillStyle = '#bdc3c7';
-        ctx.fillRect(0, 0, 220, 308);
-    } else if (civIds.length === 1) {
+    if (civIds.length === 1) {
         ctx.fillStyle = CIV_COLORS[civIds[0]] || '#bdc3c7';
-        ctx.fillRect(0, 0, 220, 308);
-    } else {
+    } else if (civIds.length > 1) {
         const grad = ctx.createLinearGradient(0, 0, 220, 308);
-        civIds.forEach((id, idx) => {
-            const stop = idx / (civIds.length - 1);
-            grad.addColorStop(stop, CIV_COLORS[id] || '#bdc3c7');
-        });
+        civIds.forEach((id, idx) => grad.addColorStop(idx / (civIds.length - 1), CIV_COLORS[id] || '#bdc3c7'));
         ctx.fillStyle = grad;
-        ctx.fillRect(0, 0, 220, 308);
+    } else {
+        ctx.fillStyle = '#bdc3c7';
     }
+    ctx.fillRect(0, 0, 220, 308);
 
-    // 2. 外枠・内枠デザイン
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = '#2c3e50';
-    ctx.strokeRect(4, 4, 212, 300);
+    ctx.lineWidth = 8; ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(4, 4, 212, 300);
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.fillRect(16, 16, 188, 276);
 
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.fillRect(16, 16, 188, 276);
-
-    // 未実装（PROTOTYPE）リボン
-    ctx.fillStyle = '#e67e22';
-    ctx.fillRect(16, 16, 188, 22);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('【未実装カード】', 110, 32);
-
-    // 3. コストサークル
+    // コストサークル
     const costVal = (cost !== undefined && cost !== null && cost !== '') ? cost : '?';
-    ctx.beginPath();
-    ctx.arc(38, 62, 18, 0, Math.PI * 2);
-    ctx.fillStyle = '#2c3e50';
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 18px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(costVal, 38, 63);
+    ctx.beginPath(); ctx.arc(42, 46, 18, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(costVal, 42, 47);
 
-    // 4. カード名テキスト描画（自動折り返し）
-    ctx.fillStyle = '#111';
-    ctx.font = 'bold 15px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-
-    const cardTitle = name || 'カード名未設定';
-    const maxWidth = 160;
-    const lineHeight = 20;
-    let words = cardTitle.split('');
-    let line = '';
-    let y = 95;
-
-    for (let n = 0; n < words.length; n++) {
-        let testLine = line + words[n];
-        let metrics = ctx.measureText(testLine);
-        if (metrics.width > maxWidth && n > 0) {
-            ctx.fillText(line, 110, y);
-            line = words[n];
-            y += lineHeight;
-        } else {
-            line = testLine;
-        }
+    // 両面マーク
+    if (cardType === 'double') {
+        ctx.fillStyle = '#17a2b8'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'right';
+        ctx.fillText('⟲ 両面', 194, 46);
     }
-    ctx.fillText(line, 110, y);
 
-    // 5. 文明バッジ（下部）
-    if (civIds.length > 0) {
-        const civNames = { '1': '光', '2': '水', '3': '闇', '4': '火', '5': '自然', '6': 'ゼロ' };
-        const civLabel = civIds.map(id => civNames[id] || '').join(' / ');
-        ctx.fillStyle = '#555';
-        ctx.font = 'bold 12px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(civLabel, 110, 265);
-    }
+    // カード名
+    ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    wrapText(ctx, name || 'カード名未設定', 110, 82, 160, 22);
 
     return canvas.toDataURL('image/png');
 }
 
+// ツインパクトの上下半分を描画するサブヘルパー
+function renderCardHalf(ctx, name, cost, civIdsStr, x, y, w, h, label) {
+    const civIds = (civIdsStr || '').toString().split(',').filter(Boolean);
+    ctx.fillStyle = civIds.length > 0 ? (CIV_COLORS[civIds[0]] || '#ccc') : '#ccc';
+    ctx.fillRect(x, y, w, h);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
+
+    // コスト
+    ctx.beginPath(); ctx.arc(x + 24, y + 24, 13, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(cost !== '' && cost !== null ? cost : '?', x + 24, y + 25);
+
+    // テキスト
+    ctx.fillStyle = '#111'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    wrapText(ctx, name || 'カード名未設定', x + (w / 2), y + 44, w - 20, 16);
+}
+
+function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+    const words = text.split('');
+    let line = '';
+    for (let n = 0; n < words.length; n++) {
+        let testLine = line + words[n];
+        if (ctx.measureText(testLine).width > maxWidth && n > 0) {
+            ctx.fillText(line, x, y);
+            line = words[n];
+            y += lineHeight;
+        } else { line = testLine; }
+    }
+    ctx.fillText(line, x, y);
+}
+
+// プレビュー更新
 function updateDummyPreview() {
+    const type = document.querySelector('input[name="dummy-type"]:checked').value;
     const name = document.getElementById('dummy-input-name').value.trim();
     const cost = document.getElementById('dummy-input-cost').value;
     const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
-    const dataUrl = generateDummyCardImage(name, cost, civs.join(','));
+
+    const pName = document.getElementById('dummy-input-partner-name').value.trim();
+    const pCost = document.getElementById('dummy-input-partner-cost').value;
+    const pCivs = Array.from(document.querySelectorAll('.dummy-partner-civ-check:checked')).map(c => c.value);
+
+    const dataUrl = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
     document.getElementById('dummy-preview-img').src = dataUrl;
 }
-
 // プレビューの自動連動
 document.getElementById('dummy-input-name').addEventListener('input', updateDummyPreview);
 document.getElementById('dummy-input-cost').addEventListener('input', updateDummyPreview);
 document.querySelectorAll('.dummy-civ-check').forEach(el => el.addEventListener('change', updateDummyPreview));
-
+document.getElementById('dummy-input-partner-name').addEventListener('input', updateDummyPreview);
+document.getElementById('dummy-input-partner-cost').addEventListener('input', updateDummyPreview);
+document.querySelectorAll('.dummy-partner-civ-check').forEach(el => el.addEventListener('change', updateDummyPreview));
+// 追加ボタン押下時
 function createAndAddDummyCard() {
+    const type = document.querySelector('input[name="dummy-type"]:checked').value;
     const name = document.getElementById('dummy-input-name').value.trim();
     if (!name) {
         alert("カード名を入力してください。");
@@ -3961,14 +4047,18 @@ function createAndAddDummyCard() {
     }
     const cost = document.getElementById('dummy-input-cost').value;
     const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
-    const zone = document.getElementById('dummy-input-zone').value;
+
+    const pName = document.getElementById('dummy-input-partner-name').value.trim();
+    const pCost = document.getElementById('dummy-input-partner-cost').value;
+    const pCivs = Array.from(document.querySelectorAll('.dummy-partner-civ-check:checked')).map(c => c.value);
+
+    // ★両面カードは超次元ゾーン限定
+    const zone = (type === 'double') ? 'super_dimensional' : document.getElementById('dummy-input-zone').value;
 
     const dummyId = 'dummy_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-    const dataUrl = generateDummyCardImage(name, cost, civs.join(','));
+    const dataUrl = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
 
-    let charIds = '';
-    if (zone === 'super_dimensional') charIds = '3';
-    else if (zone === 'gr') charIds = '10';
+    let charIds = (zone === 'super_dimensional') ? '3' : (zone === 'gr' ? '10' : '');
 
     const cardObj = {
         card_id: dummyId,
@@ -3979,18 +4069,26 @@ function createAndAddDummyCard() {
         char_ids: charIds,
         image_data_url: dataUrl,
         imagepath: dataUrl,
-        card_limit: 99, // ★ 4 から 99（上限なし）に変更
+        card_limit: 99,
         is_dummy: true,
-        text: `【未実装カード】\nカード名: ${name}\nコスト: ${cost || '不明'}\n文明: ${civs.join(',') || '無色'}`
+        dummy_card_type: type,
+        dummy_partner_name: pName,
+        dummy_partner_cost: pCost !== '' ? parseInt(pCost, 10) : null,
+        dummy_partner_civ_ids: pCivs.join(','),
+        text: type === 'twinpact' 
+            ? `【上面】${name} (コスト:${cost || '?'})\n【下面】${pName} (コスト:${pCost || '?'})`
+            : (type === 'double' ? `【表面】${name}\n【裏面】${pName}` : `カード名: ${name}\nコスト: ${cost || '?'}`)
     };
 
     addCardToDeck(cardObj, zone);
     closeDummyCardModal();
 
-    // 入力クリア
+    // 入力リセット
     document.getElementById('dummy-input-name').value = '';
     document.getElementById('dummy-input-cost').value = '';
-    document.querySelectorAll('.dummy-civ-check').forEach(c => c.checked = false);
+    document.getElementById('dummy-input-partner-name').value = '';
+    document.getElementById('dummy-input-partner-cost').value = '';
+    document.querySelectorAll('.dummy-civ-check, .dummy-partner-civ-check').forEach(c => c.checked = false);
 }
 // --- ダミーカード編集モーダル制御 ---
 let currentEditingDummyEl = null;

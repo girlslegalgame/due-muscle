@@ -801,24 +801,19 @@ function getModalCardImagePath(card) {
         ctx.lineWidth = 8; ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(4, 4, 212, 300);
         ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(16, 16, 188, 276);
 
-        // ラベル
-        ctx.fillStyle = '#e67e22'; ctx.fillRect(16, 16, 188, 22);
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-        ctx.fillText('【未実装カード】', 110, 32);
-
         // コスト
-        ctx.beginPath(); ctx.arc(38, 62, 18, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
+        ctx.beginPath(); ctx.arc(42, 46, 18, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
         ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textBaseline = 'middle';
-        ctx.fillText((card.cost !== null && card.cost !== undefined) ? card.cost : '?', 38, 63);
+        ctx.fillText((card.cost !== null && card.cost !== undefined) ? card.cost : '?', 42, 47);
 
         // カード名（折り返し描画）
         ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textBaseline = 'top';
         const words = (card.card_name || 'カード名未設定').split('');
-        let line = '', y = 95;
+        let line = '', y = 82;
         for (let n = 0; n < words.length; n++) {
             let testLine = line + words[n];
             if (ctx.measureText(testLine).width > 160 && n > 0) {
-                ctx.fillText(line, 110, y); line = words[n]; y += 20;
+                ctx.fillText(line, 110, y); line = words[n]; y += 22;
             } else { line = testLine; }
         }
         ctx.fillText(line, 110, y);

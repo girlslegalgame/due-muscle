@@ -429,6 +429,17 @@ class DeckController {
                     ADD COLUMN dummy_civ_ids VARCHAR(50) NULL AFTER dummy_cost;
                 ");
             }
+            // ★追加: 下面 / 裏面（パートナー面）用のカラム
+            $partCols = $pdo->query("SHOW COLUMNS FROM deck_cards LIKE 'dummy_partner_name'")->fetchAll();
+            if (empty($partCols)) {
+                $pdo->exec("
+                    ALTER TABLE deck_cards 
+                    ADD COLUMN dummy_card_type VARCHAR(20) DEFAULT 'normal' AFTER dummy_civ_ids,
+                    ADD COLUMN dummy_partner_name VARCHAR(255) NULL AFTER dummy_card_type,
+                    ADD COLUMN dummy_partner_cost INT NULL AFTER dummy_partner_name,
+                    ADD COLUMN dummy_partner_civ_ids VARCHAR(50) NULL AFTER dummy_partner_cost;
+                ");
+            }
         } catch (\Throwable $e) {}
         $checked = true;
     }
@@ -436,8 +447,8 @@ class DeckController {
     // --- 【追加】カード保存用の共通メソッド ---
     private function saveDeckCards($pdo, $deckId, $cards) {
         $stmtCard = $pdo->prepare("
-            INSERT INTO deck_cards (deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, quantity, card_type_in_deck, sort_order) 
-            VALUES (:did, :cid, :dname, :dcost, :dciv, 1, :type, :order)
+            INSERT INTO deck_cards (deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, dummy_card_type, dummy_partner_name, dummy_partner_cost, dummy_partner_civ_ids, quantity, card_type_in_deck, sort_order) 
+            VALUES (:did, :cid, :dname, :dcost, :dciv, :dtype, :dpname, :dpcost, :dpciv, 1, :type, :order)
         ");
 
         $stmtCheckReal = $pdo->prepare("SELECT card_id FROM card WHERE card_name = :name LIMIT 1");
@@ -448,12 +459,15 @@ class DeckController {
             $dummyName = null;
             $dummyCost = null;
             $dummyCivIds = null;
+            $dummyCardType = 'normal';
+            $dummyPartnerName = null;
+            $dummyPartnerCost = null;
+            $dummyPartnerCivIds = null;
 
-            // ダミーカード判定
             if (!empty($c['is_dummy']) || !empty($c['dummy_name'])) {
                 $dName = trim($c['dummy_name'] ?? $c['card_name'] ?? '');
                 
-                // 本物カードが既に存在するか確認（存在していれば正規カードとして登録）
+                // 本物カードが既に追加されているかチェック（上面／表面名で探索）
                 $stmtCheckReal->execute([':name' => $dName]);
                 $realCard = $stmtCheckReal->fetch(PDO::FETCH_ASSOC);
 
@@ -464,6 +478,12 @@ class DeckController {
                     $dummyName = $dName;
                     $dummyCost = isset($c['cost']) && is_numeric($c['cost']) ? (int)$c['cost'] : (isset($c['dummy_cost']) ? (int)$c['dummy_cost'] : null);
                     $dummyCivIds = !empty($c['civ_ids']) ? (is_array($c['civ_ids']) ? implode(',', $c['civ_ids']) : $c['civ_ids']) : ($c['dummy_civ_ids'] ?? null);
+                    
+                    // ツインパクト・両面情報
+                    $dummyCardType = $c['dummy_card_type'] ?? 'normal';
+                    $dummyPartnerName = !empty($c['dummy_partner_name']) ? trim($c['dummy_partner_name']) : null;
+                    $dummyPartnerCost = isset($c['dummy_partner_cost']) && is_numeric($c['dummy_partner_cost']) ? (int)$c['dummy_partner_cost'] : null;
+                    $dummyPartnerCivIds = !empty($c['dummy_partner_civ_ids']) ? (is_array($c['dummy_partner_civ_ids']) ? implode(',', $c['dummy_partner_civ_ids']) : $c['dummy_partner_civ_ids']) : null;
                 }
             }
 
@@ -473,6 +493,10 @@ class DeckController {
                 ':dname' => $dummyName,
                 ':dcost' => $dummyCost,
                 ':dciv' => $dummyCivIds,
+                ':dtype' => $dummyCardType,
+                ':dpname' => $dummyPartnerName,
+                ':dpcost' => $dummyPartnerCost,
+                ':dpciv' => $dummyPartnerCivIds,
                 ':type' => $c['type'],
                 ':order' => $order++
             ]);

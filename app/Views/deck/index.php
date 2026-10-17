@@ -755,26 +755,45 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return sha256(new Uint8Array(buffer));
         }
 
-        // 画像Blob・ハッシュ・アスペクト比のキャッシュローダー
+        // 画像Blob・ハッシュ・アスペクト比のキャッシュローダー（ダミーカード対応）
         const loadedImageMap = {};
-        async function fetchImageMeta(imgPath) {
+        async function fetchImageMeta(cardOrPath) {
+            if (!cardOrPath) return null;
+
+            let imgPath = typeof cardOrPath === 'string' ? cardOrPath : (cardOrPath.imagepath || '');
+            let isDataUrl = imgPath.startsWith('data:image');
+            
+            // ダミーカードの場合はDataURLを自動生成
+            if (!isDataUrl && (typeof cardOrPath === 'object') && (cardOrPath.is_dummy == 1 || !imgPath)) {
+                imgPath = getIndexCardImageUrl(cardOrPath);
+                isDataUrl = true;
+            }
+
             if (!imgPath) return null;
             if (loadedImageMap[imgPath]) return loadedImageMap[imgPath];
 
-            const fullPath = '/images/card' + (imgPath.startsWith('/') ? imgPath : '/' + imgPath);
             try {
-                const imgRes = await fetch(fullPath);
-                if (!imgRes.ok) return null;
-                const blob = await imgRes.blob();
+                let blob;
+                if (isDataUrl) {
+                    // DataURLからBlobを直接生成
+                    const res = await fetch(imgPath);
+                    blob = await res.blob();
+                } else {
+                    const fullPath = '/images/card' + (imgPath.startsWith('/') ? imgPath : '/' + imgPath);
+                    const imgRes = await fetch(fullPath);
+                    if (!imgRes.ok) return null;
+                    blob = await imgRes.blob();
+                }
+
                 const hash = await calculateSha256(blob);
-                let ext = 'webp';
-                if (blob.type === 'image/jpeg') ext = 'jpeg';
-                else if (blob.type === 'image/png') ext = 'png';
+                let ext = 'png';
+                if (blob.type === 'image/webp') ext = 'webp';
+                else if (blob.type === 'image/jpeg') ext = 'jpeg';
 
                 const filename = `${hash}.${ext}`;
                 if (!resourcesObj[filename]) {
                     zip.file(filename, blob);
-                    resourcesObj[filename] = { type: blob.type || 'image/webp' };
+                    resourcesObj[filename] = { type: blob.type || 'image/png' };
                 }
 
                 // アスペクト比取得
@@ -789,7 +808,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 loadedImageMap[imgPath] = meta;
                 return meta;
             } catch (err) {
-                console.warn(`画像取得失敗: ${fullPath}`, err);
+                console.warn(`画像取得失敗:`, err);
                 return null;
             }
         }
@@ -1133,11 +1152,9 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             // 3. 超GRゾーン (gr)
             // ----------------------------------------------------
             if (zone === 'gr') {
-                // ★ 超GRカード除外チェック
-                if (!includeGr) {
-                    continue;
-                }
-                const meta = await fetchImageMeta(card.imagepath);
+                if (!includeGr) continue;
+                // ★修正: card 自体を渡す
+                const meta = await fetchImageMeta(card);
                 if (!meta) continue;
                 for (let q = 0; q < qty; q++) {
                     grDeckItems[generateId()] = {
@@ -1151,13 +1168,12 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             // ----------------------------------------------------
             // 4. メインデッキ (main)
             // ----------------------------------------------------
-            const meta = await fetchImageMeta(card.imagepath);
+            const meta = await fetchImageMeta(card);
             if (!meta) continue;
 
             const memoText = includeText ? createMemoText(card) : "";
 
             for (let q = 0; q < qty; q++) {
-                // パートナー独立抽出の処理
                 if (separatePartner && !partnerExtracted && thumbnailId && String(card.card_id) === String(thumbnailId)) {
                     addStandaloneCard(meta.filename, null, memoText, -6, -3);
                     partnerExtracted = true;
@@ -1270,6 +1286,16 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
         const colors = new Set();
 
         cards.forEach(card => {
+            // ★修正: ダミーカードの civ_ids からも文明色を追加
+            if (card.civ_ids) {
+                const ids = card.civ_ids.split(',').map(Number);
+                if (ids.includes(4)) colors.add('fire');
+                if (ids.includes(2)) colors.add('water');
+                if (ids.includes(1)) colors.add('light');
+                if (ids.includes(3)) colors.add('dark');
+                if (ids.includes(5)) colors.add('nature');
+                if (ids.includes(6)) colors.add('zero');
+            }
             if (card.civ_fire || card.civilization_id == 4) colors.add('fire');
             if (card.civ_water || card.civilization_id == 2) colors.add('water');
             if (card.civ_light || card.civilization_id == 1) colors.add('light');
@@ -1360,8 +1386,8 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
                 const imgWrap = document.createElement('div');
                 imgWrap.className = 'export-card-item';
                 
-                const path = card.imagepath || '';
-                const thumbPath = path ? '/images/card' + (path.startsWith('/') ? path : '/' + path) : '/images/card/noimage.webp';
+                // ★修正: ダミーカードは自動生成画像URLを使用
+                const thumbPath = getIndexCardImageUrl(card);
 
                 imgWrap.innerHTML = `<img src="${thumbPath}" class="export-card-img" onerror="this.src='/images/card/noimage.webp';">`;
                 grid.appendChild(imgWrap);
@@ -1685,7 +1711,8 @@ async function generateProxyPdf() {
                 }
 
                 const qty = parseInt(c.quantity || 1);
-                const imgPath = c.imagepath ? '/images/card' + (c.imagepath.startsWith('/') ? c.imagepath : '/' + c.imagepath) : '/images/card/noimage.webp';
+                // ★修正: ダミーカードならCanvas画像URL、通常なら画像ファイルパス
+                const imgPath = getIndexCardImageUrl(c);
                 
                 for (let q = 0; q < qty; q++) {
                     allPrintCards.push({ name, imgPath });
@@ -1726,7 +1753,9 @@ async function generateProxyPdf() {
                 const y = startY + (row * (cardHeight + spacingMm));
 
                 const imgEl = await loadImage(pageCards[i].imgPath);
-                pdf.addImage(imgEl, 'WEBP', x, y, cardWidth, cardHeight, undefined, 'FAST');
+                // ★修正: DataURL（PNG）とWebP画像の両方に対応
+                const imgFormat = pageCards[i].imgPath.startsWith('data:image/png') ? 'PNG' : 'WEBP';
+                pdf.addImage(imgEl, imgFormat, x, y, cardWidth, cardHeight, undefined, 'FAST');
             }
 
             const pdfBlob = pdf.output('blob');
@@ -1907,6 +1936,60 @@ function copyDeck(deckId) {
         }
     })
     .catch(() => alert('通信エラーが発生しました'));
+}
+// --- ダミーカード用画像生成ヘルパー ---
+const INDEX_CIV_COLORS = {
+    '1': '#f1c40f', '2': '#3498db', '3': '#34495e',
+    '4': '#e74c3c', '5': '#2ecc71', '6': '#95a5a6'
+};
+
+function getIndexCardImageUrl(card) {
+    if (!card) return '/images/card/noimage.webp';
+    if (card.is_dummy == 1 || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_')) || !card.imagepath) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 220; canvas.height = 308;
+        const ctx = canvas.getContext('2d');
+        const civIds = (card.civ_ids || '').toString().split(',').filter(Boolean);
+
+        if (civIds.length === 1) {
+            ctx.fillStyle = INDEX_CIV_COLORS[civIds[0]] || '#bdc3c7';
+            ctx.fillRect(0, 0, 220, 308);
+        } else if (civIds.length > 1) {
+            const grad = ctx.createLinearGradient(0, 0, 220, 308);
+            civIds.forEach((id, idx) => grad.addColorStop(idx / (civIds.length - 1), INDEX_CIV_COLORS[id] || '#bdc3c7'));
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 220, 308);
+        } else {
+            ctx.fillStyle = '#bdc3c7';
+            ctx.fillRect(0, 0, 220, 308);
+        }
+
+        ctx.lineWidth = 8; ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(4, 4, 212, 300);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(16, 16, 188, 276);
+
+        // ★オレンジ帯を削除
+
+        ctx.beginPath(); ctx.arc(42, 46, 18, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textBaseline = 'middle';
+        ctx.fillText((card.cost !== null && card.cost !== undefined) ? card.cost : '?', 42, 47);
+
+        ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textBaseline = 'top';
+        const words = (card.card_name || 'カード名未設定').split('');
+        let line = '', y = 82;
+        for (let n = 0; n < words.length; n++) {
+            let testLine = line + words[n];
+            if (ctx.measureText(testLine).width > 160 && n > 0) {
+                ctx.fillText(line, 110, y); line = words[n]; y += 22;
+            } else { line = testLine; }
+        }
+        ctx.fillText(line, 110, y);
+
+        return canvas.toDataURL('image/png');
+    }
+
+    if (card.imagepath.startsWith('data:image')) return card.imagepath;
+    const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
+    return '/images/card' + path;
 }
 </script>
 

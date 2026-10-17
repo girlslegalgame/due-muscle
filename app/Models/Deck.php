@@ -38,7 +38,6 @@ class Deck {
     public function getCardsByDeckId(int $deckId) {
         // ★ 1. 後から追加された同名カードの自動置換 ＆ limit 超過分の自動カット調整
         try {
-            // 置換対象のダミーカードと、本物カードのID・上限枚数(limit)を取得
             $stmtDummies = $this->pdo->prepare("
                 SELECT dc.dummy_name, c.card_id, COALESCE(cd.limit, 4) as card_limit
                 FROM deck_cards dc
@@ -53,9 +52,8 @@ class Deck {
             foreach ($matchedDummies as $m) {
                 $dName = $m['dummy_name'];
                 $realCardId = (int)$m['card_id'];
-                $cardLimit = (int)$m['card_limit']; // 殿堂なら1、プレ殿なら0、通常は4など
+                $cardLimit = (int)$m['card_limit'];
 
-                // 現在デッキに積まれている当該ダミーの sort_order 一覧を取得
                 $stmtOrders = $this->pdo->prepare("
                     SELECT sort_order FROM deck_cards 
                     WHERE deck_id = :deck_id AND dummy_name = :dname 
@@ -64,7 +62,6 @@ class Deck {
                 $stmtOrders->execute([':deck_id' => $deckId, ':dname' => $dName]);
                 $orders = $stmtOrders->fetchAll(PDO::FETCH_COLUMN);
 
-                // limit を超えている余剰分を削除（limit=0 のプレ殿なら全削除）
                 if (count($orders) > $cardLimit) {
                     $excessOrders = array_slice($orders, $cardLimit);
                     if (!empty($excessOrders)) {
@@ -76,11 +73,11 @@ class Deck {
                     }
                 }
 
-                // 残った枠（limit 以内）を正規カードへ更新
                 if ($cardLimit > 0) {
                     $stmtUpdate = $this->pdo->prepare("
                         UPDATE deck_cards 
-                        SET card_id = :cid, dummy_name = NULL, dummy_cost = NULL, dummy_civ_ids = NULL 
+                        SET card_id = :cid, dummy_name = NULL, dummy_cost = NULL, dummy_civ_ids = NULL,
+                            dummy_card_type = NULL, dummy_partner_name = NULL, dummy_partner_cost = NULL, dummy_partner_civ_ids = NULL
                         WHERE deck_id = :deck_id AND dummy_name = :dname
                     ");
                     $stmtUpdate->execute([
@@ -92,8 +89,8 @@ class Deck {
             }
         } catch (\Throwable $e) {}
 
-        // ★ 2. LEFT JOIN によるカード取得クエリ（以降は変更なし）
-        $sql = "SELECT
+        // ★ 2. ツインパクト・両面ダミー情報を包括したカード一覧取得クエリ
+        $sql = "SELECT 
                     COALESCE(c.card_id, CONCAT('dummy_', dc.sort_order)) as card_id, 
                     COALESCE(c.card_name, dc.dummy_name) as card_name, 
                     c.reading,
@@ -102,11 +99,15 @@ class Deck {
                     c.text,
                     cd.modelnum, 
                     cd.imagepath,
-                    cd.twinpact,
+                    COALESCE(cd.twinpact, CASE WHEN dc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
                     cd.hypermode,
                     dc.quantity,
                     dc.card_type_in_deck,
                     CASE WHEN dc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
+                    dc.dummy_card_type,
+                    dc.dummy_partner_name,
+                    dc.dummy_partner_cost,
+                    dc.dummy_partner_civ_ids,
                     cc.combination_id,
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                     COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id), dc.dummy_civ_ids) as civ_ids,
@@ -115,13 +116,23 @@ class Deck {
                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
                     (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names,
                     
+                    -- 相方（下面・裏面）情報のフォールバック
                     (SELECT c_partner.card_id FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_card_id,
                     (SELECT cd_partner.hypermode FROM card_combination cc_p JOIN card_detail cd_partner ON cc_p.card_id = cd_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_hypermode,
-                    (SELECT c_partner.card_name FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_card_name,
-                    (SELECT c_partner.cost FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_cost,
+                    COALESCE(
+                        (SELECT c_partner.card_name FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1),
+                        dc.dummy_partner_name
+                    ) as partner_card_name,
+                    COALESCE(
+                        (SELECT c_partner.cost FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1),
+                        dc.dummy_partner_cost
+                    ) as partner_cost,
                     (SELECT c_partner.pow FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_pow,
                     (SELECT c_partner.text FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_text,
-                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_civ_ids,
+                    COALESCE(
+                        (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)),
+                        dc.dummy_partner_civ_ids
+                    ) as partner_civ_ids,
                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_cardtype_ids,
                     (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_typename,
                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_race_ids,
@@ -169,7 +180,6 @@ class Deck {
      * @return array|false
      */
     public function getByIdAndUser(int $deckId, int $userId) {
-        // 編集画面を開く際にもサムネイル情報を復元できるよう、card_detail を LEFT JOIN します
         $sql = "SELECT d.*, cd.imagepath AS thumbnail_imagepath 
                 FROM decks d 
                 LEFT JOIN card_detail cd ON d.thumbnail_card_id = cd.card_id
