@@ -4460,39 +4460,6 @@ function updateDummySpecificEditPreview(type) {
     }
 });
 
-function updateDummyEditPreview() {
-    const type = document.querySelector('input[name="dummy-edit-type"]:checked')?.value || 'normal';
-    const name = document.getElementById('dummy-edit-name').value.trim();
-    const cost = document.getElementById('dummy-edit-cost').value;
-    const civs = Array.from(document.querySelectorAll('.dummy-edit-civ-check:checked')).map(c => c.value);
-
-    const pName = document.getElementById('dummy-edit-partner-name').value.trim();
-    const pCost = document.getElementById('dummy-edit-partner-cost').value;
-    const pCivs = Array.from(document.querySelectorAll('.dummy-edit-partner-civ-check:checked')).map(c => c.value);
-
-    const backWrap = document.getElementById('dummy-edit-preview-back-wrap');
-    const label1 = document.getElementById('dummy-edit-preview-label1');
-
-    if (type === 'double') {
-        document.getElementById('dummy-edit-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), 'double');
-        document.getElementById('dummy-edit-preview-back-img').src = generateDummyCardImage(pName || '裏面カード名', pCost, pCivs.join(','), 'double');
-        backWrap.style.display = 'block';
-        label1.style.display = 'block';
-    } else {
-        document.getElementById('dummy-edit-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
-        backWrap.style.display = 'none';
-        label1.style.display = 'none';
-    }
-}
-
-// 編集モーダルの入力値変更時にプレビューを即座に更新
-document.getElementById('dummy-edit-partner-name').addEventListener('input', updateDummyEditPreview);
-document.getElementById('dummy-edit-partner-cost').addEventListener('input', updateDummyEditPreview);
-document.querySelectorAll('.dummy-edit-partner-civ-check').forEach(el => el.addEventListener('change', updateDummyEditPreview));
-document.getElementById('dummy-edit-name').addEventListener('input', updateDummyEditPreview);
-document.getElementById('dummy-edit-cost').addEventListener('input', updateDummyEditPreview);
-document.querySelectorAll('.dummy-edit-civ-check').forEach(el => el.addEventListener('change', updateDummyEditPreview));
-
 function getDummyParentList() {
     if (currentEditingDummyEl && currentEditingDummyEl.parentNode) {
         return currentEditingDummyEl.parentNode;

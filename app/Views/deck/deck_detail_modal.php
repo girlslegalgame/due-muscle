@@ -1,4 +1,5 @@
 <!-- app/Views/deck/deck_detail_modal.php -->
+<script src="/js/card_image_helper.js"></script>
 <!-- 共通デッキ詳細モーダルのスタイル -->
 <style>
     /* --- モーダル設定 --- */
@@ -802,8 +803,24 @@ function openDeckModal(deckId, deckName) {
 
     // デッキカードと購入済みリストを並行取得
     Promise.all([
-        fetch('/api/decks/view?deck_id=' + deckId).then(res => res.json()),
-        fetch('/api/decks/owned-cards?deck_id=' + deckId).then(res => res.json()).catch(() => [])
+        fetch('/api/decks/view?deck_id=' + deckId).then(async res => {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error("【/api/decks/view エラー】\n", text);
+                throw new Error("decks/view APIでPHPエラーが発生しました");
+            }
+        }),
+        fetch('/api/decks/owned-cards?deck_id=' + deckId).then(async res => {
+            const text = await res.text();
+            try {
+                return JSON.parse(text);
+            } catch (e) {
+                console.error("【/api/decks/owned-cards エラー】\n", text);
+                return [];
+            }
+        }).catch(() => [])
     ])
     .then(([cardsData, ownedData]) => {
         currentDeckCards = cardsData;

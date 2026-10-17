@@ -76,8 +76,7 @@ class Deck {
                 if ($cardLimit > 0) {
                     $stmtUpdate = $this->pdo->prepare("
                         UPDATE deck_cards 
-                        SET card_id = :cid, dummy_name = NULL, dummy_cost = NULL, dummy_civ_ids = NULL,
-                            dummy_card_type = NULL, dummy_partner_name = NULL, dummy_partner_cost = NULL, dummy_partner_civ_ids = NULL
+                        SET card_id = :cid, dummy_name = NULL, dummy_cost = NULL, dummy_civ_ids = NULL
                         WHERE deck_id = :deck_id AND dummy_name = :dname
                     ");
                     $stmtUpdate->execute([
@@ -89,7 +88,7 @@ class Deck {
             }
         } catch (\Throwable $e) {}
 
-        // ★ 2. ツインパクト・両面ダミー情報を包括したカード一覧取得クエリ
+        // ★ 2. カード一覧取得クエリ（存在しない未追加カラムを参照しない安全版）
         $sql = "SELECT 
                     COALESCE(c.card_id, CONCAT('dummy_', dc.sort_order)) as card_id, 
                     COALESCE(c.card_name, dc.dummy_name) as card_name, 
@@ -99,15 +98,15 @@ class Deck {
                     c.text,
                     cd.modelnum, 
                     cd.imagepath,
-                    COALESCE(cd.twinpact, CASE WHEN dc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
+                    cd.twinpact,
                     cd.hypermode,
                     dc.quantity,
                     dc.card_type_in_deck,
                     CASE WHEN dc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
-                    dc.dummy_card_type,
-                    dc.dummy_partner_name,
-                    dc.dummy_partner_cost,
-                    dc.dummy_partner_civ_ids,
+                    'normal' as dummy_card_type,
+                    NULL as dummy_partner_name,
+                    NULL as dummy_partner_cost,
+                    NULL as dummy_partner_civ_ids,
                     cc.combination_id,
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                     COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id), dc.dummy_civ_ids) as civ_ids,
@@ -116,23 +115,14 @@ class Deck {
                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
                     (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names,
                     
-                    -- 相方（下面・裏面）情報のフォールバック
+                    -- 相方（下面・裏面）情報
                     (SELECT c_partner.card_id FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_card_id,
                     (SELECT cd_partner.hypermode FROM card_combination cc_p JOIN card_detail cd_partner ON cc_p.card_id = cd_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_hypermode,
-                    COALESCE(
-                        (SELECT c_partner.card_name FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1),
-                        dc.dummy_partner_name
-                    ) as partner_card_name,
-                    COALESCE(
-                        (SELECT c_partner.cost FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1),
-                        dc.dummy_partner_cost
-                    ) as partner_cost,
+                    (SELECT c_partner.card_name FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_card_name,
+                    (SELECT c_partner.cost FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_cost,
                     (SELECT c_partner.pow FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_pow,
                     (SELECT c_partner.text FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_text,
-                    COALESCE(
-                        (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)),
-                        dc.dummy_partner_civ_ids
-                    ) as partner_civ_ids,
+                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_civ_ids,
                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_cardtype_ids,
                     (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_typename,
                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_race_ids,
