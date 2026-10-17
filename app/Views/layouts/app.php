@@ -263,13 +263,21 @@
             </div>
             
             <div style="border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
-                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
-                    <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
-                    次回からこの画面を表示しない
-                </label>
-                <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 22px; line-height: 1.3;">
-                    ※この設定は後から「アカウント設定」画面で変更・リセットできます。
-                </p>
+                <?php if (isset($_SESSION['user_id'])): ?>
+                    <!-- ログイン中：チェックボックスを表示 -->
+                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
+                        <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
+                        次回からこの画面を表示しない
+                    </label>
+                    <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 22px; line-height: 1.3;">
+                        ※この設定は後から「アカウント設定」画面で変更・リセットできます。
+                    </p>
+                <?php else: ?>
+                    <!-- 未ログイン：チェックボックスは非表示にし、案内文を表示 -->
+                    <p style="font-size: 0.8rem; color: #666; margin: 0; line-height: 1.4; text-align: center;">
+                        <a href="/login" style="color: #007bff !important; text-decoration: underline !important; font-weight: bold;">ログイン</a>すると、次回以降この選択をスキップしてデフォルトで開く画面を設定できます。
+                    </p>
+                <?php endif; ?>
             </div>
         </div>
     </div>
@@ -295,7 +303,8 @@ function closeDeckTypeSelectModal() {
 }
 
 function selectDeckType(url) {
-    const remember = document.getElementById('deck-type-remember').checked;
+    const rememberCheckbox = document.getElementById('deck-type-remember');
+    const remember = rememberCheckbox ? rememberCheckbox.checked : false;
     if (remember) {
         localStorage.setItem('default_deck_builder', url === '/decks/new' ? 'dm' : 'other');
     }
