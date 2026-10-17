@@ -76,6 +76,9 @@ const CcfoliaExporter = (function () {
      * @param {Array<{blob: Blob, memo?: string, count: number, width?: number, height?: number}>} options.standalones
      */
     async function buildZip(options) {
+        const defaultWidth = parseFloat(options.cardWidth) || 4;
+        const defaultHeight = parseFloat(options.cardHeight) || 6;
+
         const zip = new JSZip();
         try {
             const tokenRes = await fetch('/images/.token');
@@ -100,15 +103,16 @@ const CcfoliaExporter = (function () {
             }
             if (Object.keys(items).length > 0) {
                 decksObj[generateId()] = {
-                    x: -2, y: -3, z: 99, zIndex: 1, width: 4, height: 6,
+                    x: -2, y: -3, z: 99, zIndex: 1, 
+                    width: defaultWidth, height: defaultHeight,
                     locked: false, freezed: true, coverImageUrl: null, items: items
                 };
             }
         }
 
         // 2. サブデッキ群
+        let posX = 3; // ★ここで確実に定義
         if (options.subDecks && options.subDecks.length > 0) {
-            let posX = 3;
             for (const sub of options.subDecks) {
                 if (!sub.cards || sub.cards.length === 0) continue;
                 const items = {};
@@ -121,7 +125,8 @@ const CcfoliaExporter = (function () {
                 }
                 if (Object.keys(items).length > 0) {
                     decksObj[generateId()] = {
-                        x: posX, y: -3, z: 99, zIndex: 1, width: 4, height: 6,
+                        x: posX, y: -3, z: 99, zIndex: 1, 
+                        width: defaultWidth, height: defaultHeight,
                         locked: false, freezed: true, coverImageUrl: null, items: items
                     };
                     posX += 5;
@@ -130,13 +135,13 @@ const CcfoliaExporter = (function () {
         }
 
         // 3. デッキ外の独立カード (standalones)
+        let startX = -8;
         if (options.standalones && options.standalones.length > 0) {
-            let startX = -8;
             for (const item of options.standalones) {
                 const imgFilename = await registerImage(zip, resourcesObj, item.blob);
                 const count = parseInt(item.count, 10) || 1;
-                const w = item.width || 4;
-                const h = item.height || 6;
+                const w = item.width || defaultWidth;
+                const h = item.height || defaultHeight;
                 for (let i = 0; i < count; i++) {
                     const id = generateId();
                     standaloneItemsObj[id] = {
