@@ -767,6 +767,70 @@ let priceEstimateCache = {};
 
 let currentDeckOwnedCards = []; // 現在開いているデッキの購入済みリスト
 
+// --- ダミーカード対応の安全な画像取得ヘルパー ---
+const MODAL_CIV_COLORS = {
+    '1': '#f1c40f', '2': '#3498db', '3': '#34495e',
+    '4': '#e74c3c', '5': '#2ecc71', '6': '#95a5a6'
+};
+
+function getModalCardImagePath(card) {
+    if (!card) return '/images/card/noimage.webp';
+    
+    // ダミーカード、または画像パスが存在しない場合はCanvasで自動生成
+    if (card.is_dummy == 1 || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_')) || !card.imagepath) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 220; canvas.height = 308;
+        const ctx = canvas.getContext('2d');
+        const civIds = (card.civ_ids || '').toString().split(',').filter(Boolean);
+
+        // 背景色
+        if (civIds.length === 1) {
+            ctx.fillStyle = MODAL_CIV_COLORS[civIds[0]] || '#bdc3c7';
+            ctx.fillRect(0, 0, 220, 308);
+        } else if (civIds.length > 1) {
+            const grad = ctx.createLinearGradient(0, 0, 220, 308);
+            civIds.forEach((id, idx) => grad.addColorStop(idx / (civIds.length - 1), MODAL_CIV_COLORS[id] || '#bdc3c7'));
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 220, 308);
+        } else {
+            ctx.fillStyle = '#bdc3c7';
+            ctx.fillRect(0, 0, 220, 308);
+        }
+
+        // 枠線・白背景
+        ctx.lineWidth = 8; ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(4, 4, 212, 300);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.fillRect(16, 16, 188, 276);
+
+        // ラベル
+        ctx.fillStyle = '#e67e22'; ctx.fillRect(16, 16, 188, 22);
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+        ctx.fillText('【未実装カード】', 110, 32);
+
+        // コスト
+        ctx.beginPath(); ctx.arc(38, 62, 18, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textBaseline = 'middle';
+        ctx.fillText((card.cost !== null && card.cost !== undefined) ? card.cost : '?', 38, 63);
+
+        // カード名（折り返し描画）
+        ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textBaseline = 'top';
+        const words = (card.card_name || 'カード名未設定').split('');
+        let line = '', y = 95;
+        for (let n = 0; n < words.length; n++) {
+            let testLine = line + words[n];
+            if (ctx.measureText(testLine).width > 160 && n > 0) {
+                ctx.fillText(line, 110, y); line = words[n]; y += 20;
+            } else { line = testLine; }
+        }
+        ctx.fillText(line, 110, y);
+
+        return canvas.toDataURL('image/png');
+    }
+
+    if (card.imagepath.startsWith('data:image')) return card.imagepath;
+    const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
+    return '/images/card' + path;
+}
+
 /**
  * モーダルオープン時の処理更新
  */
@@ -1043,11 +1107,15 @@ function renderImages(cards) {
 
         for(let i=0; i < card.quantity; i++) {
             const img = document.createElement('img');
-            const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
-            img.src = '/images/card' + path;
+            // ★修正: nullでもクラッシュせず、ダミーカード画像を自動生成して適用
+            img.src = getModalCardImagePath(card);
             img.dataset.cardId = card.card_id;
             img.style.cursor = 'pointer';
-            img.onclick = () => openCardDetail(card.card_id);
+            
+            // ダミーカード以外の場合のみ詳細モーダルを開く
+            if (card.is_dummy != 1 && !String(card.card_id).startsWith('dummy_')) {
+                img.onclick = () => openCardDetail(card.card_id);
+            }
             img.onerror = function() { this.src = '/images/card/noimage.webp'; this.onerror = null; };
 
             if (isSpecial) {
@@ -1340,8 +1408,8 @@ function initModalFirstDraw() {
     // 採用枚数分配列に展開する
     modalDrawDeck = [];
     mainCards.forEach(card => {
-        const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
-        const src = '/images/card' + path;
+        // ★修正
+        const src = getModalCardImagePath(card);
         for (let i = 0; i < card.quantity; i++) {
             modalDrawDeck.push({
                 src: src,
@@ -1459,8 +1527,8 @@ function openModalFaSetupModal() {
     const cardMap = {};
     mainCards.forEach(card => {
         const id = card.card_id;
-        const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
-        const src = '/images/card' + path;
+        // ★修正
+        const src = getModalCardImagePath(card);
         const qty = parseInt(card.quantity || card.qty || 1);
 
         if (!cardMap[id]) {
@@ -1471,7 +1539,7 @@ function openModalFaSetupModal() {
                 count: 0
             };
         }
-        cardMap[id].count += qty; // 複数行に分かれて登録されている枚数を足し合わせる
+        cardMap[id].count += qty;
     });
 
     // 集約したユニークなカードデータをもとにモーダル一覧を生成
@@ -1537,12 +1605,10 @@ function confirmModalFaSetup() {
 
         const seen = new Set(); // ★ 描画済みのカードIDを追跡するSetを追加します
         mainCards.forEach(card => {
-            // 選択されたカードであり、かつまだ表示されていない場合のみimg要素を追加
             if (modalFaSelectedCardIds.has(card.card_id) && !seen.has(card.card_id)) {
-                seen.add(card.card_id); // 描画済みに登録
-                
-                const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
-                const src = '/images/card' + path;
+                seen.add(card.card_id);
+                // ★修正
+                const src = getModalCardImagePath(card);
                 const img = document.createElement('img');
                 img.src = src;
                 img.alt = card.card_name;

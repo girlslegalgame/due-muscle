@@ -1186,7 +1186,8 @@
         <div id="deck-header">
             <h3>デッキ内容</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <!-- ★「分析」ボタンの左隣に「並び替え」ボタンを配置 -->
+                <!-- ★追加：未実装カード追加ボタン -->
+                <button type="button" class="btn-settings" style="background: #fd7e14; padding: 8px 12px; font-size: 13px;" onclick="openDummyCardModal()">+未実装</button>
                 <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
                 <button class="btn-analysis" onclick="openAnalysisModal()">分析</button>
                 <button id="save-deck-btn" onclick="openSaveModal()" style="padding: 8px 20px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>
@@ -1707,6 +1708,106 @@
         </div>
     </div>
 </div>
+<!-- ダミーカード作成モーダル -->
+<div id="dummyCardModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 420px; height: auto; margin: 10vh auto;">
+        <div class="sub-modal-header" style="background: #fd7e14;">
+            <span>未実装カードの追加 (ダミー)</span>
+            <span onclick="closeDummyCardModal()" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード名 <span style="color:red;">*</span></label>
+                <input type="text" id="dummy-input-name" placeholder="例: 頂上混成 ガリュディアス・モモミーズ'22" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">コスト</label>
+                    <input type="number" id="dummy-input-cost" placeholder="例: 5" min="0" max="99" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">ゾーン</label>
+                    <select id="dummy-input-zone" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box; background:#fff;">
+                        <option value="main">メインデッキ</option>
+                        <option value="super_dimensional">超次元ゾーン</option>
+                        <option value="gr">超GRゾーン</option>
+                    </select>
+                </div>
+            </div>
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">文明</label>
+                <div class="civ-checkboxes" style="grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                    <label><input type="checkbox" class="dummy-civ-check" value="1"> 光</label>
+                    <label><input type="checkbox" class="dummy-civ-check" value="2"> 水</label>
+                    <label><input type="checkbox" class="dummy-civ-check" value="3"> 闇</label>
+                    <label><input type="checkbox" class="dummy-civ-check" value="4"> 火</label>
+                    <label><input type="checkbox" class="dummy-civ-check" value="5"> 自然</label>
+                    <label><input type="checkbox" class="dummy-civ-check" value="6"> ゼロ</label>
+                </div>
+            </div>
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">プレビュー</label>
+                <div style="display:flex; justify-content:center; background:#eee; padding:10px; border-radius:8px;">
+                    <img id="dummy-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+                </div>
+            </div>
+        </div>
+        <div style="padding: 15px 20px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button type="button" onclick="closeDummyCardModal()" style="flex:1; padding:10px; background:#f2f2f7; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">キャンセル</button>
+            <button type="button" onclick="createAndAddDummyCard()" style="flex:2; padding:10px; background:#fd7e14; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">デッキに追加</button>
+        </div>
+    </div>
+</div>
+<!-- ダミーカード編集モーダル -->
+<div id="dummyEditModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 420px; height: auto; margin: 10vh auto;">
+        <div class="sub-modal-header" style="background: #e67e22;">
+            <span>未実装カードの編集</span>
+            <span onclick="closeDummyEditModal()" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード名 <span style="color:red;">*</span></label>
+                <input type="text" id="dummy-edit-name" placeholder="カード名を入力" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
+            </div>
+            <div style="display: flex; gap: 12px;">
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">コスト</label>
+                    <input type="number" id="dummy-edit-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box;">
+                </div>
+                <div style="flex: 1;">
+                    <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">採用枚数</label>
+                    <div style="display: flex; align-items: center; justify-content: space-between; height: 35px;">
+                        <button type="button" class="btn-qty" style="width:34px; height:34px;" onclick="adjustDummyQty(-1)">-</button>
+                        <span id="dummy-edit-qty" style="font-weight:bold; font-size:16px;">1</span> 枚
+                        <button type="button" class="btn-qty" style="width:34px; height:34px;" onclick="adjustDummyQty(1)">+</button>
+                    </div>
+                </div>
+            </div>
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">文明</label>
+                <div class="civ-checkboxes" style="grid-template-columns: repeat(3, 1fr); gap: 6px;">
+                    <label><input type="checkbox" class="dummy-edit-civ-check" value="1"> 光</label>
+                    <label><input type="checkbox" class="dummy-edit-civ-check" value="2"> 水</label>
+                    <label><input type="checkbox" class="dummy-edit-civ-check" value="3"> 闇</label>
+                    <label><input type="checkbox" class="dummy-edit-civ-check" value="4"> 火</label>
+                    <label><input type="checkbox" class="dummy-edit-civ-check" value="5"> 自然</label>
+                    <label><input type="checkbox" class="dummy-edit-civ-check" value="6"> ゼロ</label>
+                </div>
+            </div>
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">プレビュー</label>
+                <div style="display:flex; justify-content:center; background:#eee; padding:10px; border-radius:8px;">
+                    <img id="dummy-edit-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2);">
+                </div>
+            </div>
+        </div>
+        <div style="padding: 15px 20px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:10px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
+            <button type="button" onclick="saveDummyCardEdit()" style="flex:2; padding:10px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
+        </div>
+    </div>
+</div>
 <!-- 既存のモーダル類の直後や、最下部に配置 -->
 <?php include __DIR__ . '/analysis_modal.php'; ?>
 
@@ -1775,7 +1876,12 @@ let isSubmittingDeck = false; // ★追加：送信中の多重送信防止フ�
  * 画像パス生成 (通常・両面対応)
  */
 function getCardImagePath(card) {
+    if (card.image_data_url) return card.image_data_url;
+    if (card.is_dummy || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_'))) {
+        return generateDummyCardImage(card.card_name, card.cost, card.civ_ids || card.civilization || '');
+    }
     if (!card.imagepath) return '/images/card/noimage.webp';
+    if (card.imagepath.startsWith('data:image')) return card.imagepath;
     const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
     return '/images/card' + path;
 }
@@ -1900,21 +2006,24 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     cardCache[card.card_id] = card;
     const img = document.createElement('img');
     img.src = getCardImagePath(card);
-    img.draggable = false; // ★追加：ブラウザ標準の画像ドラッグを禁止する
+    img.draggable = false;
     img.dataset.cardId = card.card_id;
     img.dataset.cardName = card.card_name;
     img.dataset.reading = card.reading || '';
     img.dataset.comboNames = card.combo_names || '';
     img.dataset.charIds = card.char_ids;
-    img.dataset.imagepath = card.imagepath;
+    img.dataset.imagepath = img.src; // Data URLまたは正規画像パス
     img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : '';
     img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
     img.dataset.cost = card.cost !== undefined ? card.cost : '';
+    // ★追加: ダミー情報属性
+    if (card.is_dummy || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_'))) {
+        img.dataset.isDummy = "1";
+    }
     img.alt = card.card_name;
     img.onerror = () => handleImageError(img);
 
     const name = card.card_name;
-    // 名前が完全一致する場合のみ特殊カードとして判定
     const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
     const isZero = (name === '零龍' || name === '滅亡の起源 零無');
     const isSpecial = isDoru || isZero;
@@ -1922,7 +2031,6 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     const type = forcedType || (isSpecial ? 'special' : determineZoneType(card.char_ids));
 
     if (type === 'special') {
-        // 明示的な指定があればそれを使い、なければカード名から判別
         const slotId = forcedSlotId || (isDoru ? 'slot-dolmagedon' : 'slot-zeroron');
         const slot = document.getElementById(slotId);
         if (slot) {
@@ -2301,6 +2409,10 @@ function loadCombinationSides(cardId) {
 }
 
 function openCardDetail(cardId, el) {
+    if (el && (el.dataset.isDummy === "1" || (typeof cardId === 'string' && cardId.startsWith('dummy_')))) {
+        openDummyEditModal(el);
+        return;
+    }
     activeClickedElement = el;
     
     let cachedCard = cardCache[cardId];
@@ -3035,7 +3147,7 @@ function setThumbnail(cardId, imagepath) {
 }
 
 function submitDeckSave() {
-    // ★追加: 既に送信中であれば処理を中断
+    // 既に送信中であれば処理を中断
     if (isSubmittingDeck) return;
 
     const name = document.getElementById('save-deck-name').value.trim();
@@ -3052,15 +3164,32 @@ function submitDeckSave() {
         return alert("有効なフォーマットを選択してください。");
     }
     
-    const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'main' }));
-    const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'super_dimensional' }));
-    const grCards = Array.from(grList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'gr' }));
-    const specialCards = Array.from(document.querySelectorAll('.special-box.active img')).map(img => ({ id: img.dataset.cardId, type: 'special' }));
+    // ★ここから：ダミーカード情報も正確に抽出して収集する処理
+    const extractCardData = (img, type) => {
+        const isDummy = img.dataset.isDummy === "1";
+        return {
+            id: isDummy ? null : img.dataset.cardId,
+            type: type,
+            is_dummy: isDummy,
+            dummy_name: isDummy ? img.dataset.cardName : null,
+            dummy_cost: isDummy ? (parseInt(img.dataset.cost, 10) || null) : null,
+            dummy_civ_ids: isDummy ? (img.dataset.civ || null) : null,
+            card_name: img.dataset.cardName,
+            cost: img.dataset.cost,
+            civ_ids: img.dataset.civ
+        };
+    };
+
+    const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => extractCardData(img, 'main'));
+    const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => extractCardData(img, 'super_dimensional'));
+    const grCards = Array.from(grList.querySelectorAll('img')).map(img => extractCardData(img, 'gr'));
+    const specialCards = Array.from(document.querySelectorAll('.special-box.active img')).map(img => extractCardData(img, 'special'));
 
     const allCards = [...mainCards, ...superDimCards, ...grCards, ...specialCards];    
     if (!allCards.length) return alert("カードを1枚以上入れてください。");
+    // ★ここまで
 
-    // ★追加: モーダル内の保存ボタンを取得して無効化＆文言変更
+    // モーダル内の保存ボタンを取得して無効化＆文言変更
     const submitBtn = document.querySelector('#deckSaveModal button[onclick="submitDeckSave()"]');
     isSubmittingDeck = true;
     if (submitBtn) {
@@ -3083,7 +3212,6 @@ function submitDeckSave() {
         body: JSON.stringify(payload)
     })
     .then(res => {
-        // ★修正: 未ログイン（401）の場合、エラーアラートを出さずにデータを保持し、即座にログイン画面へ直行する
         if (res.status === 401) {
             localStorage.setItem('pending_deck_payload', JSON.stringify(payload));
             localStorage.setItem('pending_deck_save', 'true');
@@ -3097,7 +3225,7 @@ function submitDeckSave() {
     .then(data => {
         if (!data) return;
         if (data.success) { 
-            isDeckSaved = true; // ★追加: 保存完了フラグを立てて以後の自動保存を完全に阻止
+            isDeckSaved = true;
             localStorage.removeItem('unsaved_deck_draft');
             localStorage.removeItem('pending_deck_save');
             localStorage.removeItem('pending_deck_payload');
@@ -3105,7 +3233,6 @@ function submitDeckSave() {
             window.location.href = '/mydecks'; 
         } else { 
             alert("保存に失敗しました: " + data.error); 
-            // ★追加: 失敗した場合はボタン状態を復元
             isSubmittingDeck = false;
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -3116,7 +3243,6 @@ function submitDeckSave() {
     .catch(err => {
         if (err.message !== "REDIRECTED_TO_LOGIN") {
             console.error(err);
-            // ★追加: 通信エラー等の場合もボタン状態を復元
             isSubmittingDeck = false;
             if (submitBtn) {
                 submitBtn.disabled = false;
@@ -3698,5 +3824,332 @@ function bulkSelectVisible(type) {
 
     // バッジおよびトリガー表示を最新状態に更新
     updateTriggerText(type);
+}
+// --- ダミーカード生成 & モーダル関連処理 ---
+function openDummyCardModal() {
+    document.getElementById('dummyCardModal').style.display = 'block';
+    updateDummyPreview();
+}
+
+function closeDummyCardModal() {
+    document.getElementById('dummyCardModal').style.display = 'none';
+}
+
+// 文明色マッピング
+const CIV_COLORS = {
+    '1': '#f1c40f', // 光 (黄)
+    '2': '#3498db', // 水 (青)
+    '3': '#34495e', // 闇 (黒)
+    '4': '#e74c3c', // 火 (赤)
+    '5': '#2ecc71', // 自然 (緑)
+    '6': '#95a5a6'  // ゼロ (灰)
+};
+
+/**
+ * Canvasを使って文明色・コスト・カード名が描画された画像を動的生成
+ */
+function generateDummyCardImage(name, cost, civIdsStr) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 220;
+    canvas.height = 308;
+    const ctx = canvas.getContext('2d');
+
+    const civIds = (civIdsStr || '').toString().split(',').filter(Boolean);
+
+    // 1. 背景のグラデーションまたは単色塗り
+    if (civIds.length === 0) {
+        ctx.fillStyle = '#bdc3c7';
+        ctx.fillRect(0, 0, 220, 308);
+    } else if (civIds.length === 1) {
+        ctx.fillStyle = CIV_COLORS[civIds[0]] || '#bdc3c7';
+        ctx.fillRect(0, 0, 220, 308);
+    } else {
+        const grad = ctx.createLinearGradient(0, 0, 220, 308);
+        civIds.forEach((id, idx) => {
+            const stop = idx / (civIds.length - 1);
+            grad.addColorStop(stop, CIV_COLORS[id] || '#bdc3c7');
+        });
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, 220, 308);
+    }
+
+    // 2. 外枠・内枠デザイン
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = '#2c3e50';
+    ctx.strokeRect(4, 4, 212, 300);
+
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillRect(16, 16, 188, 276);
+
+    // 未実装（PROTOTYPE）リボン
+    ctx.fillStyle = '#e67e22';
+    ctx.fillRect(16, 16, 188, 22);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('【未実装カード】', 110, 32);
+
+    // 3. コストサークル
+    const costVal = (cost !== undefined && cost !== null && cost !== '') ? cost : '?';
+    ctx.beginPath();
+    ctx.arc(38, 62, 18, 0, Math.PI * 2);
+    ctx.fillStyle = '#2c3e50';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 18px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(costVal, 38, 63);
+
+    // 4. カード名テキスト描画（自動折り返し）
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 15px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+
+    const cardTitle = name || 'カード名未設定';
+    const maxWidth = 160;
+    const lineHeight = 20;
+    let words = cardTitle.split('');
+    let line = '';
+    let y = 95;
+
+    for (let n = 0; n < words.length; n++) {
+        let testLine = line + words[n];
+        let metrics = ctx.measureText(testLine);
+        if (metrics.width > maxWidth && n > 0) {
+            ctx.fillText(line, 110, y);
+            line = words[n];
+            y += lineHeight;
+        } else {
+            line = testLine;
+        }
+    }
+    ctx.fillText(line, 110, y);
+
+    // 5. 文明バッジ（下部）
+    if (civIds.length > 0) {
+        const civNames = { '1': '光', '2': '水', '3': '闇', '4': '火', '5': '自然', '6': 'ゼロ' };
+        const civLabel = civIds.map(id => civNames[id] || '').join(' / ');
+        ctx.fillStyle = '#555';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(civLabel, 110, 265);
+    }
+
+    return canvas.toDataURL('image/png');
+}
+
+function updateDummyPreview() {
+    const name = document.getElementById('dummy-input-name').value.trim();
+    const cost = document.getElementById('dummy-input-cost').value;
+    const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
+    const dataUrl = generateDummyCardImage(name, cost, civs.join(','));
+    document.getElementById('dummy-preview-img').src = dataUrl;
+}
+
+// プレビューの自動連動
+document.getElementById('dummy-input-name').addEventListener('input', updateDummyPreview);
+document.getElementById('dummy-input-cost').addEventListener('input', updateDummyPreview);
+document.querySelectorAll('.dummy-civ-check').forEach(el => el.addEventListener('change', updateDummyPreview));
+
+function createAndAddDummyCard() {
+    const name = document.getElementById('dummy-input-name').value.trim();
+    if (!name) {
+        alert("カード名を入力してください。");
+        return;
+    }
+    const cost = document.getElementById('dummy-input-cost').value;
+    const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
+    const zone = document.getElementById('dummy-input-zone').value;
+
+    const dummyId = 'dummy_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const dataUrl = generateDummyCardImage(name, cost, civs.join(','));
+
+    let charIds = '';
+    if (zone === 'super_dimensional') charIds = '3';
+    else if (zone === 'gr') charIds = '10';
+
+    const cardObj = {
+        card_id: dummyId,
+        card_name: name,
+        cost: cost !== '' ? parseInt(cost, 10) : null,
+        civ_ids: civs.join(','),
+        civilization: civs.join(','),
+        char_ids: charIds,
+        image_data_url: dataUrl,
+        imagepath: dataUrl,
+        card_limit: 99, // ★ 4 から 99（上限なし）に変更
+        is_dummy: true,
+        text: `【未実装カード】\nカード名: ${name}\nコスト: ${cost || '不明'}\n文明: ${civs.join(',') || '無色'}`
+    };
+
+    addCardToDeck(cardObj, zone);
+    closeDummyCardModal();
+
+    // 入力クリア
+    document.getElementById('dummy-input-name').value = '';
+    document.getElementById('dummy-input-cost').value = '';
+    document.querySelectorAll('.dummy-civ-check').forEach(c => c.checked = false);
+}
+// --- ダミーカード編集モーダル制御 ---
+let currentEditingDummyEl = null;
+
+function openDummyEditModal(el) {
+    currentEditingDummyEl = el;
+
+    const name = el.dataset.cardName || '';
+    const cost = el.dataset.cost || '';
+    const civStr = el.dataset.civ || '';
+    const civs = civStr.split(',').filter(Boolean);
+
+    document.getElementById('dummy-edit-name').value = name;
+    document.getElementById('dummy-edit-cost').value = cost;
+
+    // 文明チェックボックスの復元
+    document.querySelectorAll('.dummy-edit-civ-check').forEach(cb => {
+        cb.checked = civs.includes(cb.value);
+    });
+
+    // 採用枚数の取得
+    const parent = el.parentNode;
+    const sameCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
+    document.getElementById('dummy-edit-qty').innerText = sameCards.length;
+
+    updateDummyEditPreview();
+    document.getElementById('dummyEditModal').style.display = 'block';
+}
+
+function closeDummyEditModal() {
+    document.getElementById('dummyEditModal').style.display = 'none';
+    currentEditingDummyEl = null;
+}
+
+function updateDummyEditPreview() {
+    const name = document.getElementById('dummy-edit-name').value.trim();
+    const cost = document.getElementById('dummy-edit-cost').value;
+    const civs = Array.from(document.querySelectorAll('.dummy-edit-civ-check:checked')).map(c => c.value);
+    const dataUrl = generateDummyCardImage(name, cost, civs.join(','));
+    document.getElementById('dummy-edit-preview-img').src = dataUrl;
+}
+
+// 編集モーダルの入力値変更時にプレビューを即座に更新
+document.getElementById('dummy-edit-name').addEventListener('input', updateDummyEditPreview);
+document.getElementById('dummy-edit-cost').addEventListener('input', updateDummyEditPreview);
+document.querySelectorAll('.dummy-edit-civ-check').forEach(el => el.addEventListener('change', updateDummyEditPreview));
+
+function getDummyParentList() {
+    if (currentEditingDummyEl && currentEditingDummyEl.parentNode) {
+        return currentEditingDummyEl.parentNode;
+    }
+    if (!currentEditingDummyEl) return null;
+    const name = currentEditingDummyEl.dataset.cardName;
+    // デッキ全体から同名ダミーカードを再探索
+    const found = document.querySelector(`img[data-card-name="${escapeSelectorValue(name)}"][data-is-dummy="1"]`);
+    if (found && found.parentNode) {
+        currentEditingDummyEl = found;
+        return found.parentNode;
+    }
+    return null;
+}
+
+// 枚数の調整 (+/-)
+function adjustDummyQty(diff) {
+    const parent = getDummyParentList();
+    if (!parent) {
+        closeDummyEditModal();
+        return;
+    }
+
+    const name = currentEditingDummyEl.dataset.cardName;
+    const sameCards = Array.from(parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`));
+    const currentCount = sameCards.length;
+
+    if (diff > 0) {
+        // ゾーンの総数上限チェック
+        let maxZoneLimit = 60;
+        let zoneName = "メインデッキ";
+        if (parent.id === 'super-dim-list') { maxZoneLimit = 8; zoneName = "超次元ゾーン"; }
+        else if (parent.id === 'gr-list') { maxZoneLimit = 12; zoneName = "超GRゾーン"; }
+
+        if (parent.querySelectorAll('img').length >= maxZoneLimit) {
+            alert(`${zoneName}は合計${maxZoneLimit}枚までです。`);
+            return;
+        }
+
+        // 複製して追加
+        const clone = sameCards[0].cloneNode(true);
+        parent.appendChild(clone);
+        currentEditingDummyEl = clone; // 参照を維持
+    } else {
+        if (currentCount <= 1) {
+            deleteCurrentDummyCard();
+            return;
+        }
+        // 末尾の1枚を安全に削除
+        const targetToRemove = sameCards[sameCards.length - 1];
+        targetToRemove.remove();
+
+        // 削除後に残ったカードに参照を切り替え
+        const remainingCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
+        if (remainingCards.length > 0) {
+            currentEditingDummyEl = remainingCards[0];
+        }
+    }
+
+    updateDeckDisplay();
+    const updatedCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
+    document.getElementById('dummy-edit-qty').innerText = updatedCards.length;
+}
+
+// 削除処理
+function deleteCurrentDummyCard() {
+    const parent = getDummyParentList();
+    if (!parent) {
+        closeDummyEditModal();
+        return;
+    }
+
+    const name = currentEditingDummyEl.dataset.cardName;
+    const sameCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
+    sameCards.forEach(img => img.remove());
+
+    updateDeckDisplay();
+    closeDummyEditModal();
+}
+
+// 編集内容を同名ダミーカード全体に反映・画像再生成
+function saveDummyCardEdit() {
+    const parent = getDummyParentList();
+    if (!parent) {
+        closeDummyEditModal();
+        return;
+    }
+
+    const newName = document.getElementById('dummy-edit-name').value.trim();
+    if (!newName) {
+        alert("カード名を入力してください。");
+        return;
+    }
+    const newCost = document.getElementById('dummy-edit-cost').value;
+    const newCivs = Array.from(document.querySelectorAll('.dummy-edit-civ-check:checked')).map(c => c.value);
+    const civStr = newCivs.join(',');
+
+    const oldName = currentEditingDummyEl.dataset.cardName;
+    const newImage = generateDummyCardImage(newName, newCost, civStr);
+
+    // デッキ内の同じダミーカードをすべて新しい設定値・画像に一括更新
+    const targetCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(oldName)}"]`);
+    targetCards.forEach(img => {
+        img.dataset.cardName = newName;
+        img.dataset.cost = newCost !== '' ? newCost : '';
+        img.dataset.civ = civStr;
+        img.dataset.imagepath = newImage;
+        img.src = newImage;
+        img.alt = newName;
+    });
+
+    updateDeckDisplay();
+    closeDummyEditModal();
 }
 </script>

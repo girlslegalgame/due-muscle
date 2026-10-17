@@ -269,6 +269,7 @@ class DeckController {
         try {
             $pdo = \Models\Database::connect();
             $pdo->beginTransaction();
+            $this->ensureDummyColumnsExist($pdo);
 
             // ★ is_public をインサートカラムに追加
             $stmt = $pdo->prepare("INSERT INTO decks (user_id, deck_name, format_id, thumbnail_card_id, is_public) VALUES (:uid, :name, :fid, :tcid, :is_pub)");
@@ -385,6 +386,7 @@ class DeckController {
         try {
             $pdo = \Models\Database::connect();
             $pdo->beginTransaction();
+            $this->ensureDummyColumnsExist($pdo);
 
             // ★ is_public を更新対象に追加
             $stmt = $pdo->prepare("UPDATE decks SET deck_name = :name, format_id = :fid, thumbnail_card_id = :tcid, is_public = :is_pub, updated_at = NOW() WHERE deck_id = :did AND user_id = :uid");
@@ -410,18 +412,69 @@ class DeckController {
         }
     }
 
+    /**
+     * ダミーカード用カラムが存在するかトランザクション開始前に確認・準備
+     */
+    private function ensureDummyColumnsExist($pdo) {
+        static $checked = false;
+        if ($checked) return;
+        try {
+            $cols = $pdo->query("SHOW COLUMNS FROM deck_cards LIKE 'dummy_name'")->fetchAll();
+            if (empty($cols)) {
+                $pdo->exec("ALTER TABLE deck_cards MODIFY card_id INT NULL;");
+                $pdo->exec("
+                    ALTER TABLE deck_cards 
+                    ADD COLUMN dummy_name VARCHAR(255) NULL AFTER card_id,
+                    ADD COLUMN dummy_cost INT NULL AFTER dummy_name,
+                    ADD COLUMN dummy_civ_ids VARCHAR(50) NULL AFTER dummy_cost;
+                ");
+            }
+        } catch (\Throwable $e) {}
+        $checked = true;
+    }
+
     // --- 【追加】カード保存用の共通メソッド ---
     private function saveDeckCards($pdo, $deckId, $cards) {
-        // quantity は常に 1 固定とし、sort_order をインサートします
-        $stmtCard = $pdo->prepare("INSERT INTO deck_cards (deck_id, card_id, quantity, card_type_in_deck, sort_order) VALUES (:did, :cid, 1, :type, :order)");
-        
+        $stmtCard = $pdo->prepare("
+            INSERT INTO deck_cards (deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, quantity, card_type_in_deck, sort_order) 
+            VALUES (:did, :cid, :dname, :dcost, :dciv, 1, :type, :order)
+        ");
+
+        $stmtCheckReal = $pdo->prepare("SELECT card_id FROM card WHERE card_name = :name LIMIT 1");
+
         $order = 1;
         foreach ($cards as $c) {
+            $cardId = !empty($c['id']) && is_numeric($c['id']) ? (int)$c['id'] : null;
+            $dummyName = null;
+            $dummyCost = null;
+            $dummyCivIds = null;
+
+            // ダミーカード判定
+            if (!empty($c['is_dummy']) || !empty($c['dummy_name'])) {
+                $dName = trim($c['dummy_name'] ?? $c['card_name'] ?? '');
+                
+                // 本物カードが既に存在するか確認（存在していれば正規カードとして登録）
+                $stmtCheckReal->execute([':name' => $dName]);
+                $realCard = $stmtCheckReal->fetch(PDO::FETCH_ASSOC);
+
+                if ($realCard) {
+                    $cardId = (int)$realCard['card_id'];
+                } else {
+                    $cardId = null;
+                    $dummyName = $dName;
+                    $dummyCost = isset($c['cost']) && is_numeric($c['cost']) ? (int)$c['cost'] : (isset($c['dummy_cost']) ? (int)$c['dummy_cost'] : null);
+                    $dummyCivIds = !empty($c['civ_ids']) ? (is_array($c['civ_ids']) ? implode(',', $c['civ_ids']) : $c['civ_ids']) : ($c['dummy_civ_ids'] ?? null);
+                }
+            }
+
             $stmtCard->execute([
                 ':did' => $deckId,
-                ':cid' => $c['id'],
+                ':cid' => $cardId,
+                ':dname' => $dummyName,
+                ':dcost' => $dummyCost,
+                ':dciv' => $dummyCivIds,
                 ':type' => $c['type'],
-                ':order' => $order++ // 1から順に連番を設定
+                ':order' => $order++
             ]);
         }
     }

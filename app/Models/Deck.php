@@ -36,11 +36,68 @@ class Deck {
      * @return array
      */
     public function getCardsByDeckId(int $deckId) {
-        $sql = "SELECT 
-                    c.card_id, 
-                    c.card_name, 
+        // ★ 1. 後から追加された同名カードの自動置換 ＆ limit 超過分の自動カット調整
+        try {
+            // 置換対象のダミーカードと、本物カードのID・上限枚数(limit)を取得
+            $stmtDummies = $this->pdo->prepare("
+                SELECT dc.dummy_name, c.card_id, COALESCE(cd.limit, 4) as card_limit
+                FROM deck_cards dc
+                JOIN card c ON dc.dummy_name = c.card_name
+                LEFT JOIN card_detail cd ON c.card_id = cd.card_id
+                WHERE dc.deck_id = :deck_id AND dc.dummy_name IS NOT NULL
+                GROUP BY dc.dummy_name, c.card_id, cd.limit
+            ");
+            $stmtDummies->execute([':deck_id' => $deckId]);
+            $matchedDummies = $stmtDummies->fetchAll(PDO::FETCH_ASSOC);
+
+            foreach ($matchedDummies as $m) {
+                $dName = $m['dummy_name'];
+                $realCardId = (int)$m['card_id'];
+                $cardLimit = (int)$m['card_limit']; // 殿堂なら1、プレ殿なら0、通常は4など
+
+                // 現在デッキに積まれている当該ダミーの sort_order 一覧を取得
+                $stmtOrders = $this->pdo->prepare("
+                    SELECT sort_order FROM deck_cards 
+                    WHERE deck_id = :deck_id AND dummy_name = :dname 
+                    ORDER BY sort_order ASC
+                ");
+                $stmtOrders->execute([':deck_id' => $deckId, ':dname' => $dName]);
+                $orders = $stmtOrders->fetchAll(PDO::FETCH_COLUMN);
+
+                // limit を超えている余剰分を削除（limit=0 のプレ殿なら全削除）
+                if (count($orders) > $cardLimit) {
+                    $excessOrders = array_slice($orders, $cardLimit);
+                    if (!empty($excessOrders)) {
+                        $inOrders = implode(',', array_map('intval', $excessOrders));
+                        $this->pdo->exec("
+                            DELETE FROM deck_cards 
+                            WHERE deck_id = {$deckId} AND sort_order IN ({$inOrders})
+                        ");
+                    }
+                }
+
+                // 残った枠（limit 以内）を正規カードへ更新
+                if ($cardLimit > 0) {
+                    $stmtUpdate = $this->pdo->prepare("
+                        UPDATE deck_cards 
+                        SET card_id = :cid, dummy_name = NULL, dummy_cost = NULL, dummy_civ_ids = NULL 
+                        WHERE deck_id = :deck_id AND dummy_name = :dname
+                    ");
+                    $stmtUpdate->execute([
+                        ':cid' => $realCardId,
+                        ':deck_id' => $deckId,
+                        ':dname' => $dName
+                    ]);
+                }
+            }
+        } catch (\Throwable $e) {}
+
+        // ★ 2. LEFT JOIN によるカード取得クエリ（以降は変更なし）
+        $sql = "SELECT
+                    COALESCE(c.card_id, CONCAT('dummy_', dc.sort_order)) as card_id, 
+                    COALESCE(c.card_name, dc.dummy_name) as card_name, 
                     c.reading,
-                    c.cost, 
+                    COALESCE(c.cost, dc.dummy_cost) as cost, 
                     c.pow,
                     c.text,
                     cd.modelnum, 
@@ -49,17 +106,15 @@ class Deck {
                     cd.hypermode,
                     dc.quantity,
                     dc.card_type_in_deck,
+                    CASE WHEN dc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
                     cc.combination_id,
                     (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
-                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
-                    -- カードタイプIDと typename を取得
+                    COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id), dc.dummy_civ_ids) as civ_ids,
                     (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                     (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,
-                    -- 種族IDと種族名を取得
                     (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
                     (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names,
                     
-                    -- 相方の情報
                     (SELECT c_partner.card_id FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_card_id,
                     (SELECT cd_partner.hypermode FROM card_combination cc_p JOIN card_detail cd_partner ON cc_p.card_id = cd_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_hypermode,
                     (SELECT c_partner.card_name FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_card_name,
@@ -95,8 +150,8 @@ class Deck {
                         WHERE cc_sub.combination_id = cc.combination_id
                     ) as combination_members_json
                 FROM deck_cards dc 
-                JOIN card c ON dc.card_id = c.card_id 
-                JOIN card_detail cd ON c.card_id = cd.card_id 
+                LEFT JOIN card c ON dc.card_id = c.card_id 
+                LEFT JOIN card_detail cd ON c.card_id = cd.card_id 
                 LEFT JOIN card_combination cc ON c.card_id = cc.card_id
                 WHERE dc.deck_id = :deck_id
                 ORDER BY dc.sort_order ASC";

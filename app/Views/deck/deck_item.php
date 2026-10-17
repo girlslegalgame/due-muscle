@@ -18,32 +18,45 @@ $deck_colors = [
 
 if (!empty($pdo_db) && !empty($deck['deck_id'])) {
     try {
-        // ツインパクト（twinpactが真）であれば、同じcombination_idを持つすべてのカードの文明も取得する
+        // 1. 正規カード（ツインパクト含む）の文明IDを取得
         $stmt_colors = $pdo_db->prepare("
             SELECT DISTINCT c_civ.civilization_id
             FROM deck_cards dc
-            -- 1. カード詳細テーブルを結合して twinpact フラグを確認
             JOIN card_detail cd ON dc.card_id = cd.card_id
-            
-            -- 2. デッキのカードに対応する combination_id を取得
             LEFT JOIN card_combination cc 
                 ON dc.card_id = cc.card_id
-                
-            -- 3. twinpact が true（1）の場合のみ、同じ combination_id に紐づく全ての card_id を結合
             LEFT JOIN card_combination cc_all 
                 ON cc.combination_id = cc_all.combination_id 
                 AND (cd.twinpact = 1 OR cd.twinpact = 'true' OR cd.twinpact IS TRUE)
-                
-            -- 4. 元の card_id、またはツインパクトの組み合わせに含まれる card_id の文明を取得
             JOIN card_civilization c_civ 
                 ON c_civ.card_id = dc.card_id 
                 OR c_civ.card_id = cc_all.card_id
-                
             WHERE dc.deck_id = :deck_id
               AND (dc.card_type_in_deck IS NULL OR dc.card_type_in_deck = 'main')
         ");
         $stmt_colors->execute(['deck_id' => $deck['deck_id']]);
         $colors_res = $stmt_colors->fetchAll(PDO::FETCH_COLUMN);
+
+        // ★追加：2. ダミーカードに設定された文明（dummy_civ_ids）も取得してマージ
+        $stmt_dummy_colors = $pdo_db->prepare("
+            SELECT dummy_civ_ids
+            FROM deck_cards
+            WHERE deck_id = :deck_id
+              AND (card_type_in_deck IS NULL OR card_type_in_deck = 'main')
+              AND dummy_civ_ids IS NOT NULL AND dummy_civ_ids != ''
+        ");
+        $stmt_dummy_colors->execute(['deck_id' => $deck['deck_id']]);
+        $dummy_civ_rows = $stmt_dummy_colors->fetchAll(PDO::FETCH_COLUMN);
+
+        foreach ($dummy_civ_rows as $civStr) {
+            $ids = explode(',', $civStr);
+            foreach ($ids as $id) {
+                $id = (int)trim($id);
+                if ($id > 0 && !in_array($id, $colors_res)) {
+                    $colors_res[] = $id;
+                }
+            }
+        }
         
         if ($colors_res) {
             $deck_colors['light']  = in_array(1, $colors_res);
