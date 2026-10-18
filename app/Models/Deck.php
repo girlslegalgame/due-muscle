@@ -144,6 +144,20 @@ class Deck {
                     ");
                 }
             }
+
+            // ★追加: デッキのサムネイルが空の場合、置き換わった本物カードの先頭をサムネイルに自動設定
+            $stmtCheckDeckThumb = $this->pdo->prepare("SELECT thumbnail_card_id FROM decks WHERE deck_id = :did");
+            $stmtCheckDeckThumb->execute([':did' => $deckId]);
+            $deckRow = $stmtCheckDeckThumb->fetch(PDO::FETCH_ASSOC);
+
+            if ($deckRow && empty($deckRow['thumbnail_card_id']) && !empty($groupedByCard)) {
+                $firstReplacedCardId = array_key_first($groupedByCard);
+                $stmtUpdateDeckThumb = $this->pdo->prepare("UPDATE decks SET thumbnail_card_id = :tcid WHERE deck_id = :did");
+                $stmtUpdateDeckThumb->execute([
+                    ':tcid' => $firstReplacedCardId,
+                    ':did'  => $deckId
+                ]);
+            }
         } catch (\Throwable $e) {}
         // ★ 2. カード一覧取得クエリ（存在しない未追加カラムを参照しない安全版）
         $sql = "SELECT 

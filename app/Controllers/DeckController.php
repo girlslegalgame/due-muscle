@@ -282,7 +282,15 @@ class DeckController {
             ]);
             $deckId = $pdo->lastInsertId();
 
-            $this->saveDeckCards($pdo, $deckId, $input['cards']);
+            $replacedMap = $this->saveDeckCards($pdo, $deckId, $input['cards']);
+
+            // ★追加: サムネイルが未設定またはダミーで、本物カードに置き換わったものがある場合に更新
+            $tcid = !empty($input['thumbnail_card_id']) && is_numeric($input['thumbnail_card_id']) ? (int)$input['thumbnail_card_id'] : null;
+            if (!$tcid && !empty($replacedMap)) {
+                $newThumbId = reset($replacedMap);
+                $stmtThumb = $pdo->prepare("UPDATE decks SET thumbnail_card_id = :tcid WHERE deck_id = :did");
+                $stmtThumb->execute([':tcid' => $newThumbId, ':did' => $deckId]);
+            }
 
             $pdo->commit();
             echo json_encode(['success' => true]);
@@ -402,7 +410,15 @@ class DeckController {
             $stmtDel = $pdo->prepare("DELETE FROM deck_cards WHERE deck_id = :did");
             $stmtDel->execute([':did' => $input['deck_id']]);
 
-            $this->saveDeckCards($pdo, $input['deck_id'], $input['cards']);
+            $replacedMap = $this->saveDeckCards($pdo, $input['deck_id'], $input['cards']);
+
+            // ★追加: サムネイルが未設定またはダミーで、本物カードに置き換わったものがある場合に更新
+            $tcid = !empty($input['thumbnail_card_id']) && is_numeric($input['thumbnail_card_id']) ? (int)$input['thumbnail_card_id'] : null;
+            if (!$tcid && !empty($replacedMap)) {
+                $newThumbId = reset($replacedMap);
+                $stmtThumb = $pdo->prepare("UPDATE decks SET thumbnail_card_id = :tcid WHERE deck_id = :did");
+                $stmtThumb->execute([':tcid' => $newThumbId, ':did' => $input['deck_id']]);
+            }
 
             $pdo->commit();
             echo json_encode(['success' => true]);
@@ -540,6 +556,7 @@ class DeckController {
 
                 if ($realCard) {
                     $cardId = (int)$realCard['card_id'];
+                    $replacedDummyMap[$dName] = $cardId; // ★追加：置換マッピングを記録
                     $dummyName = null;
                     $dummyCost = null;
                     $dummyCivIds = null;
@@ -567,6 +584,8 @@ class DeckController {
                 ':order' => $order++
             ]);
         }
+
+        return $replacedDummyMap ?? []; // ★追加：置換マップを返す
     }
 
     /**
