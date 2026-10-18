@@ -1709,7 +1709,6 @@
     </div>
 </div>
 <!-- ダミーカード作成モーダル -->
-<!-- ダミーカード作成モーダル -->
 <div id="dummyCardModal" class="sub-modal">
     <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
         <div class="sub-modal-header" style="background: #fd7e14;">
@@ -1717,10 +1716,16 @@
             <span onclick="closeDummyCardModal()" style="cursor:pointer; font-size:24px;">&times;</span>
         </div>
         <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+            <!-- ★追加：自動置換に関する案内文 -->
+            <div style="background: #fff8f0; border: 1px solid #fed7aa; border-radius: 6px; padding: 10px; font-size: 11px; color: #7c2d12; line-height: 1.5;">
+                <span style="font-weight: bold; display: block; margin-bottom: 2px;">【カード情報の自動反映について】</span>
+                データベースに同名カードが追加された際、自動的に本物のカード画像・情報へと置き換わります。<br>
+                ※ツインパクトや両面カードは、組み合わせ（上面/下面、表面/裏面）の両方が完全一致した場合のみ置き換わります。
+            </div>
+
             <!-- カード形式選択 -->
             <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード形式</label>
-                <div style="display: flex; gap: 10px;">
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード形式</label>                <div style="display: flex; gap: 10px;">
                     <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="normal" checked onchange="toggleDummyCardType('create')"> 通常</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="twinpact" onchange="toggleDummyCardType('create')"> ツインパクト</label>
                     <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="double" onchange="toggleDummyCardType('create')"> 両面カード</label>
