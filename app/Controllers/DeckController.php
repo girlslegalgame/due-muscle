@@ -444,23 +444,29 @@ class DeckController {
         $checked = true;
     }
 
-    // --- 【追加】カード保存用の共通メソッド ---
+    // --- 【修正】カード保存用の共通メソッド（表記ゆれ対応） ---
     private function saveDeckCards($pdo, $deckId, $cards) {
         $stmtCard = $pdo->prepare("
             INSERT INTO deck_cards (deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, dummy_card_type, dummy_partner_name, dummy_partner_cost, dummy_partner_civ_ids, quantity, card_type_in_deck, sort_order) 
             VALUES (:did, :cid, :dname, :dcost, :dciv, :dtype, :dpname, :dpcost, :dpciv, 1, :type, :order)
         ");
 
-        // 通常カード探索（相方・コンビネーションを持たないカード）
+        // SQL内で比較用の正規化を行う式（スペース、中黒、長音、各種記号の除去）
+        $sqlNorm = function($col) {
+            return "LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE({$col}, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))";
+        };
+
+        // 通常カード探索
         $stmtCheckNormal = $pdo->prepare("
             SELECT c.card_id 
             FROM card c
             LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id
-            WHERE c.card_name = :name AND ccb.combination_id IS NULL
+            WHERE " . $sqlNorm('c.card_name') . " = :norm_name 
+              AND ccb.combination_id IS NULL
             LIMIT 1
         ");
 
-        // ツインパクトカード探索（メイン面名と相方面名が一致し、cd.twinpact = 1 であるもの）
+        // ツインパクトカード探索
         $stmtCheckTwinpact = $pdo->prepare("
             SELECT c_main.card_id 
             FROM card c_main
@@ -468,13 +474,13 @@ class DeckController {
             JOIN card_combination ccb_partner ON ccb_main.combination_id = ccb_partner.combination_id AND ccb_main.card_id <> ccb_partner.card_id
             JOIN card c_partner ON ccb_partner.card_id = c_partner.card_id
             JOIN card_detail cd ON c_main.card_id = cd.card_id
-            WHERE c_main.card_name = :top_name 
-              AND c_partner.card_name = :bottom_name
+            WHERE " . $sqlNorm('c_main.card_name') . " = :norm_top 
+              AND " . $sqlNorm('c_partner.card_name') . " = :norm_bottom
               AND cd.twinpact = 1
             LIMIT 1
         ");
 
-        // 両面カード探索（表面名と裏面名が一致し、cd.twinpact = 0 または NULL であるもの）
+        // 両面カード探索
         $stmtCheckDouble = $pdo->prepare("
             SELECT c_main.card_id 
             FROM card c_main
@@ -482,11 +488,19 @@ class DeckController {
             JOIN card_combination ccb_partner ON ccb_main.combination_id = ccb_partner.combination_id AND ccb_main.card_id <> ccb_partner.card_id
             JOIN card c_partner ON ccb_partner.card_id = c_partner.card_id
             JOIN card_detail cd ON c_main.card_id = cd.card_id
-            WHERE c_main.card_name = :front_name 
-              AND c_partner.card_name = :back_name
+            WHERE " . $sqlNorm('c_main.card_name') . " = :norm_front 
+              AND " . $sqlNorm('c_partner.card_name') . " = :norm_back
               AND (cd.twinpact = 0 OR cd.twinpact IS NULL)
             LIMIT 1
         ");
+
+        // PHP側の正規化処理（半角/全角英数字・カナ統一、スペース・記号・長音等の除去）
+        $normalizeName = function($str) {
+            if ($str === null || $str === '') return '';
+            $s = mb_convert_kana($str, 'asKV', 'UTF-8'); // 全角英数→半角、半角カナ→全角、全角スペース→半角
+            $s = mb_strtolower($s, 'UTF-8');
+            return preg_replace('/[\s・\〜\～\~\-\−\―\ー\/]/u', '', $s);
+        };
 
         $order = 1;
         foreach ($cards as $c) {
@@ -508,16 +522,19 @@ class DeckController {
                 $dummyPartnerCost = isset($c['dummy_partner_cost']) && is_numeric($c['dummy_partner_cost']) ? (int)$c['dummy_partner_cost'] : null;
                 $dummyPartnerCivIds = !empty($c['dummy_partner_civ_ids']) ? (is_array($c['dummy_partner_civ_ids']) ? implode(',', $c['dummy_partner_civ_ids']) : $c['dummy_partner_civ_ids']) : null;
 
+                $normDName = $normalizeName($dName);
+                $normDPName = $dummyPartnerName !== null ? $normalizeName($dummyPartnerName) : '';
+
                 $realCard = null;
 
-                if ($dummyCardType === 'twinpact' && !empty($dummyPartnerName)) {
-                    $stmtCheckTwinpact->execute([':top_name' => $dName, ':bottom_name' => $dummyPartnerName]);
+                if ($dummyCardType === 'twinpact' && $normDPName !== '') {
+                    $stmtCheckTwinpact->execute([':norm_top' => $normDName, ':norm_bottom' => $normDPName]);
                     $realCard = $stmtCheckTwinpact->fetch(PDO::FETCH_ASSOC);
-                } elseif ($dummyCardType === 'double' && !empty($dummyPartnerName)) {
-                    $stmtCheckDouble->execute([':front_name' => $dName, ':back_name' => $dummyPartnerName]);
+                } elseif ($dummyCardType === 'double' && $normDPName !== '') {
+                    $stmtCheckDouble->execute([':norm_front' => $normDName, ':norm_back' => $normDPName]);
                     $realCard = $stmtCheckDouble->fetch(PDO::FETCH_ASSOC);
                 } elseif ($dummyCardType === 'normal') {
-                    $stmtCheckNormal->execute([':name' => $dName]);
+                    $stmtCheckNormal->execute([':norm_name' => $normDName]);
                     $realCard = $stmtCheckNormal->fetch(PDO::FETCH_ASSOC);
                 }
 

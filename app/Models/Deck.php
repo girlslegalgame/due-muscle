@@ -36,11 +36,13 @@ class Deck {
      * @return array
      */
     public function getCardsByDeckId(int $deckId) {
-        // ★ 1. 後から追加された同名カードの自動置換 ＆ limit 超過分の自動カット調整
+        // ★ 1. 後から追加された同名カードの自動置換 ＆ limit 超過分の自動カット調整（表記ゆれ対応）
         try {
-            // ダミーカードの形式（通常／ツインパクト／両面）および相方名との組み合わせ一致を検証して抽出
-            $stmtDummies = $this->pdo->prepare("
+            // 文字列比較用正規化マクロ
+            // 半角/全角スペース、中黒(・)、チルダ(〜/～)、長音(ー)を除去し小文字比較
+            $sqlDummies = "
                 SELECT 
+                    dc.sort_order,
                     dc.dummy_name, 
                     dc.dummy_card_type, 
                     dc.dummy_partner_name,
@@ -48,72 +50,89 @@ class Deck {
                     COALESCE(cd.limit, 4) as card_limit
                 FROM deck_cards dc
                 -- ツインパクト: 上面・下面名が一致し、twinpact=1
-                LEFT JOIN card c_top ON dc.dummy_name = c_top.card_name AND dc.dummy_card_type = 'twinpact'
+                LEFT JOIN card c_top ON (
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_top.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
+                    AND dc.dummy_card_type = 'twinpact'
+                )
                 LEFT JOIN card_combination cc_top ON c_top.card_id = cc_top.card_id AND cc_top.is_main_side = 1
                 LEFT JOIN card_combination cc_btm ON cc_top.combination_id = cc_btm.combination_id AND cc_top.card_id <> cc_btm.card_id
-                LEFT JOIN card c_btm ON cc_btm.card_id = c_btm.card_id AND dc.dummy_partner_name = c_btm.card_name
+                LEFT JOIN card c_btm ON (
+                    cc_btm.card_id = c_btm.card_id AND
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_partner_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_btm.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
+                )
                 LEFT JOIN card_detail cd_twin ON c_top.card_id = cd_twin.card_id AND cd_twin.twinpact = 1
                 LEFT JOIN card c_twin ON (c_top.card_id = c_twin.card_id AND c_btm.card_id IS NOT NULL AND cd_twin.card_id IS NOT NULL)
 
                 -- 両面カード: 表面・裏面名が一致し、twinpact=0 または NULL
-                LEFT JOIN card c_front ON dc.dummy_name = c_front.card_name AND dc.dummy_card_type = 'double'
+                LEFT JOIN card c_front ON (
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_front.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
+                    AND dc.dummy_card_type = 'double'
+                )
                 LEFT JOIN card_combination cc_front ON c_front.card_id = cc_front.card_id AND cc_front.is_main_side = 1
                 LEFT JOIN card_combination cc_back ON cc_front.combination_id = cc_back.combination_id AND cc_front.card_id <> cc_back.card_id
-                LEFT JOIN card c_back ON cc_back.card_id = c_back.card_id AND dc.dummy_partner_name = c_back.card_name
+                LEFT JOIN card c_back ON (
+                    cc_back.card_id = c_back.card_id AND
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_partner_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_back.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
+                )
                 LEFT JOIN card_detail cd_double ON c_front.card_id = cd_double.card_id AND (cd_double.twinpact = 0 OR cd_double.twinpact IS NULL)
                 LEFT JOIN card c_double ON (c_front.card_id = c_double.card_id AND c_back.card_id IS NOT NULL AND cd_double.card_id IS NOT NULL)
 
                 -- 通常カード: 単面（cc_norm.combination_id IS NULL）
-                LEFT JOIN card c_norm ON dc.dummy_name = c_norm.card_name AND (dc.dummy_card_type = 'normal' OR dc.dummy_card_type IS NULL)
+                LEFT JOIN card c_norm ON (
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
+                    LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_norm.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
+                    AND (dc.dummy_card_type = 'normal' OR dc.dummy_card_type IS NULL)
+                )
                 LEFT JOIN card_combination cc_norm ON c_norm.card_id = cc_norm.card_id AND cc_norm.combination_id IS NULL
 
                 LEFT JOIN card_detail cd ON COALESCE(c_twin.card_id, c_double.card_id, c_norm.card_id) = cd.card_id
                 WHERE dc.deck_id = :deck_id 
                   AND dc.dummy_name IS NOT NULL
                   AND COALESCE(c_twin.card_id, c_double.card_id, c_norm.card_id) IS NOT NULL
-                GROUP BY dc.dummy_name, dc.dummy_card_type, dc.dummy_partner_name, card_id, cd.limit
-            ");
+                ORDER BY dc.sort_order ASC
+            ";
+
+            $stmtDummies = $this->pdo->prepare($sqlDummies);
             $stmtDummies->execute([':deck_id' => $deckId]);
-            $matchedDummies = $stmtDummies->fetchAll(PDO::FETCH_ASSOC);
+            $matchedRows = $stmtDummies->fetchAll(PDO::FETCH_ASSOC);
 
-            foreach ($matchedDummies as $m) {
-                $dName = $m['dummy_name'];
-                $dType = $m['dummy_card_type'] ?? 'normal';
-                $dpName = $m['dummy_partner_name'];
-                $realCardId = (int)$m['card_id'];
-                $cardLimit = (int)$m['card_limit'];
+            // 同じカードIDごとに採用件数をグループ化して制限枚数チェック
+            $groupedByCard = [];
+            foreach ($matchedRows as $row) {
+                $cid = (int)$row['card_id'];
+                if (!isset($groupedByCard[$cid])) {
+                    $groupedByCard[$cid] = [
+                        'limit' => (int)$row['card_limit'],
+                        'orders' => []
+                    ];
+                }
+                $groupedByCard[$cid]['orders'][] = (int)$row['sort_order'];
+            }
 
-                $stmtOrders = $this->pdo->prepare("
-                    SELECT sort_order FROM deck_cards 
-                    WHERE deck_id = :deck_id 
-                      AND dummy_name = :dname 
-                      AND (dummy_card_type = :dtype OR (:dtype = 'normal' AND dummy_card_type IS NULL))
-                      AND (dummy_partner_name = :dpname OR (:dpname IS NULL AND dummy_partner_name IS NULL))
-                    ORDER BY sort_order ASC
-                ");
-                $stmtOrders->execute([
-                    ':deck_id' => $deckId, 
-                    ':dname'   => $dName,
-                    ':dtype'   => $dType,
-                    ':dpname'  => $dpName
-                ]);
-                $orders = $stmtOrders->fetchAll(PDO::FETCH_COLUMN);
+            foreach ($groupedByCard as $cid => $info) {
+                $limit = $info['limit'];
+                $orders = $info['orders'];
 
-                if (count($orders) > $cardLimit) {
-                    $excessOrders = array_slice($orders, $cardLimit);
+                // 制限枚数オーバー分の削除
+                if (count($orders) > $limit) {
+                    $excessOrders = array_slice($orders, $limit);
                     if (!empty($excessOrders)) {
-                        $inOrders = implode(',', array_map('intval', $excessOrders));
-                        $this->pdo->exec("
-                            DELETE FROM deck_cards 
-                            WHERE deck_id = {$deckId} AND sort_order IN ({$inOrders})
-                        ");
+                        $inOrders = implode(',', $excessOrders);
+                        $this->pdo->exec("DELETE FROM deck_cards WHERE deck_id = {$deckId} AND sort_order IN ({$inOrders})");
                     }
+                    $orders = array_slice($orders, 0, $limit);
                 }
 
-                if ($cardLimit > 0) {
-                    $stmtUpdate = $this->pdo->prepare("
+                // 置き換え処理
+                if ($limit > 0 && !empty($orders)) {
+                    $validOrders = implode(',', $orders);
+                    $this->pdo->exec("
                         UPDATE deck_cards 
-                        SET card_id = :cid, 
+                        SET card_id = {$cid}, 
                             dummy_name = NULL, 
                             dummy_cost = NULL, 
                             dummy_civ_ids = NULL,
@@ -121,22 +140,11 @@ class Deck {
                             dummy_partner_name = NULL,
                             dummy_partner_cost = NULL,
                             dummy_partner_civ_ids = NULL
-                        WHERE deck_id = :deck_id 
-                          AND dummy_name = :dname
-                          AND (dummy_card_type = :dtype OR (:dtype = 'normal' AND dummy_card_type IS NULL))
-                          AND (dummy_partner_name = :dpname OR (:dpname IS NULL AND dummy_partner_name IS NULL))
+                        WHERE deck_id = {$deckId} AND sort_order IN ({$validOrders})
                     ");
-                    $stmtUpdate->execute([
-                        ':cid'     => $realCardId,
-                        ':deck_id' => $deckId,
-                        ':dname'   => $dName,
-                        ':dtype'   => $dType,
-                        ':dpname'  => $dpName
-                    ]);
                 }
             }
         } catch (\Throwable $e) {}
-
         // ★ 2. カード一覧取得クエリ（存在しない未追加カラムを参照しない安全版）
         $sql = "SELECT 
                     COALESCE(c.card_id, CONCAT('dummy_', dc.sort_order)) as card_id, 
