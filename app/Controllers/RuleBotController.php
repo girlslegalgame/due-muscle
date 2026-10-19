@@ -281,4 +281,16 @@ class RuleBotController {
         }
         exit;
     }
+    /**
+     * 専用画面（デッキ作成ライクな大画面）を表示
+     */
+    public function index() {
+        $pageTitle = 'デュエマ ルール相談AI';
+        
+        ob_start();
+        require_once dirname(__DIR__) . '/Views/rule_bot/index.php';
+        $content = ob_get_clean();
+
+        require_once dirname(__DIR__) . '/Views/layouts/app.php';
+    }
 }

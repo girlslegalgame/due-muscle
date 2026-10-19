@@ -162,13 +162,13 @@
         <div class="header-right">
             <a href="/mydecks">マイデッキ</a>
             <a href="/search">デッキ検索</a>
-            <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
-            <a href="/help">ヘルプ</a>
-            <?php 
+            <a href="/decks/new">デッキ作成</a>
+            <!-- ★ handleRuleBotClick() を呼び出すように変更 -->
+            <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">ルールAI</a>
+            <a href="/help">ヘルプ</a>            <?php 
                 $unreadCnt = getUnreadNotificationCount(); 
                 $badgeText = $unreadCnt > 9 ? '9+' : $unreadCnt;
-            ?>
-            <a href="/notifications" style="position: relative; display: inline-flex; align-items: center;">
+            ?>            <a href="/notifications" style="position: relative; display: inline-flex; align-items: center;">
                 お知らせ
                 <?php if ($unreadCnt > 0): ?>
                     <span style="background-color: #ef4444; color: #fff; font-size: 0.7rem; font-weight: bold; border-radius: 10px; padding: 1px 6px; margin-left: 4px; line-height: 1.2;">
@@ -279,7 +279,6 @@
             
             <div style="border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
                 <?php if (isset($_SESSION['user_id'])): ?>
-                    <!-- ログイン中：チェックボックスを表示 -->
                     <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
                         <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
                         次回からこの画面を表示しない
@@ -288,12 +287,40 @@
                         ※この設定は後から「アカウント設定」画面で変更・リセットできます。
                     </p>
                 <?php else: ?>
-                    <!-- 未ログイン：チェックボックスは非表示にし、案内文を表示 -->
                     <p style="font-size: 0.8rem; color: #666; margin: 0; line-height: 1.4; text-align: center;">
                         <a href="/login" style="color: #007bff !important; text-decoration: underline !important; font-weight: bold;">ログイン</a>すると、次回以降この選択をスキップしてデフォルトで開く画面を設定できます。
                     </p>
                 <?php endif; ?>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- ★ ルールAI起動方法 選択モーダル（外側に正しく配置） -->
+<div id="ruleBotChoiceModal" class="sub-modal" style="display: none; position: fixed; z-index: 3600; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+    <div style="background: #fff; width: 380px; max-width: 90%; border-radius: 12px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); box-sizing: border-box; text-align: center;">
+        <h3 style="margin-top: 0; font-size: 1.15rem; color: #222;">ルールAIの開き方を選択</h3>
+        <p style="font-size: 0.85rem; color: #666; margin-bottom: 20px;">チャットの表示形式を選択してください。</p>
+
+        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+            <button type="button" onclick="executeRuleBotChoice('popup')" style="padding: 12px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; cursor: pointer;">
+                右下の小窓で開く
+            </button>
+            <button type="button" onclick="executeRuleBotChoice('fullscreen')" style="padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; cursor: pointer;">
+                全画面（専用ページ）で開く
+            </button>
+        </div>
+
+        <div style="margin-bottom: 16px; font-size: 0.82rem; color: #555; display: flex; align-items: center; justify-content: center; gap: 6px;">
+            <input type="checkbox" id="dontShowRuleBotModal">
+            <label for="dontShowRuleBotModal" style="cursor: pointer;">次回以降この確認を表示しない</label>
+        </div>
+
+        <button type="button" onclick="closeRuleBotChoiceModal()" style="background: none; border: none; color: #888; font-size: 0.85rem; cursor: pointer; text-decoration: underline;">
+            キャンセル
+        </button>
+    </div>
+</div>
         </div>
     </div>
 </div>
@@ -327,16 +354,15 @@ function selectDeckType(url) {
 }
 </script>
 
-    <!-- ★ ルールAIボット ウィジェット -->
-    <button class="rule-bot-launcher" onclick="toggleRuleBot()" title="ルール判定AIに聞く">⚖️</button>
 
     <div class="rule-bot-window" id="ruleBotWindow">
         <div class="rule-bot-header">
             <span>デュエマ ルール相談AI</span>
-            <button class="rule-bot-close" onclick="toggleRuleBot()">✕</button>
-        </div>
-        <div class="rule-bot-messages" id="ruleBotMessages">
-            <div class="rule-bot-msg bot">こんにちは！デュエマのルールや裁定、効果の解決順などで気になることがあれば質問してください。<br>カード名は《》で囲むと予測変換から正確に入力できます。</div>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <!-- ★ 専用画面への切り替えリンク -->
+                <a href="/rule-bot" style="color: #bbb; text-decoration: none; font-size: 0.8rem;" title="専用の大画面で開く">全画面 ↗</a>
+                <button class="rule-bot-close" onclick="toggleRuleBot()">✕</button>
+            </div>
         </div>
         
         <!-- サジェストリスト付き入力エリア -->
@@ -499,6 +525,47 @@ function selectDeckType(url) {
                 suggestList.style.display = 'none';
             }
         });
+        // ルールAIクリック時の振り分け処理
+        function handleRuleBotClick() {
+            const savedMode = localStorage.getItem('default_rule_bot_mode');
+            
+            if (savedMode === 'popup') {
+                toggleRuleBot();
+            } else if (savedMode === 'fullscreen') {
+                window.location.href = '/rule-bot';
+            } else {
+                // ask または未設定の場合はモーダルを表示（style.cssの仕様に合わせて block を指定）
+                const modal = document.getElementById('ruleBotChoiceModal');
+                const checkbox = document.getElementById('dontShowRuleBotModal');
+                if (checkbox) checkbox.checked = false;
+                
+                if (modal) {
+                    modal.style.setProperty('display', 'flex', 'important'); // 確実に画面中央に表示
+                }
+            }
+        }
+
+        // 選択実行処理
+        function executeRuleBotChoice(mode) {
+            const checkbox = document.getElementById('dontShowRuleBotModal');
+            if (checkbox && checkbox.checked) {
+                localStorage.setItem('default_rule_bot_mode', mode);
+            }
+            closeRuleBotChoiceModal();
+
+            if (mode === 'popup') {
+                toggleRuleBot();
+            } else if (mode === 'fullscreen') {
+                window.location.href = '/rule-bot';
+            }
+        }
+
+        function closeRuleBotChoiceModal() {
+            const modal = document.getElementById('ruleBotChoiceModal');
+            if (modal) {
+                modal.style.setProperty('display', 'none', 'important');
+            }
+        }
     </script>
 </body>
 </html>
