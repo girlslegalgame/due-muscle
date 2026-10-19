@@ -233,7 +233,7 @@ class RuleBotController {
                 ],
                 'generationConfig' => [
                     'temperature' => 0.0,
-                    'maxOutputTokens' => 2500 // 途切れ防止
+                    'maxOutputTokens' => 8192 // ★ 途切れ防止のため拡張
                 ]
             ];
 
@@ -258,10 +258,20 @@ class RuleBotController {
             }
 
             $resData = json_decode($response, true);
-            $reply = $resData['candidates'][0]['content']['parts'][0]['text'] ?? '回答を取得できませんでした。';
+
+            // 分割された全パートのテキストを結合
+            $reply = '';
+            if (!empty($resData['candidates'][0]['content']['parts'])) {
+                foreach ($resData['candidates'][0]['content']['parts'] as $part) {
+                    $reply .= $part['text'] ?? '';
+                }
+            }
+
+            if ($reply === '') {
+                $reply = '回答を取得できませんでした。';
+            }
 
             echo json_encode(['reply' => $reply], JSON_UNESCAPED_UNICODE);
-
         } catch (\Exception $e) {
             http_response_code(500);
             echo json_encode(['error' => $e->getMessage()]);
