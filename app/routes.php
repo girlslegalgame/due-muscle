@@ -40,6 +40,8 @@ $routes = [
         '/help' => 'DeckController@help',
         '/help/search' => 'DeckController@helpSearch',
         '/terms' => 'HomeController@terms', // ★ HomeController へ変更
+        '/contact' => 'HomeController@contact', // ★追加
+        '/profile' => 'HomeController@profile',
         '/admin' => 'AdminController@index',
         '/api/admin/users' => 'AdminController@usersApi',
         '/api/admin/user-decks' => 'AdminController@userDecksApi',
@@ -49,7 +51,8 @@ $routes = [
         '/api/decks/estimate-price' => 'DeckController@estimatePriceApi',
         '/api/decks/owned-cards' => 'DeckController@getOwnedCardsApi',
         // ★追加: ココフォリア用汎用デッキ作成ツール
-        '/tools/ccfolia' => 'HomeController@ccfolia',    ],
+        '/tools/ccfolia' => 'HomeController@ccfolia',    
+        ],
     'POST' => [
         '/register' => 'AuthController@sendVerificationCode', // 新規登録：一時登録と認証コード送信
         '/register/verify' => 'AuthController@verifyRegister', // ★変更：DBへ本登録するメソッド名を verifyRegister に統一

@@ -190,8 +190,9 @@
     <?php if (empty($hideFooter)): ?>
     <footer>
         <ul>
-            <li><a href="/help">ヘルプ</a></li>
             <li><a href="/terms">利用規約</a></li>
+            <li><a href="/profile">運営者情報</a></li>
+            <li><a href="/contact">お問い合わせ</a></li>
         </ul>
         <div style="font-size: 0.8rem; color: #888; margin-top: 10px;">
             &copy; <?= date('Y') ?> デュエ筋 All rights reserved.
