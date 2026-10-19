@@ -147,7 +147,18 @@ class RuleBotChat {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: text })
             });
-            const data = await res.json();
+
+            // ★ テキストとして取得してからJSONパースを試みる
+            const resText = await res.text();
+            let data;
+            try {
+                data = JSON.parse(resText);
+            } catch (parseErr) {
+                // HTML形式のエラーが返ってきた場合、そのまま画面に表示して原因を把握可能にする
+                loadingMsg.innerHTML = 'サーバーエラーが発生しました:<br>' + resText;
+                return;
+            }
+
             if (!res.ok) {
                 loadingMsg.textContent = data.error || 'エラーが発生しました。';
             } else {

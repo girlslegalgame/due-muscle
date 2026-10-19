@@ -6,7 +6,20 @@ use PDO;
 class RuleBotController {
 
     public function chatApi() {
+        // ★ タイムアウトを120秒に延長、メモリを512MBに緩和
+        set_time_limit(120);
+        ini_set('memory_limit', '512M');
+
         header('Content-Type: application/json; charset=utf-8');
+
+        // ★ PHPのFatal Error等の発生時にもHTMLではなくJSONを返すシャットダウンハンドラ
+        register_shutdown_function(function() {
+            $err = error_get_last();
+            if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+                http_response_code(500);
+                echo json_encode(['error' => 'サーバー内部エラー: ' . $err['message'] . ' (行: ' . $err['line'] . ')'], JSON_UNESCAPED_UNICODE);
+            }
+        });
 
         $input = json_decode(file_get_contents('php://input'), true);
         $message = trim($input['message'] ?? '');
