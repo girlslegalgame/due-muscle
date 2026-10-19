@@ -65,6 +65,7 @@ class RuleBotController {
                         cd.twinpact,
                         cd.hypermode,
                         rel.combination_id,
+                        rel.sort_order, -- ★ ここに追加
                         (SELECT GROUP_CONCAT(civ.civilization_name SEPARATOR ' / ') 
                          FROM card_civilization cciv 
                          JOIN civilization civ ON cciv.civilization_id = civ.civilization_id 
