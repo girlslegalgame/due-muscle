@@ -12,11 +12,14 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>マイデッキ一覧</title>
     <link rel="stylesheet" href="/css/style.css?v=<?php echo time(); ?>">
+    <!-- チュートリアル用CSSの読み込み -->
+    <link rel="stylesheet" href="/css/tutorial.css?v=<?php echo time(); ?>">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <script src="/js/ccfolia_exporter.js"></script>
+
 <style>
 /* 3. 画像出力用の一時的な非表示コンテナのスタイル（1200px固定）のみ残します */
 #deck-export-container {
@@ -38,7 +41,7 @@ try {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    border-bottom: 2px solid #333333; /* 暗めの境界線 */
+    border-bottom: 2px solid #333333; 
     padding-bottom: 15px;
     margin-bottom: 20px;
 }
@@ -79,7 +82,7 @@ try {
 
 .export-format {
     font-size: 1.2rem;
-    color: #cccccc; /* 黒背景で見やすい明るいグレー */
+    color: #cccccc; 
     font-weight: bold;
 }
 
@@ -101,7 +104,7 @@ try {
     font-size: 1.4rem;
     font-weight: bold;
     text-align: center;
-    border-bottom: 1px solid #333333; /* 暗めの境界線 */
+    border-bottom: 1px solid #333333; 
     padding-bottom: 5px;
     margin: 0 0 15px 0;
     color: #ffffff;
@@ -156,155 +159,48 @@ try {
     opacity: 0.4;
 }
 .proxy-select-mode .deck-item .deck-thumbnail {
-    pointer-events: none; /* サムネイルクリックによるモーダル起動を無効化 */
-}
-/* --- デッキ操作メニュー用ボタンスタイル --- */
-.deck-menu-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 15px;
-}
-
-.deck-menu-btn {
-    width: 100%;
-    height: 44px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    color: #2d3748;
-    font-size: 0.95rem;
-    font-weight: bold;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-    box-sizing: border-box;
-}
-
-.deck-menu-btn:hover {
-    background-color: #f7fafc;
-    border-color: #cbd5e0;
-}
-
-/* メイン操作「確認」：サイトヘッダーに合わせたシックな黒 */
-.deck-menu-btn-primary {
-    background-color: #1a202c;
-    color: #ffffff;
-    border-color: #1a202c;
-}
-.deck-menu-btn-primary:hover {
-    background-color: #2d3748;
-    border-color: #2d3748;
-}
-
-/* 危険操作「削除」：落ち着いた薄赤アウトライン */
-.deck-menu-btn-danger {
-    color: #e53e3e;
-    background-color: #fff;
-    border-color: #fed7d7;
-    margin-top: 4px;
-}
-.deck-menu-btn-danger:hover {
-    background-color: #fff5f5;
-    border-color: #feb2b2;
-}
-/* マイデッキ一覧のカード全体をクリック可能に */
-.mydeck-clickable {
-    cursor: pointer;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
-}
-.mydeck-clickable:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    border-color: #bbb;
+    pointer-events: none; 
 }
 
 /* 公開状態切り替えボタン */
-    .btn-deck-public-toggle {
-        border: none;
-        border-radius: 20px;
-        padding: 3px 10px;
-        font-size: 0.75rem;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.2s;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-    }
-    .btn-deck-public-toggle.status-public {
-        background-color: #e6f4ea;
-        color: #137333;
-        border: 1px solid #ceead6;
-    }
-    .btn-deck-public-toggle.status-public:hover {
-        background-color: #ceead6;
-    }
-    .btn-deck-public-toggle.status-private {
-        background-color: #f1f3f4;
-        color: #5f6368;
-        border: 1px solid #dadce0;
-    }
-    .btn-deck-public-toggle.status-private:hover {
-        background-color: #e8eaed;
-    }
-/* --- ページネーション（サイトに合わせたモノトーンデザイン） --- */
-.pagination-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 6px;
-    margin-top: 30px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.pagination-link {
+.btn-deck-public-toggle {
+    border: none;
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.2s;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    min-width: 38px;
-    height: 38px;
-    padding: 0 10px;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background-color: #ffffff;
-    color: #2d3748 !important;
-    text-decoration: none !important;
-    font-size: 0.9rem;
-    font-weight: bold;
-    transition: all 0.15s ease;
-    box-sizing: border-box;
+    gap: 4px;
+}
+.btn-deck-public-toggle.status-public {
+    background-color: #e6f4ea;
+    color: #137333;
+    border: 1px solid #ceead6;
+}
+.btn-deck-public-toggle.status-public:hover {
+    background-color: #ceead6;
+}
+.btn-deck-public-toggle.status-private {
+    background-color: #f1f3f4;
+    color: #5f6368;
+    border: 1px solid #dadce0;
+}
+.btn-deck-public-toggle.status-private:hover {
+    background-color: #e8eaed;
 }
 
-.pagination-link:hover {
-    background-color: #f7fafc;
-    border-color: #cbd5e0;
+/* チュートリアル開始ボタン */
+.btn-tutorial-start {
+    background: linear-gradient(180deg, #facc15 0%, #ca8a04 100%);
+    color: #000 !important;
+    border: 1px solid #fef08a;
+    font-weight: 900;
 }
-
-/* 現在のページ */
-.pagination-link.active {
-    background-color: #1a202c !important;
-    color: #ffffff !important;
-    border-color: #1a202c !important;
-    cursor: default;
-    pointer-events: none;
-}
-
-/* 無効化（前へ・次への端） */
-.pagination-link.disabled {
-    opacity: 0.35;
-    pointer-events: none;
-    cursor: not-allowed;
-    background-color: #edf2f7;
-}
-
-.pagination-ellipsis {
-    padding: 0 4px;
-    color: #a0aec0;
-    font-weight: bold;
+.btn-tutorial-start:hover {
+    filter: brightness(1.1);
 }
 </style>
 </head>
@@ -313,17 +209,21 @@ try {
 <div class="container">
     <h2>マイデッキ一覧</h2>
     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
-        <a href="/decks/new" class="create-btn" style="margin-bottom: 0;">＋ 新規作成</a>
-        <!-- 他のボタンと共通の create-btn スタイルを適用 -->
+        <!-- ★追加: id="btn-create-deck" を付与し、クリック時にStep 2へ進める連携を設定 -->
+        <a href="/decks/new" id="btn-create-deck" class="create-btn" style="margin-bottom: 0;" onclick="if(typeof TutorialManager!=='undefined'&&localStorage.getItem('tutorial_active')==='true'){TutorialManager.jumpToStep(2);}">＋ 新規作成</a>
         <button type="button" id="btn-proxy-action" class="create-btn" style="margin-bottom: 0; border: none; cursor: pointer;" onclick="handleProxyButtonClick()">
             プロキシPDF出力
+        </button>
+        <!-- ★追加: ワンクリックでいつでもチュートリアルを開始できるボタン -->
+        <button type="button" class="create-btn btn-tutorial-start" onclick="TutorialManager.start(1)">
+            チュートリアルを始める
         </button>
     </div>
 
     <div class="deck-list">
         <?php if (!empty($decks)): ?>
             <?php 
-            $context = 'index'; // 呼び出し元コンテキストをマイデッキ一覧に指定 
+            $context = 'index'; 
             foreach ($decks as $deck): 
                 include __DIR__ . '/deck_item.php'; 
             endforeach; 
@@ -340,66 +240,11 @@ try {
             </div>
         <?php endif; ?>
     </div>
-    <!-- ページネーション -->
-    <?php if (isset($totalPages) && $totalPages > 1): ?>
-        <nav class="pagination-wrapper" aria-label="Page navigation">
-            <!-- 前へ -->
-            <a href="?page=<?php echo $currentPage - 1; ?>" 
-               class="pagination-link <?php echo $currentPage <= 1 ? 'disabled' : ''; ?>" 
-               aria-label="Previous">«</a>
-
-            <?php
-            // 表示するページ番号の範囲（前後2ページ）
-            $startPage = max(1, $currentPage - 2);
-            $endPage = min($totalPages, $currentPage + 2);
-
-            if ($startPage > 1) {
-                echo '<a href="?page=1" class="pagination-link">1</a>';
-                if ($startPage > 2) echo '<span class="pagination-ellipsis">…</span>';
-            }
-
-            for ($p = $startPage; $p <= $endPage; $p++):
-            ?>
-                <a href="?page=<?php echo $p; ?>" 
-                   class="pagination-link <?php echo $p === $currentPage ? 'active' : ''; ?>">
-                    <?php echo $p; ?>
-                </a>
-            <?php endfor; ?>
-
-            <?php
-            if ($endPage < $totalPages) {
-                if ($endPage < $totalPages - 1) echo '<span class="pagination-ellipsis">…</span>';
-                echo '<a href="?page=' . $totalPages . '" class="pagination-link">' . $totalPages . '</a>';
-            }
-            ?>
-
-            <!-- 次へ -->
-            <a href="?page=<?php echo $currentPage + 1; ?>" 
-               class="pagination-link <?php echo $currentPage >= $totalPages ? 'disabled' : ''; ?>" 
-               aria-label="Next">»</a>
-        </nav>
-    <?php endif; ?>
 </div>
 
 <?php include __DIR__ . '/deck_detail_modal.php'; ?>
 <?php include __DIR__ . '/card_detail_modal.php'; ?>
-<!-- デッキ操作メニューモーダル -->
-<div id="deck-action-menu-modal" class="sub-modal" style="display: none;">
-    <div class="sub-modal-content" style="max-width: 320px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-        <div class="sub-modal-header" style="background: #1a202c; padding: 12px 16px;">
-            <span id="action-menu-deck-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; font-size: 0.95rem;">デッキメニュー</span>
-            <button type="button" onclick="closeDeckActionMenu()" style="background:none; border:none; color:#a0aec0; font-size:1.4rem; cursor:pointer; line-height: 1;">×</button>
-        </div>
-        <div class="deck-menu-list">
-            <button type="button" class="deck-menu-btn deck-menu-btn-primary" onclick="onMenuAction('view')">デッキを確認</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('edit')">編集する</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('share')">共有URLをコピー</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('export')">画像 / ZIPで出力</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('copy')">デッキを複製</button>
-            <button type="button" class="deck-menu-btn deck-menu-btn-danger" onclick="onMenuAction('delete')">削除する</button>
-        </div>
-    </div>
-</div>
+
 <!-- デッキ出力方法選択モーダル -->
 <div id="deck-export-choice-modal" class="sub-modal" style="display: none;">
     <div class="sub-modal-content" style="max-width: 420px;">
@@ -415,7 +260,6 @@ try {
                 <button type="button" id="btn-export-zip" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">ZIPで出力</button>
             </div>
 
-            <!-- ZIP出力時のオプション設定 -->
             <div id="zip-options-wrapper" style="border-top: 1px solid #ddd; padding-top: 15px; display: flex; flex-direction: column; gap: 10px;">
                 <label style="display: flex; align-items: center; gap: 8px; font-weight: bold; cursor: pointer; color: #444; font-size: 0.9rem;">
                     <input type="checkbox" id="zip-include-text" style="width: 16px; height: 16px;">
@@ -425,7 +269,6 @@ try {
                     <input type="checkbox" id="zip-separate-partner" style="width: 16px; height: 16px;">
                     パートナー（サムネイル）をデッキから独立して出力する (デュエパーティ用)
                 </label>
-                <!-- ★追加: ゾーン別出力オプション -->
                 <div style="border-top: 1px dashed #eee; padding-top: 8px; display: flex; flex-direction: column; gap: 8px;">
                     <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #444; font-size: 0.85rem;">
                         <input type="checkbox" id="zip-include-dim" checked style="width: 16px; height: 16px;">
@@ -451,52 +294,22 @@ try {
 
 <!-- ZIP出力中待機モーダル -->
 <div id="zip-export-loading-modal" class="sub-modal" style="display: none; z-index: 3100;">
-    <div class="sub-modal-content" style="max-width: 400px; text-align: center;">
+    <div class="sub-modal-content" style="max-width: 450px; text-align: center;">
         <div class="sub-modal-header" style="justify-content: center;">
-            <span>出力処理中</span>
+            <span>ZIP出力中</span>
         </div>
-        <div class="sub-modal-body" style="padding: 30px 20px;">
+        <div class="sub-modal-body" style="padding: 25px 20px;">
             <p style="font-weight: bold; color: #d9534f; font-size: 1.05rem; margin: 0 0 10px 0;">
                 出力中です。他の画面に移動しないでください。
             </p>
-            <p style="color: #666; font-size: 0.85rem; margin: 0;">
-                データを生成・圧縮しています。完了までしばらくお待ちください。
-            </p>
-        </div>
-    </div>
-</div>
-
-<!-- 出力完了モーダル（広告スペース付き） -->
-<div id="export-complete-modal" class="sub-modal" style="display: none; z-index: 3100;">
-    <div class="sub-modal-content" style="max-width: 450px; text-align: center;">
-        <div class="sub-modal-header" style="justify-content: center;">
-            <span>ダウンロード完了</span>
-        </div>
-        <div class="sub-modal-body" style="padding: 20px;">
-            <p style="font-weight: bold; color: #28a745; font-size: 1.1rem; margin: 0 0 8px 0;">
-                ファイルの生成が完了しました！
-            </p>
-            <p style="color: #666; font-size: 0.85rem; margin: 0 0 15px 0;">
-                自動的にダウンロードが開始されない場合は、再度お試しください。
+            <p style="color: #666; font-size: 0.85rem; margin: 0 0 20px 0;">
+                カード画像を生成・圧縮しています。完了すると自動でダウンロードが開始されます。
             </p>
 
-            <!-- 広告枠（誤タップを防ぐため上下マージンを確保しラベルを明記） -->
-            <div style="margin: 15px 0;">
-                <div style="font-size: 0.75rem; color: #888; margin-bottom: 4px;">スポンサーリンク</div>
-                <div style="min-height: 250px; background-color: #f9f9f9; display: flex; align-items: center; justify-content: center;">
-                    <!-- AdSense 広告ユニットタグ -->
-                    <ins class="adsbygoogle"
-                         style="display:block; width:100%;"
-                         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                         data-ad-slot="YYYYYYYYYY"
-                         data-ad-format="rectangle"></ins>
-                </div>
+            <div id="export-ad-area" style="width: 100%; min-height: 250px; background-color: #f0f0f0; border: 2px dashed #bbb; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #888; font-size: 0.9rem; margin-top: 15px;">
+                <p style="margin: 0; font-weight: bold;">Ad</p>
+                <p style="margin: 5px 0 0 0; font-size: 0.75rem; color: #aaa;">※ここにAdSense等の広告タグを配置してください</p>
             </div>
-
-            <!-- 広告との誤タップを防ぐため、十分な余白を取った閉じるボタン -->
-            <button type="button" onclick="closeExportCompleteModal()" style="margin-top: 15px; padding: 10px 30px; background: #6c757d; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
-                閉じる
-            </button>
         </div>
     </div>
 </div>
@@ -543,9 +356,6 @@ try {
 </div>
 
 <script>
-/**
- * デッキ削除
- */
 function deleteDeck(deckId) {
     if (!confirm('本当にこのデッキを削除してもよろしいですか？')) return;
 
@@ -568,9 +378,6 @@ let currentExportFormatName = null;
 let currentExportThumbnailId = null;
 let currentExportButton = null;
 
-/**
- * デッキ出力ボタン押下時（モーダルを表示）
- */
 function exportDeckImage(deckId, deckName, formatName, thumbnailId, buttonElement) {
     currentExportDeckId = deckId;
     currentExportDeckName = deckName;
@@ -587,7 +394,6 @@ function closeExportChoiceModal() {
     if (modal) modal.style.display = 'none';
 }
 
-// モーダルのイベントリスナー設定
 document.addEventListener('DOMContentLoaded', () => {
     const btnImage = document.getElementById('btn-export-image');
     const btnZip = document.getElementById('btn-export-zip');
@@ -607,9 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-/**
- * ZIPファイル形式での出力処理（超次元・GR・特殊・ドキンダム対応）
- */
 async function executeZipExport(deckId, deckName, formatName, thumbnailId, buttonElement) {
     const includeText = document.getElementById('zip-include-text')?.checked || false;
     const separatePartner = document.getElementById('zip-separate-partner')?.checked || false;
@@ -619,11 +422,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
     const includeLinked = document.getElementById('zip-include-linked')?.checked ?? true;
     const loadingModal = document.getElementById('zip-export-loading-modal');
     if (loadingModal) loadingModal.style.display = 'flex';
-    try {
-    (adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (e) {
-        console.error('AdSense error:', e);
-    }
 
     if (buttonElement) {
         buttonElement.innerText = 'ZIP生成中...';
@@ -659,53 +457,121 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
 
         const mainDeckItems = {};
         const grDeckItems = {};
-        const zeroDecksItems = {}; // 零龍の儀式用山札
+        const zeroDecksItems = {}; 
+        
+        function generateId(length = 20) {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
 
-        const generateId = CcfoliaExporter.generateId;
-        const calculateSha256 = CcfoliaExporter.calculateSha256;
-
-        // 画像Blob・ハッシュ・アスペクト比のキャッシュローダー（ダミーカード対応）
-        const loadedImageMap = {};
-        async function fetchImageMeta(cardOrPath) {
-            if (!cardOrPath) return null;
-
-            let imgPath = typeof cardOrPath === 'string' ? cardOrPath : (cardOrPath.imagepath || '');
-            let isDataUrl = imgPath.startsWith('data:image');
-            
-            // ダミーカードの場合はDataURLを自動生成
-            if (!isDataUrl && (typeof cardOrPath === 'object') && (cardOrPath.is_dummy == 1 || !imgPath)) {
-                imgPath = getIndexCardImageUrl(cardOrPath);
-                isDataUrl = true;
+        async function calculateSha256(blob) {
+            const buffer = await blob.arrayBuffer();
+            if (window.crypto && window.crypto.subtle) {
+                try {
+                    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+                    return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+                } catch (e) {}
             }
 
+            function sha256(ascii) {
+                function rightRotate(value, amount) {
+                    return (value >>> amount) | (value << (32 - amount));
+                }
+                var mathPow = Math.pow;
+                var maxWord = mathPow(2, 32);
+                var lengthProperty = 'length';
+                var i, j;
+                var result = '';
+                var words = [];
+                var asciiBitLength = ascii[lengthProperty] * 8;
+                var hash = [
+                    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+                    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+                ];
+                var k = [
+                    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+                    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+                    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+                    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+                    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+                    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+                    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+                    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+                ];
+                var w = [];
+                for (i = 0; i < ascii[lengthProperty]; i++) {
+                    words[i >> 2] |= ascii[i] << (24 - (i % 4) * 8);
+                }
+                words[asciiBitLength >> 5] |= 0x80 << (24 - (asciiBitLength % 32));
+                words[(((asciiBitLength + 64) >> 9) << 4) + 15] = asciiBitLength;
+
+                for (i = 0; i < words[lengthProperty]; i += 16) {
+                    var a = hash[0], b = hash[1], c = hash[2], d = hash[3],
+                        e = hash[4], f = hash[5], g = hash[6], h = hash[7];
+
+                    for (j = 0; j < 64; j++) {
+                        if (j < 16) {
+                            w[j] = words[j + i] | 0;
+                        } else {
+                            var gamma0 = rightRotate(w[j - 15], 7) ^ rightRotate(w[j - 15], 18) ^ (w[j - 15] >>> 3);
+                            var gamma1 = rightRotate(w[j - 2], 17) ^ rightRotate(w[j - 2], 19) ^ (w[j - 2] >>> 10);
+                            w[j] = (w[j - 16] + gamma0 + w[j - 7] + gamma1) | 0;
+                        }
+
+                        var ch = (e & f) ^ (~e & g);
+                        var maj = (a & b) ^ (a & c) ^ (b & c);
+                        var sigma0 = rightRotate(a, 2) ^ rightRotate(a, 13) ^ rightRotate(a, 22);
+                        var sigma1 = rightRotate(e, 6) ^ rightRotate(e, 11) ^ rightRotate(e, 25);
+                        var temp1 = (h + sigma1 + ch + k[j] + w[j]) | 0;
+                        var temp2 = (sigma0 + maj) | 0;
+
+                        h = g; g = f; f = e; e = (d + temp1) | 0;
+                        d = c; c = b; b = a; a = (temp1 + temp2) | 0;
+                    }
+
+                    hash[0] = (hash[0] + a) | 0; hash[1] = (hash[1] + b) | 0;
+                    hash[2] = (hash[2] + c) | 0; hash[3] = (hash[3] + d) | 0;
+                    hash[4] = (hash[4] + e) | 0; hash[5] = (hash[5] + f) | 0;
+                    hash[6] = (hash[6] + g) | 0; hash[7] = (hash[7] + h) | 0;
+                }
+
+                for (i = 0; i < 8; i++) {
+                    for (j = 3; j >= 0; j--) {
+                        var bVal = (hash[i] >> (8 * j)) & 255;
+                        result += (bVal < 16 ? '0' : '') + bVal.toString(16);
+                    }
+                }
+                return result;
+            }
+
+            return sha256(new Uint8Array(buffer));
+        }
+
+        const loadedImageMap = {};
+        async function fetchImageMeta(imgPath) {
             if (!imgPath) return null;
             if (loadedImageMap[imgPath]) return loadedImageMap[imgPath];
 
+            const fullPath = '/images/card' + (imgPath.startsWith('/') ? imgPath : '/' + imgPath);
             try {
-                let blob;
-                if (isDataUrl) {
-                    // DataURLからBlobを直接生成
-                    const res = await fetch(imgPath);
-                    blob = await res.blob();
-                } else {
-                    const fullPath = '/images/card' + (imgPath.startsWith('/') ? imgPath : '/' + imgPath);
-                    const imgRes = await fetch(fullPath);
-                    if (!imgRes.ok) return null;
-                    blob = await imgRes.blob();
-                }
-
+                const imgRes = await fetch(fullPath);
+                if (!imgRes.ok) return null;
+                const blob = await imgRes.blob();
                 const hash = await calculateSha256(blob);
-                let ext = 'png';
-                if (blob.type === 'image/webp') ext = 'webp';
-                else if (blob.type === 'image/jpeg') ext = 'jpeg';
+                let ext = 'webp';
+                if (blob.type === 'image/jpeg') ext = 'jpeg';
+                else if (blob.type === 'image/png') ext = 'png';
 
                 const filename = `${hash}.${ext}`;
                 if (!resourcesObj[filename]) {
                     zip.file(filename, blob);
-                    resourcesObj[filename] = { type: blob.type || 'image/png' };
+                    resourcesObj[filename] = { type: blob.type || 'image/webp' };
                 }
 
-                // アスペクト比取得
                 const aspectRatio = await new Promise((resolve) => {
                     const img = new Image();
                     img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
@@ -717,12 +583,11 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 loadedImageMap[imgPath] = meta;
                 return meta;
             } catch (err) {
-                console.warn(`画像取得失敗:`, err);
+                console.warn(`画像取得失敗: ${fullPath}`, err);
                 return null;
             }
         }
 
-        // 単一カードのテキスト行を組み立てるヘルパー
         function buildCardMemo(cardData) {
             let line1Parts = [];
             const cardName = cardData.card_name ? cardData.card_name.trim() : '';
@@ -810,7 +675,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             return buildCardMemo(card);
         }
 
-        // 単体カードを独立配置(standalone)に追加するヘルパー
         function addStandaloneCard(imgFilename, coverFilename, memo, posX, posY, width = 4, height = 6) {
             const itemId = generateId();
             standaloneItemsObj[itemId] = {
@@ -837,8 +701,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
         }
 
         let partnerExtracted = false;
-        let standaloneX = -12; // 個別カード配置のX座標起点
-        // ★ 追加: 重複出力を防ぐための出力済み2枚目カード名Set
+        let standaloneX = -12; 
         const exportedSecondCardNames = new Set();
 
         for (const card of cards) {
@@ -846,7 +709,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             const cardName = card.card_name ? card.card_name.trim() : '';
             const qty = parseInt(card.quantity || 1);
 
-            // コンビネーションメンバー配列パース
             let combinationMembers = [];
             if (card.combination_members_json) {
                 try {
@@ -855,16 +717,12 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         : card.combination_members_json;
                 } catch(e) {}
             }
-            // ----------------------------------------------------
-            // 1. 特殊カード (special) または ドキンダムX
-            // ----------------------------------------------------
+
             const isDokindam = (cardName === '禁断 ～封印されしX～' || cardName === '伝説の禁断 ドキンダムX');
             if (zone === 'special' || isDokindam) {
-                // ★ 特殊カード除外チェック
                 if (!includeSpecial) {
                     continue;
                 }
-                // 《終焉の禁断 ドルマゲドンX》の場合: FORBIDDEN STARと分けて1枚ずつ出力
                 if (cardName.includes('ドルマゲドン')) {
                     for (let m of combinationMembers) {
                         const meta = await fetchImageMeta(m.imagepath);
@@ -879,7 +737,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                     continue;
                 }
 
-                // 《零龍》の場合: 零龍は個別、儀式4種＋零無は山札にまとめる
                 if (cardName.includes('零龍') || cardName.includes('零無') || cardName.includes('の儀')) {
                     for (let m of combinationMembers) {
                         const meta = await fetchImageMeta(m.imagepath);
@@ -887,7 +744,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         const memo = includeText ? buildCardMemo(m) : "";
 
                         if (m.card_name.trim() === '零龍') {
-                            // 《零龍》は縦12、横12
                             addStandaloneCard(meta.filename, null, memo, standaloneX, -3, 12, 12);
                             standaloneX -= 13;
                         } else {
@@ -901,7 +757,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 }
 
                 if (isDokindam && combinationMembers.length === 2) {
-                    // is_main_side = 1 を表面（封印されしX）、is_main_side = 0 を裏面（ドキンダムX）に設定
                     combinationMembers.sort((a, b) => (b.is_main_side || 0) - (a.is_main_side || 0) || a.card_id - b.card_id);
                     const front = combinationMembers[0];
                     const back = combinationMembers[1];
@@ -910,7 +765,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                     const backMeta = await fetchImageMeta(back.imagepath);
 
                     if (frontMeta && backMeta) {
-                        // 表面画像と裏面画像をセットした両面カードとして出力
                         addStandaloneCard(frontMeta.filename, backMeta.filename, includeText ? buildCardMemo(front) : "", standaloneX, -3, 4, 6);
                         standaloneX -= 5;
                     } else if (frontMeta) {
@@ -927,19 +781,14 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 continue;
             }
 
-            // ----------------------------------------------------
-            // 2. 超次元ゾーン (super_dimensional)
-            // ----------------------------------------------------
             if (zone === 'super_dimensional') {
-                // ★ 超次元カード除外チェック
                 if (!includeDim) {
                     continue;
                 }
-                const superDimX = -8; // 超次元カードは一か所にまとめて出力
+                const superDimX = -8; 
                 const superDimY = -10;
 
                 for (let q = 0; q < qty; q++) {
-                    // card_id 昇順、is_main_side = 1 を先頭にしてソート
                     combinationMembers.sort((a, b) => (b.is_main_side || 0) - (a.is_main_side || 0) || a.card_id - b.card_id);
 
                     if (combinationMembers.length === 2) {
@@ -952,10 +801,8 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         const m2CharIds = m2.char_ids ? String(m2.char_ids).split(',').map(v => parseInt(v.trim())) : [];
                         const m2Aspect = meta2 ? meta2.aspectRatio : (51 / 73);
 
-                        // ★ 追加: 2枚目がリンク後カードかどうかの判定
                         const isLinkedCard = m2CharIds.includes(4) || m2.card_name.includes('極真龍魂 オール・オーバー・ザ・ワールド');
 
-                        // リンク後カードを出力しない設定で、かつ2枚目がリンク後カードの場合は1枚目のみ単体出力
                         if (!includeLinked && isLinkedCard) {
                             if (meta1) {
                                 addStandaloneCard(meta1.filename, null, includeText ? buildCardMemo(m1) : "", superDimX, superDimY, 4, 6);
@@ -966,46 +813,38 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         let separateCards = false;
                         let m2Width = 4, m2Height = 6;
 
-                        // 《極真龍魂 オール・オーバー・ザ・ワールド》の場合: 縦18、横10
                         if (m2.card_name.includes('極真龍魂 オール・オーバー・ザ・ワールド')) {
                             separateCards = true;
                             m2Width = 10;
                             m2Height = 18;
                         } 
-                        // 2枚目の characteristics_id が 4 の場合
                         else if (m2CharIds.includes(4)) {
                             separateCards = true;
-                            // 400:859 ≒ 0.4657
                             if (Math.abs(m2Aspect - (400 / 859)) < 0.08) {
                                 m2Width = 6;
                                 m2Height = 12;
                             } 
-                            // 160:229 ≒ 0.6987
                             else if (Math.abs(m2Aspect - (160 / 229)) < 0.08) {
                                 m2Width = 6;
                                 m2Height = 8;
                             }
                         }
 
-                        // サイズが異なる場合、またはアスペクト比が違う場合は個別に分けて出力
                         const isSameAspect = meta1 && meta2 && Math.abs(meta1.aspectRatio - meta2.aspectRatio) < 0.05;
                         if (!separateCards && isSameAspect) {
-                            // 両面カードとして表裏一体で出力
                             const memo = includeText ? buildCardMemo(m1) : "";
                             addStandaloneCard(meta1.filename, meta2.filename, memo, superDimX, superDimY, 4, 6);
                         } else {
                             if (meta1) {
                                 addStandaloneCard(meta1.filename, null, includeText ? buildCardMemo(m1) : "", superDimX, superDimY, 4, 6);
                             }
-                            // ★ 2枚目のカード名重複チェックを追加
                             const m2Name = m2.card_name.trim();
                             if (meta2 && !exportedSecondCardNames.has(m2Name)) {
                                 addStandaloneCard(meta2.filename, null, includeText ? buildCardMemo(m2) : "", superDimX, superDimY, m2Width, m2Height);
-                                exportedSecondCardNames.add(m2Name); // 出力済みに記録
+                                exportedSecondCardNames.add(m2Name); 
                             }
                         }
                     } else if (combinationMembers.length === 3) {
-                        // 3枚セット
                         const m1 = combinationMembers[0];
                         const m2 = combinationMembers[1];
                         const m3 = combinationMembers[2];
@@ -1016,11 +855,9 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                         let m3W = 4, m3H = 6;
 
                         if (charIds.includes(6)) {
-                            // characteristics_id が 6: 2枚目(縦6,横8)、3枚目(縦12,横6)
                             m2W = 8; m2H = 6;
                             m3W = 6; m3H = 12;
                         } else if (charIds.includes(3)) {
-                            // characteristics_id が 3: 2枚目(縦8,横6)、3枚目(縦12,横6)
                             m2W = 6; m2H = 8;
                             m3W = 6; m3H = 12;
                         }
@@ -1039,7 +876,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                             }
                         }
                     } else if (combinationMembers.length > 3) {
-                        // 4枚以上のセット
                         for (let m of combinationMembers) {
                             const meta = await fetchImageMeta(m.imagepath);
                             if (meta) {
@@ -1047,7 +883,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                             }
                         }
                     } else {
-                        // 単面超次元
                         const meta = await fetchImageMeta(card.imagepath);
                         if (meta) {
                             addStandaloneCard(meta.filename, null, includeText ? createMemoText(card) : "", superDimX, superDimY, 4, 6);
@@ -1057,13 +892,11 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 continue;
             }
 
-            // ----------------------------------------------------
-            // 3. 超GRゾーン (gr)
-            // ----------------------------------------------------
             if (zone === 'gr') {
-                if (!includeGr) continue;
-                // ★修正: card 自体を渡す
-                const meta = await fetchImageMeta(card);
+                if (!includeGr) {
+                    continue;
+                }
+                const meta = await fetchImageMeta(card.imagepath);
                 if (!meta) continue;
                 for (let q = 0; q < qty; q++) {
                     grDeckItems[generateId()] = {
@@ -1074,10 +907,7 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
                 continue;
             }
 
-            // ----------------------------------------------------
-            // 4. メインデッキ (main)
-            // ----------------------------------------------------
-            const meta = await fetchImageMeta(card);
+            const meta = await fetchImageMeta(card.imagepath);
             if (!meta) continue;
 
             const memoText = includeText ? createMemoText(card) : "";
@@ -1095,7 +925,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             }
         }
 
-        // デッキ（山札）オブジェクトの構築
         if (Object.keys(mainDeckItems).length > 0) {
             decksObj[generateId()] = {
                 "x": -2, "y": -3, "z": 99, "zIndex": 1,
@@ -1104,7 +933,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             };
         }
 
-        // 超GRゾーンの山札
         if (Object.keys(grDeckItems).length > 0) {
             decksObj[generateId()] = {
                 "x": 3, "y": -3, "z": 99, "zIndex": 1,
@@ -1113,7 +941,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             };
         }
 
-        // 零龍（零無＋儀式4枚）の山札
         if (Object.keys(zeroDecksItems).length > 0) {
             decksObj[generateId()] = {
                 "x": 8, "y": -3, "z": 99, "zIndex": 1,
@@ -1147,7 +974,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
         link.click();
 
         resetBtn();
-        openExportCompleteModal();
     } catch (err) {
         console.error(err);
         alert('ZIP作成中にエラーが発生しました。');
@@ -1163,9 +989,6 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
     }
 }
 
-/**
- * 従来の画像出力処理
- */
 function executeImageExport(deckId, deckName, formatName, buttonElement) {
     if (buttonElement) {
         buttonElement.innerText = '生成中...';
@@ -1195,16 +1018,6 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
         const colors = new Set();
 
         cards.forEach(card => {
-            // ★修正: ダミーカードの civ_ids からも文明色を追加
-            if (card.civ_ids) {
-                const ids = card.civ_ids.split(',').map(Number);
-                if (ids.includes(4)) colors.add('fire');
-                if (ids.includes(2)) colors.add('water');
-                if (ids.includes(1)) colors.add('light');
-                if (ids.includes(3)) colors.add('dark');
-                if (ids.includes(5)) colors.add('nature');
-                if (ids.includes(6)) colors.add('zero');
-            }
             if (card.civ_fire || card.civilization_id == 4) colors.add('fire');
             if (card.civ_water || card.civilization_id == 2) colors.add('water');
             if (card.civ_light || card.civilization_id == 1) colors.add('light');
@@ -1295,8 +1108,8 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
                 const imgWrap = document.createElement('div');
                 imgWrap.className = 'export-card-item';
                 
-                // ★修正: ダミーカードは自動生成画像URLを使用
-                const thumbPath = getIndexCardImageUrl(card);
+                const path = card.imagepath || '';
+                const thumbPath = path ? '/images/card' + (path.startsWith('/') ? path : '/' + path) : '/images/card/noimage.webp';
 
                 imgWrap.innerHTML = `<img src="${thumbPath}" class="export-card-img" onerror="this.src='/images/card/noimage.webp';">`;
                 grid.appendChild(imgWrap);
@@ -1361,13 +1174,11 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
                   .replace(/'/g, '&#39;');
     }
 }
-/**
- * デッキの公開 / 非公開を切り替える
- */
+
 function toggleDeckPublic(btn) {
     const deckId = btn.dataset.deckId;
     const currentStatus = btn.dataset.isPublic === '1';
-    const nextStatus = currentStatus ? 0 : 1; // 反転
+    const nextStatus = currentStatus ? 0 : 1; 
 
     btn.disabled = true;
     btn.style.opacity = '0.6';
@@ -1389,7 +1200,6 @@ function toggleDeckPublic(btn) {
     })
     .then(data => {
         if (data.success) {
-            // 見た目の更新
             const isPub = data.is_public === 1;
             btn.dataset.isPublic = isPub ? '1' : '0';
             btn.className = 'btn-deck-public-toggle ' + (isPub ? 'status-public' : 'status-private');
@@ -1405,9 +1215,6 @@ function toggleDeckPublic(btn) {
     });
 }
 
-/**
- * プロキシモーダルの開閉
- */
 function openProxyModal() {
     const selectedDecks = document.querySelectorAll('.deck-select-checkbox:checked');
     if (selectedDecks.length === 0) {
@@ -1418,19 +1225,15 @@ function openProxyModal() {
     document.getElementById('proxy-export-modal').style.display = 'flex';
 }
 
-// プロキシ選択モードの状態フラグ
 let isProxySelectMode = false;
 
-/**
- * 「プロキシPDF出力」ボタンのクリック制御
- */
 function handleProxyButtonClick() {
     const btn = document.getElementById('btn-proxy-action');
     const deckList = document.querySelector('.deck-list');
 
     if (!isProxySelectMode) {
         isProxySelectMode = true;
-        if (deckList) deckList.classList.add('proxy-select-mode'); // 操作ロッククラスを付与
+        if (deckList) deckList.classList.add('proxy-select-mode'); 
 
         document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
             cb.checked = false;
@@ -1450,47 +1253,18 @@ function handleProxyButtonClick() {
     }
 }
 
-/**
- * 選択モード中にデッキアイテム全体をクリックしてトグルする処理
- */
-// --- index.php の handleDeckItemClick() を差し替え ---
 function handleDeckItemClick(event, itemEl) {
-    // リンク（製作者リンク等）や公開トグルボタン、チェックボックス本体のクリック時は除外
-    if (event.target.closest('a') || event.target.closest('.btn-deck-public-toggle') || event.target.closest('.deck-select-checkbox')) {
-        return;
+    if (!isProxySelectMode) return;
+
+    if (event.target.classList.contains('deck-select-checkbox')) return;
+
+    const cb = itemEl.querySelector('.deck-select-checkbox');
+    if (cb) {
+        cb.checked = !cb.checked;
+        updateProxyButtonState();
     }
-
-    // プロキシ選択モード時はチェックボックスをトグル
-    if (isProxySelectMode) {
-        const cb = itemEl.querySelector('.deck-select-checkbox');
-        if (cb) {
-            cb.checked = !cb.checked;
-            updateProxyButtonState();
-        }
-        return;
-    }
-
-    // 通常時はカード全体のどこをクリックしても操作メニューモーダルを表示
-    const deckId = itemEl.dataset.deckId;
-    const deckName = itemEl.querySelector('h3')?.innerText.trim() || '';
-    const formatName = itemEl.querySelector('.format-badge')?.innerText.trim() || '';
-    const thumbImg = itemEl.querySelector('.deck-thumbnail');
-    const thumbnailId = thumbImg ? thumbImg.dataset.thumbnailId : '';
-
-    selectedActionDeck = {
-        id: deckId,
-        name: deckName,
-        format: formatName,
-        thumbnailId: thumbnailId
-    };
-
-    document.getElementById('action-menu-deck-name').innerText = deckName;
-    document.getElementById('deck-action-menu-modal').style.display = 'flex';
 }
 
-/**
- * 選択状態に応じてボタンの文言・スタイル、および枠線を更新
- */
 function updateProxyButtonState() {
     if (!isProxySelectMode) return;
     const btn = document.getElementById('btn-proxy-action');
@@ -1520,13 +1294,10 @@ function updateProxyButtonState() {
     }
 }
 
-/**
- * 選択モードの解除（操作ロック解除）
- */
 function resetProxySelectionMode() {
     isProxySelectMode = false;
     const deckList = document.querySelector('.deck-list');
-    if (deckList) deckList.classList.remove('proxy-select-mode'); // 操作ロック解除
+    if (deckList) deckList.classList.remove('proxy-select-mode'); 
 
     document.querySelectorAll('.deck-select-checkbox').forEach(cb => {
         cb.checked = false;
@@ -1547,9 +1318,6 @@ function closeProxyModal() {
     document.getElementById('proxy-export-modal').style.display = 'none';
 }
 
-/**
- * ページごとの単一PDFを生成し、ZIPにまとめてダウンロード
- */
 async function generateProxyPdf() {
     const selectedCheckboxes = Array.from(document.querySelectorAll('.deck-select-checkbox:checked'));
     if (selectedCheckboxes.length === 0) return;
@@ -1557,18 +1325,11 @@ async function generateProxyPdf() {
     const targetMode = document.querySelector('input[name="proxy_card_target"]:checked').value;
     const spacingMm = parseFloat(document.getElementById('proxy-spacing').value) || 0;
     
-    // 設定モーダルを閉じて、広告付き待機モーダルを表示
     closeProxyModal();
     const loadingModal = document.getElementById('zip-export-loading-modal');
     const modalHeaderTitle = loadingModal ? loadingModal.querySelector('.sub-modal-header span') : null;
     if (modalHeaderTitle) modalHeaderTitle.innerText = 'プロキシPDF出力中';
     if (loadingModal) loadingModal.style.display = 'flex';
-
-    try {
-    (adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (e) {
-        console.error('AdSense error:', e);
-    }
 
     try {
         const { jsPDF } = window.jspdf;
@@ -1587,7 +1348,6 @@ async function generateProxyPdf() {
         const startX = Math.max(0, (pageWidth - gridWidth) / 2);
         const startY = Math.max(0, (pageHeight - gridHeight) / 2);
 
-        // 1. 各デッキのカードリストを取得
         let allPrintCards = [];
         const currentUserId = '<?= isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : '' ?>';
 
@@ -1600,9 +1360,8 @@ async function generateProxyPdf() {
             let ownedList = [];
             if (targetMode === 'unowned' && currentUserId) {
                 try {
-                    const ownedRes = await fetch(`/api/decks/owned-cards?deck_id=${deckId}`);
-                    ownedList = await ownedRes.json();
-                    if (!Array.isArray(ownedList)) ownedList = [];
+                    const saved = localStorage.getItem(`owned_cards_u${currentUserId}_d${deckId}`);
+                    if (saved) ownedList = JSON.parse(saved);
                 } catch(e) {}
             }
 
@@ -1620,8 +1379,7 @@ async function generateProxyPdf() {
                 }
 
                 const qty = parseInt(c.quantity || 1);
-                // ★修正: ダミーカードならCanvas画像URL、通常なら画像ファイルパス
-                const imgPath = getIndexCardImageUrl(c);
+                const imgPath = c.imagepath ? '/images/card' + (c.imagepath.startsWith('/') ? c.imagepath : '/' + c.imagepath) : '/images/card/noimage.webp';
                 
                 for (let q = 0; q < qty; q++) {
                     allPrintCards.push({ name, imgPath });
@@ -1649,7 +1407,6 @@ async function generateProxyPdf() {
             img.src = url;
         });
 
-        // 2. 9枚ごとに単一ページのPDFを作成しZIPに追加
         for (let page = 0; page < totalPages; page++) {
             const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
             const pageCards = allPrintCards.slice(page * cardsPerPage, (page + 1) * cardsPerPage);
@@ -1662,16 +1419,13 @@ async function generateProxyPdf() {
                 const y = startY + (row * (cardHeight + spacingMm));
 
                 const imgEl = await loadImage(pageCards[i].imgPath);
-                // ★修正: DataURL（PNG）とWebP画像の両方に対応
-                const imgFormat = pageCards[i].imgPath.startsWith('data:image/png') ? 'PNG' : 'WEBP';
-                pdf.addImage(imgEl, imgFormat, x, y, cardWidth, cardHeight, undefined, 'FAST');
+                pdf.addImage(imgEl, 'WEBP', x, y, cardWidth, cardHeight, undefined, 'FAST');
             }
 
             const pdfBlob = pdf.output('blob');
             zip.file(`page_${page + 1}.pdf`, pdfBlob);
         }
 
-        // 3. ZIP圧縮してダウンロード
         const zipContent = await zip.generateAsync({ type: 'blob' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(zipContent);
@@ -1679,183 +1433,18 @@ async function generateProxyPdf() {
         link.click();
 
         resetProxySelectionMode();
-        openExportCompleteModal();
+
     } catch (e) {
         console.error(e);
         alert('ZIP/PDF作成中にエラーが発生しました。');
     } finally {
-        // ★ 待機モーダルを非表示に戻す
         if (loadingModal) loadingModal.style.display = 'none';
     }
 }
-
-function openExportCompleteModal() {
-    const modal = document.getElementById('export-complete-modal');
-    if (modal) {
-        modal.style.display = 'flex';
-        // モーダル表示時に広告をロード
-        try {
-            (adsbygoogle = window.adsbygoogle || []).push({});
-        } catch (e) {}
-    }
-}
-
-function closeExportCompleteModal() {
-    const modal = document.getElementById('export-complete-modal');
-    if (modal) modal.style.display = 'none';
-}
-function copyShareUrlFromItem(event, btnElement) {
-    if (event && event.stopPropagation) {
-        event.stopPropagation();
-    }
-
-    // ボタン要素の dataset または 直接数値が渡された場合の両方に対応
-    const deckId = (btnElement && btnElement.dataset) ? btnElement.dataset.deckId : btnElement;
-    if (!deckId) {
-        alert('デッキIDの取得に失敗しました。');
-        return;
-    }
-
-    const url = window.location.origin + '/decks/share?deck_id=' + deckId;
-
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(url).then(() => {
-            alert('共有用URLをクリップボードにコピーしました！\n' + url);
-        }).catch(() => {
-            fallbackCopyText(url);
-        });
-    } else {
-        fallbackCopyText(url);
-    }
-}
-
-function fallbackCopyText(text) {
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    textArea.style.position = 'fixed';
-    textArea.style.top = '-9999px';
-    textArea.style.left = '-9999px';
-    document.body.appendChild(textArea);
-    textArea.focus();
-    textArea.select();
-
-    try {
-        const successful = document.execCommand('copy');
-        document.body.removeChild(textArea);
-        if (successful) {
-            alert('共有用URLをクリップボードにコピーしました！\n' + text);
-        } else {
-            prompt('以下のURLをコピーしてください:', text);
-        }
-    } catch (err) {
-        document.body.removeChild(textArea);
-        prompt('以下のURLをコピーしてください:', text);
-    }
-}
-let selectedActionDeck = null;
-
-/**
- * デッキアイテムクリック時の処理
- */
-function handleDeckItemClick(event, itemEl) {
-    // プロキシ選択モード時はチェックボックスをトグル
-    if (isProxySelectMode) {
-        if (event.target.classList.contains('deck-select-checkbox')) return;
-        const cb = itemEl.querySelector('.deck-select-checkbox');
-        if (cb) {
-            cb.checked = !cb.checked;
-            updateProxyButtonState();
-        }
-        return;
-    }
-
-    // 通常時はデッキ操作メニューモーダルを表示
-    const deckId = itemEl.dataset.deckId;
-    const deckName = itemEl.querySelector('h3')?.innerText.trim() || '';
-    const formatName = itemEl.querySelector('.format-badge')?.innerText.trim() || '';
-    
-    // サムネイル画像のIDを取得（出力で使用）
-    const thumbImg = itemEl.querySelector('.deck-thumbnail');
-    const thumbnailId = thumbImg ? thumbImg.dataset.thumbnailId : '';
-
-    selectedActionDeck = {
-        id: deckId,
-        name: deckName,
-        format: formatName,
-        thumbnailId: thumbnailId
-    };
-
-    document.getElementById('action-menu-deck-name').innerText = deckName;
-    document.getElementById('deck-action-menu-modal').style.display = 'flex';
-}
-
-function closeDeckActionMenu() {
-    document.getElementById('deck-action-menu-modal').style.display = 'none';
-    selectedActionDeck = null;
-}
-
-/**
- * 操作メニュー選択時の処理
- */
-function onMenuAction(action) {
-    if (!selectedActionDeck) return;
-    const deck = selectedActionDeck;
-    closeDeckActionMenu();
-
-    switch (action) {
-        case 'view':
-            openDeckModal(deck.id, deck.name);
-            break;
-        case 'edit':
-            window.location.href = '/decks/edit?deck_id=' + deck.id;
-            break;
-        case 'share':
-            copyShareUrlFromItem(null, deck.id);
-            break;
-        case 'export':
-            exportDeckImage(deck.id, deck.name, deck.format, deck.thumbnailId, null);
-            break;
-        case 'copy':
-            copyDeck(deck.id);
-            break;
-        case 'delete':
-            deleteDeck(deck.id);
-            break;
-    }
-}
-
-/**
- * デッキ複製APIの実行
- */
-function copyDeck(deckId) {
-    if (!confirm('このデッキをコピーしてマイデッキに保存しますか？')) return;
-
-    fetch('/api/decks/copy', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deckId })
-    })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            alert('デッキをコピーしました！');
-            location.reload();
-        } else {
-            alert('コピーに失敗しました: ' + (data.error || '不明なエラー'));
-        }
-    })
-    .catch(() => alert('通信エラーが発生しました'));
-}
-// --- ダミーカード用画像生成ヘルパー ---
-const INDEX_CIV_COLORS = {
-    '1': '#f1c40f', '2': '#3498db', '3': '#34495e',
-    '4': '#e74c3c', '5': '#2ecc71', '6': '#95a5a6'
-};
-
-function getIndexCardImageUrl(card) {
-    return getCardImageUrl(card);
-}
 </script>
+
+<!-- ★チュートリアル制御スクリプトの読み込み -->
+<script src="/js/tutorial.js?v=<?php echo time(); ?>"></script>
 
 </body>
 </html>

@@ -1,0 +1,291 @@
+/* public/css/tutorial.css */
+
+/* 1. 操作制限オーバーレイ */
+.tutorial-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 8000;
+    pointer-events: auto;
+    background: transparent;
+}
+
+/* 2. 操作対象の赤丸・ハイライト */
+.tutorial-highlight {
+    position: relative !important;
+    z-index: 8500 !important;
+    box-shadow: 0 0 0 4px #ef4444, 0 0 15px rgba(239, 68, 68, 0.8) !important;
+    animation: tutorialPulse 1.5s infinite alternate !important;
+}
+
+@keyframes tutorialPulse {
+    0% {
+        box-shadow: 0 0 0 3px #ef4444, 0 0 10px rgba(239, 68, 68, 0.5);
+    }
+    100% {
+        box-shadow: 0 0 0 6px #dc2626, 0 0 22px rgba(220, 38, 38, 0.9);
+    }
+}
+
+/* 3. 画面下部の吹き出しウィンドウ */
+.tutorial-bubble {
+    position: fixed;
+    bottom: 25px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 92vw;
+    max-width: 680px;
+    background: #1a1a1a;
+    border: 2px solid #ca8a04;
+    border-radius: 14px;
+    padding: 16px 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85);
+    z-index: 9000;
+    color: #ffffff;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    animation: bubbleSlideUp 0.3s ease;
+}
+
+@keyframes bubbleSlideUp {
+    from {
+        opacity: 0;
+        transform: translate(-50%, 20px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.tutorial-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333333;
+    padding-bottom: 6px;
+}
+
+.tutorial-step-title {
+    font-size: 0.95rem;
+    font-weight: bold;
+    color: #facc15;
+    letter-spacing: 0.5px;
+}
+
+/* 中止するボタン（スマホでもタップしやすいボタン） */
+.tutorial-abort-btn {
+    background: #dc2626;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    cursor: pointer;
+    line-height: 1.2;
+}
+
+.tutorial-minimize-btn {
+    background: #2a2a2a;
+    border: 1px solid #555555;
+    color: #ffffff;
+    width: 26px;
+    height: 26px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tutorial-body {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: #eeeeee;
+    margin: 4px 0;
+}
+
+.tutorial-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 6px;
+    border-top: 1px solid #282828;
+}
+
+.tutorial-esc-note {
+    font-size: 0.75rem;
+    color: #888888;
+}
+
+.tutorial-nav-btns {
+    display: flex;
+    gap: 8px;
+}
+
+.tutorial-btn {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+}
+
+.tutorial-btn-prev {
+    background: #333333;
+    color: #cccccc;
+    border: 1px solid #555555;
+}
+
+.tutorial-btn-next {
+    background: #facc15;
+    color: #000000;
+}
+
+/* 4. 最小化バー */
+.tutorial-minibar {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #1c1c1c;
+    border: 2px solid #ca8a04;
+    color: #facc15;
+    padding: 10px 18px;
+    border-radius: 30px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    z-index: 9000;
+    cursor: pointer;
+    font-weight: bold;
+    font-size: 0.9rem;
+    animation: bubbleSlideUp 0.3s ease;
+}
+
+/* 5. ドラッグ＆ドロップの手ポインター */
+.tutorial-drag-pointer {
+    position: fixed;
+    z-index: 9500;
+    pointer-events: none;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.tutorial-pointer-card {
+    width: 45px;
+    height: 63px;
+    background: #333333;
+    border: 2px solid #ca8a04;
+    border-radius: 4px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6);
+    opacity: 0.9;
+    animation: pointerFloat 1.2s infinite alternate;
+}
+
+.tutorial-pointer-hand {
+    font-size: 26px;
+    margin-top: -12px;
+}
+
+@keyframes pointerFloat {
+    0% { transform: scale(1); }
+    100% { transform: scale(1.08); }
+}
+
+/* 6. 中止確認モーダル */
+.tutorial-esc-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.8);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+.tutorial-esc-dialog {
+    background: #1f1f1f;
+    border: 2px solid #ca8a04;
+    border-radius: 12px;
+    padding: 25px;
+    width: 90%;
+    max-width: 380px;
+    text-align: center;
+    color: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+.tutorial-esc-dialog h3 {
+    margin: 0 0 12px 0;
+    color: #facc15;
+    font-size: 1.2rem;
+}
+.tutorial-esc-dialog p {
+    color: #cccccc;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+.tutorial-esc-actions {
+    display: flex;
+    gap: 10px;
+}
+.tutorial-esc-actions button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    border: none;
+}
+.btn-tut-stop {
+    background: #dc2626;
+    color: #ffffff;
+}
+.btn-tut-continue {
+    background: #333333;
+    color: #ffffff;
+    border: 1px solid #666666;
+}
+
+/* ★スマホ環境（768px以下）専用レイアウト */
+@media (max-width: 768px) {
+    .tutorial-bubble {
+        bottom: 15px;
+        width: 95vw;
+        padding: 12px 14px;
+        gap: 8px;
+    }
+    .tutorial-step-title {
+        font-size: 0.85rem;
+    }
+    .tutorial-body {
+        font-size: 0.85rem;
+        line-height: 1.5;
+    }
+    .tutorial-minibar {
+        bottom: 12px;
+        right: 12px;
+        padding: 8px 14px;
+        font-size: 0.8rem;
+    }
+    .tutorial-pointer-card {
+        width: 36px;
+        height: 50px;
+    }
+    .tutorial-pointer-hand {
+        font-size: 20px;
+    }
+}

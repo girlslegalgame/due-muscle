@@ -1,4 +1,6 @@
 <!-- app/Views/deck/create.php -->
+<link rel="stylesheet" href="/css/tutorial.css?v=<?php echo time(); ?>">
+
 <style>
     body {
         margin: 0;
@@ -7,9 +9,6 @@
         overflow: hidden; /* body自体にスクロールバーを出さない */
     }
 
-    /* 
-      親レイアウトのmainタグの設定を上書き同期します。
-    */
     main {
         padding-top: 75px !important;    
         padding-bottom: 20px !important; 
@@ -22,13 +21,12 @@
         align-items: center;
     }
 
-    /* --- 1. 全体のコンテナ（mainの逃げ幅(75px)を引いた内寸いっぱいに完璧にフィット） --- */
     #container { 
         width: 100%; 
         max-width: 1280px; 
-        height: 100%;      /* ★ mainのpaddingを除いた内寸100%いっぱいにフィットさせます */
+        height: 100%;      
         max-height: 100%; 
-        margin: 0 auto;    /* ★ main自体がすでに上を避けているため、余分な margin-top は 0（不要）になります */
+        margin: 0 auto;    
         display: flex; 
         flex-direction: row; 
         box-sizing: border-box;
@@ -38,13 +36,10 @@
         box-shadow: 0 0 25px rgba(0,0,0,0.1); 
     }
 
-
-    /* 左利き配置切り替え時 */
     #container.left-handed {
         flex-direction: row-reverse;
     }
 
-    /* --- 2. デッキ作成エリア --- */
     #deck-area { 
         flex: 1; 
         min-width: 0; 
@@ -66,11 +61,9 @@
     #deck-header { display: flex; justify-content: space-between; align-items: center; height: 40px; flex-shrink: 0; }
     #deck-header h3 { margin: 0; font-size: 16px; }
 
-    /* ゾーン表示制御 */
     .deck-content { display: none; width: 100%; flex: 1; min-height: 0; }
     .deck-content.active { display: grid; }
 
-    /* メインデッキリスト (8列固定) */
     #main-deck-list {
         grid-template-columns: repeat(8, 1fr); 
         background-color: #fff; border: 1px solid #ccc;
@@ -87,7 +80,6 @@
     }
     #main-deck-list.stacked-mode { grid-auto-rows: 45px; }
 
-    /* --- 3. 超次元・GRエリア --- */
     #extra-deck-area { 
         display: none; 
         flex-direction: row; 
@@ -119,7 +111,6 @@
         padding-bottom: 5px;
     }
 
-    /* 共通可変リスト設定 */
     .extra-list { 
         display: grid !important; 
         grid-template-columns: repeat(4, 1fr) !important; 
@@ -139,19 +130,16 @@
         display: block;
     }
 
-    /* 超GRリスト (最初から縦3×横4枠を維持) */
     #gr-list {
         width: 100%;
         aspect-ratio: 464 / 482; 
     }
 
-    /* 超次元リスト (最初から縦2×横4枠を維持) */
     #super-dim-list {
         width: 100%;
         aspect-ratio: 464 / 324; 
     }
 
-    /* --- 4. 特殊タブ（ドルマゲドン・零龍） --- */
     #special-deck-list.active {
         display: flex !important; 
         flex-direction: row !important;
@@ -163,12 +151,11 @@
     .special-label { margin: 0 0 10px 0; font-size: 15px; font-weight: bold; }
     .btn-add-special { margin-bottom: 20px; padding: 8px 20px; background: #007bff; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     
-    /* 修正：幅に合わせて比率を維持したまま可変するよう変更 */
     .special-box {
-        width: 80%;                   /* ゾーン幅に対して可変（必要に応じて 100% に近い値に調整してください） */
-        max-width: 280px;             /* 拡大しすぎるのを防ぐ上限値 */
-        aspect-ratio: 110 / 154;      /* カードの縦横比率を維持 */
-        height: auto;                 /* 固定高さ（390px）を解除 */
+        width: 80%;                   
+        max-width: 280px;             
+        aspect-ratio: 110 / 154;      
+        height: auto;                 
         border: 2px dashed #bbb;
         display: flex; justify-content: center; align-items: center;
         border-radius: 8px; background: #fff; overflow: hidden;
@@ -181,11 +168,11 @@
         cursor: pointer;
     }
     .special-box.active { border: 2px solid #28a745; }
-    /* --- 5. 検索セクション（右側固定・320px） --- */
+
     #search-section {
         position: relative;      
-        width: 380px;            /* ★ 320px から 380px へ変更 */
-        min-width: 380px;        /* ★ 320px から 380px へ変更 */
+        width: 380px;            
+        min-width: 380px;        
         height: 100%;        
         box-sizing: border-box;
         background: rgba(249, 249, 249, 0.98); 
@@ -212,7 +199,6 @@
         overflow: hidden;
     }
 
-    /* 開閉トグルボタン */
     #search-toggle-btn {
         position: absolute;
         top: 50%;
@@ -241,7 +227,6 @@
         background: #444;
     }
 
-    /* 検索結果（縦スクロール・横2列グリッド） */
     #search-results { 
         flex: 1; 
         display: grid; 
@@ -267,7 +252,6 @@
         transform: scale(1.03);
     }
     
-    /* 検索コントロール */
     #search-controls-wrapper { 
         display: flex; 
         flex-direction: column; 
@@ -277,7 +261,7 @@
     }
     #search-controls { 
         display: flex; 
-        flex-direction: row; /* 縦から横並びに変更 */
+        flex-direction: row; 
         align-items: center;
         gap: 6px; 
         height: auto; 
@@ -293,7 +277,7 @@
 
     #card-search-input { 
         flex: 1; 
-        min-width: 0; /* 横幅縮小時の潰れ防止 */
+        min-width: 0; 
         padding: 10px 8px; 
         border: 1px solid #ccc; 
         border-radius: 4px; 
@@ -315,34 +299,31 @@
     .btn-analysis { background: #28a745; }
     .btn-analysis:hover { background: #218838; }
     
-    /* 検索範囲（チェックボックス）を左寄せに変更 */
     .search-scope { 
         display: flex; 
-        gap: 12px;               /* 各項目の間隔に少し余裕を持たせます */
+        gap: 12px;               
         font-size: 12px; 
         color: #666; 
         justify-content: flex-start; 
         padding-left: 2px;
         align-items: center;     
-        flex-wrap: nowrap;       /* 親要素の改行を禁止 */
+        flex-wrap: nowrap;       
     }
-    /* 利き手スイッチ */
     .hand-switch-btn {
         background: #e2e8f0;
         border: 1px solid #cbd5e1;
         color: #475569;
-        padding: 4px 8px;        /* ★ 6px 12px から 4px 8px にしてコンパクトにします */
-        font-size: 11px;         /* ★ 12px から 11px に微減 */
+        padding: 4px 8px;        
+        font-size: 11px;         
         border-radius: 4px;
         cursor: pointer;
         font-weight: bold;
-        white-space: nowrap;     /* ★ ボタン内の文字が折り返すのを防ぎます */
+        white-space: nowrap;     
     }
     .hand-switch-btn:hover {
         background: #cbd5e1;
     }
 
-    /* --- 6. モーダル共通 --- */
     #cardDetailModal, #filterModal, .sub-modal { 
         display: none; position: fixed; z-index: 3000; 
         left: 0; top: 0; width: 100%; height: 100%; 
@@ -362,14 +343,13 @@
         width: 100%;
         height: 100%;
         background: rgba(0, 0, 0, 0.8);
-        overflow-y: auto; /* 万が一はみ出る場合のスクロールを保証 */
+        overflow-y: auto; 
     }    
-    /* カード詳細 */
     .detail-content {
         width: 90%;
         max-width: 850px;
-        max-height: 90vh; /* 画面高さの90%以内に収める */
-        overflow-y: auto; /* 中身が多い場合はモーダル内スクロール */
+        max-height: 90vh; 
+        overflow-y: auto; 
         display: flex;
         flex-direction: column;
         background: white;
@@ -394,7 +374,6 @@
         border-bottom: 2px solid #eee; 
         padding-bottom: 10px; 
     }
-    /* 画像表示エリア（画像の最大高さを制限して枠内にフィット） */
     .detail-image { 
         grid-column: 1 / 2; 
         grid-row: 1 / 3; 
@@ -405,7 +384,7 @@
     }
     .detail-image img { 
         max-width: 100%; 
-        max-height: 360px; /* 巨大な画像でも縦360px以内に抑える */
+        max-height: 360px; 
         height: auto;
         width: auto;
         aspect-ratio: 110 / 154;
@@ -430,7 +409,7 @@
         border-radius: 5px; 
         font-size: 0.95rem; 
         line-height: 1.6; 
-        max-height: 220px; /* テキストエリアの高さ制限 */
+        max-height: 220px; 
         overflow-y: auto; 
     }
     .version-list { display: flex; overflow-x: auto; gap: 12px; padding: 10px 5px; }
@@ -440,7 +419,6 @@
     .btn-qty { width: 40px; height: 40px; border-radius: 50%; border: 1px solid #ccc; cursor: pointer; font-size: 1.5rem; background: #fff; }
     .detail-close-btn { position: absolute; right: 20px; top: 15px; cursor: pointer; font-size: 30px; z-index: 10; line-height: 1; }
 
-    /* 絞り込みモーダル */
     #filterModal {
         display: none;
         align-items: center;
@@ -516,7 +494,6 @@
         margin-bottom: 8px;
     }
 
-    /* 文明チップス */
     .civ-checkboxes, #filter-exclude-civ-area { 
         display: grid; 
         grid-template-columns: repeat(3, 1fr); 
@@ -557,7 +534,6 @@
         font-weight: bold;
     }
 
-    /* 範囲指定 */
     .range-inputs {
         display: flex;
         align-items: center;
@@ -581,7 +557,6 @@
         font-size: 0.9rem;
     }
 
-    /* セレクトトリガー */
     .select-trigger { 
         width: 100% !important; 
         padding: 10px 14px; 
@@ -611,7 +586,6 @@
         color: #8e8e93;
     }
 
-    /* AND / OR 切り替え */
     .logic-switch { 
         display: inline-flex; 
         border: 1px solid #d1d1d6; 
@@ -642,7 +616,6 @@
         margin: -4px -12px; 
     }
 
-    /* 下部アクション */
     .filter-actions {
         display: flex;
         gap: 12px;
@@ -680,7 +653,6 @@
         background: #ffebe6;
     }  
     
-    /* --- サブモーダル --- */
     .sub-modal { 
         display: none; 
         position: fixed; 
@@ -758,7 +730,6 @@
         cursor: pointer;
     }
 
-    /* トグルスイッチ */
     .toggle-switch {
         position: relative;
         display: inline-block;
@@ -797,7 +768,6 @@
         transform: translateX(20px); 
     }
 
-    /* 選択バッジ */
     .selected-badges-container {
         display: flex;
         flex-wrap: wrap;
@@ -850,9 +820,7 @@
     }
     .btn-settings:hover { background: #5a6268; }
 
-    /* --- 7. スマートフォン環境（ボトムシート＆縦並びフォールバック） --- */
     @media (max-width: 768px) {
-
         .btn-settings {
             padding: 8px 12px !important;
             font-size: 12px !important;
@@ -861,7 +829,6 @@
         #settings-position-group {
             display: none !important;
         }
-        /* タブバー自体の高さ制限を解除し、要素を均等幅にして改行を防ぐ */
         #deck-tabs {
             height: auto !important;
             gap: 4px !important;
@@ -869,34 +836,31 @@
         .tab {
             font-size: 11px !important;
             padding: 6px 4px !important;
-            white-space: nowrap !important; /* 改行を絶対に防止 */
-            flex: 1; /* 横幅いっぱいに3等分で均等配置 */
+            white-space: nowrap !important; 
+            flex: 1; 
             text-align: center;
         }
 
-        /* スマホ時も分析・保存ボタンを右寄せに維持 */
         #deck-header {
             height: auto !important;
             margin: 8px 0 !important;
             display: flex !important;
-            justify-content: flex-end !important; /* 右寄せにする */
+            justify-content: flex-end !important; 
         }
         #deck-header h3 {
-            display: none !important; /* ボタンとの衝突を防ぐため非表示 */
+            display: none !important; 
         }
         #deck-header > div {
-            justify-content: flex-end !important; /* 右寄せを維持 */
+            justify-content: flex-end !important; 
             gap: 8px !important;
         }
         
-        /* ボタンを横に引き伸ばさず、コンパクトに右端へ配置 */
         .btn-analysis, #save-deck-btn {
-            flex: none !important; /* 引き伸ばさない */
+            flex: none !important; 
             font-size: 12px !important;
             padding: 6px 12px !important;
         }
         
-        /* 既存の個別スタイル（padding-bottom）の競合を調整 */
         #deck-area {
             padding: 8px;
             padding-bottom: 210px !important; 
@@ -920,7 +884,6 @@
             width: 100%;
         }
         
-        /* スマホ時はアスペクト比固定をリセットし、横幅に応じて等倍縮小 */
         #gr-list, #super-dim-list {
             width: 100% !important;
             max-width: 380px; 
@@ -935,7 +898,6 @@
             height: auto !important;
         }
 
-        /* 特殊タブ */
         #special-deck-list.active {
             flex-direction: row !important; 
             justify-content: space-around;
@@ -975,7 +937,6 @@
             margin: 5px 0 !important;
         }
 
-        /* 検索セクションボトムシート（配置・順番の再定義） */
         #search-section {
             position: fixed !important;
             bottom: 0 !important;
@@ -991,7 +952,7 @@
             padding: 5px 10px !important;
             transition: transform 0.3s ease !important;
             display: flex !important;
-            flex-direction: column !important; /* 上下配置 */
+            flex-direction: column !important; 
             gap: 4px !important;
         }
         #search-section.collapsed {
@@ -1015,7 +976,6 @@
             transition: none !important;
         }
 
-        /* 1. 一番上にカード横並び(横スクロール) */
         #search-results {
             display: flex !important;
             flex-direction: row !important;
@@ -1026,8 +986,6 @@
             padding: 2px 0 !important;
             gap: 8px !important;
             order: 1 !important; 
-            
-            /* ★追加：ブラウザに横スクロールを最優先で処理させ、滑らかな動き（慣性）を強制します */
             touch-action: pan-x;
             -webkit-overflow-scrolling: touch; 
         }
@@ -1038,26 +996,22 @@
             object-fit: contain !important; 
             background-color: #fff; 
             flex-shrink: 0;
-            
-            /* ★追加：画像単体にも横スワイプ時はスクロールを優先させます */
             touch-action: pan-x; 
         }
 
-        /* コントロール群ラッパー */
         #search-controls-wrapper {
             border-bottom: none !important;
             padding-bottom: 0 !important;
             display: flex !important;
             flex-direction: column !important;
             gap: 4px !important;
-            order: 2 !important; /* 二番目 */
+            order: 2 !important; 
             width: 100% !important;
         }
 
-        /* 2. その下に検索ボックス、右隣にボタン */
         #search-controls {
             display: flex !important;
-            flex-direction: row !important; /* 横並び */
+            flex-direction: row !important; 
             align-items: center !important;
             gap: 6px !important;
             width: 100% !important;
@@ -1065,7 +1019,7 @@
         }
         
         #card-search-input {
-            flex: 1 !important; /* 検索ボックスを広めに */
+            flex: 1 !important; 
             padding: 8px !important;
             font-size: 14px !important;
             box-sizing: border-box !important;
@@ -1074,7 +1028,7 @@
         #search-buttons-row {
             display: flex !important;
             gap: 4px !important;
-            flex-shrink: 0 !important; /* ボタン幅が潰れないように制限 */
+            flex-shrink: 0 !important; 
         }
 
         .btn-filter, .btn-sort {
@@ -1083,10 +1037,9 @@
             white-space: nowrap !important;
         }
 
-        /* 3. 一番下にカード名・テキストのチェックボックス（左寄せ） */
         .search-scope {
             display: flex !important;
-            justify-content: flex-start !important; /* 左寄せ */
+            justify-content: flex-start !important; 
             align-items: center !important;
             padding-left: 4px !important;
             gap: 15px !important;
@@ -1094,7 +1047,7 @@
             margin-top: 2px !important;
         }
         .search-scope label {
-            white-space: nowrap;     /* ★文字とチェックボックスが絶対に途中で折り返さないようにします */
+            white-space: nowrap;     
             display: flex;
             align-items: center;
             gap: 4px;
@@ -1102,7 +1055,6 @@
             cursor: pointer;
         }
 
-        /* 詳細モーダル */
         .detail-content {
             width: 92% !important;
             margin: 3vh auto !important;
@@ -1154,29 +1106,26 @@
             font-size: 0.9rem;
         }
         .btn-sort, .btn-analysis, #save-deck-btn {
-            flex: none !important; /* 引き伸ばさない */
+            flex: none !important; 
             font-size: 12px !important;
             padding: 6px 12px !important;
         }
     }
-    /* デッキ内および検索結果の画像単体における、ブラウザ標準のドラッグ＆選択操作を徹底的に無効化 */
     #main-deck-list img, 
     .extra-list img, 
     .special-box img, 
     #search-results img {
-        -webkit-user-drag: none !important; /* Safari, Chromeでの画像ドラッグを無効化 */
-        user-drag: none !important;         /* 標準の画像ドラッグを無効化 */
-        user-select: none !important;       /* テキストや画像選択を無効化 */
+        -webkit-user-drag: none !important; 
+        user-drag: none !important;         
+        user-select: none !important;       
         -webkit-user-select: none !important;
         -moz-user-select: none !important;
         -ms-user-select: none !important;
     }
 </style>
-<!-- 外部ライブラリ読み込み -->
-<script src="/js/card_image_helper.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
 <div id="container">
-    <!-- デッキエリア -->
     <div id="deck-area">
         <div id="deck-tabs">
             <div id="tab-main" class="tab active" onclick="switchDeckTab('main')">メイン 0</div>
@@ -1186,18 +1135,14 @@
         <div id="deck-header">
             <h3>デッキ内容</h3>
             <div style="display: flex; align-items: center; gap: 8px;">
-                <!-- ★追加：未実装カード追加ボタン -->
-                <button type="button" class="btn-settings" style="background: #fd7e14; padding: 8px 12px; font-size: 13px;" onclick="openDummyCardModal()">+ダミー追加</button>
                 <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
                 <button class="btn-analysis" onclick="openAnalysisModal()">分析</button>
                 <button id="save-deck-btn" onclick="openSaveModal()" style="padding: 8px 20px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>
             </div>
         </div>
 
-        <!-- メインリスト -->
         <div id="main-deck-list" class="deck-content active"></div>
 
-        <!-- GR/超次元エリア -->
         <div id="extra-deck-area" class="deck-content" style="display:none; flex-direction:row; gap:20px; padding:10px;">
             <div class="zone-container" style="flex:1;">
                 <h4 style="margin:0 0 5px 0; border-bottom:2px solid #007bff;">超GR</h4>
@@ -1209,7 +1154,6 @@
             </div>
         </div>
 
-        <!-- 特殊リスト -->
         <div id="special-deck-list" class="deck-content">
             <div class="special-zone">
                 <h4 class="special-label">終焉の禁断 ドルマゲドンX</h4>
@@ -1225,14 +1169,11 @@
         </div>    
     </div>
     <button id="search-toggle-btn" onclick="toggleSearchSection()">◀ 検索を隠す</button>
-    <!-- 検索エリア（右側・左側縦長配置へ変更） -->
+    
     <div id="search-section">
-        <!-- 開閉トグルボタン（縦型テキスト仕様） -->        
         <div id="search-controls-wrapper">
             <div id="search-controls">
-                <!-- 入力フォーム -->
                 <input type="text" id="card-search-input" placeholder="カード名を入力..." autocomplete="off">
-                <!-- 絞り込み & 設定ボタン -->
                 <div id="search-buttons-row">
                     <button class="btn-filter" onclick="toggleFilterModal()">絞り込み</button>
                     <button class="btn-settings" onclick="toggleSettingsModal()">設定</button>
@@ -1245,18 +1186,14 @@
             </div>
         </div>
         
-        <!-- カード検索結果（グリッドスクロール表示） -->
         <div id="search-results"></div>
     </div>
 </div>
 
-<!-- 詳細モーダル -->
 <div id="cardDetailModal">
     <div class="detail-content">
-        <!-- 右上の閉じるボタン -->
         <span class="detail-close-btn" onclick="closeDetailModal()">&times;</span>
         
-        <!-- PC時はGrid、スマホ時はFlexbox(縦)で順序を制御 -->
         <div class="detail-grid">
             <h2 id="detail-name"></h2>
             
@@ -1289,7 +1226,6 @@
     </div>
 </div>
 
-<!-- 絞り込みモーダル -->
 <div id="filterModal">
     <div class="filter-content">
         <div class="filter-header">
@@ -1298,10 +1234,8 @@
         </div>
         
         <div class="filter-scroll">
-            <!-- 文明グループ -->
             <div class="filter-group">
                 <label>文明</label>
-                <!-- 単色・多色選択 -->
                 <div style="display: flex; gap: 15px; margin-bottom: 12px;">
                     <label style="font-size: 13px; font-weight: normal; margin: 0; cursor: pointer; display: flex; align-items: center; gap: 4px;">
                         <input type="checkbox" id="filter-civ-single" checked onchange="toggleFilterCivType()"> 単色
@@ -1320,13 +1254,11 @@
                     <label><input type="checkbox" class="civ-check" value="6"> ゼロ</label>
                 </div>
 
-                <!-- 含む / のみ持つ ラジオボタン -->
                 <div style="display: flex; gap: 15px; margin: 12px 0; font-size: 12px; color: #555;">
                     <label style="cursor: pointer; font-weight: normal; display: flex; align-items: center; gap: 4px;"><input type="radio" name="filter-civ-match-type" value="include" checked> 選択した文明を含む</label>
                     <label style="cursor: pointer; font-weight: normal; display: flex; align-items: center; gap: 4px;"><input type="radio" name="filter-civ-match-type" value="match"> 選択した文明のみ持つ</label>
                 </div>
 
-                <!-- 含まれない文明を指定（除外エリア） -->
                 <div id="filter-exclude-civ-area" style="border-top: 1px solid #eaeaea; padding-top: 12px; margin-top: 12px;">
                     <span style="font-size: 11px; color: #666; grid-column: span 3; font-weight: bold; margin-bottom: 4px;">含まれない文明を指定（除外）</span>
                     <label><input type="checkbox" class="filter-exclude-civ-check" value="1"> 光</label>
@@ -1338,7 +1270,6 @@
                 </div>
             </div>
 
-            <!-- 特殊タイプグループ -->
             <div class="filter-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">特殊タイプ</label>
@@ -1350,7 +1281,6 @@
                 <div id="characteristics-trigger" class="select-trigger" onclick="openSubModal('characteristics')">特殊タイプを選択</div>
             </div>
 
-            <!-- カードタイプグループ -->
             <div class="filter-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">カードタイプ</label>
@@ -1362,7 +1292,6 @@
                 <div id="cardtype-trigger" class="select-trigger" onclick="openSubModal('cardtype')">カードタイプを選択</div>
             </div>
 
-            <!-- コスト・パワーグループ -->
             <div style="display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; margin-bottom: 20px;">
                 <div class="filter-group" style="margin: 0;">
                     <label>コスト</label>
@@ -1383,7 +1312,6 @@
                 </div>
             </div>
 
-            <!-- 種族グループ -->
             <div class="filter-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">種族</label>
@@ -1395,7 +1323,6 @@
                 <div id="race-trigger" class="select-trigger" onclick="openSubModal('race')">種族を選択</div>
             </div>
 
-            <!-- 特殊能力グループ -->
             <div class="filter-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
                     <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin: 0;">特殊能力</label>
@@ -1406,12 +1333,12 @@
                 </div>
                 <div id="ability-trigger" class="select-trigger" onclick="openSubModal('ability')">特殊能力を選択</div>
             </div>
-            <!-- 収録商品グループ -->
+
             <div class="filter-group">
                 <label style="font-size: 0.85rem; font-weight: 600; color: #444; margin-bottom: 8px;">収録商品</label>
                 <div id="goods-trigger" class="select-trigger" onclick="openSubModal('goods')">収録商品を選択</div>
             </div>
-            <!-- ★追加：ツインパクト絞り込みグループ -->
+
             <div class="filter-group">
                 <label>ツインパクト</label>
                 <div style="display: flex; gap: 15px;">
@@ -1423,7 +1350,7 @@
                     </label>
                 </div>
             </div>            
-            <!-- レギュレーショングループ -->
+
             <div class="filter-group" style="margin: 0;">
                 <label>レギュレーション</label>
                 <div style="display: flex; gap: 15px;">
@@ -1439,7 +1366,7 @@
         </div>
     </div>
 </div>
-<!-- 並び替えモーダル -->
+
 <div id="sortModal" class="sub-modal">
     <div class="sub-modal-content" style="width: 400px; height: auto; max-height: 90vh; margin: 15vh auto;">
         <div class="sub-modal-header" style="padding: 15px; background: #333; color: #fff; display: flex; justify-content: space-between; border-radius: 12px 12px 0 0;">
@@ -1472,12 +1399,10 @@
     </div>
 </div>
 
-<!-- サブモーダル (種族選択) -->
 <div id="raceSelectModal" class="sub-modal"><div class="sub-modal-content">
     <div style="padding:15px; background:#333; color:#fff; display:flex; justify-content:space-between;"><span>種族選択</span><span onclick="closeSubModal('race')" style="cursor:pointer;">&times;</span></div>
     <div style="padding:10px;">
         <input type="text" id="race-list-search" placeholder="検索..." style="width:100%; padding:8px; margin-bottom:5px;">
-        <!-- 一括操作ボタンエリアを追加 -->
         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
             <button type="button" onclick="bulkSelectVisible('race')" style="flex: 1; padding: 6px; font-size: 12px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">表示中を一括選択</button>
             <button type="button" onclick="clearSubSelection('race')" style="flex: 1; padding: 6px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">全選択解除</button>
@@ -1488,12 +1413,10 @@
     <div style="padding:10px; border-top:1px solid #eee;"><button onclick="closeSubModal('race')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:4px;">決定</button></div>
 </div></div>
 
-<!-- サブモーダル (特殊能力選択) -->
 <div id="abilitySelectModal" class="sub-modal"><div class="sub-modal-content">
     <div style="padding:15px; background:#333; color:#fff; display:flex; justify-content:space-between;"><span>特殊能力選択</span><span onclick="closeSubModal('ability')" style="cursor:pointer;">&times;</span></div>
     <div style="padding:10px;">
         <input type="text" id="ability-list-search" placeholder="検索..." style="width:100%; padding:8px; margin-bottom:5px;">
-        <!-- 一括操作ボタンエリアを追加 -->
         <div style="display: flex; gap: 8px; margin-bottom: 8px;">
             <button type="button" onclick="bulkSelectVisible('ability')" style="flex: 1; padding: 6px; font-size: 12px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">表示中を一括選択</button>
             <button type="button" onclick="clearSubSelection('ability')" style="flex: 1; padding: 6px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">全選択解除</button>
@@ -1504,7 +1427,6 @@
     <div style="padding:10px; border-top:1px solid #eee;"><button onclick="closeSubModal('ability')" style="width:100%; padding:10px; background:#007bff; color:#fff; border:none; border-radius:4px;">決定</button></div>
 </div></div>
 
-<!-- サブモーダル (特殊タイプ選択) -->
 <div id="characteristicsSelectModal" class="sub-modal">
     <div class="sub-modal-content">
         <div class="sub-modal-header">
@@ -1521,7 +1443,6 @@
     </div>
 </div>
 
-<!-- サブモーダル (カードタイプ選択) -->
 <div id="cardtypeSelectModal" class="sub-modal">
     <div class="sub-modal-content">
         <div class="sub-modal-header">
@@ -1538,14 +1459,12 @@
     </div>
 </div>
 
-<!-- サブモーダル (収録商品選択) -->
 <div id="goodsSelectModal" class="sub-modal">
     <div class="sub-modal-content">
         <div class="sub-modal-header">
             <span>収録商品選択</span>
             <span onclick="closeSubModal('goods')" style="cursor:pointer; font-size: 20px;">&times;</span>
         </div>
-        <!-- ★追加：シリーズ一括選択エリア -->
         <div style="padding: 12px 15px; border-bottom: 1px solid #f2f2f7; background-color: #fafafa;">
             <span style="font-size: 11px; color: #666; font-weight: bold; display: block; margin-bottom: 8px;">シリーズで一括選択</span>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
@@ -1563,11 +1482,9 @@
                 </label>
             </div>
         </div>
-        <!-- ここまで -->
          
         <div style="padding:10px;">
             <input type="text" id="goods-list-search" placeholder="商品を検索..." style="width:100%; padding:8px; margin-bottom:5px;">
-            <!-- 一括操作ボタンエリアを追加 -->
             <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                 <button type="button" onclick="bulkSelectVisible('goods')" style="flex: 1; padding: 6px; font-size: 12px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">表示中を一括選択</button>
                 <button type="button" onclick="clearSubSelection('goods')" style="flex: 1; padding: 6px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">全選択解除</button>
@@ -1581,32 +1498,25 @@
     </div>
 </div>
 
-<!-- デッキ保存・設定モーダル -->
 <div id="deckSaveModal" class="sub-modal">
     <div class="sub-modal-content" style="max-width: 460px; height: auto; max-height: 90vh;">
-        <!-- 画面上部角までぴったり #333 のヘッダー -->
         <div class="sub-modal-header">
             <span>デッキ保存設定</span>
             <span onclick="closeSaveModal()" style="cursor:pointer; font-size:24px;">&times;</span>
         </div>
         
-        <!-- 余白を綺麗に持たせたスクロールエリア -->
         <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 16px;">
-            <!-- デッキ名 -->
             <div>
                 <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">デッキ名</label>
                 <input type="text" id="save-deck-name" placeholder="デッキ名を入力してください" style="width: 100%; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; box-sizing: border-box; outline: none; font-size: 14px;">
             </div>
             
-            <!-- フォーマット選択 -->
             <div>
                 <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">フォーマット</label>
                 <select id="save-deck-format" style="width: 100%; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; box-sizing: border-box; background: white; font-size: 14px; outline: none; cursor: pointer;">
-                    <!-- JSで動的にオプション生成 -->
                 </select>
             </div>
             
-            <!-- サムネイル選択 -->
             <div>
                 <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">デッキサムネイル</label>
                 <div style="display: flex; gap: 15px; align-items: center;">
@@ -1622,14 +1532,12 @@
                 <input type="hidden" id="save-deck-thumbnail-id" value="">
             </div>
 
-            <!-- 公開設定（シンプルなスライドトグル） -->
             <div style="margin-top: 10px; border-top: 1px solid #f2f2f7; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="padding-right: 15px; flex: 1;">
                     <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 2px; color: #444;">デッキを公開する</label>
                     <span style="font-size: 11px; color: #666; display: block; line-height: 1.4;">公開すると、他のユーザーがデッキ検索で閲覧・コピーできるようになります。</span>
                 </div>
                 
-                <!-- スタイリッシュなスライド式トグル -->
                 <label class="toggle-switch" style="flex-shrink: 0;">
                     <input type="checkbox" id="save-deck-public">
                     <span class="toggle-slider"></span>
@@ -1637,7 +1545,6 @@
             </div>
         </div>
         
-        <!-- フッターボタンエリア -->
         <div style="padding: 15px 20px 20px 20px; border-top: 1px solid #f2f2f7; display: flex; gap: 12px; background: #fff;">
             <button onclick="closeSaveModal()" style="flex: 1; padding: 12px; background: #f2f2f7; color: #555; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">キャンセル</button>
             <button onclick="submitDeckSave()" style="flex: 1; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px;">保存する</button>
@@ -1645,22 +1552,17 @@
     </div>
 </div>
 
-<!-- サムネイルカード選択サブモーダル -->
 <div id="thumbnailSelectModal" class="sub-modal">
     <div class="sub-modal-content" style="max-width: 400px; height: 75vh;">
-        <!-- 画面上部角までぴったり #333 のヘッダー -->
         <div class="sub-modal-header">
             <span>サムネイルにするカードを選択</span>
             <span onclick="closeThumbnailSelector()" style="cursor:pointer; font-size: 20px;">&times;</span>
         </div>
-        <!-- ボディエリア -->
         <div id="thumbnail-cards-list" class="sub-modal-body" style="padding: 15px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-content: start;">
-            <!-- JSでデッキ内カード画像を動的に配置 -->
         </div>
     </div>
 </div>
 
-<!-- 検索設定モーダル -->
 <div id="searchSettingsModal" class="sub-modal">
     <div class="sub-modal-content" style="max-width: 400px; height: auto; margin: 15vh auto;">
         <div class="sub-modal-header">
@@ -1668,7 +1570,6 @@
             <span onclick="toggleSettingsModal()" style="cursor:pointer; font-size: 24px;">&times;</span>
         </div>
         <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 20px;">
-            <!-- 検索結果の並び替え -->
             <div>
                 <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">検索結果の並び順</label>
                 <select id="search-sort-select" style="width: 100%; padding: 10px; border: 1px solid #d1d1d6; border-radius: 8px; font-size: 14px; background: #fff; cursor: pointer;" onchange="changeSearchSort(this.value)">
@@ -1683,7 +1584,6 @@
                 </select>
             </div>
 
-            <!-- 検索ワードの変換設定 -->
             <div style="border-top: 1px solid #eee; padding-top: 15px; display: flex; justify-content: space-between; align-items: center;">
                 <div style="padding-right: 15px; flex: 1;">
                     <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 2px; color: #444;">検索ワードの自動変換</label>
@@ -1695,7 +1595,6 @@
                 </label>
             </div>
 
-            <!-- 検索エリア位置切り替え（スマホ時はCSSで非表示） -->
             <div id="settings-position-group" style="border-top: 1px solid #eee; padding-top: 15px;">
                 <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">検索エリアの表示位置</label>
                 <div style="display: flex; gap: 10px;">
@@ -1708,321 +1607,15 @@
         </div>
     </div>
 </div>
-<!-- ダミーカード作成モーダル -->
-<div id="dummyCardModal" class="sub-modal">
-    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
-        <div class="sub-modal-header" style="background: #fd7e14;">
-            <span>未実装カードの追加</span>
-            <span onclick="closeDummyCardModal()" style="cursor:pointer; font-size:24px;">&times;</span>
-        </div>
-        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
-            <!-- ★追加：自動置換に関する案内文 -->
-            <div style="background: #fff8f0; border: 1px solid #fed7aa; border-radius: 6px; padding: 10px; font-size: 11px; color: #7c2d12; line-height: 1.5;">
-                <span style="font-weight: bold; display: block; margin-bottom: 2px;">【カード情報の自動反映について】</span>
-                データベースに同名カードが追加された際、自動的に本物のカード画像・情報へと置き換わります。<br>
-                ※ツインパクトや両面カードは、組み合わせ（上面/下面、表面/裏面）の両方が完全一致した場合のみ置き換わります。
-            </div>
 
-            <!-- カード形式選択 -->
-            <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード形式</label>                <div style="display: flex; gap: 10px;">
-                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="normal" checked onchange="toggleDummyCardType('create')"> 通常</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="twinpact" onchange="toggleDummyCardType('create')"> ツインパクト</label>
-                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="double" onchange="toggleDummyCardType('create')"> 両面カード</label>
-                </div>
-            </div>
-
-            <!-- 所属ゾーン -->
-            <div>
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px;">所属ゾーン</label>
-                <select id="dummy-input-zone" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; background:#fff;">
-                    <option value="main">メインデッキ</option>
-                    <option value="super_dimensional">超次元ゾーン</option>
-                    <option value="gr">超GRゾーン</option>
-                </select>
-                <span id="dummy-zone-hint" style="display: none; font-size: 11px; color: #dc3545; margin-top: 2px;">※両面カードは超次元ゾーン限定となります。</span>
-            </div>
-
-            <!-- 第1面（上面／表面） -->
-            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
-                <span id="dummy-face1-title" style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">カード情報</span>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名 <span style="color:red;">*</span></label>
-                    <input type="text" id="dummy-input-name" placeholder="カード名を入力" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                    <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
-                        <input type="number" id="dummy-input-cost" placeholder="例: 5" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                    </div>
-                </div>
-                <div>
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
-                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="1"> 光</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="2"> 水</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="3"> 闇</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="4"> 火</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="5"> 自然</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="6"> ゼロ</label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 第2面（下面／裏面：ツインパクトまたは両面時のみ表示） -->
-            <div id="dummy-partner-section" style="display: none; background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
-                <span id="dummy-face2-title" style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">下面 / 裏面情報</span>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名</label>
-                    <input type="text" id="dummy-input-partner-name" placeholder="第2面のカード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
-                    <div style="flex: 1;">
-                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
-                        <input type="number" id="dummy-input-partner-cost" placeholder="例: 3" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                    </div>
-                </div>
-                <div>
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
-                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="1"> 光</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="2"> 水</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="3"> 闇</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="4"> 火</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="5"> 自然</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="6"> ゼロ</label>
-                    </div>
-                </div>
-            </div>
-
-            <!-- プレビュー表示（通常・ツインパクトは1枚、両面カードは2枚並び） -->
-            <div style="display: flex; justify-content: center; gap: 15px; background: #eee; padding: 10px; border-radius: 6px;">
-                <div style="text-align: center;">
-                    <span id="dummy-preview-label1" style="display:none; font-size: 11px; font-weight: bold; color: #555;">表面</span>
-                    <img id="dummy-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
-                </div>
-                <div id="dummy-preview-back-wrap" style="display: none; text-align: center;">
-                    <span style="font-size: 11px; font-weight: bold; color: #555;">裏面</span>
-                    <img id="dummy-preview-back-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
-                </div>
-            </div>
-        </div>
-        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
-            <button type="button" onclick="closeDummyCardModal()" style="flex:1; padding:8px; background:#f2f2f7; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">キャンセル</button>
-            <button type="button" onclick="createAndAddDummyCard()" style="flex:2; padding:8px; background:#fd7e14; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">デッキに追加</button>
-        </div>
-    </div>
-</div>
-<!-- 通常ダミーカード編集モーダル -->
-<div id="dummyEditModal-normal" class="sub-modal">
-    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
-        <div class="sub-modal-header" style="background: #e67e22;">
-            <span>通常カードの編集</span>
-            <span onclick="closeDummyEditModal('normal')" style="cursor:pointer; font-size:24px;">&times;</span>
-        </div>
-        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
-                <span style="font-weight: bold; font-size: 13px;">採用枚数</span>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(-1)">-</button>
-                    <span id="dummy-edit-normal-qty" style="font-weight:bold; font-size:16px;">1</span> 枚
-                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(1)">+</button>
-                </div>
-            </div>
-            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名 <span style="color:red;">*</span></label>
-                    <input type="text" id="dummy-edit-normal-name" placeholder="カード名を入力" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
-                    <input type="number" id="dummy-edit-normal-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
-                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="1"> 光</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="2"> 水</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="3"> 闇</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="4"> 火</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="5"> 自然</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="6"> ゼロ</label>
-                    </div>
-                </div>
-            </div>
-            <div style="display: flex; justify-content: center; background: #eee; padding: 10px; border-radius: 6px;">
-                <img id="dummy-edit-normal-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
-            </div>
-        </div>
-        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
-            <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:8px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
-            <button type="button" onclick="saveDummyCardEdit('normal')" style="flex:2; padding:8px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
-        </div>
-    </div>
-</div>
-
-<!-- ツインパクトダミーカード編集モーダル -->
-<div id="dummyEditModal-twinpact" class="sub-modal">
-    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
-        <div class="sub-modal-header" style="background: #e67e22;">
-            <span>ツインパクトカードの編集</span>
-            <span onclick="closeDummyEditModal('twinpact')" style="cursor:pointer; font-size:24px;">&times;</span>
-        </div>
-        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
-                <span style="font-weight: bold; font-size: 13px;">採用枚数</span>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(-1)">-</button>
-                    <span id="dummy-edit-twinpact-qty" style="font-weight:bold; font-size:16px;">1</span> 枚
-                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(1)">+</button>
-                </div>
-            </div>
-            <!-- 上面 -->
-            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
-                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">上面（クリーチャー等）</span>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">上面 カード名 <span style="color:red;">*</span></label>
-                    <input type="text" id="dummy-edit-twinpact-name" placeholder="上面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">上面 コスト</label>
-                    <input type="number" id="dummy-edit-twinpact-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">上面 文明</label>
-                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="1"> 光</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="2"> 水</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="3"> 闇</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="4"> 火</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="5"> 自然</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="6"> ゼロ</label>
-                    </div>
-                </div>
-            </div>
-            <!-- 下面 -->
-            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
-                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">下面（呪文等）</span>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">下面 カード名</label>
-                    <input type="text" id="dummy-edit-twinpact-partner-name" placeholder="下面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">下面 コスト</label>
-                    <input type="number" id="dummy-edit-twinpact-partner-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">下面 文明</label>
-                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="1"> 光</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="2"> 水</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="3"> 闇</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="4"> 火</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="5"> 自然</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="6"> ゼロ</label>
-                    </div>
-                </div>
-            </div>
-            <div style="display: flex; justify-content: center; background: #eee; padding: 10px; border-radius: 6px;">
-                <img id="dummy-edit-twinpact-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
-            </div>
-        </div>
-        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
-            <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:8px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
-            <button type="button" onclick="saveDummyCardEdit('twinpact')" style="flex:2; padding:8px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
-        </div>
-    </div>
-</div>
-
-<!-- 両面ダミーカード編集モーダル -->
-<div id="dummyEditModal-double" class="sub-modal">
-    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
-        <div class="sub-modal-header" style="background: #e67e22;">
-            <span>両面カードの編集</span>
-            <span onclick="closeDummyEditModal('double')" style="cursor:pointer; font-size:24px;">&times;</span>
-        </div>
-        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
-            <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
-                <span style="font-weight: bold; font-size: 13px;">採用枚数</span>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(-1)">-</button>
-                    <span id="dummy-edit-double-qty" style="font-weight:bold; font-size:16px;">1</span> 枚
-                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(1)">+</button>
-                </div>
-            </div>
-            <!-- 表面 -->
-            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
-                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">表面</span>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">表面 カード名 <span style="color:red;">*</span></label>
-                    <input type="text" id="dummy-edit-double-name" placeholder="表面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">表面 コスト</label>
-                    <input type="number" id="dummy-edit-double-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">表面 文明</label>
-                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="1"> 光</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="2"> 水</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="3"> 闇</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="4"> 火</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="5"> 自然</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="6"> ゼロ</label>
-                    </div>
-                </div>
-            </div>
-            <!-- 裏面 -->
-            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
-                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">裏面（覚醒後など）</span>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">裏面 カード名</label>
-                    <input type="text" id="dummy-edit-double-partner-name" placeholder="裏面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div style="margin-bottom: 8px;">
-                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">裏面 コスト</label>
-                    <input type="number" id="dummy-edit-double-partner-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
-                </div>
-                <div>
-                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">裏面 文明</label>
-                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="1"> 光</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="2"> 水</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="3"> 闇</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="4"> 火</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="5"> 自然</label>
-                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="6"> ゼロ</label>
-                    </div>
-                </div>
-            </div>
-            <!-- プレビュー（2枚並び） -->
-            <div style="display: flex; justify-content: center; gap: 15px; background: #eee; padding: 10px; border-radius: 6px;">
-                <div style="text-align: center;">
-                    <span style="font-size: 11px; font-weight: bold; color: #555;">表面</span>
-                    <img id="dummy-edit-double-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
-                </div>
-                <div style="text-align: center;">
-                    <span style="font-size: 11px; font-weight: bold; color: #555;">裏面</span>
-                    <img id="dummy-edit-double-preview-back-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
-                </div>
-            </div>
-        </div>
-        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
-            <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:8px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
-            <button type="button" onclick="saveDummyCardEdit('double')" style="flex:2; padding:8px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
-        </div>
-    </div>
-</div>
-<!-- 既存のモーダル類の直後や、最下部に配置 -->
 <?php include __DIR__ . '/analysis_modal.php'; ?>
 
-
+<!-- チュートリアル制御スクリプトの読み込み -->
+<script src="/js/tutorial.js?v=<?php echo time(); ?>"></script>
 
 <script>
-// --- A. グローバル状態管理 ---
-let isInitializing = true; // ★追加: 初期読み込み中の自動保存防止フラグ
-let isDeckSaved = false;    // ★追加: 保存完了後の自動保存防止フラグ
+let isInitializing = true; 
+let isDeckSaved = false;    
 const isEdit = <?php echo !empty($isEdit) ? 'true' : 'false'; ?>;
 const deckId = <?php echo isset($deck['deck_id']) ? $deck['deck_id'] : 'null'; ?>;
 const initialDeckName = <?php echo isset($deck['deck_name']) ? json_encode($deck['deck_name']) : '"マイデッキ"'; ?>;
@@ -2030,9 +1623,6 @@ const initialCards = <?php echo !empty($initialCards) ? json_encode($initialCard
 const currentSort = { key: null, order: 'asc' };
 
 const cardCache = {};
-
-
-// Controllerからビューに渡されたフォーマット情報を取得
 const formatsFromPhp = <?php echo isset($formats) ? json_encode($formats) : '[]'; ?>;
 
 const mainList = document.getElementById('main-deck-list');
@@ -2042,7 +1632,6 @@ const resultsDiv = document.getElementById('search-results');
 const trashArea = document.getElementById('trash-area');
 const input = document.getElementById('card-search-input');
 
-// 検索・通信管理
 let currentFilters = { 
     q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
     pow_min: '', pow_max: '', races: [], abilities: [], 
@@ -2054,15 +1643,15 @@ let currentFilters = {
     civ_type: '', civ_match_type: 'include', exclude_civs: [],
     twinpact: '',
     sort: 'release_desc',
-    raw_query: 0 // ★追加: 0=変換あり(通常), 1=変換なし(生入力)
+    raw_query: 0 
 };
+
 function toggleSettingsModal() {
     const m = document.getElementById('searchSettingsModal');
     m.style.display = (m.style.display === 'block') ? 'none' : 'block';
 }
 
 function toggleSearchConvert(isAutoConvert) {
-    // スイッチがONなら通常変換(raw_query=0)、OFFなら生入力検索(raw_query=1)
     currentFilters.raw_query = isAutoConvert ? 0 : 1;
     searchCards();
 }
@@ -2074,15 +1663,13 @@ function changeSearchSort(val) {
 let currentOffset = 0, isFetching = false, hasMoreCards = true;
 let searchTimeout = null, abortController = null;
 
-// モーダル・カード情報管理
 let selectedCardData = null, allVersions = [], activeClickedElement = null;
-let isSubmittingDeck = false; // ★追加：送信中の多重送信防止フラグ
+let isSubmittingDeck = false;
 
-/**
- * 画像パス生成 (通常・両面対応)
- */
 function getCardImagePath(card) {
-    return getCardImageUrl(card);
+    if (!card.imagepath) return '/images/card/noimage.webp';
+    const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
+    return '/images/card' + path;
 }
 
 function handleImageError(img) {
@@ -2090,16 +1677,13 @@ function handleImageError(img) {
     img.onerror = null;
 }
 
-// --- B. 初期化 ---
 window.addEventListener('DOMContentLoaded', () => {
-    // ★ 1. まず先にPHPから渡されたフォーマットデータをセレクトボックスに描画します
     if (formatsFromPhp && formatsFromPhp.length > 0) {
         renderFormatSelect(formatsFromPhp);
     }
-    // 編集モード：既存デッキ読み込み
     if (isEdit && initialCards.length > 0) {
         initialCards.forEach(card => { 
-            cardCache[card.card_id] = card; // ★追加：既存カードをキャッシュに格納
+            cardCache[card.card_id] = card; 
             const qty = parseInt(card.quantity, 10) || 1;
             for (let i = 0; i < qty; i++) {
                 addCardToDeck(card, card.card_type_in_deck); 
@@ -2108,7 +1692,6 @@ window.addEventListener('DOMContentLoaded', () => {
         updateDeckDisplay();
         document.getElementById('save-deck-btn').innerText = "上書き保存";
         
-        // オプションが既に存在するため、既存のフォーマットが確実に選択・維持されます
         <?php if (isset($deck['format_id'])): ?>
             document.getElementById('save-deck-format').value = <?php echo $deck['format_id']; ?>;
         <?php endif; ?>
@@ -2116,7 +1699,6 @@ window.addEventListener('DOMContentLoaded', () => {
         <?php if (isset($deck['is_public'])): ?>
             const isPublicVal = <?php echo $deck['is_public'] ? 'true' : 'false'; ?>;
             document.getElementById('save-deck-public').checked = isPublicVal;
-            // ★追記：ラジオボタン（トグルボタン）のアクティブ側も初期同期
             const toggleRadio = document.querySelector(`input[name="deck-public-toggle"][value="${isPublicVal ? '1' : '0'}"]`);
             if (toggleRadio) toggleRadio.checked = true;
         <?php endif; ?>
@@ -2128,26 +1710,22 @@ window.addEventListener('DOMContentLoaded', () => {
         <?php endif; ?>
     }
 
-    // マスターデータの取得
     fetch('/api/master-data')
         .then(res => res.json())
         .then(data => {
             renderMasterList('race', data.races);
             renderMasterList('ability', data.abilities);
             
-            // ★ 特殊タイプの描画（ID昇順ソート）
             if (data.characteristics) {
                 data.characteristics.sort((a, b) => a.characteristics_id - b.characteristics_id);
                 renderMasterList('characteristics', data.characteristics);
             }
-            // ★ カードタイプの描画（ID昇順ソート）
             if (data.cardtypes) {
                 data.cardtypes.sort((a, b) => a.cardtype_id - b.cardtype_id);
                 renderMasterList('cardtype', data.cardtypes);
             }
         });
 
-    // 拡張マスターデータAPIから収録商品（goods）を取得して一覧を描画
     fetch('/api/master-data-extended')
         .then(res => res.json())
         .then(data => {
@@ -2157,10 +1735,8 @@ window.addEventListener('DOMContentLoaded', () => {
         })
         .catch(err => console.error("商品データの取得に失敗しました", err));
 
-    // 初期ロード後にサイズ調整
     setTimeout(adjustMainDeckRows, 100);
 
-    // デッキエリアのサイズ監視設定
     const resizeObserver = new ResizeObserver(entries => {
         for (let entry of entries) {
             if (entry.contentRect.width > 0) {
@@ -2168,28 +1744,22 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-const deckArea = document.getElementById('deck-area');
+    const deckArea = document.getElementById('deck-area');
     if (deckArea) resizeObserver.observe(deckArea);
 
-    // ★ 追記：画面を開いた直後に自動で発売日が新しいカードを表示する
     searchCards();
     const nameInput = document.getElementById('save-deck-name');
     const formatSelect = document.getElementById('save-deck-format');
     if (nameInput) nameInput.addEventListener('input', saveDraftToLocalStorage);
     if (formatSelect) formatSelect.addEventListener('change', saveDraftToLocalStorage);
 
-    // ★追加：マスタ取得や描画が少し落ち着いたタイミングで復元チェックを実行
     setTimeout(checkAndRestoreDraft, 250);
-
-        // ページ読み込み完了時、ログイン後に保存待ちデータ（pending_deck_save）があるかチェック
 });
-/**
- * フォーマットのドロップダウンオプションのレンダリング
- */
+
 function renderFormatSelect(formats) {
     const select = document.getElementById('save-deck-format');
     select.innerHTML = '';
-    formats.sort((a, b) => a.format_id - b.format_id); // IDの昇順ソート
+    formats.sort((a, b) => a.format_id - b.format_id); 
     formats.forEach(f => {
         const opt = document.createElement('option');
         opt.value = f.format_id;
@@ -2198,31 +1768,20 @@ function renderFormatSelect(formats) {
     });
 }
 
-/**
- * デッキリストにカード画像を追加する
- */
 function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     cardCache[card.card_id] = card;
     const img = document.createElement('img');
     img.src = getCardImagePath(card);
-    img.draggable = false;
+    img.draggable = false; 
     img.dataset.cardId = card.card_id;
     img.dataset.cardName = card.card_name;
     img.dataset.reading = card.reading || '';
     img.dataset.comboNames = card.combo_names || '';
     img.dataset.charIds = card.char_ids;
-    img.dataset.imagepath = img.src; // Data URLまたは正規画像パス
+    img.dataset.imagepath = card.imagepath;
     img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : '';
     img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
     img.dataset.cost = card.cost !== undefined ? card.cost : '';
-    // addCardToDeck 内のデータ属性設定部分
-    if (card.is_dummy || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_'))) {
-        img.dataset.isDummy = "1";
-        img.dataset.dummyCardType = card.dummy_card_type || (card.twinpact == 1 ? 'twinpact' : 'normal');
-        img.dataset.dummyPartnerName = card.dummy_partner_name || card.partner_card_name || '';
-        img.dataset.dummyPartnerCost = card.dummy_partner_cost || card.partner_cost || '';
-        img.dataset.dummyPartnerCivIds = card.dummy_partner_civ_ids || card.partner_civ_ids || '';
-    }
     img.alt = card.card_name;
     img.onerror = () => handleImageError(img);
 
@@ -2252,10 +1811,6 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     updateDeckDisplay();
 }
 
-
-/**
- * 特殊タイプIDから適切なゾーン名を判定する補助関数
- */
 function determineZoneType(charIdsStr) {
     const ids = (charIdsStr || '').split(',');
     if (ids.includes('3') || ids.includes('6')) return 'super_dimensional';
@@ -2263,7 +1818,6 @@ function determineZoneType(charIdsStr) {
     return 'main';
 }
 
-// --- C. クリックイベント（デリゲーション） ---
 [mainList, superDimList, grList].forEach(list => list.addEventListener('click', (e) => {
     if (e.target.tagName === 'IMG') openCardDetail(e.target.dataset.cardId, e.target);
 }));
@@ -2274,38 +1828,29 @@ resultsDiv.addEventListener('click', (e) => {
     }
 });  
 
-
-// --- D. SortableJS 設定 ---
 const deckSortableConfig = {
-    // グループ形式をオブジェクトで明示し、検索側と完全に同期
     group: { 
         name: 'shared', 
         pull: true, 
         put: true 
     }, 
     animation: 150,
-    // ★ 長押し設定（delayおよびdelayOnTouchOnly）を排除し、即座に掴めるようにしました
     touchStartThreshold: 10, 
-    
-    // Fallbackの設定を検索エリア側と同期させてドロップを可能にします
     forceFallback: true,      
-    fallbackTolerance: 5,     // わずかな動きでもドラッグを開始させます
+    fallbackTolerance: 5,     
     fallbackOnBody: true,
 
     onEnd: function(evt) {
-        // ドラッグ終了時のカーソル位置を取得
         const e = evt.originalEvent;
         if (!e) {
             updateDeckDisplay();
             return;
         }
 
-        // スマホの指を離した瞬間の座標を取得（changedTouchesも参照するよう補正）
         const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
         const clientX = e.clientX || (touch ? touch.clientX : 0);
         const clientY = e.clientY || (touch ? touch.clientY : 0);
 
-        // ドロップ座標が検索セクション（#search-section）の上であれば、その場で削除を実行
         const searchSection = document.getElementById('search-section');
         if (searchSection) {
             const sRect = searchSection.getBoundingClientRect();
@@ -2319,15 +1864,11 @@ const deckSortableConfig = {
             }
         }
 
-        // 有効なドロップ先（メイン・超次元・GRの各リスト）
         const validLists = [mainList, superDimList, grList];
-        
-        // 特殊エリアのスロット（アクティブ・非アクティブ問わず枠内であれば検知）
         document.querySelectorAll('.special-box').forEach(box => {
             validLists.push(box);
         });
 
-        // いずれかの有効リストの範囲内にドロップされたか判定
         let isInside = false;
         for (const list of validLists) {
             const rect = list.getBoundingClientRect();
@@ -2338,7 +1879,6 @@ const deckSortableConfig = {
             }
         }
 
-        // デッキの有効領域（枠内）のいずれにも属さず、かつ検索結果からの新規ドラッグでない場合は削除
         if (!isInside && evt.from !== resultsDiv) {
             evt.item.remove();
         }
@@ -2395,12 +1935,10 @@ const deckSortableConfig = {
     }
 };
 
-// 各デッキリストのSortable定義（1回のみ記述します）
 new Sortable(mainList, deckSortableConfig);
 new Sortable(superDimList, deckSortableConfig);
 new Sortable(grList, deckSortableConfig);
 
-// 検索結果エリアのSortable設定
 const searchSortable = new Sortable(resultsDiv, { 
     group: { 
         name: 'shared', 
@@ -2410,17 +1948,15 @@ const searchSortable = new Sortable(resultsDiv, {
     sort: false, 
     animation: 150,
     forceFallback: true,      
-    fallbackTolerance: 10,    // 判定に余裕を持たせる設定
+    fallbackTolerance: 10,    
     fallbackOnBody: true      
 });
 
-// --- スマホでの画像上スワイプ(スクロール)と上方向ドラッグの完全分離制御 ---
 let touchStartX = 0;
 let touchStartY = 0;
 let isTrackingTouch = false;
 let isScrollMode = false;
 
-// 画像上を含め、検索結果エリア内でタッチが開始された瞬間に位置を記憶
 resultsDiv.addEventListener('touchstart', (e) => {
     if (e.touches.length !== 1) return;
     touchStartX = e.touches[0].clientX;
@@ -2429,7 +1965,6 @@ resultsDiv.addEventListener('touchstart', (e) => {
     isScrollMode = false;
 }, { capture: true, passive: true });
 
-// documentのcaptureフェーズでSortableJSよりも「先」にイベントを監視・制御
 document.addEventListener('touchmove', (e) => {
     if (!isTrackingTouch || e.touches.length !== 1) return;
 
@@ -2437,24 +1972,18 @@ document.addEventListener('touchmove', (e) => {
     const dy = e.touches[0].clientY - touchStartY;
     const dist = Math.hypot(dx, dy);
 
-    // 5px動いた瞬間にスワイプ角度を判定
     if (!isScrollMode && dist >= 5) {
-        // 真上(デッキ方向)を0度とした時計回りの角度(0〜360度)を計算
         let deg = Math.atan2(dx, -dy) * (180 / Math.PI);
         if (deg < 0) deg += 360;
 
-        // 46度〜319度（横・下スワイプ）の場合はスクロールモード確定
         if (deg > 45 && deg < 320) {
             isScrollMode = true;
         }
     }
 
-    // スクロールモード確定時：SortableJSにイベントを一切渡さず黙らせる
-    // （preventDefaultは呼ばないため、ブラウザは画像上からでも100%滑らかに横スクロールします）
     if (isScrollMode) {
         e.stopImmediatePropagation();
     }
-    // 320度〜45度（上スワイプ）の時は何もしないため、SortableJSにイベントが届き10px到達で画像ドラッグが発火します
 }, { capture: true, passive: true });
 
 const resetSearchTouch = () => {
@@ -2469,7 +1998,7 @@ document.querySelectorAll('.special-box').forEach(box => {
     new Sortable(box, {
         group: {
             name: 'shared',
-            pull: false, // ★ このスロットからカードをドラッグして取り出すことを禁止します
+            pull: false, 
             put: function (to, from, dragEl) {
                 const cardName = dragEl.dataset.cardName || '';
                 if (to.el.id === 'slot-dolmagedon') {
@@ -2502,6 +2031,7 @@ document.querySelectorAll('.special-box').forEach(box => {
         }
     });
 });
+
 function checkLimit(name, nameLimit, listElement, itemElement, totalLimit, zoneName, comboNames = '') {
     const isPreAdd = (itemElement === null);
     
@@ -2511,7 +2041,6 @@ function checkLimit(name, nameLimit, listElement, itemElement, totalLimit, zoneN
         return false;
     }
     
-    // getCardSelector を用いてツインパクト等の面構成が完全に同一のカードのみをカウントする
     const selector = getCardSelector(name, comboNames);
     const nameCount = listElement.querySelectorAll(selector).length + (isPreAdd ? 1 : 0);
     
@@ -2522,7 +2051,6 @@ function checkLimit(name, nameLimit, listElement, itemElement, totalLimit, zoneN
     return true;
 }
 
-// --- E. 共通UIロジック ---
 function switchDeckTab(type) {
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.deck-content').forEach(c => {
@@ -2558,7 +2086,6 @@ function updateDeckDisplay() {
     const gCount = grList.querySelectorAll('img').length;
     const sCount = superDimList.querySelectorAll('img').length;
 
-    // ★改善：画面幅が狭いスマホ時は、文字をコンパクトにして改行によるレイアウト崩れを防ぐ
     const isMobile = window.innerWidth <= 768;
     document.getElementById('tab-main').innerText = `メイン ${mCount}`;
     if (isMobile) {
@@ -2568,15 +2095,11 @@ function updateDeckDisplay() {
     }
 
     adjustMainDeckRows();
-
-    // 状態が変わるたびにローカルに自動保存する（既存処理）
     saveDraftToLocalStorage();
 }
 
-// --- F. カード詳細モーダル ---
-let currentCombinationSides = []; // 各面の情報を保持
+let currentCombinationSides = [];
 
-// ★ 構成面（両面・関連面）を取得・描画する共通関数
 function loadCombinationSides(cardId) {
     const comboSection = document.getElementById('combination-section');
     const comboList = document.getElementById('detail-combination-list');
@@ -2587,7 +2110,6 @@ function loadCombinationSides(cardId) {
         .then(res => res.json())
         .then(sides => {
             currentCombinationSides = sides;
-            // 2面以上存在し、かつ twinpact が false（0）の場合に面の切り替えを表示
             if (sides.length > 1 && (!sides[0].twinpact || sides[0].twinpact == 0)) {
                 comboSection.style.display = 'block';
                 sides.forEach(side => {
@@ -2597,7 +2119,6 @@ function loadCombinationSides(cardId) {
                     if (side.card_id == selectedCardData.card_id) sideImg.className = 'selected';
                     
                     sideImg.onclick = () => {
-                        // 各面の情報（名前・画像・テキスト）に切り替え
                         document.getElementById('detail-name').innerText = side.card_name;
                         document.getElementById('detail-text').innerText = side.text || "効果なし";
                         document.getElementById('detail-main-img').src = getCardImagePath(side);
@@ -2612,10 +2133,6 @@ function loadCombinationSides(cardId) {
 }
 
 function openCardDetail(cardId, el) {
-    if (el && (el.dataset.isDummy === "1" || (typeof cardId === 'string' && cardId.startsWith('dummy_')))) {
-        openDummyEditModal(el);
-        return;
-    }
     activeClickedElement = el;
     
     let cachedCard = cardCache[cardId];
@@ -2641,7 +2158,6 @@ function openCardDetail(cardId, el) {
         document.getElementById('detail-version-list').innerHTML = '<span style="font-size:12px;color:#999;padding:5px;">読み込み中...</span>';
     }
 
-    // 1. バージョン情報の取得
     fetch('/api/cards/versions?card_id=' + cardId)
         .then(res => res.json())
         .then(versions => {
@@ -2654,7 +2170,6 @@ function openCardDetail(cardId, el) {
             renderDetailModal();
         });
 
-    // 2. ★追加：構成面（combination）の取得とツインパクト以外の複数面切り替え表示
     const comboSection = document.getElementById('combination-section');
     const comboList = document.getElementById('detail-combination-list');
     comboSection.style.display = 'none';
@@ -2664,7 +2179,6 @@ function openCardDetail(cardId, el) {
         .then(res => res.json())
         .then(sides => {
             currentCombinationSides = sides;
-            // 2面以上存在し、かつ twinpact が false（0）の場合に面の切り替えを表示
             if (sides.length > 1 && (!sides[0].twinpact || sides[0].twinpact == 0)) {
                 comboSection.style.display = 'block';
                 sides.forEach(side => {
@@ -2674,7 +2188,6 @@ function openCardDetail(cardId, el) {
                     if (side.card_id == selectedCardData.card_id) sideImg.className = 'selected';
                     
                     sideImg.onclick = () => {
-                        // クリックされた面の情報（名前・画像・テキスト）に表示を切り替え
                         document.getElementById('detail-name').innerText = side.card_name;
                         document.getElementById('detail-text').innerText = side.text || "効果なし";
                         document.getElementById('detail-main-img').src = getCardImagePath(side);
@@ -2688,7 +2201,6 @@ function openCardDetail(cardId, el) {
         .catch(err => console.error("構成面の取得に失敗しました:", err));
 }
 
-/* app/Views/deck/create.php 内の renderDetailModal() 関数を差し替え */
 function renderDetailModal() {
     const modal = document.getElementById('cardDetailModal');
     const versionList = document.getElementById('detail-version-list');
@@ -2699,7 +2211,6 @@ function renderDetailModal() {
     const name = selectedCardData.card_name;
     let count = 0;
     
-    // 変更箇所
     const comboNames = selectedCardData.combo_names || '';
     const selector = getCardSelector(name, comboNames);
 
@@ -2713,13 +2224,11 @@ function renderDetailModal() {
     else {
         const type = determineZoneType(selectedCardData.char_ids);
         let targetList = type === 'super_dimensional' ? superDimList : (type === 'gr' ? grList : mainList);
-        count = targetList.querySelectorAll(selector).length; // ★ 修正（selector変数を使用）
+        count = targetList.querySelectorAll(selector).length; 
     }
     
-    // 現在の採用枚数の描画
     document.getElementById('detail-qty').innerText = count;
 
-    // ★個別上限（分母）の動的描画（値がない、またはnullの場合は「∞」）
     const limitVal = selectedCardData.card_limit;
     const limitText = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? limitVal : "∞";
     document.getElementById('detail-limit').innerText = limitText;
@@ -2736,7 +2245,6 @@ function renderDetailModal() {
                 activeClickedElement.dataset.cardId = v.card_id;
             }
             renderDetailModal();
-            // ★ バージョン切り替え時にも、そのバージョンの別面情報を再取得して更新
             loadCombinationSides(v.card_id);
         };
         versionList.appendChild(vImg);
@@ -2756,7 +2264,6 @@ function adjustQty(diff) {
         
         if (diff > 0) {
             if (!slot.classList.contains('active')) {
-                // slotIdを明示的に渡して追加します
                 addCardToDeck(selectedCardData, 'special', slotId);
             }
             document.getElementById('detail-qty').innerText = "1"; 
@@ -2802,9 +2309,6 @@ function adjustQty(diff) {
 
 function closeDetailModal() { document.getElementById('cardDetailModal').style.display = 'none'; activeClickedElement = null; }
 
-/**
- * メインデッキの重なり具合を自動調整する関数
- */
 function adjustMainDeckRows() {
     const list = document.getElementById('main-deck-list');
     if (!list || !list.classList.contains('active')) return;
@@ -2877,9 +2381,6 @@ function adjustMainDeckRows() {
 
 window.addEventListener('resize', adjustMainDeckRows);
 
-/**
- * 検索セクションの開閉（アコーディオン）を切り替える
- */
 function toggleSearchSection() {
     const searchSection = document.getElementById('search-section');
     const deckArea = document.getElementById('deck-area');
@@ -2892,9 +2393,7 @@ function toggleSearchSection() {
         if (deckArea) deckArea.classList.remove('search-collapsed');
     }
     
-    // ボタンの位置・テキストを現在の開閉状態に基づいて再計算して同期
     syncSearchToggleButton();
-    
     adjustMainDeckRows();
     setTimeout(adjustMainDeckRows, 300);
 }
@@ -2908,31 +2407,25 @@ function syncSearchToggleButtonText() {
     const isCollapsed = searchSection.classList.contains('collapsed');
     const isLeftHanded = container.classList.contains('left-handed');
 
-    // スマホ表示時（ウィンドウ幅が768px以下）
     if (window.innerWidth <= 768) {
         btn.innerHTML = isCollapsed ? '▲ カード検索を開く' : '▼ 検索を隠す';
         return;
     }
 
-    // デスクトップ表示時の左右判定に応じた文字矢印制御
     if (isLeftHanded) {
-        // 左利き配置時（検索枠が左側）
         btn.style.right = 'auto';
-        btn.style.left = isCollapsed ? '0px' : '380px'; // ★ 340px から 380px へ変更
-        btn.style.borderRadius = '0 8px 8px 0'; // 角丸を右側に
+        btn.style.left = isCollapsed ? '0px' : '380px'; 
+        btn.style.borderRadius = '0 8px 8px 0'; 
         btn.innerHTML = isCollapsed ? '開く ▶' : '◀ 隠す';
     } else {
-        // 通常配置時（検索枠が右側）
         btn.style.left = 'auto';
-        btn.style.right = isCollapsed ? '0px' : '380px'; // ★ 340px から 380px へ変更
-        btn.style.borderRadius = '8px 0 0 8px'; // 角丸を左側に
+        btn.style.right = isCollapsed ? '0px' : '380px'; 
+        btn.style.borderRadius = '8px 0 0 8px'; 
         btn.innerHTML = isCollapsed ? '◀ 開く' : '隠す ▶';
     }
 }
-// 画面幅リサイズ時にもボタン表示テキストを最適に更新する
 window.addEventListener('resize', syncSearchToggleButtonText);
 
-// --- G. 検索・無限スクロール ---
 input.addEventListener('input', () => {
     currentFilters.q = input.value;
     clearTimeout(searchTimeout);
@@ -2950,9 +2443,6 @@ function searchCards() {
     if (abortController) abortController.abort();
     isFetching = false; currentOffset = 0; hasMoreCards = true; resultsDiv.innerHTML = '';
     
-    const isEmpty = !currentFilters.q && !currentFilters.civs.length && !currentFilters.cost_min && !currentFilters.cost_max && 
-                    !currentFilters.pow_min && !currentFilters.pow_max && !currentFilters.races.length && !currentFilters.abilities.length && !currentFilters.reg.length;
-
     fetchAndRender();
 }
 
@@ -2970,7 +2460,6 @@ function fetchAndRender() {
 
     const p = new URLSearchParams();
     if (currentFilters.q) {
-        // 入力された文字列（生のクエリ）をそのまま送信します
         p.append('q', currentFilters.q);
     }
     
@@ -2994,7 +2483,6 @@ function fetchAndRender() {
     if (currentFilters.abilities.length) p.append('abilities', currentFilters.abilities.join(','));
     p.append('ability_logic', currentFilters.ability_logic);
 
-    // ★追記：選択された商品ID配列をパラメータに結合して追加
     if (currentFilters.goods && currentFilters.goods.length) {
         p.append('goods', currentFilters.goods.join(','));
     }
@@ -3020,20 +2508,7 @@ function fetchAndRender() {
     }
 
     fetch('/api/cards?' + p.toString(), { signal: abortController.signal })
-        .then(res => {
-            // ★追加: デバッグ用ヘッダーがあればコンソールにSQLとパラメータを出力
-            const debugSql = res.headers.get('X-Debug-Sql');
-            const debugParams = res.headers.get('X-Debug-Params');
-            if (debugSql) {
-                console.group('🔍 [カード検索 SQLデバッグ]');
-                console.log('SQL:', decodeURIComponent(debugSql));
-                if (debugParams) {
-                    console.log('Parameters:', JSON.parse(decodeURIComponent(debugParams)));
-                }
-                console.groupEnd();
-            }
-            return res.json();
-        })
+        .then(res => res.json())
         .then(data => {
             if (!Array.isArray(data)) {
                 console.error("サーバーエラー:", data);
@@ -3047,14 +2522,14 @@ function fetchAndRender() {
             } else {
                 if (data.length < 50) hasMoreCards = false;
                 data.forEach(card => {
-                    cardCache[card.card_id] = card; // ★追加：検索結果のカードをキャッシュに格納
+                    cardCache[card.card_id] = card; 
                     const img = document.createElement('img');
                     img.src = getCardImagePath(card);
-                    img.draggable = false; // ★追加：ブラウザ標準の画像ドラッグを禁止する
+                    img.draggable = false; 
                     img.dataset.cardId = card.card_id;
                     img.dataset.cardName = card.card_name;
                     img.dataset.reading = card.reading || '';
-                    img.dataset.comboNames = card.combo_names || ''; // ★ 追記：コンビネーション名をデータ属性に格納
+                    img.dataset.comboNames = card.combo_names || ''; 
                     img.dataset.charIds = card.char_ids;
                     img.dataset.imagepath = card.imagepath;
                     img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : ''; 
@@ -3070,9 +2545,7 @@ function fetchAndRender() {
 }
 
 resultsDiv.onscroll = () => { 
-    // PCなどの縦スクロール時に末尾（下部）に達したか判定、またはスマホ横スクロール時にも動作するように両対応
     const isMobile = window.innerWidth <= 768;
-    
     if (isMobile) {
         if (resultsDiv.scrollLeft + resultsDiv.clientWidth >= resultsDiv.scrollWidth - 100) {
             loadMoreCards();
@@ -3083,7 +2556,7 @@ resultsDiv.onscroll = () => {
         }
     }
 };
-// --- G. 絞り込みモーダル制御 ---
+
 function toggleFilterModal() { 
     const m = document.getElementById('filterModal'); 
     m.style.display = (m.style.display === 'block') ? 'none' : 'block'; 
@@ -3123,7 +2596,6 @@ function updateTriggerText(type) {
     trigger.innerText = checked.length > 0 ? checked.map(el => el.dataset.name).join(', ') : '選択';
     trigger.style.color = checked.length > 0 ? '#333' : '#666';
 
-    // 選択された項目のバッジ描画処理
     const badgesContainer = document.getElementById(`${type}-selected-badges`);
     if (badgesContainer) {
         badgesContainer.innerHTML = '';
@@ -3146,19 +2618,16 @@ function updateTriggerText(type) {
 
 function clearSubSelection(type) {
     document.querySelectorAll(`.${type}-check`).forEach(el => el.checked = false);
-    // ★追加：商品クリア時にシリーズチェックボックスも解除
     if (type === 'goods') {
         document.querySelectorAll('.era-check').forEach(el => el.checked = false);
     }
     updateTriggerText(type);
 }
-/**
- * ★ 新設：文明の「単色/多色」の変更による除外エリアの表示制御
- */
+
 function toggleFilterCivType() {
     const isMulti = document.getElementById('filter-civ-multi').checked;
     const excludeArea = document.getElementById('filter-exclude-civ-area');
-    excludeArea.style.display = isMulti ? 'grid' : 'none'; // ★ 'flex' から 'grid' に修正
+    excludeArea.style.display = isMulti ? 'grid' : 'none'; 
 }
 
 function toggleTwinpactExclusive(type) {
@@ -3172,13 +2641,12 @@ function toggleTwinpactExclusive(type) {
 function applyFilters() {
     currentFilters.civs = Array.from(document.querySelectorAll('.civ-check:checked')).map(el => el.value);
     
-    // ★ 追加：新しい文明フィルター情報の取得
     const singleChecked = document.getElementById('filter-civ-single').checked;
     const multiChecked = document.getElementById('filter-civ-multi').checked;
     if (singleChecked && !multiChecked) currentFilters.civ_type = 'single';
     else if (!singleChecked && multiChecked) currentFilters.civ_type = 'multi';
     else if (!singleChecked && !multiChecked) currentFilters.civ_type = 'none';
-    else currentFilters.civ_type = ''; // 両方ON
+    else currentFilters.civ_type = ''; 
 
     currentFilters.civ_match_type = document.querySelector('input[name="filter-civ-match-type"]:checked').value;
     currentFilters.exclude_civs = Array.from(document.querySelectorAll('.filter-exclude-civ-check:checked')).map(el => el.value);
@@ -3212,16 +2680,13 @@ function applyFilters() {
 }
 
 function clearAllFilters() {
-    // ★修正: チェックボックスは checked のみ解除し、value は消去しない
     document.querySelectorAll('#filterModal input[type="checkbox"]').forEach(el => {
         el.checked = false;
     });
-    // 数値入力欄（コスト・パワー）のみ value を空にする
     document.querySelectorAll('#filterModal input[type="number"]').forEach(el => {
         el.value = '';
     });
     
-    // 文明初期状態の復元
     document.getElementById('filter-civ-single').checked = true;
     document.getElementById('filter-civ-multi').checked = true;
     document.querySelector('input[name="filter-civ-match-type"][value="include"]').checked = true;
@@ -3236,7 +2701,7 @@ function clearAllFilters() {
         race_logic: 'OR', ability_logic: 'OR', reg: [],
         characteristic_logic: 'OR', cardtype_logic: 'OR',
         civ_type: '', civ_match_type: 'include', exclude_civs: [],
-        twinpact: '' // ★追加
+        twinpact: '' 
     };
     
     clearSubSelection('race');
@@ -3246,9 +2711,6 @@ function clearAllFilters() {
     clearSubSelection('goods');
     searchCards();
 }
-
-
-// --- H. デッキ保存・設定モーダル制御と保存処理 ---
 
 function openSaveModal() {
     const mainCardsCount = mainList.querySelectorAll('img').length;
@@ -3264,7 +2726,6 @@ function openSaveModal() {
         nameInput.value = isEdit ? initialDeckName : "";
     }
 
-    // デフォルトサムネイルの自動設定
     const currentThumbId = document.getElementById('save-deck-thumbnail-id').value;
     if (!currentThumbId) {
         const firstCard = mainList.querySelector('img') || grList.querySelector('img') || superDimList.querySelector('img') || document.querySelector('.special-box.active img');
@@ -3350,7 +2811,6 @@ function setThumbnail(cardId, imagepath) {
 }
 
 function submitDeckSave() {
-    // 既に送信中であれば処理を中断
     if (isSubmittingDeck) return;
 
     const name = document.getElementById('save-deck-name').value.trim();
@@ -3367,38 +2827,14 @@ function submitDeckSave() {
         return alert("有効なフォーマットを選択してください。");
     }
     
-    // ★ここから：ダミーカード情報も正確に抽出して収集する処理
-    const extractCardData = (img, type) => {
-        const isDummy = img.dataset.isDummy === "1";
-        const cached = cardCache[img.dataset.cardId] || {};
-        return {
-            id: isDummy ? null : img.dataset.cardId,
-            type: type,
-            is_dummy: isDummy,
-            dummy_name: isDummy ? img.dataset.cardName : null,
-            dummy_cost: isDummy ? (parseInt(img.dataset.cost, 10) || null) : null,
-            dummy_civ_ids: isDummy ? (img.dataset.civ || null) : null,
-            // ★追加
-            dummy_card_type: cached.dummy_card_type || 'normal',
-            dummy_partner_name: cached.dummy_partner_name || null,
-            dummy_partner_cost: cached.dummy_partner_cost || null,
-            dummy_partner_civ_ids: cached.dummy_partner_civ_ids || null,
-            card_name: img.dataset.cardName,
-            cost: img.dataset.cost,
-            civ_ids: img.dataset.civ
-        };
-    };
-
-    const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => extractCardData(img, 'main'));
-    const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => extractCardData(img, 'super_dimensional'));
-    const grCards = Array.from(grList.querySelectorAll('img')).map(img => extractCardData(img, 'gr'));
-    const specialCards = Array.from(document.querySelectorAll('.special-box.active img')).map(img => extractCardData(img, 'special'));
+    const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'main' }));
+    const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'super_dimensional' }));
+    const grCards = Array.from(grList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'gr' }));
+    const specialCards = Array.from(document.querySelectorAll('.special-box.active img')).map(img => ({ id: img.dataset.cardId, type: 'special' }));
 
     const allCards = [...mainCards, ...superDimCards, ...grCards, ...specialCards];    
     if (!allCards.length) return alert("カードを1枚以上入れてください。");
-    // ★ここまで
 
-    // モーダル内の保存ボタンを取得して無効化＆文言変更
     const submitBtn = document.querySelector('#deckSaveModal button[onclick="submitDeckSave()"]');
     isSubmittingDeck = true;
     if (submitBtn) {
@@ -3434,10 +2870,16 @@ function submitDeckSave() {
     .then(data => {
         if (!data) return;
         if (data.success) { 
-            isDeckSaved = true;
+            isDeckSaved = true; 
             localStorage.removeItem('unsaved_deck_draft');
             localStorage.removeItem('pending_deck_save');
             localStorage.removeItem('pending_deck_payload');
+
+            // ★追加: スライド2の仕様（メッセージ完了前に保存された場合、ステップ6へスキップして進める）
+            if (typeof TutorialManager !== 'undefined') {
+                TutorialManager.jumpToStep(6);
+            }
+
             alert("保存が完了しました！"); 
             window.location.href = '/mydecks'; 
         } else { 
@@ -3461,8 +2903,6 @@ function submitDeckSave() {
     });
 }
 
-
-// --- 特殊スロットの操作ロジック ---
 function toggleSpecial(slotId) {
     const slot = document.getElementById(slotId);
     if (slot.classList.contains('active')) removeSpecialCard(slotId);
@@ -3477,7 +2917,6 @@ function fetchSpecialCard(slotId) {
     fetch(`/api/cards?q=${encodeURIComponent(targetNames[0])}`)
         .then(res => res.json())
         .then(data => {
-            // 完全一致するカードのみを探索
             const exactCard = data.find(c => targetNames.includes(c.card_name));
             if (exactCard) {
                 const slot = document.getElementById(slotId);
@@ -3504,41 +2943,36 @@ function updateSaveButton(slotId, isActive) {
     }
 }
 
-// --- 並び替えモーダル制御とソートロジック ---
 function toggleSortModal() {
     const m = document.getElementById('sortModal');
     m.style.display = (m.style.display === 'block') ? 'none' : 'block';
 }
+
 function applySort() {
     const key = document.getElementById('sort-key').value;
     const order = document.querySelector('input[name="sort-order"]:checked').value;
+    const selectedKey = document.getElementById('sort-key').value;
+    sortDeckList(mainList, key, order);
+    sortDeckList(superDimList, key, order);
+    sortDeckList(grList, key, order);
 
-    if (key === 'free') {
-        currentSort.key = null; // 自動整列を解除（直前の並び順をそのまま維持）
+    if (selectedKey === 'free') {
+        currentSort.key = null; 
     } else {
-        currentSort.key = key;
-        currentSort.order = order;
-        // 各カードリストを並び替え
-        sortDeckList(mainList, key, order);
-        sortDeckList(superDimList, key, order);
-        sortDeckList(grList, key, order);
+        currentSort.key = selectedKey;
+        currentSort.order = document.querySelector('input[name="sort-order"]:checked').value;
     }
     
     updateDeckDisplay();
     toggleSortModal();
 }
 
-/**
- * 文明情報をソート用の数値（重み）に変換する
- */
 function getCivWeight(civStr) {
     if (!civStr) return 999;
-    // カンマ区切りの数値をパース
     const parts = civStr.toString().split(',').map(Number).filter(n => !isNaN(n)).sort((a, b) => a - b);
     if (parts.length === 0) return 999;
-    if (parts.length === 1) return parts[0]; // 単色は1〜6の値
+    if (parts.length === 1) return parts[0]; 
     
-    // 多色は単色の後に並ぶように値を調整
     let weight = 10 * parts.length;
     parts.forEach((p, idx) => {
         weight += p * Math.pow(0.1, idx + 1);
@@ -3546,9 +2980,6 @@ function getCivWeight(civStr) {
     return weight;
 }
 
-/**
- * キーに応じた2枚のカードの比較値を取得
- */
 function compareCardsByKey(a, b, key) {
     if (key === 'civ') {
         const valA = getCivWeight(a.dataset.civ);
@@ -3559,7 +2990,6 @@ function compareCardsByKey(a, b, key) {
         const nameA = a.dataset.cardName || '';
         const nameB = b.dataset.cardName || '';
 
-        // 「禁断 ～封印されしX～」の場合はコスト99として扱い、それ以外は元々のコストを取得
         const valA = nameA.includes('禁断 ～封印されしX～') ? 99 : (parseInt(a.dataset.cost, 10) || 0);
         const valB = nameB.includes('禁断 ～封印されしX～') ? 99 : (parseInt(b.dataset.cost, 10) || 0);
 
@@ -3573,28 +3003,20 @@ function compareCardsByKey(a, b, key) {
     return 0;
 }
 
-/**
- * 読み仮名（reading）に基づく50音順比較（同名カードを完全に固める）
- */
 function compareReading(a, b) {
     const readA = a.dataset.reading || a.dataset.cardName || '';
     const readB = b.dataset.reading || b.dataset.cardName || '';
     const res = readA.localeCompare(readB, 'ja');
     if (res !== 0) return res;
 
-    // 読みが同じ場合はカード名で比較
     const nameA = a.dataset.cardName || '';
     const nameB = b.dataset.cardName || '';
     const nameRes = nameA.localeCompare(nameB, 'ja');
     if (nameRes !== 0) return nameRes;
 
-    // 完全な同名カードはカードID順で並べて完全にひとかたまりにする
     return (parseInt(a.dataset.cardId, 10) || 0) - (parseInt(b.dataset.cardId, 10) || 0);
 }
 
-/**
- * 対象のカードリストを指定された条件で並び替えてDOMを再配置
- */
 function sortDeckList(listElement, key, order) {
     const imgs = Array.from(listElement.querySelectorAll('img'));
     if (imgs.length === 0) return;
@@ -3617,29 +3039,21 @@ function sortDeckList(listElement, key, order) {
             const countB = counts[b.dataset.cardName] || 0;
             res = countA - countB;
         } else if (key === 'name') {
-            // カード名順の場合は最初から読み仮名で比較
             res = compareReading(a, b);
         } else {
             res = compareCardsByKey(a, b, key);
         }
 
-        // メインのソート基準に差がある場合は、指定方向（昇順/降順）に従う
         if (res !== 0) return res * direction;
 
-        // --- メイン基準が同じ場合（同コスト・同文明など）の整列ルール ---
-        // コスト順の場合：同コスト内は「読み仮名の50音順 (昇順)」で並べる
         if (key === 'cost') {
             return compareReading(a, b);
         }
-
-        // 文明順の場合：同文明内は「コスト昇順」→「読み仮名50音順」
         if (key === 'civ') {
             const costRes = compareCardsByKey(a, b, 'cost');
             if (costRes !== 0) return costRes;
             return compareReading(a, b);
         }
-
-        // 採用順の場合：同枚数内は「コスト昇順」→「読み仮名50音順」
         if (key === 'count') {
             const costRes = compareCardsByKey(a, b, 'cost');
             if (costRes !== 0) return costRes;
@@ -3649,13 +3063,9 @@ function sortDeckList(listElement, key, order) {
         return compareReading(a, b);
     });
 
-    // ソート順に沿ってDOMを再登録
     imgs.forEach(img => listElement.appendChild(img));
 }
 
-/**
- * ひらがなをカタカナに変換する
- */
 function hiraToKata(str) {
     return str.replace(/[\u3041-\u3096]/g, function(match) {
         const chr = match.charCodeAt(0) + 0x60;
@@ -3666,20 +3076,13 @@ function escapeSelectorValue(str) {
     if (!str) return '';
     return str.replace(/"/g, '\\"');
 }
-/**
- * 公開設定トグルボタンの値変更を、非表示チェックボックスに同期する
- */
 function updatePublicValue(val) {
     document.getElementById('save-deck-public').checked = (val === 1);
 }
-/**
- * 検索結果からタップされたカードを適切なゾーンに自動追加する
- */
 function addCardToDeckFromSearch(cardData) {
     const name = cardData.card_name;
     const charIds = (cardData.char_ids || '').split(',');
     
-    // 上限値の解決（空またはnullなら 99枚＝無制限）
     const limitVal = cardData.card_limit;
     const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
 
@@ -3693,7 +3096,7 @@ function addCardToDeckFromSearch(cardData) {
             alert("既に登録されています。");
             return;
         }
-        addCardToDeck(cardData, 'special', slotId); // slotId を渡す
+        addCardToDeck(cardData, 'special', slotId); 
         return;
     }
 
@@ -3713,9 +3116,6 @@ function addCardToDeckFromSearch(cardData) {
         }
     }
 }
-/**
- * バッジの「×」クリック時にチェックボックスの状態を連動して解除する処理
- */
 function removeSubModalSelection(type, val) {
     const cb = document.querySelector(`.${type}-check[value="${val}"]`);
     if (cb) {
@@ -3724,9 +3124,6 @@ function removeSubModalSelection(type, val) {
     }
 }
 
-/**
- * 特殊文字をエスケープするヘルパー関数
- */
 function escapeHTML(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;')
@@ -3735,28 +3132,22 @@ function escapeHTML(str) {
               .replace(/"/g, '&quot;')
               .replace(/'/g, '&#39;');
 }
-/**
- * 同一カードを特定するための属性セレクタを取得
- * ツインパクトなど（comboNamesがある場合）は全カード名の一致を基準とし、通常カードは上面名一致かつcomboNamesが空を基準とする
- */
+
 function getCardSelector(cardName, comboNames) {
     if (comboNames) {
         return `img[data-combo-names="${escapeSelectorValue(comboNames)}"]`;
     }
     return `img[data-card-name="${escapeSelectorValue(cardName)}"][data-combo-names=""]`;
 }
-// 利き手設定を保持して表示位置（左右）を切り替える
+
 function toggleSearchPosition() {
     const container = document.getElementById('container');
     const isLeftHanded = container.classList.toggle('left-handed');
     
     localStorage.setItem('deck_builder_left_handed', isLeftHanded ? 'true' : 'false');
-    
-    // 配置切り替え時にもボタンの位置・テキストを同期
     syncSearchToggleButton();
 }
 
-// ボタンの位置・テキストを統合制御する処理
 function syncSearchToggleButton() {
     const searchSection = document.getElementById('search-section');
     const container = document.getElementById('container');
@@ -3766,7 +3157,6 @@ function syncSearchToggleButton() {
     const isCollapsed = searchSection.classList.contains('collapsed');
     const isLeftHanded = container.classList.contains('left-handed');
 
-    // スマホ表示時（幅768px以下）のスタイル復元
     if (window.innerWidth <= 768) {
         btn.style.left = '';
         btn.style.right = '20px';
@@ -3777,26 +3167,22 @@ function syncSearchToggleButton() {
         return;
     }
 
-    // デスクトップ表示時の一括スタイル管理
     btn.style.top = '50%';
     btn.style.transform = 'translateY(-50%)';
 
     if (isLeftHanded) {
-        // 左利き配置時（検索枠が左側）
         btn.style.right = 'auto';
-        btn.style.left = isCollapsed ? '0px' : '380px'; // ★ 320px から 340px へ変更
-        btn.style.borderRadius = '0 8px 8px 0'; // 角丸を右側に
+        btn.style.left = isCollapsed ? '0px' : '380px'; 
+        btn.style.borderRadius = '0 8px 8px 0'; 
         btn.innerHTML = isCollapsed ? '開く ▶' : '◀ 隠す';
     } else {
-        // 通常配置時（検索枠が右側）
         btn.style.left = 'auto';
-        btn.style.right = isCollapsed ? '0px' : '380px'; // ★ 320px から 340px へ変更
-        btn.style.borderRadius = '8px 0 0 8px'; // 角丸を左側に
+        btn.style.right = isCollapsed ? '0px' : '380px'; 
+        btn.style.borderRadius = '8px 0 0 8px'; 
         btn.innerHTML = isCollapsed ? '◀ 開く' : '隠す ▶';
     }
 }
 
-// ページ読み込み完了時、リサイズ時にもボタンの状態を常に同期させる
 window.addEventListener('DOMContentLoaded', () => {
     const isLeftHanded = localStorage.getItem('deck_builder_left_handed') === 'true';
     if (isLeftHanded) {
@@ -3806,24 +3192,19 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 window.addEventListener('resize', syncSearchToggleButton);
-// ★追加：シリーズ一括選択（勝舞・勝太・ジョー・ウィン）のコントロール
+
 document.querySelectorAll('.era-check').forEach(el => {
     el.addEventListener('change', function() {
         const era = this.value;
         const isChecked = this.checked;
 
         if (isChecked) {
-            // 1. 他のシリーズチェックボックスをすべて解除（排他制御）
             document.querySelectorAll('.era-check').forEach(other => {
                 if (other !== this) other.checked = false;
             });
-
-            // 2. それまでにチェックされていた商品のチェックボックスをすべてクリア
             document.querySelectorAll('.goods-check').forEach(g => {
                 g.checked = false;
             });
-
-            // 3. 選択されたシリーズの範囲に合致する商品を一括でチェック
             document.querySelectorAll('.goods-check').forEach(g => {
                 const goodsId = parseInt(g.value, 10);
                 if (isNaN(goodsId)) return;
@@ -3844,18 +3225,15 @@ document.querySelectorAll('.era-check').forEach(el => {
                 }
             });
         } else {
-            // シリーズチェックボックス自体が手動で解除された場合、すべての商品を一括解除
             document.querySelectorAll('.goods-check').forEach(g => {
                 g.checked = false;
             });
         }
 
-        // バッジ表示とセレクト表示（トリガーテキスト）の更新
         updateTriggerText('goods');
     });
 });
 
-// ★追加：ユーザーが商品を個別でチェック操作した場合、シリーズの選択を連動して解除する設定
 const goodsContainer = document.getElementById('goods-list-container');
 if (goodsContainer) {
     goodsContainer.addEventListener('change', function(e) {
@@ -3866,32 +3244,22 @@ if (goodsContainer) {
         }
     });
 }
-// --- オートセーブ（下書き保存・復元）ロジック ---
 
-/**
- * デッキの現在の構成カードをシリアライズして配列で取得
- */
 function getSerializedCards() {
     const cards = [];
     const serializeImg = (img, type) => {
         const cardId = img.dataset.cardId;
-        const cached = cardCache[cardId] || {};
+        const cached = cardCache[cardId];
         return {
             card_id: cardId,
-            card_name: img.dataset.cardName || cached.card_name || '',
-            combo_names: img.dataset.comboNames || cached.combo_names || '',
-            char_ids: img.dataset.charIds || cached.char_ids || '',
-            imagepath: img.dataset.imagepath || cached.imagepath || '',
-            card_limit: img.dataset.cardLimit || cached.card_limit || '',
-            civilization: img.dataset.civ || cached.civilization || '',
-            cost: img.dataset.cost || cached.cost || '',
-            card_type_in_deck: type,
-            // ★追加: ダミーのツインパクト・両面情報を下書きに保存
-            is_dummy: img.dataset.isDummy === "1",
-            dummy_card_type: img.dataset.dummyCardType || cached.dummy_card_type || 'normal',
-            dummy_partner_name: img.dataset.dummyPartnerName || cached.dummy_partner_name || '',
-            dummy_partner_cost: img.dataset.dummyPartnerCost || cached.dummy_partner_cost || '',
-            dummy_partner_civ_ids: img.dataset.dummyPartnerCivIds || cached.dummy_partner_civ_ids || ''
+            card_name: img.dataset.cardName || (cached ? cached.card_name : ''),
+            combo_names: img.dataset.comboNames || (cached ? cached.combo_names : ''),
+            char_ids: img.dataset.charIds || (cached ? cached.char_ids : ''),
+            imagepath: img.dataset.imagepath || (cached ? cached.imagepath : ''),
+            card_limit: img.dataset.cardLimit || (cached ? cached.card_limit : ''),
+            civilization: img.dataset.civ || (cached ? cached.civilization : ''),
+            cost: img.dataset.cost || (cached ? cached.cost : ''),
+            card_type_in_deck: type
         };
     };
 
@@ -3900,18 +3268,14 @@ function getSerializedCards() {
     grList.querySelectorAll('img').forEach(img => cards.push(serializeImg(img, 'gr')));
     document.querySelectorAll('.special-box.active img').forEach(img => {
         const item = serializeImg(img, 'special');
-        item.slotId = img.parentNode.id;
+        item.slotId = img.parentNode.id; 
         cards.push(item);
     });
 
     return cards;
 }
 
-/**
- * ローカルストレージに下書きを保存
- */
 function saveDraftToLocalStorage() {
-    // ★追加: 初期化中または保存完了後は自動保存しない
     if (isInitializing || isDeckSaved) return;
 
     const cards = getSerializedCards();
@@ -3935,13 +3299,10 @@ function saveDraftToLocalStorage() {
     localStorage.setItem('unsaved_deck_draft', JSON.stringify(draft));
 }
 
-/**
- * 起動時に自動セーブされた下書きの存在を確認し、復元を打診
- */
 function checkAndRestoreDraft() {
     const draftStr = localStorage.getItem('unsaved_deck_draft');
     if (!draftStr) {
-        isInitializing = false; // ★追加
+        isInitializing = false; 
         return;
     }
 
@@ -3960,13 +3321,10 @@ function checkAndRestoreDraft() {
     } catch (e) {
         console.error("ドラフトの復元処理中にエラーが発生しました", e);
     } finally {
-        isInitializing = false; // ★追加: 復元チェック完了後に自動保存を解禁
+        isInitializing = false; 
     }
 }
 
-/**
- * 下書きからカードおよび入力フォームの値を復元
- */
 function restoreDraft(draft) {
     mainList.innerHTML = '';
     superDimList.innerHTML = '';
@@ -3987,13 +3345,7 @@ function restoreDraft(draft) {
             imagepath: card.imagepath,
             card_limit: card.card_limit,
             civilization: card.civilization,
-            cost: card.cost,
-            // ★追加: ツインパクト・両面情報を正しく復元
-            is_dummy: card.is_dummy,
-            dummy_card_type: card.dummy_card_type || 'normal',
-            dummy_partner_name: card.dummy_partner_name || '',
-            dummy_partner_cost: card.dummy_partner_cost || '',
-            dummy_partner_civ_ids: card.dummy_partner_civ_ids || ''
+            cost: card.cost
         };
         
         cardCache[card.card_id] = reconstructedCard;
@@ -4017,14 +3369,10 @@ function restoreDraft(draft) {
     updateDeckDisplay();
     alert("未保存の作業データを復元しました。");
 }
-/**
- * 検索ボックスの入力によって現在表示されている（非表示にされていない）
- * 項目のみをすべて選択状態にする処理
- */
+
 function bulkSelectVisible(type) {
     const visibleItems = document.querySelectorAll(`#${type}-list-container .list-item`);
     visibleItems.forEach(el => {
-        // display: none でない、現在リストに表示されているものだけを対象とする
         if (el.style.display !== 'none') {
             const checkbox = el.querySelector(`.${type}-check`);
             if (checkbox) {
@@ -4033,557 +3381,12 @@ function bulkSelectVisible(type) {
         }
     });
 
-    // 収録商品一括選択時は、シリーズ一括チェック側の整合性を保つためリセット
     if (type === 'goods') {
         document.querySelectorAll('.era-check').forEach(el => {
             el.checked = false;
         });
     }
 
-    // バッジおよびトリガー表示を最新状態に更新
     updateTriggerText(type);
-}
-// --- ダミーカード生成 & モーダル関連処理 ---
-function openDummyCardModal() {
-    document.getElementById('dummyCardModal').style.display = 'block';
-    updateDummyPreview();
-}
-
-function closeDummyCardModal() {
-    document.getElementById('dummyCardModal').style.display = 'none';
-}
-
-// 文明色マッピング
-const CIV_COLORS = {
-    '1': '#f1c40f', // 光 (黄)
-    '2': '#3498db', // 水 (青)
-    '3': '#34495e', // 闇 (黒)
-    '4': '#e74c3c', // 火 (赤)
-    '5': '#2ecc71', // 自然 (緑)
-    '6': '#95a5a6'  // ゼロ (灰)
-};
-
-// カード形式切り替え時のUI表示・非表示連動
-function toggleDummyCardType(mode = 'create') {
-    const isEdit = (mode === 'edit');
-    const prefix = isEdit ? 'dummy-edit-' : 'dummy-';
-    
-    const type = document.querySelector(`input[name="${isEdit ? 'dummy-edit-type' : 'dummy-type'}"]:checked`)?.value || 'normal';
-    const partnerSection = document.getElementById(prefix + 'partner-section');
-    const face1Title = document.getElementById(prefix + 'face1-title');
-    const face2Title = document.getElementById(prefix + 'face2-title');
-
-    if (type === 'normal') {
-        if (partnerSection) partnerSection.style.display = 'none';
-        if (face1Title) face1Title.innerText = 'カード情報';
-    } else if (type === 'twinpact') {
-        if (partnerSection) partnerSection.style.display = 'block';
-        if (face1Title) face1Title.innerText = '上面（クリーチャー等）';
-        if (face2Title) face2Title.innerText = '下面（呪文等）';
-    } else if (type === 'double') {
-        if (partnerSection) partnerSection.style.display = 'block';
-        if (face1Title) face1Title.innerText = '表面';
-        if (face2Title) face2Title.innerText = '裏面（覚醒後など）';
-    }
-
-    if (isEdit) {
-        updateDummyEditPreview();
-    } else {
-        updateDummyPreview();
-    }
-}
-
-/**
- * Canvasを使って文明色・コスト・カード名が描画された画像を動的生成
- */
-function generateDummyCardImage(name, cost, civIdsStr, cardType = 'normal', pName = '', pCost = '', pCivIdsStr = '') {
-    const canvas = document.createElement('canvas');
-    canvas.width = 220; canvas.height = 308;
-    const ctx = canvas.getContext('2d');
-
-    // --- ツインパクトの場合：上下分割デザイン ---
-    // --- ツインパクトの場合：斜め分割 ＆ 右側下面コスト配置 ---
-    if (cardType === 'twinpact') {
-        const topCivs = (civIdsStr || '').toString().split(',').filter(Boolean);
-        const btmCivs = (pCivIdsStr || civIdsStr || '').toString().split(',').filter(Boolean);
-
-        const topColor = topCivs.length > 0 ? (CIV_COLORS[topCivs[0]] || '#95a5a6') : '#95a5a6';
-        const btmColor = btmCivs.length > 0 ? (CIV_COLORS[btmCivs[0]] || '#95a5a6') : '#95a5a6';
-
-        // 枠・背景ベース
-        ctx.fillStyle = '#111';
-        ctx.fillRect(0, 0, 220, 308);
-
-        // 斜め境界線の座標（左下から右上へ傾斜）
-        const splitLeftY = 188;
-        const splitRightY = 152;
-
-        // 1. 上面エリア（斜めクリップ）
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(8, 8);
-        ctx.lineTo(212, 8);
-        ctx.lineTo(212, splitRightY);
-        ctx.lineTo(8, splitLeftY);
-        ctx.closePath();
-        ctx.fillStyle = topColor;
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.beginPath();
-        ctx.moveTo(14, 14);
-        ctx.lineTo(206, 14);
-        ctx.lineTo(206, splitRightY - 5);
-        ctx.lineTo(14, splitLeftY - 5);
-        ctx.closePath();
-        ctx.fill();
-
-        // 上面コスト（左上）
-        const topCostVal = (cost !== '' && cost !== null && cost !== undefined) ? cost : '?';
-        ctx.beginPath();
-        ctx.arc(38, 40, 17, 0, Math.PI * 2);
-        ctx.fillStyle = '#2c3e50';
-        ctx.fill();
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(topCostVal, 38, 41);
-
-        // 上面カード名
-        ctx.fillStyle = '#111';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        wrapText(ctx, name || '上面カード名', 120, 68, 150, 18);
-        ctx.restore();
-
-        // 2. 下面エリア（斜めクリップ）
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(8, splitLeftY);
-        ctx.lineTo(212, splitRightY);
-        ctx.lineTo(212, 300);
-        ctx.lineTo(8, 300);
-        ctx.closePath();
-        ctx.fillStyle = btmColor;
-        ctx.fill();
-
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-        ctx.beginPath();
-        ctx.moveTo(14, splitLeftY + 5);
-        ctx.lineTo(206, splitRightY + 5);
-        ctx.lineTo(206, 294);
-        ctx.lineTo(14, 294);
-        ctx.closePath();
-        ctx.fill();
-
-        // ★実物準拠：下面コスト（境界線のすぐ右下に配置）
-        const btmCostVal = (pCost !== '' && pCost !== null && pCost !== undefined) ? pCost : '?';
-        const btmCostX = 184;
-        const btmCostY = splitRightY + 22;
-
-        ctx.beginPath();
-        ctx.arc(btmCostX, btmCostY, 17, 0, Math.PI * 2); // 上面と同じ半径17の円形に変更
-        ctx.fillStyle = btmColor;
-        ctx.fill();
-        ctx.lineWidth = 2.5;
-        ctx.strokeStyle = '#fff';
-        ctx.stroke();
-
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText(btmCostVal, btmCostX, btmCostY);
-
-        // 下面カード名（コストと重ならないよう左寄りにレイアウト）
-        ctx.fillStyle = '#111';
-        ctx.font = 'bold 13px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'top';
-        wrapText(ctx, pName || '下面カード名', 95, splitLeftY + 28, 125, 18);
-        ctx.restore();
-
-        // 3. 斜めの黒い仕切り線
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = '#111';
-        ctx.beginPath();
-        ctx.moveTo(4, splitLeftY);
-        ctx.lineTo(216, splitRightY);
-        ctx.stroke();
-
-        // 全体の外枠
-        ctx.lineWidth = 8;
-        ctx.strokeStyle = '#111';
-        ctx.strokeRect(4, 4, 212, 300);
-
-        return canvas.toDataURL('image/png');
-    }
-
-    // --- 通常カード & 両面カード（表面） ---
-    const civIds = (civIdsStr || '').toString().split(',').filter(Boolean);
-    if (civIds.length === 1) {
-        ctx.fillStyle = CIV_COLORS[civIds[0]] || '#bdc3c7';
-    } else if (civIds.length > 1) {
-        const grad = ctx.createLinearGradient(0, 0, 220, 308);
-        civIds.forEach((id, idx) => grad.addColorStop(idx / (civIds.length - 1), CIV_COLORS[id] || '#bdc3c7'));
-        ctx.fillStyle = grad;
-    } else {
-        ctx.fillStyle = '#bdc3c7';
-    }
-    ctx.fillRect(0, 0, 220, 308);
-
-    ctx.lineWidth = 8; ctx.strokeStyle = '#2c3e50'; ctx.strokeRect(4, 4, 212, 300);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'; ctx.fillRect(16, 16, 188, 276);
-
-    // コストサークル
-    const costVal = (cost !== undefined && cost !== null && cost !== '') ? cost : '?';
-    ctx.beginPath(); ctx.arc(42, 46, 18, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(costVal, 42, 47);
-
-    // 両面マーク
-    if (cardType === 'double') {
-        ctx.fillStyle = '#17a2b8'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'right';
-        ctx.fillText('⟲ 両面', 194, 46);
-    }
-
-    // カード名
-    ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    wrapText(ctx, name || 'カード名未設定', 110, 82, 160, 22);
-
-    return canvas.toDataURL('image/png');
-}
-
-// ツインパクトの上下半分を描画するサブヘルパー
-function renderCardHalf(ctx, name, cost, civIdsStr, x, y, w, h, label) {
-    const civIds = (civIdsStr || '').toString().split(',').filter(Boolean);
-    ctx.fillStyle = civIds.length > 0 ? (CIV_COLORS[civIds[0]] || '#ccc') : '#ccc';
-    ctx.fillRect(x, y, w, h);
-
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.fillRect(x + 4, y + 4, w - 8, h - 8);
-
-    // コスト
-    ctx.beginPath(); ctx.arc(x + 24, y + 24, 13, 0, Math.PI * 2); ctx.fillStyle = '#2c3e50'; ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(cost !== '' && cost !== null ? cost : '?', x + 24, y + 25);
-
-    // テキスト
-    ctx.fillStyle = '#111'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    wrapText(ctx, name || 'カード名未設定', x + (w / 2), y + 44, w - 20, 16);
-}
-
-function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
-    const words = text.split('');
-    let line = '';
-    for (let n = 0; n < words.length; n++) {
-        let testLine = line + words[n];
-        if (ctx.measureText(testLine).width > maxWidth && n > 0) {
-            ctx.fillText(line, x, y);
-            line = words[n];
-            y += lineHeight;
-        } else { line = testLine; }
-    }
-    ctx.fillText(line, x, y);
-}
-
-// プレビュー更新
-function updateDummyPreview() {
-    const type = document.querySelector('input[name="dummy-type"]:checked')?.value || 'normal';
-    const name = document.getElementById('dummy-input-name').value.trim();
-    const cost = document.getElementById('dummy-input-cost').value;
-    const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
-
-    const pName = document.getElementById('dummy-input-partner-name').value.trim();
-    const pCost = document.getElementById('dummy-input-partner-cost').value;
-    const pCivs = Array.from(document.querySelectorAll('.dummy-partner-civ-check:checked')).map(c => c.value);
-
-    const backWrap = document.getElementById('dummy-preview-back-wrap');
-    const label1 = document.getElementById('dummy-preview-label1');
-
-    if (type === 'double') {
-        // 表面プレビュー
-        document.getElementById('dummy-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), 'double');
-        // 裏面プレビュー
-        document.getElementById('dummy-preview-back-img').src = generateDummyCardImage(pName || '裏面カード名', pCost, pCivs.join(','), 'double');
-        backWrap.style.display = 'block';
-        label1.style.display = 'block';
-    } else {
-        document.getElementById('dummy-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
-        backWrap.style.display = 'none';
-        label1.style.display = 'none';
-    }
-}
-// プレビューの自動連動
-document.getElementById('dummy-input-name').addEventListener('input', updateDummyPreview);
-document.getElementById('dummy-input-cost').addEventListener('input', updateDummyPreview);
-document.querySelectorAll('.dummy-civ-check').forEach(el => el.addEventListener('change', updateDummyPreview));
-document.getElementById('dummy-input-partner-name').addEventListener('input', updateDummyPreview);
-document.getElementById('dummy-input-partner-cost').addEventListener('input', updateDummyPreview);
-document.querySelectorAll('.dummy-partner-civ-check').forEach(el => el.addEventListener('change', updateDummyPreview));
-// 追加ボタン押下時
-function createAndAddDummyCard() {
-    const type = document.querySelector('input[name="dummy-type"]:checked').value;
-    const name = document.getElementById('dummy-input-name').value.trim();
-    if (!name) {
-        alert("カード名を入力してください。");
-        return;
-    }
-    const cost = document.getElementById('dummy-input-cost').value;
-    const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
-
-    const pName = document.getElementById('dummy-input-partner-name').value.trim();
-    const pCost = document.getElementById('dummy-input-partner-cost').value;
-    const pCivs = Array.from(document.querySelectorAll('.dummy-partner-civ-check:checked')).map(c => c.value);
-
-    // ★両面カードは超次元ゾーン限定
-    const zone = (type === 'double') ? 'super_dimensional' : document.getElementById('dummy-input-zone').value;
-
-    const dummyId = 'dummy_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
-    const dataUrl = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
-
-    let charIds = (zone === 'super_dimensional') ? '3' : (zone === 'gr' ? '10' : '');
-
-    const cardObj = {
-        card_id: dummyId,
-        card_name: name,
-        cost: cost !== '' ? parseInt(cost, 10) : null,
-        civ_ids: civs.join(','),
-        civilization: civs.join(','),
-        char_ids: charIds,
-        image_data_url: dataUrl,
-        imagepath: dataUrl,
-        card_limit: 99,
-        is_dummy: true,
-        dummy_card_type: type,
-        dummy_partner_name: pName,
-        dummy_partner_cost: pCost !== '' ? parseInt(pCost, 10) : null,
-        dummy_partner_civ_ids: pCivs.join(','),
-        text: type === 'twinpact' 
-            ? `【上面】${name} (コスト:${cost || '?'})\n【下面】${pName} (コスト:${pCost || '?'})`
-            : (type === 'double' ? `【表面】${name}\n【裏面】${pName}` : `カード名: ${name}\nコスト: ${cost || '?'}`)
-    };
-
-    addCardToDeck(cardObj, zone);
-    closeDummyCardModal();
-
-    // 入力リセット
-    document.getElementById('dummy-input-name').value = '';
-    document.getElementById('dummy-input-cost').value = '';
-    document.getElementById('dummy-input-partner-name').value = '';
-    document.getElementById('dummy-input-partner-cost').value = '';
-    document.querySelectorAll('.dummy-civ-check, .dummy-partner-civ-check').forEach(c => c.checked = false);
-}
-// --- ダミーカード編集モーダル制御 ---
-// --- ダミーカード編集モーダル制御 ---
-let currentEditingDummyEl = null;
-let currentEditingDummyType = 'normal';
-
-function openDummyEditModal(el) {
-    currentEditingDummyEl = el;
-
-    const name = el.dataset.cardName || '';
-    const cost = el.dataset.cost || '';
-    const civs = (el.dataset.civ || '').split(',').filter(Boolean);
-    const cardType = el.dataset.dummyCardType || 'normal';
-    currentEditingDummyType = cardType;
-
-    const pName = el.dataset.dummyPartnerName || '';
-    const pCost = el.dataset.dummyPartnerCost || '';
-    const pCivs = (el.dataset.dummyPartnerCivIds || '').split(',').filter(Boolean);
-
-    // 枚数表示の更新
-    const parent = el.parentNode;
-    const sameCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
-    const qtyEl = document.getElementById(`dummy-edit-${cardType}-qty`);
-    if (qtyEl) qtyEl.innerText = sameCards.length;
-
-    // 各タイプ専用の入力欄へ値をセット
-    document.getElementById(`dummy-edit-${cardType}-name`).value = name;
-    document.getElementById(`dummy-edit-${cardType}-cost`).value = cost;
-    document.querySelectorAll(`.dummy-edit-${cardType}-civ-check`).forEach(cb => {
-        cb.checked = civs.includes(cb.value);
-    });
-
-    if (cardType === 'twinpact' || cardType === 'double') {
-        document.getElementById(`dummy-edit-${cardType}-partner-name`).value = pName;
-        document.getElementById(`dummy-edit-${cardType}-partner-cost`).value = pCost;
-        document.querySelectorAll(`.dummy-edit-${cardType}-partner-civ-check`).forEach(cb => {
-            cb.checked = pCivs.includes(cb.value);
-        });
-    }
-
-    updateDummySpecificEditPreview(cardType);
-
-    const targetModal = document.getElementById(`dummyEditModal-${cardType}`);
-    if (targetModal) targetModal.style.display = 'block';
-}
-
-function closeDummyEditModal(type) {
-    const t = type || currentEditingDummyType;
-    const targetModal = document.getElementById(`dummyEditModal-${t}`);
-    if (targetModal) targetModal.style.display = 'none';
-    currentEditingDummyEl = null;
-}
-
-function updateDummySpecificEditPreview(type) {
-    const name = document.getElementById(`dummy-edit-${type}-name`).value.trim();
-    const cost = document.getElementById(`dummy-edit-${type}-cost`).value;
-    const civs = Array.from(document.querySelectorAll(`.dummy-edit-${type}-civ-check:checked`)).map(c => c.value);
-
-    let pName = '', pCost = '', pCivs = [];
-    if (type === 'twinpact' || type === 'double') {
-        pName = document.getElementById(`dummy-edit-${type}-partner-name`).value.trim();
-        pCost = document.getElementById(`dummy-edit-${type}-partner-cost`).value;
-        pCivs = Array.from(document.querySelectorAll(`.dummy-edit-${type}-partner-civ-check:checked`)).map(c => c.value);
-    }
-
-    if (type === 'double') {
-        document.getElementById('dummy-edit-double-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), 'double');
-        document.getElementById('dummy-edit-double-preview-back-img').src = generateDummyCardImage(pName || '裏面カード名', pCost, pCivs.join(','), 'double');
-    } else {
-        document.getElementById(`dummy-edit-${type}-preview-img`).src = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
-    }
-}
-
-// プレビューリアルタイム連動イベント設定
-['normal', 'twinpact', 'double'].forEach(type => {
-    const nameInput = document.getElementById(`dummy-edit-${type}-name`);
-    const costInput = document.getElementById(`dummy-edit-${type}-cost`);
-    if (nameInput) nameInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
-    if (costInput) costInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
-    document.querySelectorAll(`.dummy-edit-${type}-civ-check`).forEach(el => el.addEventListener('change', () => updateDummySpecificEditPreview(type)));
-
-    if (type === 'twinpact' || type === 'double') {
-        const pNameInput = document.getElementById(`dummy-edit-${type}-partner-name`);
-        const pCostInput = document.getElementById(`dummy-edit-${type}-partner-cost`);
-        if (pNameInput) pNameInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
-        if (pCostInput) pCostInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
-        document.querySelectorAll(`.dummy-edit-${type}-partner-civ-check`).forEach(el => el.addEventListener('change', () => updateDummySpecificEditPreview(type)));
-    }
-});
-
-function getDummyParentList() {
-    if (currentEditingDummyEl && currentEditingDummyEl.parentNode) {
-        return currentEditingDummyEl.parentNode;
-    }
-    if (!currentEditingDummyEl) return null;
-    const name = currentEditingDummyEl.dataset.cardName;
-    const found = document.querySelector(`img[data-card-name="${escapeSelectorValue(name)}"][data-is-dummy="1"]`);
-    if (found && found.parentNode) {
-        currentEditingDummyEl = found;
-        return found.parentNode;
-    }
-    return null;
-}
-
-// 枚数の調整 (+/-)
-function adjustDummyQty(diff) {
-    const parent = getDummyParentList();
-    if (!parent) {
-        closeDummyEditModal(currentEditingDummyType);
-        return;
-    }
-
-    const name = currentEditingDummyEl.dataset.cardName;
-    const sameCards = Array.from(parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`));
-    const currentCount = sameCards.length;
-
-    if (diff > 0) {
-        let maxZoneLimit = 60;
-        let zoneName = "メインデッキ";
-        if (parent.id === 'super-dim-list') { maxZoneLimit = 8; zoneName = "超次元ゾーン"; }
-        else if (parent.id === 'gr-list') { maxZoneLimit = 12; zoneName = "超GRゾーン"; }
-
-        if (parent.querySelectorAll('img').length >= maxZoneLimit) {
-            alert(`${zoneName}は合計${maxZoneLimit}枚までです。`);
-            return;
-        }
-
-        const clone = sameCards[0].cloneNode(true);
-        parent.appendChild(clone);
-        currentEditingDummyEl = clone;
-    } else {
-        if (currentCount <= 1) {
-            deleteCurrentDummyCard();
-            return;
-        }
-        const targetToRemove = sameCards[sameCards.length - 1];
-        targetToRemove.remove();
-
-        const remainingCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
-        if (remainingCards.length > 0) {
-            currentEditingDummyEl = remainingCards[0];
-        }
-    }
-
-    updateDeckDisplay();
-    const updatedCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
-    const qtyEl = document.getElementById(`dummy-edit-${currentEditingDummyType}-qty`);
-    if (qtyEl) qtyEl.innerText = updatedCards.length;
-}
-
-// 削除処理
-function deleteCurrentDummyCard() {
-    const parent = getDummyParentList();
-    if (!parent) {
-        closeDummyEditModal(currentEditingDummyType);
-        return;
-    }
-
-    const name = currentEditingDummyEl.dataset.cardName;
-    const sameCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(name)}"]`);
-    sameCards.forEach(img => img.remove());
-
-    updateDeckDisplay();
-    closeDummyEditModal(currentEditingDummyType);
-}
-
-// 編集内容を同名ダミーカード全体に反映・画像再生成
-function saveDummyCardEdit(type) {
-    const parent = getDummyParentList();
-    if (!parent) {
-        closeDummyEditModal(type);
-        return;
-    }
-
-    const newName = document.getElementById(`dummy-edit-${type}-name`).value.trim();
-    if (!newName) {
-        alert("カード名を入力してください。");
-        return;
-    }
-    const newCost = document.getElementById(`dummy-edit-${type}-cost`).value;
-    const newCivs = Array.from(document.querySelectorAll(`.dummy-edit-${type}-civ-check:checked`)).map(c => c.value);
-    const civStr = newCivs.join(',');
-
-    let pName = '', pCost = '', pCivStr = '';
-    if (type === 'twinpact' || type === 'double') {
-        pName = document.getElementById(`dummy-edit-${type}-partner-name`).value.trim();
-        pCost = document.getElementById(`dummy-edit-${type}-partner-cost`).value;
-        const pCivs = Array.from(document.querySelectorAll(`.dummy-edit-${type}-partner-civ-check:checked`)).map(c => c.value);
-        pCivStr = pCivs.join(',');
-    }
-
-    const oldName = currentEditingDummyEl.dataset.cardName;
-    const newImage = generateDummyCardImage(newName, newCost, civStr, type, pName, pCost, pCivStr);
-
-    const targetCards = parent.querySelectorAll(`img[data-card-name="${escapeSelectorValue(oldName)}"]`);
-    targetCards.forEach(img => {
-        img.dataset.cardName = newName;
-        img.dataset.cost = newCost !== '' ? newCost : '';
-        img.dataset.civ = civStr;
-        img.dataset.dummyCardType = type;
-        img.dataset.dummyPartnerName = pName;
-        img.dataset.dummyPartnerCost = pCost !== '' ? pCost : '';
-        img.dataset.dummyPartnerCivIds = pCivStr;
-        img.dataset.imagepath = newImage;
-        img.src = newImage;
-        img.alt = newName;
-    });
-
-    updateDeckDisplay();
-    closeDummyEditModal(type);
 }
 </script>
