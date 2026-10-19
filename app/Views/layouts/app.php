@@ -365,6 +365,13 @@ function selectDeckType(url) {
             </div>
         </div>
         
+        <!-- ★ ここを追加: メッセージ表示コンテナ -->
+        <div class="rule-bot-messages" id="ruleBotMessages">
+            <div class="rule-bot-msg bot">
+                こんにちは！デュエマのルールに関する質問を受け付けています。カード名は《》で囲むと自動補完されます。
+            </div>
+        </div>
+
         <!-- サジェストリスト付き入力エリア -->
         <div class="rule-bot-input-area">
             <div id="ruleBotSuggestList" class="rule-bot-suggest-list"></div>
