@@ -20,21 +20,35 @@ class RuleBotController {
         try {
             $pdo = Database::connect();
 
-            // 1. 質問文のカードを特定し、文明・種族・タイプ・合体カードの全構成面を含めて取得
-            $cardNames = [];
+            // 1. 質問文のカードを特定（ツインパクトの「上面 / 下面」も分解して検索）
+            $rawCardNames = [];
             if (preg_match_all('/《([^》]+)》/u', $message, $m)) {
-                $cardNames = array_unique($m[1]);
+                $rawCardNames = array_unique($m[1]);
             }
 
+            $searchNames = [];
+            foreach ($rawCardNames as $rName) {
+                if (strpos($rName, '/') !== false) {
+                    $parts = array_map('trim', explode('/', $rName));
+                    foreach ($parts as $p) {
+                        if ($p !== '') $searchNames[] = $p;
+                    }
+                } else {
+                    $searchNames[] = trim($rName);
+                }
+            }
+            $searchNames = array_unique($searchNames);
+
             $matchedCards = [];
-            if (!empty($cardNames)) {
-                $inQuery = implode(',', array_fill(0, count($cardNames), '?'));
+            if (!empty($searchNames)) {
+                $inQuery = implode(',', array_fill(0, count($searchNames), '?'));
                 
                 $sql = "
                     WITH target_base_cards AS (
-                        SELECT c.card_id, c.card_name,
-                               ROW_NUMBER() OVER (PARTITION BY c.card_name ORDER BY c.card_id DESC) AS rn
+                        SELECT c.card_id, c.card_name, cd.twinpact,
+                               ROW_NUMBER() OVER (PARTITION BY c.card_name, cd.twinpact ORDER BY c.card_id DESC) AS rn
                         FROM card c
+                        JOIN card_detail cd ON c.card_id = cd.card_id
                         WHERE c.card_name IN ($inQuery)
                     ),
                     latest_targets AS (
@@ -49,7 +63,7 @@ class RuleBotController {
 
                         UNION ALL
 
-                        -- 組み合わせカード（同じcombination_idを持つ全構成面）
+                        -- 組み合わせカード（同じcombination_idを持つ全構成面：card_id昇順で上面/下面を判定）
                         SELECT cc_all.card_id, cc_all.combination_id, cc_all.card_id AS sort_order
                         FROM latest_targets lt
                         JOIN card_combination cc ON lt.card_id = cc.card_id
@@ -65,7 +79,7 @@ class RuleBotController {
                         cd.twinpact,
                         cd.hypermode,
                         rel.combination_id,
-                        rel.sort_order, -- ★ ここに追加
+                        rel.sort_order,
                         (SELECT GROUP_CONCAT(civ.civilization_name SEPARATOR ' / ') 
                          FROM card_civilization cciv 
                          JOIN civilization civ ON cciv.civilization_id = civ.civilization_id 
@@ -84,7 +98,7 @@ class RuleBotController {
                 ";
 
                 $stmt = $pdo->prepare($sql);
-                $stmt->execute(array_values($cardNames));
+                $stmt->execute(array_values($searchNames));
                 $matchedCards = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
 

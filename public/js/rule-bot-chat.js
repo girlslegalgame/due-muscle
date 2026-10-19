@@ -81,13 +81,14 @@ class RuleBotChat {
                 let count = 0;
 
                 for (const card of cards) {
-                    if (!card.card_name || uniqueNames.has(card.card_name)) continue;
-                    uniqueNames.add(card.card_name);
+                    const nameToUse = card.display_name || card.card_name;
+                    if (!nameToUse || uniqueNames.has(nameToUse)) continue;
+                    uniqueNames.add(nameToUse);
 
                     const item = document.createElement('div');
                     item.className = 'rule-bot-suggest-item';
-                    item.textContent = card.card_name;
-                    item.onclick = () => this.selectCardName(card.card_name, match.index, cursorPos);
+                    item.textContent = nameToUse;
+                    item.onclick = () => this.selectCardName(nameToUse, match.index, cursorPos);
                     this.suggestList.appendChild(item);
 
                     if (++count >= 8) break;
