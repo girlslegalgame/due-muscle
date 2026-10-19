@@ -10,6 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1782055298829063"
      crossorigin="anonymous"></script>
+    <script src="/js/rule-bot-chat.js?v=<?php echo time(); ?>"></script>
     <style>
         /* --- ヘッダーを黒背景・白文字に変更 --- */
         header {
@@ -164,7 +165,7 @@
             <a href="/search">デッキ検索</a>
             <a href="/decks/new">デッキ作成</a>
             <!-- ★ handleRuleBotClick() を呼び出すように変更 -->
-            <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">ルールAI</a>
+            <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">AIジャッジ</a>
             <a href="/help">ヘルプ</a>            <?php 
                 $unreadCnt = getUnreadNotificationCount(); 
                 $badgeText = $unreadCnt > 9 ? '9+' : $unreadCnt;
@@ -257,70 +258,79 @@
             }
         }
     </script>
-<!-- デッキ作成先 選択モーダル -->
-<div id="deck-type-select-modal" class="sub-modal" style="display: none; z-index: 3500;">
-    <div class="sub-modal-content" style="max-width: 420px; border-radius: 12px; overflow: hidden;">
-        <div class="sub-modal-header" style="background: #111; color: #fff; padding: 14px 20px;">
-            <span style="font-weight: bold; font-size: 1rem;">作成するデッキを選択</span>
-            <button type="button" onclick="closeDeckTypeSelectModal()" style="background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer;">×</button>
-        </div>
-        <div class="sub-modal-body" style="padding: 24px; text-align: center;">
-            <p style="margin-top: 0; margin-bottom: 20px; font-size: 0.95rem; color: #333; font-weight: bold;">
-                どちらのデッキを作成しますか？
-            </p>
-            <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-                <button type="button" onclick="selectDeckType('/decks/new')" style="flex: 1; padding: 16px 10px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
-                    デュエル・マスターズ
-                </button>
-                <button type="button" onclick="selectDeckType('/tools/ccfolia')" style="flex: 1; padding: 16px 10px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
-                    デュエマ以外<br><span style="font-size: 0.75rem; font-weight: normal;">(ココフォリア出力)</span>
-                </button>
+            <!-- デッキ作成先 選択モーダル -->
+            <div id="deck-type-select-modal" class="sub-modal" style="display: none; z-index: 3500;">
+                <div class="sub-modal-content" style="max-width: 420px; border-radius: 12px; overflow: hidden;">
+                    <div class="sub-modal-header" style="background: #111; color: #fff; padding: 14px 20px;">
+                        <span style="font-weight: bold; font-size: 1rem;">作成するデッキを選択</span>
+                        <button type="button" onclick="closeDeckTypeSelectModal()" style="background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer;">×</button>
+                    </div>
+                    <div class="sub-modal-body" style="padding: 24px; text-align: center;">
+                        <p style="margin-top: 0; margin-bottom: 20px; font-size: 0.95rem; color: #333; font-weight: bold;">
+                            どちらのデッキを作成しますか？
+                        </p>
+                        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                            <button type="button" onclick="selectDeckType('/decks/new')" style="flex: 1; padding: 16px 10px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+                                デュエル・マスターズ
+                            </button>
+                            <button type="button" onclick="selectDeckType('/tools/ccfolia')" style="flex: 1; padding: 16px 10px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+                                デュエマ以外<br><span style="font-size: 0.75rem; font-weight: normal;">(ココフォリア出力)</span>
+                            </button>
+                        </div>
+                        
+                        <div style="border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
+                            <?php if (isset($_SESSION['user_id'])): ?>
+                                <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
+                                    <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
+                                    次回からこの画面を表示しない
+                                </label>
+                                <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 22px; line-height: 1.3;">
+                                    ※この設定は後から「アカウント設定」画面で変更・リセットできます。
+                                </p>
+                            <?php else: ?>
+                                <p style="font-size: 0.8rem; color: #666; margin: 0; line-height: 1.4; text-align: center;">
+                                    <a href="/login" style="color: #007bff !important; text-decoration: underline !important; font-weight: bold;">ログイン</a>すると、次回以降この選択をスキップしてデフォルトで開く画面を設定できます。
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
             </div>
-            
-            <div style="border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
-                <?php if (isset($_SESSION['user_id'])): ?>
-                    <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
-                        <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
-                        次回からこの画面を表示しない
-                    </label>
-                    <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 22px; line-height: 1.3;">
-                        ※この設定は後から「アカウント設定」画面で変更・リセットできます。
-                    </p>
-                <?php else: ?>
-                    <p style="font-size: 0.8rem; color: #666; margin: 0; line-height: 1.4; text-align: center;">
-                        <a href="/login" style="color: #007bff !important; text-decoration: underline !important; font-weight: bold;">ログイン</a>すると、次回以降この選択をスキップしてデフォルトで開く画面を設定できます。
-                    </p>
-                <?php endif; ?>
+
+            <!-- ★ ルールAI起動方法 選択モーダル -->
+            <div id="ruleBotChoiceModal" class="sub-modal" style="display: none; position: fixed; z-index: 3600; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
+                <div style="background: #fff; width: 380px; max-width: 90%; border-radius: 12px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); box-sizing: border-box; text-align: center;">
+                    <h3 style="margin-top: 0; font-size: 1.15rem; color: #222;">ルールAIの開き方を選択</h3>
+                    <p style="font-size: 0.85rem; color: #666; margin-bottom: 20px;">チャットの表示形式を選択してください。</p>
+
+                    <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                        <button type="button" onclick="executeRuleBotChoice('popup')" style="padding: 12px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; cursor: pointer;">
+                            右下の小窓で開く
+                        </button>
+                        <button type="button" onclick="executeRuleBotChoice('fullscreen')" style="padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; cursor: pointer;">
+                            全画面（専用ページ）で開く
+                        </button>
+                    </div>
+
+                    <!-- ★ ログイン状態による切り替え -->
+                    <div style="margin-bottom: 16px; font-size: 0.82rem; color: #555;">
+                        <?php if (isset($_SESSION['user_id'])): ?>
+                            <label style="display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;">
+                                <input type="checkbox" id="dontShowRuleBotModal">
+                                次回以降この確認を表示しない
+                            </label>
+                        <?php else: ?>
+                            <p style="margin: 0; line-height: 1.4; color: #666; font-size: 0.8rem;">
+                                ※<a href="/login" style="color: #007bff !important; text-decoration: underline !important; font-weight: bold;">ログイン</a>すると、次回以降この確認をスキップして固定表示するように設定できます。
+                            </p>
+                        <?php endif; ?>
+                    </div>
+
+                    <button type="button" onclick="closeRuleBotChoiceModal()" style="background: none; border: none; color: #888; font-size: 0.85rem; cursor: pointer; text-decoration: underline;">
+                        キャンセル
+                    </button>
+                </div>
             </div>
-        </div>
-    </div>
-</div>
-
-<!-- ★ ルールAI起動方法 選択モーダル（外側に正しく配置） -->
-<div id="ruleBotChoiceModal" class="sub-modal" style="display: none; position: fixed; z-index: 3600; left: 0; top: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); align-items: center; justify-content: center;">
-    <div style="background: #fff; width: 380px; max-width: 90%; border-radius: 12px; padding: 24px; box-shadow: 0 8px 30px rgba(0,0,0,0.3); box-sizing: border-box; text-align: center;">
-        <h3 style="margin-top: 0; font-size: 1.15rem; color: #222;">ルールAIの開き方を選択</h3>
-        <p style="font-size: 0.85rem; color: #666; margin-bottom: 20px;">チャットの表示形式を選択してください。</p>
-
-        <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-            <button type="button" onclick="executeRuleBotChoice('popup')" style="padding: 12px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; cursor: pointer;">
-                右下の小窓で開く
-            </button>
-            <button type="button" onclick="executeRuleBotChoice('fullscreen')" style="padding: 12px; background: #28a745; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem; cursor: pointer;">
-                全画面（専用ページ）で開く
-            </button>
-        </div>
-
-        <div style="margin-bottom: 16px; font-size: 0.82rem; color: #555; display: flex; align-items: center; justify-content: center; gap: 6px;">
-            <input type="checkbox" id="dontShowRuleBotModal">
-            <label for="dontShowRuleBotModal" style="cursor: pointer;">次回以降この確認を表示しない</label>
-        </div>
-
-        <button type="button" onclick="closeRuleBotChoiceModal()" style="background: none; border: none; color: #888; font-size: 0.85rem; cursor: pointer; text-decoration: underline;">
-            キャンセル
-        </button>
-    </div>
-</div>
         </div>
     </div>
 </div>
@@ -367,16 +377,14 @@ function selectDeckType(url) {
         
         <!-- ★ ここを追加: メッセージ表示コンテナ -->
         <div class="rule-bot-messages" id="ruleBotMessages">
-            <div class="rule-bot-msg bot">
-                こんにちは！デュエマのルールに関する質問を受け付けています。カード名は《》で囲むと自動補完されます。
-            </div>
+            <div class="rule-bot-msg bot">こんにちは！公式総合ルール全条文を記憶したAIジャッジです。<br>効果の処理順やルールの疑問があれば質問してください。カード名は《》で囲むと自動補完されます。</div>
         </div>
 
         <!-- サジェストリスト付き入力エリア -->
-        <div class="rule-bot-input-area">
+        <div class="rule-bot-input-area" style="padding: 8px; border-top: 1px solid #eee; display: flex; align-items: flex-end; gap: 6px;">
             <div id="ruleBotSuggestList" class="rule-bot-suggest-list"></div>
-            <input type="text" id="ruleBotInput" class="rule-bot-input" placeholder="質問を入力 (例: 《ヘブンズ・ゲート》で...)">
-            <button id="ruleBotSendBtn" class="rule-bot-send" onclick="sendRuleBotMessage()">送信</button>
+            <textarea id="ruleBotInput" class="rule-bot-input" style="height: 40px; min-height: 40px; max-height: 120px; font-size: 0.88rem; padding: 8px 10px; resize: none; box-sizing: border-box; margin: 0; overflow-y: auto;" placeholder="質問を入力"></textarea>
+            <button id="ruleBotSendBtn" class="rule-bot-send" style="height: 40px; padding: 0 12px; font-size: 0.8rem; white-space: nowrap; flex-shrink: 0; box-sizing: border-box; margin: 0; align-self: flex-end;">送信</button>
         </div>
     </div>
 
@@ -389,61 +397,11 @@ function selectDeckType(url) {
             }
         }
 
-        async function sendRuleBotMessage() {
-            const input = document.getElementById('ruleBotInput');
-            const sendBtn = document.getElementById('ruleBotSendBtn');
-            const container = document.getElementById('ruleBotMessages');
-            const text = input.value.trim();
-            if (!text) return;
-
-            // サジェストを閉じる
-            document.getElementById('ruleBotSuggestList').style.display = 'none';
-
-            // ユーザーメッセージ描画
-            const userMsg = document.createElement('div');
-            userMsg.className = 'rule-bot-msg user';
-            userMsg.textContent = text;
-            container.appendChild(userMsg);
-            input.value = '';
-            input.disabled = true;
-            sendBtn.disabled = true;
-
-            // ローディング表示
-            const loadingMsg = document.createElement('div');
-            loadingMsg.className = 'rule-bot-msg bot';
-            loadingMsg.textContent = '判定中...';
-            container.appendChild(loadingMsg);
-            container.scrollTop = container.scrollHeight;
-
-            try {
-                const res = await fetch('/api/bot/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text })
-                });
-                const data = await res.json();
-                if (!res.ok) {
-                    loadingMsg.textContent = data.error || 'エラーが発生しました。(Status: ' + res.status + ')';
-                } else {
-                    // ★ marked.parse を使ってマークダウン記号を綺麗なHTMLに変換
-                    loadingMsg.innerHTML = marked.parse(data.reply || '回答を取得できませんでした。');
-                }
-            } catch (err) {
-                loadingMsg.textContent = '通信エラーが発生しました: ' + err.message;
-            } finally {
-                input.disabled = false;
-                sendBtn.disabled = false;
-                input.focus();
-                container.scrollTop = container.scrollHeight;
-            }
+        // PC判定ならボタン文字変更
+        if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+            const botBtn = document.getElementById('ruleBotSendBtn');
+            if (botBtn) botBtn.textContent = '送信 Ctrl+Enter';
         }
-
-        // Enterキー送信対応
-        document.getElementById('ruleBotInput').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                sendRuleBotMessage();
-            }
-        });
 
         // ==========================================
         // 《》カード名オートコンプリート（重複完全排除対応）
@@ -451,103 +409,33 @@ function selectDeckType(url) {
         const botInput = document.getElementById('ruleBotInput');
         const suggestList = document.getElementById('ruleBotSuggestList');
         let suggestTimer = null;
-
-        botInput.addEventListener('input', function() {
-            clearTimeout(suggestTimer);
-            const val = this.value;
-            const cursorPos = this.selectionStart;
-            
-            // カーソル直前の「《」を検索（「》」で閉じられていない部分）
-            const textBeforeCursor = val.slice(0, cursorPos);
-            const match = textBeforeCursor.match(/《([^》\n]*)$/);
-
-            if (!match) {
-                suggestList.style.display = 'none';
-                return;
-            }
-
-            const query = match[1].trim();
-            if (query.length === 0) {
-                suggestList.style.display = 'none';
-                return;
-            }
-
-            // 入力後250ms待ってからカード検索APIを呼び出し
-            suggestTimer = setTimeout(async () => {
-                try {
-                    const res = await fetch(`/api/cards?q=${encodeURIComponent(query)}`);
-                    const cards = await res.json();
-                    
-                    if (!cards || cards.length === 0) {
-                        suggestList.style.display = 'none';
-                        return;
-                    }
-
-                    suggestList.innerHTML = '';
-                    const uniqueNames = new Set();
-                    let count = 0;
-
-                    // ★ 重複（同名カードの別バージョン等）を完全に排除して最大8件追加
-                    for (const card of cards) {
-                        if (!card.card_name || uniqueNames.has(card.card_name)) {
-                            continue;
-                        }
-                        uniqueNames.add(card.card_name);
-
-                        const item = document.createElement('div');
-                        item.className = 'rule-bot-suggest-item';
-                        item.textContent = card.card_name;
-                        item.onclick = () => selectCardName(card.card_name, match.index, cursorPos);
-                        suggestList.appendChild(item);
-
-                        count++;
-                        if (count >= 8) break; // 上位8件まで表示
-                    }
-
-                    suggestList.style.display = count > 0 ? 'block' : 'none';
-                } catch (e) {
-                    suggestList.style.display = 'none';
-                }
-            }, 250);
-        });
-
-        // 候補クリック時のカード名挿入処理
-        function selectCardName(cardName, startIndex, endIndex) {
-            const val = botInput.value;
-            const before = val.slice(0, startIndex);
-            const after = val.slice(endIndex);
-            botInput.value = before + '《' + cardName + '》' + after;
-            
-            suggestList.style.display = 'none';
-            botInput.focus();
-            
-            // カーソルを「》」の後ろへ自動移動
-            const newCursor = (before + '《' + cardName + '》').length;
-            botInput.setSelectionRange(newCursor, newCursor);
-        }
-
-        // 外側クリックでサジェストを閉じる
-        document.addEventListener('click', function(e) {
-            if (!botInput.contains(e.target) && !suggestList.contains(e.target)) {
-                suggestList.style.display = 'none';
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            new RuleBotChat({
+                inputId: 'ruleBotInput',
+                sendBtnId: 'ruleBotSendBtn',
+                messagesId: 'ruleBotMessages',
+                suggestListId: 'ruleBotSuggestList',
+                minHeight: 40,
+                maxHeight: 120
+            });
         });
         // ルールAIクリック時の振り分け処理
         function handleRuleBotClick() {
-            const savedMode = localStorage.getItem('default_rule_bot_mode');
+            // ★ 未ログイン時は保存設定を無視して必ず毎回モーダルを表示
+            const isLoggedIn = <?= isset($_SESSION['user_id']) ? 'true' : 'false' ?>;
+            const savedMode = isLoggedIn ? localStorage.getItem('default_rule_bot_mode') : null;
             
             if (savedMode === 'popup') {
                 toggleRuleBot();
             } else if (savedMode === 'fullscreen') {
                 window.location.href = '/rule-bot';
             } else {
-                // ask または未設定の場合はモーダルを表示（style.cssの仕様に合わせて block を指定）
                 const modal = document.getElementById('ruleBotChoiceModal');
                 const checkbox = document.getElementById('dontShowRuleBotModal');
                 if (checkbox) checkbox.checked = false;
                 
                 if (modal) {
-                    modal.style.setProperty('display', 'flex', 'important'); // 確実に画面中央に表示
+                    modal.style.setProperty('display', 'flex', 'important');
                 }
             }
         }
@@ -573,6 +461,12 @@ function selectDeckType(url) {
                 modal.style.setProperty('display', 'none', 'important');
             }
         }
+        const botInputArea = document.getElementById('ruleBotInput');
+        botInputArea.addEventListener('input', function() {
+            this.style.height = 'auto'; // 一旦リセットして正確なscrollHeightを取得
+            const newHeight = Math.min(Math.max(this.scrollHeight, 40), 120);
+            this.style.height = newHeight + 'px';
+        });
     </script>
 </body>
 </html>
