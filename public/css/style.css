@@ -552,3 +552,47 @@ footer li a {
 .rule-bot-send:disabled {
     background: #aaa;
 }
+/* 左右広告ラッパーレイアウト */
+.side-ad-wrapper {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    position: relative;
+}
+
+.side-ad {
+    display: none;
+    width: 160px;
+    position: sticky;
+    top: 80px;
+    height: 600px;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+/* 画面幅1360px以上のPCのみ左右広告を表示 */
+@media (min-width: 1360px) {
+    .side-ad {
+        display: block;
+    }
+}
+
+/* リワード広告案内モーダル */
+.reward-ad-modal {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5000;
+}
+.reward-ad-box {
+    background: #fff;
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}

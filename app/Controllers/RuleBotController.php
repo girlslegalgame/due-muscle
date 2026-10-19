@@ -246,6 +246,7 @@ class RuleBotController {
                 }
             }
 
+            // ★ gemini-1.5-flash（無料枠対象モデル）に変更
             $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
             $userPrompt = "【デュエル・マスターズ 総合ゲームルール原文】\n{$comprehensiveRules}\n\n"
                         . "{$cardContext}\n\n"
@@ -263,7 +264,7 @@ class RuleBotController {
                 ],
                 'generationConfig' => [
                     'temperature' => 0.0,
-                    'maxOutputTokens' => 8192 // ★ 途切れ防止のため拡張
+                    'maxOutputTokens' => 4096
                 ]
             ];
 
@@ -273,7 +274,7 @@ class RuleBotController {
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => json_encode($payload),
                 CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-                CURLOPT_TIMEOUT => 40
+                CURLOPT_TIMEOUT => 60 // タイムアウトを60秒に調整
             ]);
 
             $response = curl_exec($ch);

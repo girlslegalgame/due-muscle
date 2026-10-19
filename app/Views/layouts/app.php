@@ -184,9 +184,32 @@
         </div>
     </header>
 
-    <main>
-        <?php echo $content ?? ''; ?>
-    </main>
+    <!-- 左右両端の追従広告（PC専用） -->
+    <div class="side-ad-wrapper">
+        <aside class="side-ad side-ad-left">
+            <!-- Google AdSense 垂直バナーコード（承認後に差し替え） -->
+            <ins class="adsbygoogle"
+                 style="display:block; width:160px; height:600px;"
+                 data-ad-client="ca-pub-1782055298829063"
+                 data-ad-slot="LEFT_AD_SLOT_ID"
+                 data-ad-format="auto"></ins>
+            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+        </aside>
+
+        <main>
+            <?php echo $content ?? ''; ?>
+        </main>
+
+        <aside class="side-ad side-ad-right">
+            <!-- Google AdSense 垂直バナーコード（承認後に差し替え） -->
+            <ins class="adsbygoogle"
+                 style="display:block; width:160px; height:600px;"
+                 data-ad-client="ca-pub-1782055298829063"
+                 data-ad-slot="RIGHT_AD_SLOT_ID"
+                 data-ad-format="auto"></ins>
+            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+        </aside>
+    </div>
 
     <?php if (empty($hideFooter)): ?>
     <footer>
@@ -377,7 +400,7 @@ function selectDeckType(url) {
         
         <!-- ★ ここを追加: メッセージ表示コンテナ -->
         <div class="rule-bot-messages" id="ruleBotMessages">
-            <div class="rule-bot-msg bot">こんにちは！公式総合ルール全条文を記憶したAIジャッジです。<br>効果の処理順やルールの疑問があれば質問してください。カード名は《》で囲むと自動補完されます。</div>
+            <div class="rule-bot-msg bot">こんにちは！公式総合ルール全条文を記憶したAIジャッジです。<br>効果の処理順やルールの疑問があれば質問してください。カード名は《》で囲むと自動補完されます。<br><span style="font-size:0.75rem; color:#888;">※5回の質問ごとに広告の視聴が必要です。</span></div>
         </div>
 
         <!-- サジェストリスト付き入力エリア -->

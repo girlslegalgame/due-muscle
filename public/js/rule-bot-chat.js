@@ -18,6 +18,8 @@ class RuleBotChat {
         if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
             this.sendBtn.textContent = '送信 Ctrl+Enter';
         }
+        // 残り回数をボタンに反映
+        this.updateSendButtonText();
 
         // 送信ボタン
         this.sendBtn.addEventListener('click', () => this.sendMessage());
@@ -120,9 +122,14 @@ class RuleBotChat {
     }
 
     async sendMessage() {
+        // ★ 5回制限チェック（LocalStorage管理のためリロードしても保持）
+        let askCount = parseInt(localStorage.getItem('rule_bot_ask_count') || '0', 10);
+        if (askCount >= 5) {
+            this.showRewardModal();
+            return;
+        }
         const text = this.input.value.trim();
         if (!text) return;
-
         this.suggestList.style.display = 'none';
 
         const userMsg = document.createElement('div');
@@ -163,6 +170,11 @@ class RuleBotChat {
                 loadingMsg.textContent = data.error || 'エラーが発生しました。';
             } else {
                 loadingMsg.innerHTML = marked.parse(data.reply || '回答を取得できませんでした。');
+
+                // 送信成功時に質問カウントを加算して保存
+                askCount++;
+                localStorage.setItem('rule_bot_ask_count', askCount.toString());
+                this.updateSendButtonText(); // ★ ボタン表記を更新
             }
         } catch (e) {
             loadingMsg.textContent = '通信エラーが発生しました: ' + e.message;
@@ -172,5 +184,45 @@ class RuleBotChat {
             this.input.focus();
             this.messages.scrollTop = this.messages.scrollHeight;
         }
+    }
+
+    // ★ リワード広告表示モーダル
+    showRewardModal() {
+        let modal = document.getElementById('ruleBotRewardModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'ruleBotRewardModal';
+            modal.className = 'reward-ad-modal';
+            modal.innerHTML = `
+                <div class="reward-ad-box">
+                    <h3 style="margin-top:0; font-size:1.15rem; color:#222;">🎬 質問回数の上限に達しました</h3>
+                    <p style="font-size:0.85rem; color:#666; line-height:1.5;">
+                        AIジャッジの無料利用枠（5回）に達しました。<br>
+                        短い広告動画を視聴すると、続けて<strong>5回</strong>質問できるようになります。
+                    </p>
+                    <button id="watchAdRewardBtn" style="width:100%; padding:12px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer; font-size:0.95rem;">
+                        広告動画を見て質問を再開する
+                    </button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            document.getElementById('watchAdRewardBtn').addEventListener('click', () => {
+                alert('広告を視聴しました。続けて5回質問が可能です。');
+                localStorage.setItem('rule_bot_ask_count', '0'); // カウントリセット
+                this.updateSendButtonText(); // ★ ボタン表記を更新
+                modal.remove();
+            });
+        }
+        modal.style.display = 'flex';
+    }
+    // ★ ボタン表示を更新（残り枠 / 5）
+    updateSendButtonText() {
+        const askCount = parseInt(localStorage.getItem('rule_bot_ask_count') || '0', 10);
+        const remaining = Math.max(0, 5 - askCount);
+        const isPc = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+        const prefix = isPc ? '送信 Ctrl+Enter' : '送信';
+
+        this.sendBtn.textContent = `${prefix} (${remaining}/5)`;
     }
 }
