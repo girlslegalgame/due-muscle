@@ -143,6 +143,18 @@
                 ヘッダーの「デッキ作成」を押した際の遷移先を設定します。
             </span>
         </div>
+        <!-- ★追加: デフォルトのルールAI起動設定 -->
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="default_rule_bot_mode">デフォルトのルールAI表示形式</label>
+            <select id="default_rule_bot_mode" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; font-size: 14px; background: #fff;">
+                <option value="ask">毎回選択する（モーダル表示）</option>
+                <option value="popup">小窓（右下のポップアップ）</option>
+                <option value="fullscreen">全画面（専用ページ）</option>
+            </select>
+            <span style="font-size: 0.8rem; color: #666; margin-top: 4px; display: block;">
+                ヘッダーの「ルールAI」を押した際の開き方を設定します。
+            </span>
+        </div>
 
         <button type="submit" class="btn-save">設定を保存する</button>
     </form>
@@ -180,4 +192,26 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+// ルールAIのデフォルト設定読み込み＆保存
+    const ruleBotSelect = document.getElementById('default_rule_bot_mode');
+    const savedRuleBot = localStorage.getItem('default_rule_bot_mode') || 'ask';
+    ruleBotSelect.value = savedRuleBot;
+
+    ruleBotSelect.addEventListener('change', () => {
+        if (ruleBotSelect.value === 'ask') {
+            localStorage.removeItem('default_rule_bot_mode');
+        } else {
+            localStorage.setItem('default_rule_bot_mode', ruleBotSelect.value);
+        }
+    });
+
+    if (form) {
+        form.addEventListener('submit', () => {
+            if (ruleBotSelect.value === 'ask') {
+                localStorage.removeItem('default_rule_bot_mode');
+            } else {
+                localStorage.setItem('default_rule_bot_mode', ruleBotSelect.value);
+            }
+        });
+    }
 </script>

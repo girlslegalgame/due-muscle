@@ -368,7 +368,17 @@ class CardController {
                 // ① 絞り込みがない初期状態：
                 $sql = "
                     SELECT 
-                        c.*, cd.modelnum, cd.imagepath, cd.`limit` as card_limit,
+                        c.*, cd.modelnum, cd.imagepath, cd.`limit` as card_limit, cd.twinpact,
+                        /* ★ ツインパクトの場合は「上面 / 下面」の結合名を生成、それ以外は通常名 */
+                        CASE 
+                            WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (
+                                SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
+                                FROM card_combination cc_sub
+                                JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
+                                WHERE cc_sub.combination_id = ccb.combination_id
+                            )
+                            ELSE c.card_name 
+                        END as display_name,
                         (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                         (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
@@ -383,12 +393,22 @@ class CardController {
                     WHERE cd.is_primary_version = 1
                     AND (ccb.combination_id IS NULL OR ccb.is_main_side = 1)
                     $orderBy
-                    LIMIT " . (int)$limit . " OFFSET " . (int)$offset; // ★ 直接埋め込みに変更
+                    LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
             } else {
                 // ② 絞り込み条件がある状態：
                 $sql = "
                     SELECT 
-                        c.*, cd.modelnum, cd.imagepath, cd.`limit` as card_limit,
+                        c.*, cd.modelnum, cd.imagepath, cd.`limit` as card_limit, cd.twinpact,
+                        /* ★ ツインパクトの場合は「上面 / 下面」の結合名を生成、それ以外は通常名 */
+                        CASE 
+                            WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (
+                                SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
+                                FROM card_combination cc_sub
+                                JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
+                                WHERE cc_sub.combination_id = ccb.combination_id
+                            )
+                            ELSE c.card_name 
+                        END as display_name,
                         (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                         (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                         (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
@@ -406,7 +426,7 @@ class CardController {
                     WHERE cd.is_primary_version = 1
                     AND (ccb.combination_id IS NULL OR ccb.is_main_side = 1)
                     $orderBy
-                    LIMIT " . (int)$limit . " OFFSET " . (int)$offset; // ★ 直接埋め込みに変更
+                    LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
             }
 
             // ★ 重複していた prepare と str_replace を一本化

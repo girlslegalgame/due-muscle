@@ -50,6 +50,7 @@ $routes = [
         '/decks/share' => 'DeckController@share',
         '/api/decks/estimate-price' => 'DeckController@estimatePriceApi',
         '/api/decks/owned-cards' => 'DeckController@getOwnedCardsApi',
+         '/rule-bot' => 'RuleBotController@index',
         // ★追加: ココフォリア用汎用デッキ作成ツール
         '/tools/ccfolia' => 'HomeController@ccfolia',    
         ],

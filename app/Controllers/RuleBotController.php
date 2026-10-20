@@ -6,7 +6,20 @@ use PDO;
 class RuleBotController {
 
     public function chatApi() {
+        // ★ タイムアウトを120秒に延長、メモリを512MBに緩和
+        set_time_limit(120);
+        ini_set('memory_limit', '512M');
+
         header('Content-Type: application/json; charset=utf-8');
+
+        // ★ PHPのFatal Error等の発生時にもHTMLではなくJSONを返すシャットダウンハンドラ
+        register_shutdown_function(function() {
+            $err = error_get_last();
+            if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+                http_response_code(500);
+                echo json_encode(['error' => 'サーバー内部エラー: ' . $err['message'] . ' (行: ' . $err['line'] . ')'], JSON_UNESCAPED_UNICODE);
+            }
+        });
 
         $input = json_decode(file_get_contents('php://input'), true);
         $message = trim($input['message'] ?? '');
@@ -20,21 +33,35 @@ class RuleBotController {
         try {
             $pdo = Database::connect();
 
-            // 1. 質問文のカードを特定し、文明・種族・タイプ・合体カードの全構成面を含めて取得
-            $cardNames = [];
+            // 1. 質問文のカードを特定（ツインパクトの「上面 / 下面」も分解して検索）
+            $rawCardNames = [];
             if (preg_match_all('/《([^》]+)》/u', $message, $m)) {
-                $cardNames = array_unique($m[1]);
+                $rawCardNames = array_unique($m[1]);
             }
 
+            $searchNames = [];
+            foreach ($rawCardNames as $rName) {
+                if (strpos($rName, '/') !== false) {
+                    $parts = array_map('trim', explode('/', $rName));
+                    foreach ($parts as $p) {
+                        if ($p !== '') $searchNames[] = $p;
+                    }
+                } else {
+                    $searchNames[] = trim($rName);
+                }
+            }
+            $searchNames = array_unique($searchNames);
+
             $matchedCards = [];
-            if (!empty($cardNames)) {
-                $inQuery = implode(',', array_fill(0, count($cardNames), '?'));
+            if (!empty($searchNames)) {
+                $inQuery = implode(',', array_fill(0, count($searchNames), '?'));
                 
                 $sql = "
                     WITH target_base_cards AS (
-                        SELECT c.card_id, c.card_name,
-                               ROW_NUMBER() OVER (PARTITION BY c.card_name ORDER BY c.card_id DESC) AS rn
+                        SELECT c.card_id, c.card_name, cd.twinpact,
+                               ROW_NUMBER() OVER (PARTITION BY c.card_name, cd.twinpact ORDER BY c.card_id DESC) AS rn
                         FROM card c
+                        JOIN card_detail cd ON c.card_id = cd.card_id
                         WHERE c.card_name IN ($inQuery)
                     ),
                     latest_targets AS (
@@ -49,7 +76,7 @@ class RuleBotController {
 
                         UNION ALL
 
-                        -- 組み合わせカード（同じcombination_idを持つ全構成面）
+                        -- 組み合わせカード（同じcombination_idを持つ全構成面：card_id昇順で上面/下面を判定）
                         SELECT cc_all.card_id, cc_all.combination_id, cc_all.card_id AS sort_order
                         FROM latest_targets lt
                         JOIN card_combination cc ON lt.card_id = cc.card_id
@@ -65,7 +92,7 @@ class RuleBotController {
                         cd.twinpact,
                         cd.hypermode,
                         rel.combination_id,
-                        rel.sort_order, -- ★ ここに追加
+                        rel.sort_order,
                         (SELECT GROUP_CONCAT(civ.civilization_name SEPARATOR ' / ') 
                          FROM card_civilization cciv 
                          JOIN civilization civ ON cciv.civilization_id = civ.civilization_id 
@@ -84,7 +111,7 @@ class RuleBotController {
                 ";
 
                 $stmt = $pdo->prepare($sql);
-                $stmt->execute(array_values($cardNames));
+                $stmt->execute(array_values($searchNames));
                 $matchedCards = $stmt->fetchAll(PDO::FETCH_ASSOC);
             }
 
@@ -196,14 +223,20 @@ class RuleBotController {
 
                                     【厳格な回答ルール】
                                     1. 挨拶や前置き（「ご質問ありがとうございます」等）は一切不要です。
-                                    2. 1行目は必ず【結論】（例: 「可能です。」「〜という能力です。」等）から始めてください。
-                                    3. 【特殊能力についての質問の場合】：
+                                    2. 1行目は必ず【結論】（例: 「可能です。」「対象になります。」「〜という能力です。」等）から始めてください。
+                                    3. 【種族に関する重要な判定ルール】：
+                                    ・複数種族はスラッシュ「 / 」で区切られて提示されます。種族名に含まれる中黒「・」（例: 「アウトレイジ・ドラゴン」「アーマード・ドラゴン」等）は種族名の一部であり、これで「1つの独立した種族名」です。「・」で勝手に分割しないでください。
+                                    ・デュエル・マスターズのルール上、種族を指定する効果（例: 「ドラゴン」「コマンド」等）は、種族名の中にその文字列を含んでいる場合に有効です。例えば「アウトレイジ・ドラゴン」は名前に「ドラゴン」を含むため、「ドラゴン」を指定するすべての効果の対象になります。
+                                    4. 【特殊能力についての質問の場合】：
                                     能力の概要・ルール処理を簡潔に説明した上で、必ず提供された【例文カード】の名前とテキストを引用し、具体例として提示してください。
-                                    4. 【カードの効果テキスト、文明、種族、コスト、パワーなどカード情報自体の質問の場合】：
+                                    5. 【カードの効果テキスト、文明、種族、コスト、パワーなどカード情報自体の質問の場合】：
                                     総合ルールの条文番号や項番は一切記載せず、提示されたカード情報の内容のみをわかりやすく回答してください。
-                                    5. 【ルールの処理・挙動・裁定に関する質問の場合】：
+                                    6. 【ルールの処理・挙動・裁定に関する質問の場合】：
                                     根拠として、該当する総合ルールの条文番号（例: 803.1 など）や効果の解決順序を簡潔に示してください。
-                                    6. 質問で聞かれていない余談や私見は語らず、文章が途中で切れないよう必ず文末まで完結させてください。";
+                                    7.「出る時」や「出す時」と書かれている効果は状態定義効果と言います。これらはバトルゾーンに出る前に処理されます。
+                                    置換効果によってカードが実際にそのゾーンに置かれない場合、状態定義効果は何もしません。
+                                    また、状態定義効果で他のクリーチャーになったとき、そのクリーチャーが「EXライフ」のような別の状態定義効果を持っていた場合、適用するタイミングが遅れているため、「EXライフ」は適用できません。
+                                    8. 質問で聞かれていない余談や私見は語らず、文章が途中で切れないよう必ず文末まで完結させてください。";
             // 4. 有料Gemini API へ総合ルールとカード情報・質問を送信
             $apiKey = getenv('GEMINI_API_KEY') ?: ($_ENV['GEMINI_API_KEY'] ?? '');
             if (!$apiKey && file_exists(dirname(dirname(__DIR__)) . '/.env')) {
@@ -216,6 +249,7 @@ class RuleBotController {
                 }
             }
 
+            // ★ gemini-1.5-flash（無料枠対象モデル）に変更
             $apiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=' . $apiKey;
             $userPrompt = "【デュエル・マスターズ 総合ゲームルール原文】\n{$comprehensiveRules}\n\n"
                         . "{$cardContext}\n\n"
@@ -233,7 +267,7 @@ class RuleBotController {
                 ],
                 'generationConfig' => [
                     'temperature' => 0.0,
-                    'maxOutputTokens' => 8192 // ★ 途切れ防止のため拡張
+                    'maxOutputTokens' => 4096
                 ]
             ];
 
@@ -243,7 +277,7 @@ class RuleBotController {
                 CURLOPT_POST => true,
                 CURLOPT_POSTFIELDS => json_encode($payload),
                 CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-                CURLOPT_TIMEOUT => 40
+                CURLOPT_TIMEOUT => 60 // タイムアウトを60秒に調整
             ]);
 
             $response = curl_exec($ch);
@@ -277,5 +311,17 @@ class RuleBotController {
             echo json_encode(['error' => $e->getMessage()]);
         }
         exit;
+    }
+    /**
+     * 専用画面（デッキ作成ライクな大画面）を表示
+     */
+    public function index() {
+        $pageTitle = 'デュエマ ルール相談AI';
+        
+        ob_start();
+        require_once dirname(__DIR__) . '/Views/rule_bot/index.php';
+        $content = ob_get_clean();
+
+        require_once dirname(__DIR__) . '/Views/layouts/app.php';
     }
 }
