@@ -3346,7 +3346,13 @@ function setThumbnail(cardId, imagepath) {
     const imgEl = document.getElementById('thumbnail-preview-img');
     const placeholder = document.getElementById('thumbnail-placeholder');
     
-    imgEl.src = getCardImagePath({ imagepath: imagepath });
+    // ★ すでに完全なURLやパスである場合は重複付加を防ぐ
+    if (typeof imagepath === 'string' && (imagepath.startsWith('http://') || imagepath.startsWith('https://') || imagepath.startsWith('/') || imagepath.startsWith('data:'))) {
+        imgEl.src = imagepath;
+    } else {
+        imgEl.src = getCardImagePath({ imagepath: imagepath });
+    }
+    
     imgEl.style.display = 'block';
     placeholder.style.display = 'none';
 }
