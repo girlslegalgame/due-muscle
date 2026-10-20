@@ -166,10 +166,12 @@
             <a href="/decks/new">デッキ作成</a>
             <!-- ★ handleRuleBotClick() を呼び出すように変更 -->
             <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">AIジャッジ</a>
-            <a href="/help">ヘルプ</a>            <?php 
+            <a href="/help">ヘルプ</a>            
+            <?php 
                 $unreadCnt = getUnreadNotificationCount(); 
                 $badgeText = $unreadCnt > 9 ? '9+' : $unreadCnt;
-            ?>            <a href="/notifications" style="position: relative; display: inline-flex; align-items: center;">
+            ?>            
+            <a href="/notifications">
                 お知らせ
                 <?php if ($unreadCnt > 0): ?>
                     <span style="background-color: #ef4444; color: #fff; font-size: 0.7rem; font-weight: bold; border-radius: 10px; padding: 1px 6px; margin-left: 4px; line-height: 1.2;">
