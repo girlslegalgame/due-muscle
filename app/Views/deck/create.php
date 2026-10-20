@@ -3301,7 +3301,8 @@ function openThumbnailSelector() {
             uniqueCards.push({
                 card_id: id,
                 card_name: img.dataset.cardName,
-                imagepath: img.dataset.imagepath
+                imagepath: img.dataset.imagepath,
+                src: img.src // ★ すでに正常表示されている画像のsrcを保持
             });
         }
     });
@@ -3313,7 +3314,8 @@ function openThumbnailSelector() {
 
     uniqueCards.forEach(card => {
         const img = document.createElement('img');
-        img.src = getCardImagePath(card);
+        // ★ card_id による誤ったURL生成を防ぎ、デッキで表示済みの src または imagepath のみから取得
+        img.src = card.src || getCardImagePath({ imagepath: card.imagepath });
         img.alt = card.card_name;
         img.style.width = '100%';
         img.style.cursor = 'pointer';
@@ -3325,7 +3327,7 @@ function openThumbnailSelector() {
         }
 
         img.onclick = () => {
-            setThumbnail(card.card_id, card.imagepath);
+            setThumbnail(card.card_id, card.imagepath || card.src);
             closeThumbnailSelector();
         };
         img.onerror = () => handleImageError(img);
