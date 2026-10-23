@@ -13,7 +13,6 @@ var TutorialManager = (function() {
                 text: mobile 
                     ? "デッキは、マイデッキ一覧の「＋ 新規作成」か、画面右上のメニューの「デッキ作成」から行うことができます。"
                     : "デッキは、マイデッキ一覧の「＋ 新規作成」か、画面上部の「デッキ作成」から行うことができます。",
-                // ★ 「＋ 新規作成」と「ヘッダーのデッキ作成」の両方を指定
                 target: mobile ? '#btn-create-deck, .menu-toggle' : '#btn-create-deck, header a[href="/decks/new"]'
             },
             2: {
@@ -52,18 +51,31 @@ var TutorialManager = (function() {
             },
             7: {
                 title: "ステップ 7 / 9：一人回し機能",
-                text: "一人回しは「分析」から行うことができます。ドロップダウンリストを開き、「一人回しページ」を表示してみましょう。",
-                target: '.btn-analysis, #btn-analysis-menu'
+                text: "一人回しは「分析」から行うことができます。ドロップダウンリストを開き、「1人回し（別ページ）」を表示してみましょう。",
+                // ★ モーダル内の分析ドロップダウンリストを正確にターゲット指定
+                target: '#modal-analysis-mode-select, #tab-analysis',
+                onEnter: function() {
+                    // 分析タブが未選択の場合は自動で開く
+                    if (typeof switchTab === 'function') switchTab('analysis');
+                }
             },
             8: {
-                title: "ステップ 8 / 9：機能案内",
-                text: "この画面は現在開発中ですが、デッキのシミュレーションをスムーズに行うことができます。",
-                target: null
+                // ==========================================================
+                // 【ステップ8】後から簡単に編集できるようにしてある画面枠です
+                // ==========================================================
+                title: "ステップ 8 / 9：一人回しシミュレーター",
+                text: "別タブで一人回しページが開きます。実際の対戦を想定して手札やシールドの動きをテストしてみましょう。",
+                target: null // 必要に応じてボタンのIDやクラスを指定できます
             },
             9: {
                 title: "ステップ 9 / 9：デッキ価格査定",
                 text: "価格査定では、楽天市場からカードの最安値を取得して、デッキの価格査定を行ったり、購入済みのカードをマークしたりできます。",
-                target: null
+                // ★ 価格査定タブおよび査定実行ボタンに赤枠を指定
+                target: '#tab-price, #btn-start-estimate',
+                onEnter: function() {
+                    // 自動で価格査定タブを開く
+                    if (typeof switchTab === 'function') switchTab('price');
+                }
             }
         };
         return data[stepNum];
@@ -85,6 +97,7 @@ var TutorialManager = (function() {
         }
 
         setupEscKeyHandler();
+        setupGlobalClickWatchers();
     }
 
     function start(fromStep) {
@@ -110,6 +123,19 @@ var TutorialManager = (function() {
         applyStep(currentStep);
     }
 
+    function setupGlobalClickWatchers() {
+        document.addEventListener('click', function(e) {
+            if (!isActive) return;
+
+            if (currentStep === 1) {
+                var btn = e.target.closest('#btn-create-deck, a[href="/decks/new"]');
+                if (btn) {
+                    localStorage.setItem('tutorial_step', '2');
+                }
+            }
+        }, true);
+    }
+
     function applyStep(stepNum) {
         clearHighlights();
         stopDragAnimation();
@@ -118,6 +144,11 @@ var TutorialManager = (function() {
         if (!step) {
             stop();
             return;
+        }
+
+        // ステップ開始時フック（タブ切り替えなど）
+        if (typeof step.onEnter === 'function') {
+            try { step.onEnter(); } catch(e) {}
         }
 
         var titleEl = document.getElementById('tut-step-title');
@@ -129,18 +160,19 @@ var TutorialManager = (function() {
         if (titleEl) titleEl.innerText = step.title;
         if (bodyEl) bodyEl.innerText = step.text;
         if (prevBtn) prevBtn.style.display = (stepNum > 1) ? 'inline-block' : 'none';
-        if (nextBtn) nextBtn.innerText = (stepNum === 9) ? '完了' : '次へ';
+        if (nextBtn) nextBtn.innerText = (stepNum === 9) ? 'チュートリアル完了' : '次へ';
 
         if (escNote) {
             escNote.innerText = isMobile() ? "※ 上の「中止」でいつでも終了できます" : "※ Escキーで中止できます";
         }
 
-        // ★修正: querySelectorAll を使い、指定された全ての対象要素（「＋ 新規作成」と上部「デッキ作成」）に同時に赤枠を付与
         if (step.target) {
-            var targetEls = document.querySelectorAll(step.target);
-            for (var i = 0; i < targetEls.length; i++) {
-                targetEls[i].classList.add('tutorial-highlight');
-            }
+            setTimeout(function() {
+                var targetEls = document.querySelectorAll(step.target);
+                for (var i = 0; i < targetEls.length; i++) {
+                    targetEls[i].classList.add('tutorial-highlight');
+                }
+            }, 100);
         }
 
         if (step.hasDragAnim) {
@@ -308,7 +340,7 @@ var TutorialManager = (function() {
 
     function next() {
         if (currentStep >= 9) {
-            alert("チュートリアルが完了しました！お疲れ様でした。");
+            alert("おめでとうございます！すべてのチュートリアルが完了しました。");
             stop();
             return;
         }

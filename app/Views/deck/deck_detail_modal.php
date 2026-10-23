@@ -1,8 +1,7 @@
 <!-- app/Views/deck/deck_detail_modal.php -->
 <script src="/js/card_image_helper.js"></script>
-<!-- 共通デッキ詳細モーダルのスタイル -->
+
 <style>
-    /* --- モーダル設定 --- */
     #deckModal {
         display: none;
         position: fixed;
@@ -33,7 +32,6 @@
         z-index: 10;
     }
 
-    /* --- タブメニュー --- */
     .tab-menu { 
         display: flex; 
         border-bottom: 2px solid #ddd; 
@@ -50,16 +48,16 @@
         color: #666;
         text-align: center;
         white-space: nowrap;
-        font-size: clamp(0.68rem, 2.6vw, 0.95rem); /* 画面幅に応じて文字サイズを可変 */
+        font-size: clamp(0.68rem, 2.6vw, 0.95rem); 
     }
     .tab-item.active { border-bottom: 3px solid #007bff; color: #007bff; }
-    /* --- 価格査定のカード名省略スタイル --- */
+    
     .price-card-name-cell {
         text-align: left;
         padding: 6px 4px;
         white-space: nowrap;
         overflow: hidden;
-        text-overflow: ellipsis; /* 長いカード名を「...」で省略 */
+        text-overflow: ellipsis; 
         max-width: 130px;
     }
     .scroll-area {
@@ -67,11 +65,11 @@
         overflow-y: auto;
         padding: 15px 5px;
     }
-    /* --- 価格査定テーブル用スタイル --- */
+    
     .price-table-container {
         max-height: 48vh;
         overflow-y: auto;
-        overflow-x: auto; /* スマホで横スクロールを許可 */
+        overflow-x: auto; 
         -webkit-overflow-scrolling: touch;
         border: 1px solid #ddd;
         border-radius: 6px;
@@ -79,7 +77,7 @@
 
     .price-table {
         width: 100%;
-        min-width: 540px; /* 列が潰れないための最低幅 */
+        min-width: 540px; 
         border-collapse: collapse;
         font-size: 0.85rem;
     }
@@ -91,7 +89,6 @@
         vertical-align: middle;
     }
 
-    /* カード名列（左寄せ・長すぎる場合は ... で省略） */
     .price-card-name-col {
         text-align: left !important;
         padding-left: 8px !important;
@@ -106,7 +103,6 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* --- カード画像グリッド --- */
     .image-grid {
         display: grid !important;
         grid-template-columns: repeat(8, 1fr);
@@ -127,7 +123,6 @@
         cursor: pointer !important;
     }
 
-    /* --- 分析エリア --- */
     .analysis-grid { 
         display: flex !important; 
         flex-direction: row !important;
@@ -172,7 +167,6 @@
         width: 35px;
     }
 
-    /* 文明カラーバー */
     .civ-fire { border-bottom: 4px solid #ff3344 !important; }
     .civ-water { border-bottom: 4px solid #3399ff !important; }
     .civ-light { border-bottom: 4px solid #ffcc00 !important; }
@@ -180,7 +174,6 @@
     .civ-nature { border-bottom: 4px solid #22aa55 !important; }
     .civ-zero { border-bottom: 4px solid #999999 !important; }
 
-    /* 超GR / 超次元 / 特殊 */
     .grid-gr, .grid-dim {
         display: grid !important;
         grid-template-columns: repeat(4, 1fr); 
@@ -242,7 +235,6 @@
         cursor: pointer !important;
     }
 
-    /* --- 初手ドロー / 初動チェック用のローカル追加スタイル（ID重複回避） --- */
     .modal-draw-zone {
         margin-bottom: 20px;
     }
@@ -428,7 +420,6 @@
     }
     .modal-btn-hand-qty:hover { background: #e2e6ea; }
 
-/* --- 追加：サブモーダル基本スタイル (全画面暗幕と中央配置用) --- */
     .sub-modal { 
         display: none; 
         position: fixed; 
@@ -439,12 +430,10 @@
         align-items: center;
         justify-content: center;
     }
-    /* モーダル表示（display: block）時に自動で flex 中央揃えにする設定 */
     .sub-modal[style*="display: block"] {
         display: flex !important;
     }
 
-    /* 設定用ポップアップのカードレイアウト */
     .setup-modal-grid {
         display: grid;
         grid-template-columns: repeat(6, 1fr);
@@ -485,7 +474,6 @@
         font-weight: bold;
     }    
     @media (max-width: 768px) {
-        /* モーダル余白の最適化 */
         .modal-content {
             width: 95% !important;
             padding: 15px 10px !important;
@@ -493,7 +481,6 @@
             margin: 3vh auto !important;
         }
 
-        /* 分析タブ：グラフを縦並びに切り替え */
         .analysis-grid { 
             flex-direction: column !important;
             align-items: center !important;
@@ -504,7 +491,6 @@
             max-width: 100% !important;
         }
 
-        /* カード名列の幅調整 */
         .price-card-name-cell {
             max-width: 95px;
             font-size: 0.75rem;
@@ -515,7 +501,6 @@
     }
 </style>
 
-<!-- 共通デッキ詳細モーダルのHTML -->
 <div id="deckModal">
     <div class="modal-content">
         <span class="close-btn" onclick="closeModal()">&times;</span>
@@ -528,10 +513,8 @@
         </div>
 
         <div class="scroll-area">
-            <!-- メイン -->
             <div id="content-main" class="tab-content active"><div id="modal-main-list" class="image-grid"></div></div>
 
-            <!-- GR / 超次元 / 特殊 統合エリア -->
             <div id="content-extra" class="tab-content">
                 <div class="extra-split-container">
                     <div class="extra-side">
@@ -553,9 +536,7 @@
                 </div>
             </div>
 
-            <!-- 分析 -->
             <div id="content-analysis" class="tab-content">
-                <!-- 左上の切り替えドロップダウン -->
                 <div style="margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 12px; display: flex; justify-content: flex-start;">
                     <select id="modal-analysis-mode-select" onchange="switchModalAnalysisMode()" style="padding: 6px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; font-weight: bold; cursor: pointer; outline: none;">
                         <option value="draw">初手ドロー</option>
@@ -565,7 +546,6 @@
                     </select>
                 </div>
 
-                <!-- 1. デッキ分析ビュー (従来の文明・マナカーブ) -->
                 <div id="modal-analysis-view-deck" class="modal-analysis-mode-content">
                     <div class="analysis-grid">
                         <div class="chart-box">
@@ -601,7 +581,6 @@
                     </div>
                 </div>
 
-                <!-- 2. 初手ドロービュー -->
                 <div id="modal-analysis-view-draw" class="modal-analysis-mode-content" style="display: none;">
                     <div class="modal-draw-zone">
                         <div class="modal-draw-zone-title">シールド (5枚)</div>
@@ -621,7 +600,6 @@
                     </div>
                 </div>
 
-                <!-- 3. 初動チェックビュー -->
                 <div id="modal-analysis-view-first-action" class="modal-analysis-mode-content" style="display: none;">
                     <div class="modal-fa-header">
                         <span class="modal-fa-title">初動チェック結果</span>
@@ -654,12 +632,10 @@
                     </div>
                 </div>
             </div>
-            <!-- デッキ価格査定 -->
+
             <div id="content-price" class="tab-content">
-                <!-- 操作パネル -->
                 <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px 15px; margin-bottom: 15px;">
                     <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
-                        <!-- 査定対象の選択 -->
                         <div style="display: flex; align-items: center; gap: 15px; font-size: 0.9rem; font-weight: bold;">
                             <span>査定対象:</span>
                             <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
@@ -670,7 +646,6 @@
                             </label>
                         </div>
 
-                        <!-- ショップ指定 -->
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label for="price-shop-select" style="font-size: 0.85rem; font-weight: bold; color: #555;">ショップ:</label>
                             <select id="price-shop-select" onchange="onShopChange()" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; font-weight: bold;">
@@ -689,13 +664,11 @@
                     </div>
                 </div>
 
-                <!-- ローディング表示 -->
                 <div id="price-estimate-loading" style="display: none; text-align: center; padding: 20px 0; color: #666;">
                     <p style="font-weight: bold; margin-bottom: 5px;">楽天市場から最安値情報を取得しています...</p>
                     <p style="font-size: 0.85rem; color: #999;">（カードの種類数に応じて十数秒かかる場合があります）</p>
                 </div>
 
-                <!-- 合計金額エリア -->
                 <div style="background: #eef9f1; border: 1px solid #b7ebc5; border-radius: 8px; padding: 12px; margin-bottom: 12px; text-align: center;">
                     <span style="font-size: 0.95rem; color: #333;">合計金額（未購入分）: </span>
                     <span id="deck-total-price" style="font-size: 1.8rem; font-weight: bold; color: #d9534f; margin-left: 8px;">-</span>
@@ -703,7 +676,6 @@
                     <div id="price-not-found-warn" style="font-size: 0.8rem; color: #888; margin-top: 4px;"></div>
                 </div>
 
-                <!-- カードテーブル（初期から表示） -->
                 <div class="price-table-container">
                     <table class="price-table">
                         <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 2;">
@@ -732,7 +704,6 @@
     </div>
 </div>
 
-<!-- 既存デッキ詳細モーダル用の初動カード設定サブモーダル -->
 <div id="modalFirstActionSetupModal" class="sub-modal" style="z-index: 10001; background: rgba(0,0,0,0.5); display: none;">
     <div class="sub-modal-content" style="width: 90%; max-width: 650px; height: auto; max-height: 80vh; margin: 10vh auto; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; background: #fff;">
         <div class="sub-modal-header" style="padding: 12px 15px; background: #333; color: #fff; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
@@ -749,14 +720,12 @@
     </div>
 </div>
 
-<!-- 共通デッキ詳細モーダルの制御スクリプト -->
 <script>
 let colorChart = null;
 let manaChart = null;
-let currentDeckId = null; // ★現在開いているデッキID保存用に追加
+let currentDeckId = null; 
 
-// モーダル分析側ドロー＆初動変数
-let currentDeckCards = []; // 現在のデッキの全カードデータ退避用
+let currentDeckCards = []; 
 let modalDrawDeck = [];
 let modalDrawIndex = 0;
 let modalAdditionalDrawCount = 0;
@@ -765,10 +734,8 @@ let modalFaSelectedCardIds = new Set();
 let modalFaHandCount = 5;
 let priceEstimateCache = {};
 
+let currentDeckOwnedCards = []; 
 
-let currentDeckOwnedCards = []; // 現在開いているデッキの購入済みリスト
-
-// --- ダミーカード対応の安全な画像取得ヘルパー ---
 const MODAL_CIV_COLORS = {
     '1': '#f1c40f', '2': '#3498db', '3': '#34495e',
     '4': '#e74c3c', '5': '#2ecc71', '6': '#95a5a6'
@@ -778,9 +745,6 @@ function getModalCardImagePath(card) {
     return getCardImageUrl(card);
 }
 
-/**
- * モーダルオープン時の処理更新
- */
 function openDeckModal(deckId, deckName) {
     if (typeof isProxySelectMode !== 'undefined' && isProxySelectMode) return;
     currentDeckId = deckId;
@@ -801,7 +765,6 @@ function openDeckModal(deckId, deckName) {
     document.body.style.overflow = 'hidden'; 
     switchTab('main'); 
 
-    // デッキカードと購入済みリストを並行取得
     Promise.all([
         fetch('/api/decks/view?deck_id=' + deckId).then(async res => {
             const text = await res.text();
@@ -854,11 +817,6 @@ function saveOwnedCardsToStorage(deckId, ownedList) {
 
 const currentLoggedInUserId = '<?= isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : '' ?>';
 
-
-/**
- * LocalStorageから購入済みカード一覧を取得
- * （本人のマイデッキのみ復元。他人のデッキや未ログイン時は復元しない）
- */
 function getOwnedCardsFromStorage(deckId) {
     if (!currentLoggedInUserId) return [];
     try {
@@ -870,10 +828,6 @@ function getOwnedCardsFromStorage(deckId) {
     }
 }
 
-/**
- * LocalStorageに購入済みカード一覧を保存
- * （本人のユーザーIDと紐づけて保存し、他人に混ざらないようにする）
- */
 function saveOwnedCardsToStorage(deckId, ownedList) {
     if (!currentLoggedInUserId) return;
     try {
@@ -882,10 +836,6 @@ function saveOwnedCardsToStorage(deckId, ownedList) {
     } catch(e) {}
 }
 
-/**
- * 「購入済み」の全選択 / 全解除
- * @param {boolean} selectAll true: 全選択 / false: 全解除
- */
 function toggleAllOwned(selectAll) {
     const checkboxes = document.querySelectorAll('#price-card-list-body .owned-checkbox');
     const newOwnedList = [];
@@ -907,14 +857,9 @@ function toggleAllOwned(selectAll) {
     });
 
     saveOwnedCardsToStorage(currentDeckId, newOwnedList);
-
-    // 金額再計算と並び替え
     recalculateTotalPrice();
 }
 
-/**
- * 査定テーブルの初期構築（査定前でも全カードを表示）
- */
 function initPriceTable(cards) {
     const tbody = document.getElementById('price-card-list-body');
     if (!tbody) return;
@@ -922,7 +867,6 @@ function initPriceTable(cards) {
 
     const ownedList = getOwnedCardsFromStorage(currentDeckId);
 
-    // デッキ内カード（全ゾーン）を集約
     const cardMap = {};
     cards.forEach(c => {
         let name = (c.card_name || '').trim();
@@ -976,9 +920,6 @@ function escapeHtmlAttr(str) {
     return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
 }
 
-/**
- * 「購入済み」チェック切り替え時
- */
 function toggleCardOwned(checkbox, cardName) {
     let ownedList = getOwnedCardsFromStorage(currentDeckId);
     if (checkbox.checked) {
@@ -988,7 +929,6 @@ function toggleCardOwned(checkbox, cardName) {
     }
     saveOwnedCardsToStorage(currentDeckId, ownedList);
 
-    // 行スタイルの更新（グレーアウト等の見た目のみ更新）
     const row = checkbox.closest('tr');
     if (row) {
         row.classList.toggle('card-row-owned', checkbox.checked);
@@ -996,13 +936,9 @@ function toggleCardOwned(checkbox, cardName) {
         row.style.opacity = checkbox.checked ? '0.6' : '1';
     }
 
-    // 査定結果が表示されていれば合計金額を再計算
     recalculateTotalPrice();
 }
 
-/**
- * チェック状態に応じた合計金額の再計算
- */
 function recalculateTotalPrice() {
     const ownedList = getOwnedCardsFromStorage(currentDeckId);
     let total = 0;
@@ -1017,7 +953,6 @@ function recalculateTotalPrice() {
         const val = subtotalCell.dataset.val;
         if (val !== undefined && val !== '') {
             hasPrice = true;
-            // 未購入のカードのみ合計に加算
             if (!ownedList.includes(name)) {
                 total += parseInt(val) || 0;
             }
@@ -1029,12 +964,6 @@ function recalculateTotalPrice() {
     }
 }
 
-/**
- * 査定テーブルの行を並び替え
- * 1. 未購入 & ヒットしたカード
- * 2. 未購入 & ヒットしなかったカード
- * 3. 購入済みのカード
- */
 function sortPriceTableRows() {
     const tbody = document.getElementById('price-card-list-body');
     if (!tbody) return;
@@ -1043,17 +972,16 @@ function sortPriceTableRows() {
     rows.sort((a, b) => {
         const getPriority = (tr) => {
             const isOwned = tr.querySelector('.owned-checkbox')?.checked || false;
-            if (isOwned) return 3; // 3: 購入済み（最後）
+            if (isOwned) return 3; 
 
             const unitPrice = tr.querySelector('.cell-unit-price')?.innerText.trim();
             const isHit = unitPrice && unitPrice !== '-';
-            return isHit ? 1 : 2;  // 1: ヒット（最優先）, 2: 未ヒット
+            return isHit ? 1 : 2;  
         };
 
         return getPriority(a) - getPriority(b);
     });
 
-    // 順序通りに再配置
     rows.forEach(tr => tbody.appendChild(tr));
 }
 
@@ -1070,12 +998,10 @@ function renderImages(cards) {
 
         for(let i=0; i < card.quantity; i++) {
             const img = document.createElement('img');
-            // ★修正: nullでもクラッシュせず、ダミーカード画像を自動生成して適用
             img.src = getModalCardImagePath(card);
             img.dataset.cardId = card.card_id;
             img.style.cursor = 'pointer';
             
-            // ダミーカード以外の場合のみ詳細モーダルを開く
             if (card.is_dummy != 1 && !String(card.card_id).startsWith('dummy_')) {
                 img.onclick = () => openCardDetail(card.card_id);
             }
@@ -1179,7 +1105,7 @@ function initCharts(cards) {
 }
 
 function switchTab(type) {
-    const types = ['main', 'extra', 'analysis', 'price']; // ★ 'price' を追加
+    const types = ['main', 'extra', 'analysis', 'price']; 
     types.forEach(t => {
         const tabEl = document.getElementById('tab-' + t);
         const contEl = document.getElementById('content-' + t);
@@ -1193,14 +1119,11 @@ function switchTab(type) {
 
 let knownShops = {};
 
-// ショップ選択変更時のハンドラ
 function onShopChange() {
     const shopCode = document.getElementById('price-shop-select').value;
     runPriceEstimate(shopCode);
 }
-/**
- * 査定実行
- */
+
 function runPriceEstimate(shopCode = '', refresh = false) {
     if (!currentDeckId) return;
 
@@ -1251,7 +1174,6 @@ function runPriceEstimate(shopCode = '', refresh = false) {
                     const renderedNames = new Set();
                     Object.keys(knownShops).forEach(code => {
                         const name = knownShops[code];
-                        // 同名の店舗がすでにセレクトボックスに追加されている場合は除外
                         if (!renderedNames.has(name)) {
                             renderedNames.add(name);
                             const opt = document.createElement('option');
@@ -1265,7 +1187,6 @@ function runPriceEstimate(shopCode = '', refresh = false) {
                 }
             }
 
-            // カード毎の取得結果をテーブル行に反映
             const cardResultMap = {};
             data.cards.forEach(c => {
                 cardResultMap[c.card_name] = c;
@@ -1307,15 +1228,14 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             btn.style.opacity = '1';
         });
 }
+
 function closeModal() {
     document.getElementById('deckModal').style.display = 'none';
     document.body.style.overflow = 'auto';
-    // モードを初期（デッキ分析）に戻す
     const select = document.getElementById('modal-analysis-mode-select');
     if (select) select.value = 'analysis';
 }
 
-// 枠外クリックで閉じる制御
 window.addEventListener('click', (e) => {
     if (e.target == document.getElementById('deckModal')) closeModal();
     if (e.target == document.getElementById('cardDetailModal')) {
@@ -1329,13 +1249,15 @@ window.addEventListener('click', (e) => {
 function switchModalAnalysisMode() {
     const mode = document.getElementById('modal-analysis-mode-select').value;
     
-    // === 【修正】1人回しを選択した際、新しいタブで開くように変更 ===
     if (mode === 'playtest') {
         if (currentDeckId) {
             window.open('/decks/playtest?deck_id=' + currentDeckId, '_blank');
-            
-            // 開いた後に元の画面のドロップダウンの選択状態を「デッキ分析」に戻す
             document.getElementById('modal-analysis-mode-select').value = 'analysis';
+
+            // ★追加: チュートリアル中であれば自動でStep 8へ進める
+            if (typeof TutorialManager !== 'undefined' && localStorage.getItem('tutorial_active') === 'true') {
+                TutorialManager.jumpToStep(8);
+            }
         } else {
             alert('デッキIDが特定できませんでした。');
         }
@@ -1357,21 +1279,15 @@ function switchModalAnalysisMode() {
     }
 }
 
-/* ==========================================
-   分析：初手ドローシミュレータ
-   ========================================== */
 function initModalFirstDraw() {
-    // メインデッキ（特殊カード・超次元・GRを除く）を絞り込む
     const mainCards = currentDeckCards.filter(c => {
         const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
         if (isSpecial) return false;
         return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
     });
 
-    // 採用枚数分配列に展開する
     modalDrawDeck = [];
     mainCards.forEach(card => {
-        // ★修正
         const src = getModalCardImagePath(card);
         for (let i = 0; i < card.quantity; i++) {
             modalDrawDeck.push({
@@ -1388,7 +1304,6 @@ function initModalFirstDraw() {
         return;
     }
 
-    // シャッフル
     for (let i = modalDrawDeck.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [modalDrawDeck[i], modalDrawDeck[j]] = [modalDrawDeck[j], modalDrawDeck[i]];
@@ -1406,7 +1321,6 @@ function initModalFirstDraw() {
     extraList.innerHTML = '';
     document.getElementById('modal-draw-count-label').innerText = '(0枚)';
 
-    // シールドに5枚
     for (let i = 0; i < 5; i++) {
         const card = modalDrawDeck[modalDrawIndex++];
         const img = document.createElement('img');
@@ -1416,7 +1330,6 @@ function initModalFirstDraw() {
         shieldList.appendChild(img);
     }
 
-    // 初手に5枚
     for (let i = 0; i < 5; i++) {
         const card = modalDrawDeck[modalDrawIndex++];
         const img = document.createElement('img');
@@ -1452,9 +1365,6 @@ function addModalOneDraw() {
     extraList.scrollLeft = extraList.scrollWidth;
 }
 
-/* ==========================================
-   分析：初動チェックシミュレータ
-   ========================================== */
 function resetModalFirstAction() {
     modalFaSelectedCardIds.clear();
     modalFaHandCount = 5;
@@ -1467,11 +1377,10 @@ function resetModalFirstAction() {
     container.innerHTML = '';
     
     calculateModalFirstAction();
-    openModalFaSetupModal(); // 再設定時に直接モーダルを立ち上げる
+    openModalFaSetupModal(); 
 }
 
 function openModalFaSetupModal() {
-    // 特殊ゾーンを除外したメインデッキのカードのみ抽出
     const mainCards = currentDeckCards.filter(c => {
         const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
         if (isSpecial) return false;
@@ -1486,11 +1395,9 @@ function openModalFaSetupModal() {
     const grid = document.getElementById('modal-setup-modal-grid');
     grid.innerHTML = '';
 
-    // ★ 修正：同一カードの重複を排除しつつ、枚数を正しく合算（集約）する
     const cardMap = {};
     mainCards.forEach(card => {
         const id = card.card_id;
-        // ★修正
         const src = getModalCardImagePath(card);
         const qty = parseInt(card.quantity || card.qty || 1);
 
@@ -1505,7 +1412,6 @@ function openModalFaSetupModal() {
         cardMap[id].count += qty;
     });
 
-    // 集約したユニークなカードデータをもとにモーダル一覧を生成
     Object.values(cardMap).forEach(card => {
         const item = document.createElement('div');
         item.className = 'setup-card-item';
@@ -1566,11 +1472,10 @@ function confirmModalFaSetup() {
             return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
         });
 
-        const seen = new Set(); // ★ 描画済みのカードIDを追跡するSetを追加します
+        const seen = new Set(); 
         mainCards.forEach(card => {
             if (modalFaSelectedCardIds.has(card.card_id) && !seen.has(card.card_id)) {
                 seen.add(card.card_id);
-                // ★修正
                 const src = getModalCardImagePath(card);
                 const img = document.createElement('img');
                 img.src = src;
@@ -1640,7 +1545,6 @@ function calculateModalFirstAction() {
     document.getElementById('modal-fa-val-percent').innerText = percentStr;
 }
 
-// 組合せの数
 function combination(n, r) {
     if (r < 0 || r > n) return 0;
     if (r === 0 || r === n) return 1;

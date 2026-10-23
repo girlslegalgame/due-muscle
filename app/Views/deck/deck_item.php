@@ -37,7 +37,7 @@ if (!empty($pdo_db) && !empty($deck['deck_id'])) {
         $stmt_colors->execute(['deck_id' => $deck['deck_id']]);
         $colors_res = $stmt_colors->fetchAll(PDO::FETCH_COLUMN);
 
-        // ★追加：2. ダミーカードに設定された文明（dummy_civ_ids）も取得してマージ
+        // 2. ダミーカードに設定された文明（dummy_civ_ids）も取得してマージ
         $stmt_dummy_colors = $pdo_db->prepare("
             SELECT dummy_civ_ids
             FROM deck_cards
@@ -66,7 +66,6 @@ if (!empty($pdo_db) && !empty($deck['deck_id'])) {
             $deck_colors['nature'] = in_array(5, $colors_res);
         }
     } catch (\Exception $e) {
-        // 例外時も動作継続
     }
 }
 
@@ -78,7 +77,12 @@ if (!empty($deck['thumbnail_imagepath'])) {
 }
 ?>
 
-<div class="deck-item mydeck-clickable" data-deck-id="<?php echo $deck['deck_id']; ?>" <?php if ($context === 'index'): ?>onclick="handleDeckItemClick(event, this)"<?php endif; ?>>
+<!-- ★カード全体に cursor: pointer と data-deck-name を付与 -->
+<div class="deck-item mydeck-clickable" 
+     style="cursor: pointer;"
+     data-deck-id="<?php echo $deck['deck_id']; ?>" 
+     data-deck-name="<?php echo htmlspecialchars($deck['deck_name'], ENT_QUOTES, 'UTF-8'); ?>"
+     <?php if ($context === 'index'): ?>onclick="handleDeckItemClick(event, this)"<?php endif; ?>>
     <!-- 1. デッキ名 (プロキシ選択用チェックボックス) -->
     <div style="display: flex; align-items: center; gap: 8px;">
         <?php if ($context === 'index'): ?>

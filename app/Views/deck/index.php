@@ -1,4 +1,4 @@
-<?php
+ <?php
 try {
     $pdo_db = \Models\Database::connect();
 } catch (\Exception $e) {
@@ -12,7 +12,6 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>マイデッキ一覧</title>
     <link rel="stylesheet" href="/css/style.css?v=<?php echo time(); ?>">
-    <!-- チュートリアル用CSSの読み込み -->
     <link rel="stylesheet" href="/css/tutorial.css?v=<?php echo time(); ?>">
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -21,7 +20,6 @@ try {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <style>
-/* 3. 画像出力用の一時的な非表示コンテナのスタイル（1200px固定）のみ残します */
 #deck-export-container {
     position: fixed;
     left: -9999px;
@@ -36,7 +34,6 @@ try {
     z-index: -1;
 }
 
-/* 画像化レイアウトのCSS */
 .export-header {
     display: flex;
     justify-content: space-between;
@@ -72,7 +69,7 @@ try {
     justify-content: center;
     box-shadow: 1px 1px 3px rgba(0,0,0,0.5);
 }
-/* 文明色マッピング */
+
 .bg-fire    { background-color: #e6193c; } 
 .bg-water   { background-color: #1972e6; } 
 .bg-light   { background-color: #e6b800; color: #000 !important; } 
@@ -152,7 +149,6 @@ try {
     object-fit: contain;
 }
 
-/* プロキシ選択モード中の各種操作無効化 */
 .proxy-select-mode .deck-item .btn-group,
 .proxy-select-mode .deck-item .btn-deck-public-toggle {
     pointer-events: none;
@@ -162,7 +158,6 @@ try {
     pointer-events: none; 
 }
 
-/* 公開状態切り替えボタン */
 .btn-deck-public-toggle {
     border: none;
     border-radius: 20px;
@@ -192,7 +187,6 @@ try {
     background-color: #e8eaed;
 }
 
-/* チュートリアル開始ボタン */
 .btn-tutorial-start {
     background: linear-gradient(180deg, #facc15 0%, #ca8a04 100%);
     color: #000 !important;
@@ -209,12 +203,10 @@ try {
 <div class="container">
     <h2>マイデッキ一覧</h2>
     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
-        <!-- ★追加: id="btn-create-deck" を付与し、クリック時にStep 2へ進める連携を設定 -->
         <a href="/decks/new" id="btn-create-deck" class="create-btn" style="margin-bottom: 0;" onclick="if(typeof TutorialManager!=='undefined'&&localStorage.getItem('tutorial_active')==='true'){TutorialManager.jumpToStep(2);}">＋ 新規作成</a>
         <button type="button" id="btn-proxy-action" class="create-btn" style="margin-bottom: 0; border: none; cursor: pointer;" onclick="handleProxyButtonClick()">
             プロキシPDF出力
         </button>
-        <!-- ★追加: ワンクリックでいつでもチュートリアルを開始できるボタン -->
         <button type="button" class="create-btn btn-tutorial-start" onclick="TutorialManager.start(1)">
             チュートリアルを始める
         </button>
@@ -1253,15 +1245,36 @@ function handleProxyButtonClick() {
     }
 }
 
+/**
+ * ★修正: プロキシ選択モード時だけでなく、通常時にカードをクリックした時もデッキ詳細モーダルを開くよう完全対応
+ */
 function handleDeckItemClick(event, itemEl) {
-    if (!isProxySelectMode) return;
+    if (isProxySelectMode) {
+        if (event.target.classList.contains('deck-select-checkbox')) return;
+        const cb = itemEl.querySelector('.deck-select-checkbox');
+        if (cb) {
+            cb.checked = !cb.checked;
+            updateProxyButtonState();
+        }
+        return;
+    }
 
-    if (event.target.classList.contains('deck-select-checkbox')) return;
+    // 公開切り替えボタンやチェックボックスのクリック時は詳細を開かない
+    if (event.target.closest('.btn-deck-public-toggle') || event.target.closest('.deck-select-checkbox')) {
+        return;
+    }
 
-    const cb = itemEl.querySelector('.deck-select-checkbox');
-    if (cb) {
-        cb.checked = !cb.checked;
-        updateProxyButtonState();
+    // 通常時：デッキ詳細モーダルを開く
+    const deckId = itemEl.dataset.deckId;
+    const deckName = itemEl.dataset.deckName || (itemEl.querySelector('h3') ? itemEl.querySelector('h3').innerText.trim() : '');
+
+    if (deckId && typeof openDeckModal === 'function') {
+        openDeckModal(deckId, deckName);
+
+        // ★追加: チュートリアルStep 6の時にデッキをクリックしたら自動でStep 7へ進める
+        if (typeof TutorialManager !== 'undefined' && localStorage.getItem('tutorial_active') === 'true') {
+            TutorialManager.jumpToStep(7);
+        }
     }
 }
 
@@ -1443,7 +1456,6 @@ async function generateProxyPdf() {
 }
 </script>
 
-<!-- ★チュートリアル制御スクリプトの読み込み -->
 <script src="/js/tutorial.js?v=<?php echo time(); ?>"></script>
 
 </body>

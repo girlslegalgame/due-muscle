@@ -301,11 +301,41 @@ class AuthController {
             $pdo = \Models\Database::connect();
 
             // 重複チェック
+            // 重複チェック
             $stmt = $pdo->prepare("SELECT user_id FROM users WHERE email = :email");
             $stmt->execute([':email' => $email]);
             if ($stmt->fetch()) {
                 $_SESSION['error'] = 'すでに使用されているメールアドレスです。';
                 header('Location: /register');
+                exit;
+            }
+
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+
+            // ★ローカル環境判定（Railway等の環境変数がなければローカルとみなす）
+            $isLocal = !getenv('RAILWAY_ENVIRONMENT');
+
+            if ($isLocal) {
+                // ローカル環境の場合はメール認証をスキップして即時本登録
+                $stmtInsert = $pdo->prepare("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (:name, :email, :pass, NOW(), NOW())");
+                $stmtInsert->execute([
+                    ':name' => $username,
+                    ':email' => $email,
+                    ':pass' => $passwordHash
+                ]);
+
+                $userId = $pdo->lastInsertId();
+
+                // ログインセッションの確立
+                $_SESSION['user_id'] = $userId;
+                $_SESSION['username'] = $username;
+                $_SESSION['role'] = 'user';
+
+                // 端末Cookieを保存
+                $this->saveDeviceCookie($userId, $passwordHash);
+
+                $_SESSION['success'] = 'アカウント登録が完了しました！（ローカル環境のため認証スキップ）';
+                header('Location: /mydecks');
                 exit;
             }
 
@@ -317,7 +347,7 @@ class AuthController {
             $_SESSION['temp_register'] = [
                 'username' => $username,
                 'email' => $email,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
+                'password_hash' => $passwordHash,
                 'code' => $code,
                 'expires_at' => $expiresAt
             ];
