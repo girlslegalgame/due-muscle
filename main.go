@@ -46,7 +46,9 @@ func main() {
 	r.Handle("/css/*", http.StripPrefix("/css/", http.FileServer(http.Dir("./public/css"))))
 	r.Handle("/js/*", http.StripPrefix("/js/", http.FileServer(http.Dir("./public/js"))))
 	r.Handle("/images/*", http.StripPrefix("/images/", http.FileServer(http.Dir("./public/images"))))
-
+	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./public/favicon.ico")
+	})
 	// // 5. ルーティング定義 (app/routes.php 準拠)
 	// // 認証
 	// r.Get("/login", authCtrl.Login)
