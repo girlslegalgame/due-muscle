@@ -1,6 +1,6 @@
 module deck-maker
 
-go 1.22.0
+go 1.22
 
 require (
 	github.com/gin-contrib/sessions v1.1.2
