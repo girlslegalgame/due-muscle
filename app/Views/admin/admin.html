@@ -1,19 +1,30 @@
 <style>
     /* 管理画面共通スタイル */
     .admin-title { font-size: 1.5rem; font-weight: bold; margin-bottom: 20px; color: #333; }
-    .admin-section-title { font-size: 1.15rem; font-weight: bold; margin: 30px 0 12px; color: #444; border-left: 4px solid #007bff; padding-left: 10px; }
-    
-    /* 画面幅に合わせて100%伸縮するコンテナ */
+    .admin-section-title { font-size: 1.15rem; font-weight: bold; margin: 30px 0 12px; color: #444; border-left: 4px solid #007bff; padding-left: 10px; }    
+    main {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding-left: 24px !important;
+        padding-right: 24px !important;
+    }
+    .container {
+        max-width: 100% !important;
+        width: 100% !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+    }
+
+    /* 管理画面コンテナ */
     .admin-container {
-        width: 100%;
-        max-width: 1400px;
-        margin: 0 auto;
-        box-sizing: border-box;
+        width: 100% !important;
+        max-width: 100% !important;
     }
 
     /* はみ出し防止用テーブルラッパー */
     .admin-table-wrapper {
-        width: 100%;
+        width: 100% !important;
         overflow-x: auto;
         background: #fff;
         border-radius: 8px;
@@ -23,9 +34,9 @@
         box-sizing: border-box;
     }
     .admin-table {
-        width: 100%;
+        width: 100% !important;
         border-collapse: collapse;
-        min-width: 850px; /* テーブル内容の最小幅を担保 */
+        min-width: 850px;
         font-size: 0.85rem;
     }
     .admin-table th {
