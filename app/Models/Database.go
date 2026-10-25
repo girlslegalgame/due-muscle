@@ -4,11 +4,13 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 )
@@ -46,9 +48,8 @@ func Connect() (*sql.DB, error) {
 		password := getEnv("MYSQLPASSWORD", getEnv("DB_PASSWORD", ""))
 		charset := "utf8mb4"
 
-		// 2. DSN（接続文字列）を組み立てます
-		// 形式: username:password@tcp(host:port)/dbname?charset=utf8mb4&parseTime=true
-		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=true",
+		// 2. DSN（接続文字列）を組み立てます（&tls=preferred を追加）
+		dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=true&tls=preferred",
 			user, password, host, port, dbname, charset,
 		)
 
@@ -59,12 +60,28 @@ func Connect() (*sql.DB, error) {
 			return
 		}
 
-		// 実際に疎通確認を行います
-		if err := db.Ping(); err != nil {
-			initErr = fmt.Errorf("データベース接続エラー: %w", err)
+		// コネクションプールの設定
+		db.SetMaxOpenConns(25)
+		db.SetMaxIdleConns(10)
+		db.SetConnMaxLifetime(5 * time.Minute)
+
+		// 実際に疎通確認を行います（起動完了を待つリトライ処理: 2秒おき最大10回）
+		var pingErr error
+		for i := 0; i < 10; i++ {
+			pingErr = db.Ping()
+			if pingErr == nil {
+				break
+			}
+			log.Printf("MySQL接続待機中... (%d/10): %v", i+1, pingErr)
+			time.Sleep(2 * time.Second)
+		}
+
+		if pingErr != nil {
+			initErr = fmt.Errorf("データベース疎通確認エラー（タイムアウト）: %w", pingErr)
 			return
 		}
 
+		log.Println("MySQL接続に成功しました！")
 		pdo = db
 	})
 
