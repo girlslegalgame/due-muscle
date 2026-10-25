@@ -1,22 +1,29 @@
-FROM golang:1.22-alpine AS builder
+# 1. ビルドステージ（Goのプログラムだけをコピーして超軽量・爆速ビルド）
+FROM golang:alpine AS builder
 
 WORKDIR /app
 
-# ソースコードとモジュール定義をコピー
-COPY . .
+# モジュール定義とGoプログラムのみをピンポイントでコピー（2.8GBの画像は一切触らない）
+COPY go.mod go.sum ./
+COPY main.go ./
+COPY app/ ./app/
 
-# go mod download を挟まず、直接ビルドを実行（エラーがあればログに詳細が出ます）
-RUN CGO_ENABLED=0 GOOS=linux go build -o app main.go
+# コンパイル実行（メモリを食わず一瞬で終わります）
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o app main.go
 
-# 実行環境
+# 2. 実行ステージ
 FROM alpine:latest
+
 WORKDIR /app
 
 RUN mkdir -p /app/storage /app/public /app/app/Views
 
-COPY --from=builder /app/app .
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/app/Views ./app/Views
+# ビルド済みバイナリを配置
+COPY --from=builder /app/app ./app
+
+# Web表示に必要なファイル群を配置
+COPY public/ ./public/
+COPY app/Views/ ./app/Views/
 COPY storage/ ./storage/
 
 RUN chmod +x ./app
