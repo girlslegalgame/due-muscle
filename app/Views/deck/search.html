@@ -1,0 +1,508 @@
+<!-- app/Views/deck/search.html -->
+<style>
+    /* --- 検索フォーム固有スタイル --- */
+    .search-form {
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+        margin-bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        align-items: end;
+        flex-shrink: 0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .search-form label {
+        font-size: 0.8rem;
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+        color: #555;
+    }
+    .search-form input[type="text"],
+    .search-form select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+        font-size: 13px;
+    }
+
+    /* --- 採用カード選択モーダル固有スタイル --- */
+    .card-select-modal {
+        display: none;
+        position: fixed;
+        z-index: 10000;
+        left: 0; top: 0;
+        width: 100%; height: 100%;
+        background-color: rgba(0,0,0,0.5);
+    }
+    .card-select-modal-content {
+        background-color: #fff;
+        margin: 5% auto;
+        padding: 20px;
+        width: 90%;
+        max-width: 600px;
+        border-radius: 8px;
+        height: 80vh;
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .card-select-modal-header {
+        border-bottom: 1px solid #ddd;
+        padding-bottom: 12px;
+        margin-bottom: 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+    .card-select-modal-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin: 0;
+    }
+    .card-select-modal-search {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    .card-select-modal-search input {
+        flex: 1;
+        padding: 8px 12px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 0.9rem;
+    }
+    .card-select-modal-logic {
+        display: flex;
+        gap: 15px;
+        font-size: 0.8rem;
+        color: #555;
+    }
+    .card-select-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        padding: 5px;
+    }
+    .card-select-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-bottom: 1px solid #f5f5f5;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    .card-select-item:hover {
+        background-color: #f9f9f9;
+    }
+    .card-select-item input {
+        cursor: pointer;
+    }
+    .card-select-modal-footer {
+        border-top: 1px solid #ddd;
+        padding-top: 12px;
+        margin-top: 12px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        flex-shrink: 0;
+    }
+    .btn-modal-cancel {
+        padding: 8px 16px;
+        background: #ccc;
+        color: #333;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+    .btn-modal-confirm {
+        padding: 8px 16px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+    }
+
+    /* ページネーション */
+    .pagination-wrapper {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 6px;
+        margin-top: 30px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    .pagination-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 38px;
+        height: 38px;
+        padding: 0 10px;
+        border-radius: 6px;
+        border: 1px solid #e2e8f0;
+        background-color: #ffffff;
+        color: #2d3748 !important;
+        text-decoration: none !important;
+        font-size: 0.9rem;
+        font-weight: bold;
+        transition: all 0.15s ease;
+        box-sizing: border-box;
+    }
+    .pagination-link:hover {
+        background-color: #f7fafc;
+        border-color: #cbd5e0;
+    }
+    .pagination-link.active {
+        background-color: #1a202c !important;
+        color: #ffffff !important;
+        border-color: #1a202c !important;
+        cursor: default;
+        pointer-events: none;
+    }
+    .pagination-link.disabled {
+        opacity: 0.35;
+        pointer-events: none;
+        cursor: not-allowed;
+        background-color: #edf2f7;
+    }
+</style>
+
+<div class="container">
+    <h2>デッキ検索</h2>
+
+    <!-- 検索フォーム -->
+    <form method="GET" action="/search" class="search-form">
+        <div>
+            <label>デッキ名</label>
+            <input type="text" name="deck_name" value="{{if .searchValues.deck_name}}{{.searchValues.deck_name}}{{end}}" placeholder="キーワードを入力...">
+        </div>
+        <div>
+            <label>採用カード</label>
+            <input type="text" id="selected_card_names" name="card_name" 
+                   value="{{if .searchValues.card_name}}{{.searchValues.card_name}}{{end}}" 
+                   placeholder="カードを選択..." 
+                   readonly 
+                   onclick="openCardSelectModal()" 
+                   style="cursor: pointer; background-color: #fff;">
+        </div>
+        
+        <div>
+            <label>フォーマット</label>
+            <select name="format_id">
+                <option value="">すべて</option>
+                {{range .formats}}
+                <option value="{{.format_id}}" {{if eq (printf "%v" $.searchValues.format_id) (printf "%v" .format_id)}}selected{{end}}>{{.format_name}}</option>
+                {{end}}
+            </select>
+        </div>
+
+        <!-- 文明選択 -->
+        <div style="grid-column: span 2;">
+            <label style="font-size: 0.8rem; font-weight: bold; display: block; margin-bottom: 5px; color: #555;">採用カードの文明 (複数選択可)</label>
+            <div style="display: flex; flex-direction: column; gap: 8px; background: #fafafa; border: 1px solid #ccc; border-radius: 4px; padding: 10px 12px; box-sizing: border-box;">
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; align-items: center;">
+                    {{range .civilizations}}
+                    <label style="font-size: 0.85rem; font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; margin: 0;">
+                        <input type="checkbox" name="civ_ids" value="{{.civilization_id}}">
+                        {{.civilization_name}}
+                    </label>
+                    {{end}}
+                </div>
+
+                <div style="border-top: 1px dashed #ddd; margin: 5px 0;"></div>
+
+                <div style="display: flex; gap: 20px; align-items: center;">
+                    <label style="font-size: 0.85rem; font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; margin: 0; color: #333;">
+                        <input type="radio" name="civ_logic" value="include" {{if ne .searchValues.civ_logic "only"}}checked{{end}}>
+                        選択した文明を含む
+                    </label>
+                    <label style="font-size: 0.85rem; font-weight: normal; display: flex; align-items: center; gap: 5px; cursor: pointer; margin: 0; color: #333;">
+                        <input type="radio" name="civ_logic" value="only" {{if eq .searchValues.civ_logic "only"}}checked{{end}}>
+                        選択した文明のみ
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div style="grid-column: 1 / -1; display:flex; gap:10px; justify-content:flex-end;">
+            <a href="/search" style="padding:10px 20px; background:#ccc; color:#333; text-decoration:none; border-radius:4px; font-weight:bold; font-size:13px; text-align:center;">クリア</a>
+            <button type="submit" style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:4px; cursor:pointer; font-weight:bold; font-size:13px;">検索する</button>
+        </div>
+    </form>
+
+    <!-- 検索結果一覧 -->
+    <div class="deck-list">
+        {{if .decks}}
+            {{range .decks}}
+                {{template "deck_item.html" .}}
+            {{end}}
+        {{else}}
+            <p style="grid-column: 1 / -1; text-align: center; color: #666; padding: 40px 0;">該当する公開デッキが見つかりませんでした。</p>
+        {{end}}
+    </div>
+
+    <!-- ページネーション -->
+    {{if gt .totalPages 1}}
+    <nav class="pagination-wrapper" aria-label="Page navigation">
+        {{if gt .currentPage 1}}
+        <a href="?page={{sub .currentPage 1}}" class="pagination-link">«</a>
+        {{else}}
+        <span class="pagination-link disabled">«</span>
+        {{end}}
+
+        <span class="pagination-link active">{{.currentPage}} / {{.totalPages}}</span>
+
+        {{if lt .currentPage .totalPages}}
+        <a href="?page={{add .currentPage 1}}" class="pagination-link">»</a>
+        {{else}}
+        <span class="pagination-link disabled">»</span>
+        {{end}}
+    </nav>
+    {{end}}
+</div>
+
+<!-- モーダル各種 -->
+{{template "deck_detail_modal.html" .}}
+{{template "card_detail_modal.html" .}}
+
+<!-- 通報用モーダル -->
+<div id="deckReportModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 480px;">
+        <div class="sub-modal-header">
+            <span>デッキの通報</span>
+            <span style="cursor:pointer;" onclick="closeReportModal()">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px;">
+            <input type="hidden" id="report_deck_id">
+            <p id="report_deck_title" style="font-weight: bold; margin-top: 0;"></p>
+
+            <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報理由 (必須)</label>
+            <textarea id="report_reason" rows="4" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="不適切なデッキ名、利用規約違反など"></textarea>
+            
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                <button type="button" class="btn-modal-cancel" onclick="closeReportModal()">キャンセル</button>
+                <button type="button" class="btn-modal-confirm" style="background:#dc3545;" onclick="submitDeckReport()">送信する</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- カード選択モーダル -->
+<div id="cardSelectModal" class="card-select-modal">
+    <div class="card-select-modal-content">
+        <div class="card-select-modal-header">
+            <h3 class="card-select-modal-title">採用カードの選択 (複数選択可)</h3>
+            <div class="card-select-modal-search">
+                <input type="text" id="modalCardSearchInput" placeholder="カード名または読み仮名を入力..." oninput="filterModalCards()">
+            </div>
+            <div id="modalSelectedBadges" class="selected-badges-container" style="display: none;"></div>
+            <div class="card-select-modal-logic">
+                条件:
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                    <input type="radio" name="modal_search_logic" value="AND" checked onchange="filterModalCards()"> AND検索
+                </label>
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                    <input type="radio" name="modal_search_logic" value="OR" onchange="filterModalCards()"> OR検索
+                </label>
+            </div>
+        </div>
+        <div class="card-select-modal-body" id="modalCardList"></div>
+        <div class="card-select-modal-footer">
+            <button class="btn-modal-cancel" onclick="closeCardSelectModal()">キャンセル</button>
+            <button class="btn-modal-confirm" onclick="confirmCardSelection()">確定する</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let ALL_CARDS = [];
+let tempSelectedCards = new Set();
+const IS_LOGGED_IN = document.cookie.includes('user_id=');
+
+// カード選択モーダル用データ取得
+function fetchSearchCardList() {
+    if (ALL_CARDS.length > 0) return;
+    fetch('/api/cards?limit=500')
+        .then(res => res.json())
+        .then(cards => {
+            if (Array.isArray(cards)) {
+                ALL_CARDS = cards;
+            }
+        }).catch(err => console.error(err));
+}
+
+function openCardSelectModal() {
+    fetchSearchCardList();
+    const modal = document.getElementById('cardSelectModal');
+    modal.style.display = 'block';
+
+    const currentVal = document.getElementById('selected_card_names').value;
+    tempSelectedCards = new Set(currentVal ? currentVal.split(',').map(s => s.trim()) : []);
+
+    document.getElementById('modalCardSearchInput').value = '';
+    updateSelectedBadges();
+    renderModalCards(ALL_CARDS);
+}
+
+function updateSelectedBadges() {
+    const container = document.getElementById('modalSelectedBadges');
+    container.innerHTML = '';
+
+    if (tempSelectedCards.size === 0) {
+        container.style.display = 'none';
+        return;
+    }
+    container.style.display = 'flex';
+
+    tempSelectedCards.forEach(cardName => {
+        const badge = document.createElement('div');
+        badge.className = 'selected-badge';
+        badge.innerHTML = '<span>' + escapeHTML(cardName) + '</span>' +
+            '<span class="selected-badge-remove" onclick="removeSelectedCard(\'' + escapeHTML(cardName) + '\')">×</span>';
+        container.appendChild(badge);
+    });
+}
+
+function removeSelectedCard(cardName) {
+    tempSelectedCards.delete(cardName);
+    updateSelectedBadges();
+    const checkboxes = document.querySelectorAll('#modalCardList input[type="checkbox"]');
+    for (let cb of checkboxes) {
+        if (cb.value === cardName) {
+            cb.checked = false;
+            break;
+        }
+    }
+}
+
+function closeCardSelectModal() {
+    document.getElementById('cardSelectModal').style.display = 'none';
+}
+
+function renderModalCards(cards) {
+    const container = document.getElementById('modalCardList');
+    container.innerHTML = '';
+
+    if (!cards || cards.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding:20px; color:#888;">カード名を入力して検索してください。</div>';
+        return;
+    }
+
+    cards.forEach(card => {
+        const name = card.card_name || '';
+        const item = document.createElement('label');
+        item.className = 'card-select-item';
+        const isChecked = tempSelectedCards.has(name) ? 'checked' : '';
+
+        item.innerHTML = '<input type="checkbox" value="' + escapeHTML(name) + '" ' + isChecked + ' onchange="toggleCardSelect(this)">' +
+            '<span style="display: flex; flex-direction: column;">' +
+                '<span style="font-weight: bold;">' + escapeHTML(name) + '</span>' +
+            '</span>';
+        container.appendChild(item);
+    });
+}
+
+function toggleCardSelect(checkbox) {
+    if (checkbox.checked) tempSelectedCards.add(checkbox.value);
+    else tempSelectedCards.delete(checkbox.value);
+    updateSelectedBadges();
+}
+
+function filterModalCards() {
+    const query = document.getElementById('modalCardSearchInput').value.trim().toLowerCase();
+    if (!query) {
+        renderModalCards(ALL_CARDS);
+        return;
+    }
+
+    // 検索APIを直接叩いてサジェスト
+    fetch('/api/cards?q=' + encodeURIComponent(query))
+        .then(res => res.json())
+        .then(cards => {
+            renderModalCards(cards);
+        });
+}
+
+function confirmCardSelection() {
+    document.getElementById('selected_card_names').value = Array.from(tempSelectedCards).join(',');
+    closeCardSelectModal();
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function copyDeck(deckId) {
+    if (!confirm("このデッキをコピーしてマイデッキに登録しますか？")) return;
+    fetch('/api/decks/copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deckId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("コピーに成功しました！マイデッキ一覧に移動します。");
+            window.location.href = '/mydecks';
+        } else {
+            alert("コピーに失敗しました: " + (data.error || '不明なエラー'));
+        }
+    });
+}
+
+function openReportModal(deckId, deckName, creatorName) {
+    if (!IS_LOGGED_IN) {
+        alert('通報機能を利用するにはログインが必要です。');
+        window.location.href = '/login';
+        return;
+    }
+    document.getElementById('report_deck_id').value = deckId;
+    document.getElementById('report_deck_title').innerText = 'デッキ: ' + deckName + ' (作成者: ' + creatorName + ')';
+    document.getElementById('report_reason').value = '';
+    document.getElementById('deckReportModal').style.display = 'block';
+}
+
+function closeReportModal() {
+    document.getElementById('deckReportModal').style.display = 'none';
+}
+
+function submitDeckReport() {
+    const deckId = document.getElementById('report_deck_id').value;
+    const reason = document.getElementById('report_reason').value.trim();
+
+    if (!reason) {
+        alert('通報理由を入力してください。');
+        return;
+    }
+
+    fetch('/api/decks/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deckId, report_type: 'deck', reason: reason })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('デッキの報告を受け付けました。ご協力ありがとうございます。');
+            closeReportModal();
+        } else {
+            alert(data.error || '送信に失敗しました。');
+        }
+    });
+}
+</script>

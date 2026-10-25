@@ -62,7 +62,9 @@ const CcfoliaExporter = (function () {
         else if (blob.type === 'image/jpeg') ext = 'jpeg';
         const filename = `${hash}.${ext}`;
         if (!resourcesObj[filename]) {
-            zip.file(filename, blob);
+            // ★ BlobをArrayBufferとして確実にZIPへ書き込む
+            const buffer = await blob.arrayBuffer();
+            zip.file(filename, buffer);
             resourcesObj[filename] = { type: blob.type || 'image/png' };
         }
         return filename;
@@ -80,11 +82,18 @@ const CcfoliaExporter = (function () {
         const defaultHeight = parseFloat(options.cardHeight) || 6;
 
         const zip = new JSZip();
+
+        // ★修正: .token がサーバーに実在する場合のみ追加し、取得できない(404等)時は空ファイルを作らない
         try {
             const tokenRes = await fetch('/images/.token');
-            zip.file('.token', tokenRes.ok ? await tokenRes.blob() : '');
+            if (tokenRes.ok) {
+                const tokenBlob = await tokenRes.blob();
+                if (tokenBlob.size > 0) {
+                    zip.file('.token', await tokenBlob.arrayBuffer());
+                }
+            }
         } catch (e) {
-            zip.file('.token', '');
+            // 失敗時は .token を一切含めない（デッキ・カード単体インポートとして扱う）
         }
 
         const resourcesObj = {};
@@ -135,7 +144,9 @@ const CcfoliaExporter = (function () {
         }
 
         // 3. デッキ外の独立カード (standalones)
-        let startX = -8;
+        const standaloneX = -8;
+        const standaloneY = -3;
+
         if (options.standalones && options.standalones.length > 0) {
             for (const item of options.standalones) {
                 const imgFilename = await registerImage(zip, resourcesObj, item.blob);
@@ -145,13 +156,12 @@ const CcfoliaExporter = (function () {
                 for (let i = 0; i < count; i++) {
                     const id = generateId();
                     standaloneItemsObj[id] = {
-                        x: startX, y: -3, z: 999, angle: 0, width: w, height: h,
+                        x: standaloneX, y: standaloneY, z: 999, angle: 0, width: w, height: h,
                         deckId: null, locked: false, visible: true, closed: false,
                         withoutOwner: false, freezed: true, type: "object", active: true,
                         memo: item.memo || "", imageUrl: imgFilename, coverImageUrl: null,
                         clickAction: null, order: 1
                     };
-                    startX -= (w + 1);
                 }
             }
         }

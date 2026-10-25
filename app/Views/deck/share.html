@@ -1,0 +1,121 @@
+<!-- app/Views/deck/share.html -->
+<style>
+    /* deck_detail_modal をモーダルではなく、ページ埋め込みレイアウトとして展開 */
+    #deckModal {
+        display: block !important;
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        background: transparent !important;
+        z-index: auto !important;
+    }
+    #deckModal .modal-content {
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        min-height: 500px;
+        padding: 20px !important;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border: 1px solid #ddd;
+        border-radius: 12px;
+    }
+    /* モーダル用の閉じるボタンやタイトルを非表示 */
+    #deckModal .close-btn,
+    #deckModal #modal-deck-title {
+        display: none !important;
+    }
+    #deckModal .scroll-area {
+        overflow-y: visible !important;
+        padding: 10px 0 !important;
+    }
+</style>
+
+<div class="container">
+    <!-- デッキヘッダー -->
+    <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
+            <div>
+                <h2 style="margin: 0 0 8px 0; font-size: 1.5rem;">{{.deck.deck_name}}</h2>
+                <div style="display: flex; gap: 15px; font-size: 0.9rem; color: #555; align-items: center; flex-wrap: wrap;">
+                    <span>フォーマット: <strong>{{.deck.format_name}}</strong></span>
+                    <span>製作者: <a href="/users/decks?user_id={{.deck.user_id}}" style="color: #007bff; text-decoration: underline;">{{.deck.creator_name}}</a></span>
+                    <span>更新日: {{.deck.updated_at}}</span>
+                </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button type="button" class="create-btn" style="background: #17a2b8; height: 38px; font-size: 0.85rem;" onclick="copyShareUrl()">URLをコピー</button>
+                <button type="button" class="create-btn" style="background: #ffc107; color: #212529; height: 38px; font-size: 0.85rem;" onclick="copyDeck(SHARE_DECK_ID)">デッキを複製</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- deck_detail_modal.html をインクルード -->
+    {{template "deck_detail_modal.html" .}}
+</div>
+
+<!-- card_detail_modal.html をインクルード -->
+{{template "card_detail_modal.html" .}}
+<div id="share-data-bridge" data-deck-id="{{.deck.deck_id}}" data-deck-name="{{.deck.deck_name}}" style="display: none;"></div>
+
+
+<script>
+const SHARE_DECK_ID = Number("{{.deck.deck_id}}");
+const SHARE_DECK_NAME = "{{.deck.deck_name}}";
+
+// URLコピー処理
+function copyShareUrl() {
+    const url = window.location.origin + '/decks/share?deck_id=' + SHARE_DECK_ID;
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('共有用URLをクリップボードにコピーしました！\n' + url);
+        }).catch(() => fallbackCopyText(url));
+    } else {
+        fallbackCopyText(url);
+    }
+}
+
+function fallbackCopyText(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-9999px';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (ok) alert('共有用URLをクリップボードにコピーしました！\n' + text);
+        else prompt('以下のURLをコピーしてください:', text);
+    } catch (e) {
+        document.body.removeChild(textArea);
+        prompt('以下のURLをコピーしてください:', text);
+    }
+}
+
+// デッキ複製処理
+function copyDeck(deckId) {
+    if (!confirm("このデッキをコピーしてマイデッキに登録しますか？")) return;
+    fetch('/api/decks/copy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deckId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert("コピーに成功しました！マイデッキ一覧に移動します。");
+            window.location.href = '/mydecks';
+        } else {
+            alert("コピーに失敗しました: " + (data.error || '不明なエラー'));
+        }
+    });
+}
+
+// 読み込み完了時に deck_detail_modal 内の openDeckModal を自動実行
+document.addEventListener('DOMContentLoaded', () => {
+    openDeckModal(SHARE_DECK_ID, SHARE_DECK_NAME);
+});
+</script>

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>デュエ筋 - デッキ制作ツール</title>
+    <link rel="stylesheet" href="/css/style.css?v=1">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="/js/ccfolia_exporter.js"></script>
+</head>
+<body>
+    <header>
+        <h1><a href="/">デュエ筋</a></h1>
+        <div class="header-right">
+            <a href="/search">デッキ検索</a>
+            <a href="/mydecks">マイデッキ</a>
+            <!-- ★追加：デッキ作成リンク（クリック時にモーダル制御などを挟む場合は必要に応じて調整） -->
+            <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
+            {{ if .IsLoggedIn }}
+                <a href="/account">アカウント</a>
+                {{/* ★ 追加: ロールが admin の場合に表示 */}}
+                {{ if and .Session (eq .Session.Role "admin") }}
+                    <a href="/admin" style="color: #ffc107 !important; font-weight: bold;">管理者画面</a>
+                {{ end }}
+                <form action="/logout" method="POST" style="display:inline;">
+                    <button type="submit" style="background:none;border:none;color:#fff;cursor:pointer;font-size:0.95rem;">ログアウト</button>
+                </form>
+            {{ else }}
+                <a href="/login">ログイン</a>
+                <a href="/register">新規登録</a>
+            {{ end }}
+        </div>
+    </header>
+
+    <main>
+        {{ template "content" . }}
+    </main>
+
+    <footer>
+        <ul>
+            <li><a href="/terms">利用規約</a></li>
+            <li><a href="/help">ヘルプ / FAQ</a></li>
+            <li><a href="/contact">お問い合わせ</a></li>
+        </ul>
+        <p style="margin-top:10px;font-size:0.8rem;color:#aaa;">&copy; デュエ筋 All Rights Reserved.</p>
+    </footer>
+    <!-- app/Views/layouts/app.html の </body> 直前に追加・統合するHTMLおよびスクリプト -->
+
+    <!-- デッキ作成先 選択モーダル -->
+    <div id="deck-type-select-modal" class="sub-modal" style="display: none; z-index: 3500;">
+        <div class="sub-modal-content" style="max-width: 420px; border-radius: 12px; overflow: hidden;">
+            <div class="sub-modal-header" style="background: #111; color: #fff; padding: 14px 20px;">
+                <span style="font-weight: bold; font-size: 1rem;">作成するデッキを選択</span>
+                <button type="button" onclick="closeDeckTypeSelectModal()" style="background: none; border: none; color: #fff; font-size: 1.4rem; cursor: pointer;">×</button>
+            </div>
+            <div class="sub-modal-body" style="padding: 24px; text-align: center;">
+                <p style="margin-top: 0; margin-bottom: 20px; font-size: 0.95rem; color: #333; font-weight: bold;">
+                    どちらのデッキを作成しますか？
+                </p>
+                <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+                    <button type="button" onclick="selectDeckType('/decks/new')" style="flex: 1; padding: 16px 10px; background: #007bff; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+                        デュエル・マスターズ
+                    </button>
+                    <button type="button" onclick="selectDeckType('/tools/ccfolia')" style="flex: 1; padding: 16px 10px; background: #28a745; color: #fff; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem;">
+                        デュエマ以外<br><span style="font-size: 0.75rem; font-weight: normal;">(ココフォリア出力)</span>
+                    </button>
+                </div>
+                
+                <div style="border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
+                    {{ if .IsLoggedIn }}
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
+                            <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
+                            次回からこの画面を表示しない
+                        </label>
+                        <p style="font-size: 0.75rem; color: #888; margin: 6px 0 0 22px; line-height: 1.3;">
+                            ※この設定は後から「アカウント設定」画面で変更・リセットできます。
+                        </p>
+                    {{ else }}
+                        <p style="font-size: 0.8rem; color: #666; margin: 0; line-height: 1.4; text-align: center;">
+                            <a href="/login" style="color: #007bff !important; text-decoration: underline !important; font-weight: bold;">ログイン</a>すると、次回以降この選択をスキップしてデフォルトで開く画面を設定できます。
+                        </p>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+// デッキ作成クリック時の振り分け
+function handleDeckCreateClick(e) {
+    e.preventDefault();
+    const savedTarget = localStorage.getItem('default_deck_builder');
+    if (savedTarget === 'dm') {
+        window.location.href = '/decks/new';
+        return;
+    } else if (savedTarget === 'other') {
+        window.location.href = '/tools/ccfolia';
+        return;
+    }
+    document.getElementById('deck-type-select-modal').style.display = 'flex';
+}
+
+function closeDeckTypeSelectModal() {
+    document.getElementById('deck-type-select-modal').style.display = 'none';
+}
+
+function selectDeckType(url) {
+    const rememberCheckbox = document.getElementById('deck-type-remember');
+    const remember = rememberCheckbox ? rememberCheckbox.checked : false;
+    if (remember) {
+        localStorage.setItem('default_deck_builder', url === '/decks/new' ? 'dm' : 'other');
+    }
+    window.location.href = url;
+}
+</script>
+</body>
+</html>

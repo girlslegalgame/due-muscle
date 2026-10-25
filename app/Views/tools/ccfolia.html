@@ -1,4 +1,4 @@
-<!-- app/Views/tools/ccfolia.php -->
+<!-- app/Views/tools/ccfolia.html -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="/js/ccfolia_exporter.js"></script>
 
@@ -83,7 +83,7 @@
 .cc-card-thumb {
     width: 100%;
     aspect-ratio: 51 / 73;
-    object-fit: contain; /* cover から contain へ変更して比率を維持 */
+    object-fit: contain;
     border-radius: 4px;
     background: #f0f0f0;
 }
@@ -140,7 +140,6 @@
             <input type="text" id="cc-deck-name" value="カスタムデッキ" style="padding: 6px 10px; font-size: 1rem; border: 1px solid #ccc; border-radius: 4px;">
         </label>
 
-        <!-- ★追加: カードサイズ入力（デフォルト: 横4 縦6） -->
         <div style="display: flex; align-items: center; gap: 6px; background: #fff; padding: 4px 10px; border: 1px solid #ccc; border-radius: 4px;">
             <span style="font-weight: bold; font-size: 0.9rem; color: #4a5568;">サイズ:</span>
             <label style="font-size: 0.85rem; display: flex; align-items: center; gap: 2px;">
@@ -194,12 +193,11 @@
 </div>
 
 <script>
-// 状態管理
 const state = {
     activeTab: 'main',
-    main: [],          // [{ id, file, url, count }]
+    main: [],
     standalone: [],
-    subDecks: {}       // { sub_1: { name: 'サブデッキ1', cards: [] } }
+    subDecks: {}
 };
 let subDeckSeq = 0;
 
@@ -213,7 +211,6 @@ function switchCcTab(targetId) {
     document.querySelectorAll('.cc-panel').forEach(p => {
         p.style.display = (p.id === `panel-${targetId}`) ? 'block' : 'none';
     });
-    // ★追加: タブ切り替え時にアクティブなパネルを即座に描画
     renderCurrentGrid();
 }
 
@@ -223,7 +220,6 @@ function addSubDeckTab() {
     const defaultName = `サブデッキ${subDeckSeq}`;
     state.subDecks[key] = { name: defaultName, cards: [] };
 
-    // タブ要素生成
     const addBtn = document.querySelector('.cc-tab-add');
     const tab = document.createElement('div');
     tab.className = 'cc-tab';
@@ -236,7 +232,6 @@ function addSubDeckTab() {
     `;
     addBtn.parentNode.insertBefore(tab, addBtn);
 
-    // パネル生成
     const panel = document.createElement('div');
     panel.className = 'cc-panel';
     panel.id = `panel-${key}`;
@@ -262,7 +257,6 @@ function renameSubDeck(key, newName) {
     }
 }
 
-// ドロップゾーン設定
 const dropzone = document.getElementById('cc-dropzone');
 ['dragenter', 'dragover'].forEach(name => {
     dropzone.addEventListener(name, (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
@@ -277,7 +271,6 @@ dropzone.addEventListener('drop', (e) => {
 function handleFileSelect(files) {
     if (!files || files.length === 0) return;
 
-    // ★ ZIPファイルが含まれている場合はインポート処理を実行
     const zipFile = Array.from(files).find(f => f.name.endsWith('.zip'));
     if (zipFile) {
         importCcfoliaZip(zipFile);
@@ -313,13 +306,11 @@ function renderCurrentGrid() {
     const grid = document.getElementById(`grid-${key}`);
     if (!grid || !targetList) return;
 
-    // 全体デフォルトサイズ
     const defaultW = parseFloat(document.getElementById('cc-card-width')?.value) || 4;
     const defaultH = parseFloat(document.getElementById('cc-card-height')?.value) || 6;
 
     grid.innerHTML = '';
     targetList.forEach(card => {
-        // デッキ外カード用の個別サイズ初期化
         if (key === 'standalone') {
             if (card.width === undefined) card.width = defaultW;
             if (card.height === undefined) card.height = defaultH;
@@ -330,7 +321,6 @@ function renderCurrentGrid() {
         div.innerHTML = `
             <button type="button" class="cc-card-delete" onclick="removeCard('${key}', '${card.id}')">×</button>
             <img src="${card.url}" class="cc-card-thumb" style="${key === 'standalone' ? `aspect-ratio: ${card.width} / ${card.height};` : ''}" alt="">          
-            <!-- ★追加: デッキ外カード専用の個別サイズ指定UI -->
             ${key === 'standalone' ? `
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 0.75rem; color: #555; width: 100%; margin: 2px 0;">
                     <span>W</span>
@@ -343,7 +333,6 @@ function renderCurrentGrid() {
                            onchange="updateCardSize('${card.id}', 'height', this.value)">
                 </div>
             ` : ''}
-
             <div class="cc-qty-control">
                 <button type="button" class="cc-qty-btn" onclick="updateQty('${key}', '${card.id}', -1)">-</button>
                 <input type="number" class="cc-qty-input" value="${card.count}" min="1" onchange="setQty('${key}', '${card.id}', this.value)">
@@ -356,7 +345,6 @@ function renderCurrentGrid() {
     updateCounts();
 }
 
-// ★追加: 個別サイズ更新関数
 function updateCardSize(cardId, prop, val) {
     const target = state.standalone.find(c => c.id === cardId);
     if (target) {
@@ -406,8 +394,6 @@ function updateCounts() {
 
 async function exportCustomZip() {
     const deckName = document.getElementById('cc-deck-name').value.trim() || 'カスタムデッキ';
-    
-    // ★追加: 入力されたサイズ値を取得
     const cardWidth = parseFloat(document.getElementById('cc-card-width').value) || 4;
     const cardHeight = parseFloat(document.getElementById('cc-card-height').value) || 6;
 
@@ -415,8 +401,8 @@ async function exportCustomZip() {
     const standaloneCards = state.standalone.map(c => ({ 
         blob: c.file, 
         count: c.count, 
-        width: c.width || cardWidth,   // ★個別サイズを反映
-        height: c.height || cardHeight,// ★個別サイズを反映
+        width: c.width || cardWidth,
+        height: c.height || cardHeight,
         memo: '' 
     }));
     const subDecks = Object.keys(state.subDecks).map(k => ({
@@ -432,8 +418,8 @@ async function exportCustomZip() {
     try {
         const zipBlob = await CcfoliaExporter.buildZip({
             deckName: deckName,
-            cardWidth: cardWidth,   // ★追加
-            cardHeight: cardHeight, // ★追加
+            cardWidth: cardWidth,
+            cardHeight: cardHeight,
             mainDeck: mainCards,
             subDecks: subDecks,
             standalones: standaloneCards
@@ -447,9 +433,7 @@ async function exportCustomZip() {
         alert('ZIP生成中にエラーが発生しました。');
     }
 }
-/**
- * ココフォリア用ZIPファイルをインポートして状態を復元（両対応・完全描画版）
- */
+
 async function importCcfoliaZip(file) {
     if (!file) return;
 
@@ -469,13 +453,11 @@ async function importCcfoliaZip(file) {
         const dataJson = JSON.parse(await dataJsonFile.async('text'));
         const entities = dataJson.entities || {};
 
-        // 状態のリセット
         state.main = [];
         state.standalone = [];
         state.subDecks = {};
         subDeckSeq = 0;
 
-        // 既存のサブデッキタブとパネルのDOMを全削除
         document.querySelectorAll('.cc-tab').forEach(t => {
             const tgt = t.dataset.target;
             if (tgt && tgt !== 'main' && tgt !== 'standalone') t.remove();
@@ -484,7 +466,6 @@ async function importCcfoliaZip(file) {
             if (p.id !== 'panel-main' && p.id !== 'panel-standalone') p.remove();
         });
 
-        // デッキ名の反映
         const deckName = file.name.replace(/\.zip$/i, '');
         document.getElementById('cc-deck-name').value = deckName;
 
@@ -494,7 +475,7 @@ async function importCcfoliaZip(file) {
         const existingHeight = (firstDeck && firstDeck.height) || (firstItem && firstItem.height) || 6;
         document.getElementById('cc-card-width').value = existingWidth;
         document.getElementById('cc-card-height').value = existingHeight;
-        // アイテム配列から画像カードを生成するヘルパー
+
         async function extractCardsFromItems(itemsArray) {
             const countMap = {};
             itemsArray.forEach(it => {
@@ -503,15 +484,14 @@ async function importCcfoliaZip(file) {
                     if (!countMap[img]) {
                         countMap[img] = { 
                             count: 0, 
-                            width: it.width,  // ★サイズを記憶
-                            height: it.height // ★サイズを記憶
+                            width: it.width,
+                            height: it.height
                         };
                     }
                     countMap[img].count++;
                 }
             });
 
-            // extractCardsFromItems 関数内の cards.push 組み立て部を修正
             const cards = [];
             for (const [imgFilename, meta] of Object.entries(countMap)) {
                 const imgFile = zip.file(imgFilename) || zip.file(imgFilename.replace(/^\//, ''));
@@ -519,7 +499,6 @@ async function importCcfoliaZip(file) {
                     const blob = await imgFile.async('blob');
                     const blobUrl = URL.createObjectURL(blob);
 
-                    // ★追加: 画像の実際の縦横解像度を取得して比率を維持
                     const imgAspect = await new Promise((resolve) => {
                         const img = new Image();
                         img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
@@ -527,7 +506,6 @@ async function importCcfoliaZip(file) {
                         img.src = blobUrl;
                     });
 
-                    // JSONにサイズ指定があればそれを優先、無ければ実画像の比率から算出（横4を基準）
                     let w = meta.width;
                     let h = meta.height;
                     if (!w || !h) {
@@ -553,18 +531,14 @@ async function importCcfoliaZip(file) {
         const rawItems = entities.items || {};
         const deckKeys = Object.keys(rawDecks);
 
-        // 1. 各デッキのカードリストを抽出
         const parsedDecks = [];
         for (const dId of deckKeys) {
             const deckObj = rawDecks[dId];
             let deckItemsList = [];
 
-            // Aパターン: 当アプリ形式（decks[dId].items に直接格納されている場合）
             if (deckObj.items && Object.keys(deckObj.items).length > 0) {
                 deckItemsList = Object.values(deckObj.items);
-            } 
-            // Bパターン: ココフォリア純正形式（entities.items 内で deckId 参照されている場合）
-            else {
+            } else {
                 deckItemsList = Object.values(rawItems).filter(it => it.deckId === dId);
             }
 
@@ -574,7 +548,6 @@ async function importCcfoliaZip(file) {
             }
         }
 
-        // デッキの振り分け（1つ目をメイン、2つ目以降をサブデッキに）
         if (parsedDecks.length > 0) {
             state.main = parsedDecks[0];
 
@@ -587,7 +560,6 @@ async function importCcfoliaZip(file) {
                     cards: parsedDecks[i]
                 };
 
-                // タブDOM生成
                 const addBtn = document.querySelector('.cc-tab-add');
                 const tab = document.createElement('div');
                 tab.className = 'cc-tab';
@@ -600,7 +572,6 @@ async function importCcfoliaZip(file) {
                 `;
                 addBtn.parentNode.insertBefore(tab, addBtn);
 
-                // パネルDOM生成
                 const panel = document.createElement('div');
                 panel.className = 'cc-panel';
                 panel.id = `panel-${key}`;
@@ -610,19 +581,15 @@ async function importCcfoliaZip(file) {
             }
         }
 
-        // 2. デッキ外カード（standalone）の抽出
-        // deckId を持たないアイテム、または deckId がどのデッキにも紐づかないアイテム
         const standaloneItems = Object.values(rawItems).filter(it => !it.deckId || !rawDecks[it.deckId]);
         state.standalone = await extractCardsFromItems(standaloneItems);
 
-        // 全タブ・全パネルの描画を確実に実行
         const allKeys = ['main', 'standalone', ...Object.keys(state.subDecks)];
         allKeys.forEach(k => {
             state.activeTab = k;
             renderCurrentGrid();
         });
 
-        // 最後にメインタブを選択
         switchCcTab('main');
         updateCounts();
         alert('ZIPファイルの読み込みが完了しました！');

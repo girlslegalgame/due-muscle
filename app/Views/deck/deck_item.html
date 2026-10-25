@@ -1,0 +1,84 @@
+{{ $deckId := or .Deck.DeckID .Deck.deck_id }}
+{{ $deckName := or .Deck.DeckName .Deck.deck_name }}
+
+<div class="deck-item mydeck-clickable" data-deck-id="{{ $deckId }}" {{if eq .Context "index"}}onclick="handleDeckItemClick(event, this)"{{end}}>
+    <!-- 1. デッキ名 (プロキシ選択用チェックボックス) -->
+    <div style="display: flex; align-items: center; gap: 8px;">
+        {{if eq .Context "index"}}
+            <input type="checkbox" class="deck-select-checkbox" value="{{ $deckId }}" 
+                   style="display: none; width: 20px; height: 20px; cursor: pointer; flex-shrink: 0;" 
+                   onclick="event.stopPropagation()" onchange="updateProxyButtonState()">
+        {{end}}
+        <h3 style="margin: 0; user-select: none;">{{ $deckName }}</h3>
+    </div>
+
+    <!-- 2. サムネイル画像 -->
+    {{ $thumb := or .Deck.ThumbnailImagePath .Deck.thumbnail_imagepath }}
+    <div class="deck-thumbnail-wrapper">
+        <img src="{{if $thumb}}/images/card/{{$thumb}}{{else}}/images/card/noimage.webp{{end}}" 
+             alt="Thumbnail" class="deck-thumbnail" 
+             style="pointer-events: none;" 
+             onerror="this.src='/images/card/noimage.webp'; this.onerror=null;">
+    </div>
+
+    <!-- 3. メインデッキ採用文明表示 -->
+    <div class="deck-civ-badges">
+        {{if or .DeckColors.Light .Deck.civ_light}}<span class="civ-badge civ-bg-light">光</span>{{end}}
+        {{if or .DeckColors.Water .Deck.civ_water}}<span class="civ-badge civ-bg-water">水</span>{{end}}
+        {{if or .DeckColors.Dark .Deck.civ_dark}}<span class="civ-badge civ-bg-dark">闇</span>{{end}}
+        {{if or .DeckColors.Fire .Deck.civ_fire}}<span class="civ-badge civ-bg-fire">火</span>{{end}}
+        {{if or .DeckColors.Nature .Deck.civ_nature}}<span class="civ-badge civ-bg-nature">自然</span>{{end}}
+    </div>
+
+    <!-- 4. 製作者名（クリックでユーザーの公開デッキ一覧へ） -->
+    {{if and .Deck.CreatorName .Deck.UserID}}
+        <div class="deck-creator">
+            製作者: <a href="/users/decks?user_id={{.Deck.UserID}}" style="color: #007bff; text-decoration: underline;">{{.Deck.CreatorName}}</a>
+        </div>
+    {{else if .Deck.CreatorName}}
+        <div class="deck-creator">
+            製作者: {{.Deck.CreatorName}}
+        </div>
+    {{end}}
+
+    <!-- 5. フォーマット 最終更新日 -->
+    <div class="deck-meta-info">
+        <span class="format-badge">{{ or .Deck.FormatName .Deck.format_name }}</span>
+        
+        {{if eq .Context "index"}}
+            {{ $isPub := or .Deck.IsPublic .Deck.is_public }}
+            <button type="button" 
+                    class="btn-deck-public-toggle {{if or (eq $isPub 1) (eq $isPub true) (eq $isPub "1")}}status-public{{else}}status-private{{end}}"
+                    data-deck-id="{{ $deckId }}"
+                    data-is-public="{{if or (eq $isPub 1) (eq $isPub true) (eq $isPub "1")}}1{{else}}0{{end}}"
+                    onclick="event.stopPropagation(); toggleDeckPublic(this)"
+                    title="クリックして公開/非公開を切り替え">
+                {{if or (eq $isPub 1) (eq $isPub true) (eq $isPub "1")}}● 公開中{{else}}▲ 非公開{{end}}
+            </button>
+        {{end}}
+        <span>{{ or .Deck.formatted_at .FormattedAt }}</span>
+    </div>
+
+    <!-- 6. ボタン群：公開デッキ検索時のみ表示（マイデッキ一覧では全削除） -->
+    {{if eq .Context "search"}}
+        <div class="btn-group btn-group-search" style="display: grid; grid-template-columns: repeat(4, 1fr) !important; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
+            <button type="button" class="btn-view" 
+                    data-deck-id="{{ $deckId }}"
+                    data-deck-name="{{ $deckName }}"
+                    onclick="openDeckModal(this.dataset.deckId, this.dataset.deckName)">確認</button>
+            <button type="button" class="btn-share" 
+                    data-deck-id="{{ $deckId }}"
+                    onclick="copyShareUrlFromItem(event, this)">共有</button>
+            <button type="button" class="btn-edit" 
+                    data-deck-id="{{ $deckId }}"
+                    onclick="copyDeck(this.dataset.deckId)" 
+                    style="background-color: #ffc107; color: #212529;">コピー</button>
+            <button type="button" class="btn-report" 
+                    title="通報する"
+                    data-deck-id="{{ $deckId }}"
+                    data-deck-name="{{ $deckName }}"
+                    data-creator-name="{{if .Deck.CreatorName}}{{.Deck.CreatorName}}{{else}}作成者{{end}}"
+                    onclick="openReportModal(this.dataset.deckId, this.dataset.deckName, this.dataset.creatorName)">通報</button>
+        </div>
+    {{end}}
+</div>
