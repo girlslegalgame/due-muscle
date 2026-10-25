@@ -1048,9 +1048,18 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
 		dRows.Scan(columnPointers...)
 		deck = make(map[string]interface{})
 		for i, colName := range cols {
-			val := columnPointers[i].(*interface{})
-			deck[colName] = *val
+			val := *(columnPointers[i].(*interface{}))
+			if b, ok := val.([]byte); ok {
+				deck[colName] = string(b)
+			} else {
+				deck[colName] = val
+			}
 		}
+	}
+
+	deckName := "デッキ"
+	if dn, ok := deck["deck_name"].(string); ok && dn != "" {
+		deckName = dn
 	}
 
 	cardSql := `
@@ -1128,9 +1137,15 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
 		cards = append(cards, cMap)
 	}
 
-	views.RenderView(w, r, "deck/playtest.go", map[string]interface{}{
-		"deck":  deck,
-		"cards": cards,
+	cardsJSON, _ := json.Marshal(cards)
+
+	views.RenderView(w, r, "deck/playtest.html", map[string]interface{}{
+		"hideHeader": true,
+		"hideFooter": true,
+		"deck":       deck,
+		"deckName":   deckName,
+		"cards":      cards,
+		"cardsJSON":  template.JS(cardsJSON),
 	})
 }
 
