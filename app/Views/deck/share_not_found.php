@@ -1,5 +1,0 @@
-<div class="container" style="text-align: center; padding: 60px 20px;">
-    <h2 style="font-size: 1.4rem; color: #444; margin-bottom: 12px;">デッキが見つかりません</h2>
-    <p style="color: #666; margin-bottom: 25px;">このデッキは削除されたか、非公開に設定されています。</p>
-    <a href="/search" class="create-btn" style="text-decoration: none;">公開デッキ一覧へ戻る</a>
-</div>
