@@ -200,6 +200,17 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 				code := fmt.Sprintf("%06d", rand.Intn(1000000))
 				expiresAt := time.Now().Unix() + 600
 
+				// 先にメール送信を試行
+				subject := "【デュエ筋】ログイン認証コード"
+				body := "<p>ログインを完了するには、制限時間内に以下の認証コードを入力してください。</p>"
+				body += fmt.Sprintf("<h2 style='color:#007bff; letter-spacing:2px;'>%s</h2>", code)
+				body += "<p>有効期限: 10分間</p>"
+
+				if !c.sendEmail(user.Email, subject, body) {
+					c.ShowLoginForm(w, r, []string{"認証メールの送信に失敗しました。環境設定（BREVO_API_KEY等）を確認してください。"})
+					return
+				}
+
 				session := views.GetSession(r)
 				role := user.Role
 				if role == "" {
@@ -213,14 +224,6 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 					"expires_at": expiresAt,
 					"role":       role,
 				}
-
-				subject := "【デュエ筋】ログイン認証コード"
-				body := "<p>ログインを完了するには、制限時間内に以下の認証コードを入力してください。</p>"
-				body += fmt.Sprintf("<h2 style='color:#007bff; letter-spacing:2px;'>%s</h2>", code)
-				body += "<p>有効期限: 10分間</p>"
-
-				c.sendEmail(user.Email, subject, body)
-
 				session["success"] = "メールアドレスにログイン用の認証コードを送信しました。"
 				views.SaveSession(w, session)
 				http.Redirect(w, r, "/login/verify", http.StatusFound)
@@ -246,7 +249,7 @@ func (c *AuthController) ShowLoginVerifyForm(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	views.RenderView(w, r, "auth/verify.go", map[string]interface{}{"action_url": "/login/verify"})
+	views.RenderView(w, r, "auth/verify.html", map[string]interface{}{"action_url": "/login/verify"})
 }
 
 /**
@@ -491,7 +494,7 @@ func (c *AuthController) ShowVerifyForm(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	views.RenderView(w, r, "auth/verify.go", map[string]interface{}{"action_url": "/register/verify"})
+	views.RenderView(w, r, "auth/verify.html", map[string]interface{}{"action_url": "/register/verify"})
 }
 
 /**
