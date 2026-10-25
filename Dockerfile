@@ -1,43 +1,30 @@
-# ==========================================
-# ステージ 1: Node.js でフロントエンド（Vite）をビルド
-# ==========================================
-FROM node:22-alpine AS frontend-builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --legacy-peer-deps
-COPY . .
-RUN npm run build
-
-# ==========================================
-# ステージ 2: FrankenPHP（モダンなPHP超高速サーバー）環境の構築
-# ==========================================
-FROM dunglas/frankenphp:latest-php8.3
-
-# 必要なシステムパッケージとPHP拡張のインストール
-RUN apt-get update && apt-get install -y \
-    libpng-dev \
-    libjpeg-dev \
-    libfreetype6-dev \
-    zip \
-    unzip \
-    git \
-    && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql
-
-# FrankenPHPの公開ディレクトリ設定（Laravelのpublicを指定）
-ENV FRANKENPHP_DOCUMENT_ROOT=/app/public
+# ビルドステージ
+FROM golang:1.22-alpine AS builder
 
 WORKDIR /app
 
-# プロジェクトファイルのコピー
+# 依存関係のダウンロード
+COPY go.mod go.sum ./
+RUN go mod download
+
+# アプリのビルド
 COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o app main.go
 
-# ステージ1でビルドしたアセットをコピー
-COPY --from=frontend-builder /app/public/build ./public/build
+# 実行ステージ（軽量コンテナ）
+FROM alpine:latest
 
-# Composerのインストールと実行
-COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
-RUN composer install --no-dev --optimize-autoloader
+WORKDIR /app
 
-# 権限設定
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
+# ビルドしたバイナリと、実行に必要な静的ファイル・テンプレート群をコピー
+COPY --from=builder /app/app .
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/app/Views ./app/Views
+COPY --from=builder /app/storage ./storage
+
+# 実行権限を確実に付与
+RUN chmod +x ./app
+
+EXPOSE 8080
+
+CMD ["./app"]
