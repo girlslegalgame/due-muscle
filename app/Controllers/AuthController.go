@@ -274,7 +274,17 @@ func (c *AuthController) VerifyLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tempLogin := tempLoginRaw.(map[string]interface{})
-	expiresAt := tempLogin["expires_at"].(int64)
+
+	// JSON経由での復元に対応（float64またはint64）
+	var expiresAt int64
+	switch v := tempLogin["expires_at"].(type) {
+	case float64:
+		expiresAt = int64(v)
+	case int64:
+		expiresAt = v
+	default:
+		expiresAt = 0
+	}
 
 	if time.Now().Unix() > expiresAt {
 		delete(session, "temp_login")
@@ -334,11 +344,11 @@ func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 	if userId := session["user_id"]; userId != nil {
 		cookieName := fmt.Sprintf("known_device_%v", userId)
 		http.SetCookie(w, &http.Cookie{
-			Name:     cookieName,
+			Name:     "app_session",
 			Value:    "",
-			Expires:  time.Unix(0, 0),
-			MaxAge:   -1,
 			Path:     "/",
+			MaxAge:   -1,
+			Expires:  time.Unix(0, 0),
 			HttpOnly: true,
 		})
 	}

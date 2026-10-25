@@ -2,6 +2,11 @@ package views
 
 import (
 	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -13,30 +18,101 @@ import (
 	"deck-maker/app/Views/layouts"
 )
 
+const sessionSecret = "dm_deck_maker_session_secret_key_2025"
+
 var GetSessionUserID = func(r *http.Request) interface{} {
 	sess := GetSession(r)
 	return sess["user_id"]
 }
+
+const sessionDuration = 30 * 24 * 60 * 60 // 30日間（秒）
 
 var GetSession = func(r *http.Request) map[string]interface{} {
 	sess := make(map[string]interface{})
 	if s, ok := r.Context().Value("session").(map[string]interface{}); ok && s != nil {
 		return s
 	}
-	// Cookieから user_id を復元
-	if cookie, err := r.Cookie("user_id"); err == nil && cookie.Value != "" {
-		sess["user_id"] = cookie.Value
+
+	// 署名付きセッションCookieから復元
+	if cookie, err := r.Cookie("app_session"); err == nil && cookie.Value != "" {
+		parts := strings.SplitN(cookie.Value, ".", 2)
+		if len(parts) == 2 {
+			payloadB64, sig := parts[0], parts[1]
+			h := hmac.New(sha256.New, []byte(sessionSecret))
+			h.Write([]byte(payloadB64))
+			expectedSig := hex.EncodeToString(h.Sum(nil))
+
+			if hmac.Equal([]byte(sig), []byte(expectedSig)) {
+				if jsonBytes, err := base64.RawURLEncoding.DecodeString(payloadB64); err == nil {
+					_ = json.Unmarshal(jsonBytes, &sess)
+				}
+			}
+		}
 	}
+
+	// 既存の user_id 単体Cookieからのフォールバック
+	if sess["user_id"] == nil {
+		if cookie, err := r.Cookie("user_id"); err == nil && cookie.Value != "" {
+			sess["user_id"] = cookie.Value
+		}
+	}
+
+	// ★ 30日アクセスの有効期限チェック
+	if sess["user_id"] != nil {
+		var lastActive int64
+		switch v := sess["last_active"].(type) {
+		case float64:
+			lastActive = int64(v)
+		case int64:
+			lastActive = v
+		}
+
+		now := time.Now().Unix()
+		// 最終アクセスから30日経過している場合はセッションを失効
+		if lastActive > 0 && (now-lastActive) > sessionDuration {
+			return make(map[string]interface{})
+		}
+	}
+
 	return sess
 }
 
 var SaveSession = func(w http.ResponseWriter, session map[string]interface{}) {
-	// user_id を Cookie に保存
+	now := time.Now()
+
+	// ログイン中の場合は最終アクセス日時を常に更新
+	if session["user_id"] != nil {
+		session["last_active"] = now.Unix()
+	}
+
+	jsonBytes, err := json.Marshal(session)
+	if err == nil {
+		payloadB64 := base64.RawURLEncoding.EncodeToString(jsonBytes)
+		h := hmac.New(sha256.New, []byte(sessionSecret))
+		h.Write([]byte(payloadB64))
+		sig := hex.EncodeToString(h.Sum(nil))
+
+		cookieVal := fmt.Sprintf("%s.%s", payloadB64, sig)
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "app_session",
+			Value:    cookieVal,
+			Path:     "/",
+			MaxAge:   sessionDuration,
+			Expires:  now.Add(30 * 24 * time.Hour),
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+
+	// user_id Cookie も30日間有効・延長
 	if uid, ok := session["user_id"]; ok && uid != nil {
 		http.SetCookie(w, &http.Cookie{
 			Name:     "user_id",
 			Value:    fmt.Sprintf("%v", uid),
 			Path:     "/",
+			MaxAge:   sessionDuration,
+			Expires:  now.Add(30 * 24 * time.Hour),
 			HttpOnly: true,
 			SameSite: http.SameSiteLaxMode,
 		})
