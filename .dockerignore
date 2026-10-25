@@ -1,0 +1,7 @@
+.git
+.github
+vendor/
+node_modules/
+*.zip
+*.tar.gz
+.env
