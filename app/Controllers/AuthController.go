@@ -50,7 +50,18 @@ func (c *AuthController) ShowLoginForm(w http.ResponseWriter, r *http.Request, e
 		http.Redirect(w, r, "/mydecks", http.StatusFound)
 		return
 	}
-	views.RenderView(w, r, "auth/login.html", map[string]interface{}{"errors": errors})
+
+	errorMsg := ""
+	if len(errors) > 0 {
+		errorMsg = strings.Join(errors, "<br>")
+	}
+
+	views.RenderView(w, r, "auth/login.html", map[string]interface{}{
+		"errors": errors,
+		"Errors": errors,
+		"error":  errorMsg,
+		"Error":  errorMsg,
+	})
 }
 
 /**
@@ -151,19 +162,23 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 		if len(errors) == 0 {
 			db, err := models.DatabaseConnect()
 			if err != nil {
-				// エラー処理（例: ログ出力やpanic、リダイレクトなど）
 				log.Printf("DB接続エラー: %v", err)
+				c.ShowLoginForm(w, r, []string{"データベース接続に失敗しました: " + err.Error()})
 				return
 			}
 			userModel := models.NewUser(db)
 
 			user, err := userModel.FindByEmail(email)
-			if err == nil && user != nil && bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) == nil {
-
-				// ★ローカル環境判定（Railway等の環境変数がなければローカルとみなす）
+			if err != nil || user == nil {
+				log.Printf("[Login] ユーザーが見つかりません: email=%s, err=%v", email, err)
+				errors = append(errors, "メールアドレスまたはパスワードが間違っています。")
+			} else if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) != nil {
+				log.Printf("[Login] パスワード不一致: email=%s", email)
+				errors = append(errors, "メールアドレスまたはパスワードが間違っています。")
+			} else {
+				// ★ 認証成功時の処理
 				isLocal := os.Getenv("RAILWAY_ENVIRONMENT") == ""
 
-				// ★修正：ローカル環境、または既知の端末（Cookieあり）であるかチェック
 				if isLocal || c.isKnownDevice(r, user) {
 					session := views.GetSession(r)
 					session["user_id"] = user.UserID
@@ -175,16 +190,15 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 					session["role"] = role
 					views.SaveSession(w, session)
 
-					// ローカル時も端末Cookieを保存しておく
 					c.saveDeviceCookie(w, user.UserID, user.PasswordHash)
 
 					http.Redirect(w, r, "/mydecks", http.StatusFound)
 					return
 				}
 
-				// 未知の端末の場合は、これまで通り認証コードを生成して送信
+				// 未知の端末（Railway本番等）：認証コード送信
 				code := fmt.Sprintf("%06d", rand.Intn(1000000))
-				expiresAt := time.Now().Unix() + 600 // 10分有効
+				expiresAt := time.Now().Unix() + 600
 
 				session := views.GetSession(r)
 				role := user.Role
@@ -197,7 +211,7 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 					"email":      user.Email,
 					"code":       code,
 					"expires_at": expiresAt,
-					"role":       role, // ★追加: 一時領域にロールを保持
+					"role":       role,
 				}
 
 				subject := "【デュエ筋】ログイン認証コード"
@@ -211,8 +225,6 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 				views.SaveSession(w, session)
 				http.Redirect(w, r, "/login/verify", http.StatusFound)
 				return
-			} else {
-				errors = append(errors, "メールアドレスまたはパスワードが間違っています。")
 			}
 		}
 
