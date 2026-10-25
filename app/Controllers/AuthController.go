@@ -342,18 +342,17 @@ func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 
 	// 自動ログイン用Cookieの削除
 	if userId := session["user_id"]; userId != nil {
-		cookieName := fmt.Sprintf("known_device_%v", userId)
 		http.SetCookie(w, &http.Cookie{
-			Name:     "app_session",
+			Name:     fmt.Sprintf("known_device_%v", userId),
 			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
 			Expires:  time.Unix(0, 0),
+			MaxAge:   -1,
+			Path:     "/",
 			HttpOnly: true,
 		})
 	}
 
-	// ★ 追加: ログイン状態を保持している user_id Cookie を削除・無効化する
+	// ログイン状態を保持している user_id Cookie を削除・無効化する
 	http.SetCookie(w, &http.Cookie{
 		Name:     "user_id",
 		Value:    "",
@@ -363,9 +362,9 @@ func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 	})
 
-	// セッションCookieの破棄
+	// セッションCookie（app_session）の破棄
 	http.SetCookie(w, &http.Cookie{
-		Name:     "session_id",
+		Name:     "app_session",
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
