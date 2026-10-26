@@ -28,6 +28,9 @@ func RegisterRoutes(r chi.Router) {
 	// トップページ
 	r.Get("/", homeCtrl.Index)
 
+	r.Get("/ads.txt", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "public/ads.txt")
+	})
 	// ★ 追加: ヘルプページ
 	r.Get("/help", func(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "help/index.html", map[string]interface{}{})

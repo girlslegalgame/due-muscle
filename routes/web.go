@@ -19,6 +19,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.Static("/css", "./public/css")
 	r.Static("/js", "./public/js")
 	r.Static("/images", "./public/images")
+	r.StaticFile("/ads.txt", "./public/ads.txt")
 
 	// トップページ
 	r.GET("/", gin.WrapF(homeCtrl.Index))
