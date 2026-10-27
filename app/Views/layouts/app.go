@@ -259,13 +259,18 @@ const appHTML = `<!DOCTYPE html>
     <!-- 左右両端の追従広告（PC専用） -->
     <div class="side-ad-wrapper">
         <aside class="side-ad side-ad-left">
-            <!-- Google AdSense 垂直バナーコード（承認後に差し替え） -->
             <ins class="adsbygoogle"
-                 style="display:block; width:160px; height:600px;"
+                 style="display:inline-block; width:160px; height:600px;"
                  data-ad-client="ca-pub-1782055298829063"
-                 data-ad-slot="LEFT_AD_SLOT_ID"
-                 data-ad-format="auto"></ins>
-            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+                 data-ad-slot="LEFT_AD_SLOT_ID"></ins>
+            <script>
+                (function() {
+                    var el = document.currentScript.previousElementSibling;
+                    if (el && el.parentElement && el.parentElement.offsetWidth > 0) {
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    }
+                })();
+            </script>
         </aside>
 
         <main>
@@ -273,13 +278,18 @@ const appHTML = `<!DOCTYPE html>
         </main>
 
         <aside class="side-ad side-ad-right">
-            <!-- Google AdSense 垂直バナーコード（承認後に差し替え） -->
             <ins class="adsbygoogle"
-                 style="display:block; width:160px; height:600px;"
+                 style="display:inline-block; width:160px; height:600px;"
                  data-ad-client="ca-pub-1782055298829063"
-                 data-ad-slot="RIGHT_AD_SLOT_ID"
-                 data-ad-format="auto"></ins>
-            <script>(adsbygoogle = window.adsbygoogle || []).push({});</script>
+                 data-ad-slot="LEFT_AD_SLOT_ID"></ins>
+            <script>
+                (function() {
+                    var el = document.currentScript.previousElementSibling;
+                    if (el && el.parentElement && el.parentElement.offsetWidth > 0) {
+                        (adsbygoogle = window.adsbygoogle || []).push({});
+                    }
+                })();
+            </script>
         </aside>
     </div>
 
