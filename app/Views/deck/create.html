@@ -2051,7 +2051,7 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
  */
 function determineZoneType(charIdsStr) {
     const ids = (charIdsStr || '').split(',');
-    if (ids.includes('3') || ids.includes('6')) return 'super_dimensional';
+    if (ids.includes('3') || ids.includes('6') || ids.includes('17')) return 'super_dimensional';
     if (ids.includes('10')) return 'gr';
     return 'main';
 }
@@ -2168,7 +2168,7 @@ const deckSortableConfig = {
 
         const comboNames = item.dataset.comboNames || '';
 
-        if (charIds.includes('3') || charIds.includes('6')) {
+        if (charIds.includes('3') || charIds.includes('6') || charIds.includes('17')) {
             superDimList.appendChild(item);
             if (!checkLimit(name, nameLimit, superDimList, item, 8, "超次元ゾーン", comboNames)) {
                 item.remove();
