@@ -47,6 +47,7 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/mydecks", deckCtrl.MyDecks)
 	r.Get("/search", deckCtrl.Search)
 	r.Get("/decks/new", deckCtrl.Create)
+	r.Get("/decks/edit", deckCtrl.Edit)
 	r.Get("/decks/playtest", deckCtrl.Playtest)
 	r.Get("/decks/share", deckCtrl.Share)
 	r.Get("/users/decks", deckCtrl.UserPublicDecks)

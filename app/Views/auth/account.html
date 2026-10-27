@@ -106,16 +106,30 @@
 
     <!-- アカウント更新フォーム -->
     <form action="/account" method="POST">
+        <!-- ユーザーID表示 -->
+        <div class="form-group">
+            <label for="login_id">ユーザーID（ログインID） <small style="color:#e02424;">(5〜15文字の英数字と_)</small></label>
+            <input type="text" id="login_id" name="login_id" value="{{if .User}}{{.User.LoginID}}{{end}}" pattern="^[a-zA-Z0-9_]{5,15}$" title="5〜15文字の半角英数字およびアンダースコア(_)" required>
+        </div>
+
         <!-- ハンドルネーム -->
         <div class="form-group">
             <label for="username">ハンドルネーム</label>
-            <input type="text" id="username" name="username" value="{{if .User}}{{.User.Username}}{{end}}" required placeholder="新しいハンドルネーム">
+            <input type="text" id="username" name="username" value="{{if .User}}{{.User.Username}}{{end}}" required>
         </div>
 
         <!-- メールアドレス -->
         <div class="form-group">
-            <label for="email">メールアドレス</label>
-            <input type="email" id="email" name="email" value="{{if .User}}{{.User.Email}}{{end}}" required placeholder="example@example.com">
+            <label for="email">メールアドレス (任意)</label>
+            <input type="email" id="email" name="email" value="{{if .User}}{{.User.Email}}{{end}}" placeholder="未設定">
+        </div>
+
+        <!-- 二段階認証設定 -->
+        <div class="form-group" style="margin-top: -10px;">
+            <label style="display: flex; align-items: center; gap: 8px; font-weight: normal; cursor: pointer;">
+                <input type="checkbox" name="two_factor" value="1" {{if and .User .User.TwoFactorEnabled}}checked{{end}}>
+                ログイン時に二段階認証コードを要求する
+            </label>
         </div>
 
         <hr style="border: 0; border-top: 1px solid #eee; margin: 25px 0;">

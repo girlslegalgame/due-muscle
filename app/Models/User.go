@@ -142,11 +142,13 @@ func fetchAssoc(rows *sql.Rows) map[string]interface{} {
 }
 
 type UserEntity struct {
-	UserID       int    `db:"user_id"`
-	Username     string `db:"username"`
-	Email        string `db:"email"`
-	PasswordHash string `db:"password_hash"`
-	Role         string `db:"role"`
+	UserID           int    `db:"user_id"`
+	LoginID          string `db:"login_id"`
+	Username         string `db:"username"`
+	Email            string `db:"email"`
+	PasswordHash     string `db:"password_hash"`
+	Role             string `db:"role"`
+	TwoFactorEnabled bool   `db:"two_factor_enabled"`
 }
 
 /**
@@ -161,6 +163,46 @@ func (u *User) FindByID(userId int) (*UserEntity, error) {
 
 	var entity UserEntity
 	err = stmt.QueryRow(userId).Scan(&entity.UserID, &entity.Username, &entity.Email, &entity.PasswordHash, &entity.Role)
+	if err != nil {
+		return nil, err
+	}
+	return &entity, nil
+}
+
+/**
+ * ログインIDでユーザーを検索します。
+ */
+func (u *User) FindByLoginID(loginID string) (*UserEntity, error) {
+	stmt, err := u.db.Prepare("SELECT user_id, login_id, username, COALESCE(email, ''), password_hash, COALESCE(role, 'user'), two_factor_enabled FROM users WHERE login_id = ?")
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var entity UserEntity
+	err = stmt.QueryRow(loginID).Scan(&entity.UserID, &entity.LoginID, &entity.Username, &entity.Email, &entity.PasswordHash, &entity.Role, &entity.TwoFactorEnabled)
+	if err != nil {
+		return nil, err
+	}
+	return &entity, nil
+}
+/**
+ * ユーザーIDまたはメールアドレスでユーザーを検索します。
+ */
+func (u *User) FindByIdentifier(identifier string) (*UserEntity, error) {
+	stmt, err := u.db.Prepare(`
+		SELECT user_id, login_id, username, COALESCE(email, ''), password_hash, COALESCE(role, 'user'), two_factor_enabled 
+		FROM users 
+		WHERE login_id = ? OR (email IS NOT NULL AND email != '' AND email = ?)
+		LIMIT 1
+	`)
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	var entity UserEntity
+	err = stmt.QueryRow(identifier, identifier).Scan(&entity.UserID, &entity.LoginID, &entity.Username, &entity.Email, &entity.PasswordHash, &entity.Role, &entity.TwoFactorEnabled)
 	if err != nil {
 		return nil, err
 	}

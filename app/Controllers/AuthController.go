@@ -15,6 +15,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -41,7 +42,7 @@ func (c *AuthController) ShowRegisterForm(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/mydecks", http.StatusFound)
 		return
 	}
-	views.RenderView(w, r, "auth/register.go", map[string]interface{}{"errors": errors})
+	views.RenderView(w, r, "auth/register.html", map[string]interface{}{"errors": errors})
 }
 
 func (c *AuthController) ShowLoginForm(w http.ResponseWriter, r *http.Request, errors []string) {
@@ -150,81 +151,71 @@ func (c *AuthController) Login(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == http.MethodPost {
 		_ = r.ParseForm()
-		email := strings.TrimSpace(r.FormValue("email"))
+		loginID := strings.TrimSpace(r.FormValue("login_id"))
 		password := r.FormValue("password")
 
 		var errors []string
 
-		if email == "" || password == "" {
-			errors = append(errors, "メールアドレスとパスワードを入力してください。")
+		if loginID == "" || password == "" {
+			errors = append(errors, "ユーザーID（またはメールアドレス）とパスワードを入力してください。")
 		}
 
 		if len(errors) == 0 {
 			db, err := models.DatabaseConnect()
 			if err != nil {
-				log.Printf("DB接続エラー: %v", err)
 				c.ShowLoginForm(w, r, []string{"データベース接続に失敗しました: " + err.Error()})
 				return
 			}
 			userModel := models.NewUser(db)
 
-			user, err := userModel.FindByEmail(email)
+			// ★ FindByLoginID から FindByIdentifier に変更
+			user, err := userModel.FindByIdentifier(loginID)
 			if err != nil || user == nil {
-				log.Printf("[Login] ユーザーが見つかりません: email=%s, err=%v", email, err)
-				errors = append(errors, "メールアドレスまたはパスワードが間違っています。")
+				errors = append(errors, "ユーザーID（またはメールアドレス）かパスワードが間違っています。")
 			} else if bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)) != nil {
-				log.Printf("[Login] パスワード不一致: email=%s", email)
-				errors = append(errors, "メールアドレスまたはパスワードが間違っています。")
+				errors = append(errors, "ユーザーID（またはメールアドレス）かパスワードが間違っています。")
 			} else {
-				// ★ 認証成功時の処理
+				// ★ ローカル環境判定（RAILWAY環境変数が無い、またはホスト名等で判定）
 				isLocal := os.Getenv("RAILWAY_ENVIRONMENT") == ""
 
-				if isLocal || c.isKnownDevice(r, user) {
+				// ローカル環境の場合は設定値に関わらず二段階認証をスキップ
+				skip2FA := isLocal || !user.TwoFactorEnabled || user.Email == "" || c.isKnownDevice(r, user)
+
+				if skip2FA {
 					session := views.GetSession(r)
 					session["user_id"] = user.UserID
 					session["username"] = user.Username
 					role := user.Role
-					if role == "" {
-						role = "user"
-					}
+					if role == "" { role = "user" }
 					session["role"] = role
 					views.SaveSession(w, session)
 
 					c.saveDeviceCookie(w, user.UserID, user.PasswordHash)
-
 					http.Redirect(w, r, "/mydecks", http.StatusFound)
 					return
 				}
 
-				// 未知の端末（Railway本番等）：認証コード送信
+				// 二段階認証コード送信フロー
 				code := fmt.Sprintf("%06d", rand.Intn(1000000))
 				expiresAt := time.Now().Unix() + 600
 
-				// 先にメール送信を試行
 				subject := "【デュエ筋】ログイン認証コード"
-				body := "<p>ログインを完了するには、制限時間内に以下の認証コードを入力してください。</p>"
-				body += fmt.Sprintf("<h2 style='color:#007bff; letter-spacing:2px;'>%s</h2>", code)
-				body += "<p>有効期限: 10分間</p>"
+				body := fmt.Sprintf("<p>ログイン認証コード: <h2>%s</h2> 有効期限: 10分</p>", code)
 
 				if !c.sendEmail(user.Email, subject, body) {
-					c.ShowLoginForm(w, r, []string{"認証メールの送信に失敗しました。環境設定（BREVO_API_KEY等）を確認してください。"})
+					c.ShowLoginForm(w, r, []string{"認証メールの送信に失敗しました。"})
 					return
 				}
 
 				session := views.GetSession(r)
-				role := user.Role
-				if role == "" {
-					role = "user"
-				}
 				session["temp_login"] = map[string]interface{}{
 					"user_id":    user.UserID,
 					"username":   user.Username,
 					"email":      user.Email,
 					"code":       code,
 					"expires_at": expiresAt,
-					"role":       role,
+					"role":       user.Role,
 				}
-				session["success"] = "メールアドレスにログイン用の認証コードを送信しました。"
 				views.SaveSession(w, session)
 				http.Redirect(w, r, "/login/verify", http.StatusFound)
 				return
@@ -375,118 +366,124 @@ func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusFound)
 }
 
-/**
- * 新規登録処理（1ステップ目：入力検証と認証コード送信）
- */
+var loginIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{5,15}$`)
+
 func (c *AuthController) SendVerificationCode(w http.ResponseWriter, r *http.Request) {
+	session := views.GetSession(r)
+
+	// 1デバイス1アカウント制限チェック
+	if cookie, err := r.Cookie("device_has_registered"); err == nil && cookie.Value == "1" {
+		session["error"] = "この端末では既にアカウントが作成されています。1端末につき作成できるアカウントは1つまでです。"
+		views.SaveSession(w, session)
+		http.Redirect(w, r, "/register", http.StatusFound)
+		return
+	}
+
 	_ = r.ParseForm()
+	loginID := strings.TrimSpace(r.FormValue("login_id"))
 	username := strings.TrimSpace(r.FormValue("username"))
 	email := strings.TrimSpace(r.FormValue("email"))
 	password := r.FormValue("password")
 	passwordConfirm := r.FormValue("password_confirm")
-
-	session := views.GetSession(r)
-
-	if username == "" || email == "" || password == "" {
-		session["error"] = "すべての項目を入力してください。"
+	twoFactor := r.FormValue("two_factor") == "1"
+	if email == "" {
+		twoFactor = false
+	}
+	if !loginIDRegex.MatchString(loginID) {
+		session["error"] = "ユーザーIDは5〜15文字の半角英数字およびアンダースコア（_）で入力してください。"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/register", http.StatusFound)
 		return
 	}
 
-	if password != passwordConfirm {
-		session["error"] = "確認用のパスワードが一致しません。"
+	if username == "" || password == "" {
+		session["error"] = "ユーザー名とパスワードを入力してください。"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/register", http.StatusFound)
 		return
 	}
 
-	if len(password) < 8 {
-		session["error"] = "パスワードは8文字以上で設定してください。"
+	if password != passwordConfirm || len(password) < 8 {
+		session["error"] = "パスワードの入力内容をご確認ください（8文字以上、確認用と一致）。"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/register", http.StatusFound)
 		return
 	}
-
-	defer func() {
-		if e := recover(); e != nil {
-			session["error"] = fmt.Sprintf("登録処理中にエラーが発生しました: %v", e)
-			views.SaveSession(w, session)
-			http.Redirect(w, r, "/register", http.StatusFound)
-		}
-	}()
 
 	db, err := models.DatabaseConnect()
 	if err != nil {
-		// エラー処理（例: ログ出力やpanic、リダイレクトなど）
 		log.Printf("DB接続エラー: %v", err)
 		return
 	}
-	// 重複チェック
-	var existingUserId int
-	err = db.QueryRow("SELECT user_id FROM users WHERE email = ?", email).Scan(&existingUserId)
-	if err == nil {
-		session["error"] = "すでに使用されているメールアドレスです。"
+
+	// ユーザーID重複チェック
+	var exists int
+	if err := db.QueryRow("SELECT user_id FROM users WHERE login_id = ?", loginID).Scan(&exists); err == nil {
+		session["error"] = "このユーザーIDは既に使用されています。"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/register", http.StatusFound)
 		return
 	}
 
-	hashedBytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		panic(err)
+	// メールアドレス重複チェック（入力時のみ）
+	if email != "" {
+		if err := db.QueryRow("SELECT user_id FROM users WHERE email = ?", email).Scan(&exists); err == nil {
+			session["error"] = "このメールアドレスは既に使用されています。"
+			views.SaveSession(w, session)
+			http.Redirect(w, r, "/register", http.StatusFound)
+			return
+		}
+	} else {
+		twoFactor = false // メールが無ければ二段階認証は強制無効
 	}
+
+	hashedBytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	passwordHash := string(hashedBytes)
 
-	// ★ローカル環境判定（Railway等の環境変数がなければローカルとみなす）
+	// メール認証を行わない場合（メール未入力、二段階認証OFF、またはローカル環境）は即時本登録
 	isLocal := os.Getenv("RAILWAY_ENVIRONMENT") == ""
-
-	if isLocal {
-		// ローカル環境の場合はメール認証をスキップして即時本登録
-		res, err := db.Exec("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
-			username, email, passwordHash)
+	if email == "" || !twoFactor || isLocal {
+		res, err := db.Exec("INSERT INTO users (login_id, username, email, password_hash, two_factor_enabled, created_at, updated_at) VALUES (?, ?, NULLIF(?, ''), ?, ?, NOW(), NOW())",
+			loginID, username, email, passwordHash, twoFactor)
 		if err != nil {
-			panic(err)
+			session["error"] = "登録に失敗しました: " + err.Error()
+			views.SaveSession(w, session)
+			http.Redirect(w, r, "/register", http.StatusFound)
+			return
 		}
 
 		userId, _ := res.LastInsertId()
-
-		// ログインセッションの確立
 		session["user_id"] = userId
 		session["username"] = username
 		session["role"] = "user"
-
-		// 端末Cookieを保存
 		c.saveDeviceCookie(w, userId, passwordHash)
 
-		session["success"] = "アカウント登録が完了しました！（ローカル環境のため認証スキップ）"
+		// 端末作成済みCookieを付与（10年間有効）
+		http.SetCookie(w, &http.Cookie{
+			Name: "device_has_registered", Value: "1", Path: "/", MaxAge: 315360000, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+		})
+
+		session["success"] = "アカウント登録が完了しました！"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/mydecks", http.StatusFound)
 		return
 	}
 
-	// 6桁の認証コード生成
+	// メール認証が必要な場合（メールあり かつ 二段階認証ON）
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
-	expiresAt := time.Now().Unix() + 600 // 10分有効
+	expiresAt := time.Now().Unix() + 600
 
-	// 登録データをセッションに一時保存（パスワードはハッシュ化）
 	session["temp_register"] = map[string]interface{}{
-		"username":      username,
-		"email":         email,
-		"password_hash": passwordHash,
-		"code":          code,
-		"expires_at":    expiresAt,
+		"login_id":           loginID,
+		"username":           username,
+		"email":              email,
+		"password_hash":      passwordHash,
+		"two_factor_enabled": twoFactor,
+		"code":               code,
+		"expires_at":         expiresAt,
 	}
 
-	// 新規登録用認証コードを送信
-	subject := "【デュエ筋】アカウント新規作成 認証コード"
-	body := "<p>アカウント登録を完了するには、制限時間内に以下の認証コードを入力してください。</p>"
-	body += fmt.Sprintf("<h2 style='color:#007bff; letter-spacing:2px;'>%s</h2>", code)
-	body += "<p>有効期限: 10分間</p>"
-
-	c.sendEmail(email, subject, body)
-
-	session["success"] = "メールアドレスに新規登録用の認証コードを送信しました。"
+	c.sendEmail(email, "【デュエ筋】アカウント新規作成 認証コード", fmt.Sprintf("認証コード: %s (有効期限10分)", code))
 	views.SaveSession(w, session)
 	http.Redirect(w, r, "/register/verify", http.StatusFound)
 }
@@ -561,36 +558,40 @@ func (c *AuthController) VerifyRegister(w http.ResponseWriter, r *http.Request) 
 		log.Printf("DB接続エラー: %v", err)
 		return
 	}
-	// 最終重複チェック（送信中に同一アドレスで登録された場合のケア）
+
+	loginIDStr, _ := tempUser["login_id"].(string)
+	emailStr, _ := tempUser["email"].(string)
+	twoFactorVal, _ := tempUser["two_factor_enabled"].(bool)
+	pwdHash, _ := tempUser["password_hash"].(string)
+
 	var existingUserId int
-	err = db.QueryRow("SELECT user_id FROM users WHERE email = ?", tempUser["email"]).Scan(&existingUserId)
+	err = db.QueryRow("SELECT user_id FROM users WHERE login_id = ? OR (? != '' AND email = ?)", 
+		loginIDStr, emailStr, emailStr).Scan(&existingUserId)
 	if err == nil {
 		delete(session, "temp_register")
-		session["error"] = "すでに登録されているメールアドレスです。"
+		session["error"] = "すでに登録されているユーザーIDまたはメールアドレスです。"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/register", http.StatusFound)
 		return
 	}
 
-	// DBに正式登録（新規登録時は role の初期値 'user' が適用されます）
-	res, err := db.Exec("INSERT INTO users (username, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())",
-		tempUser["username"], tempUser["email"], tempUser["password_hash"])
+	res, err := db.Exec("INSERT INTO users (login_id, username, email, password_hash, two_factor_enabled, created_at, updated_at) VALUES (?, ?, NULLIF(?, ''), ?, ?, NOW(), NOW())",
+		loginIDStr, tempUser["username"].(string), emailStr, pwdHash, twoFactorVal)
 	if err != nil {
 		panic(err)
 	}
 
 	userId, _ := res.LastInsertId()
-
-	// ログインセッションの確立
 	session["user_id"] = userId
 	session["username"] = tempUser["username"]
-	session["role"] = "user" // ★追加: 新規登録時は一律で 'user'
+	session["role"] = "user"
 
-	// ==========================================
-	// ★【追加箇所】登録を行ったこの端末を「既知の端末」として保存します
-	// ==========================================
-	c.saveDeviceCookie(w, userId, tempUser["password_hash"].(string))
-	// ==========================================
+	c.saveDeviceCookie(w, userId, pwdHash)
+
+	// ★ 端末作成済みCookieを付与
+	http.SetCookie(w, &http.Cookie{
+		Name: "device_has_registered", Value: "1", Path: "/", MaxAge: 315360000, HttpOnly: true, SameSite: http.SameSiteLaxMode,
+	})
 
 	delete(session, "temp_register") // 一時データの消去
 
@@ -615,17 +616,19 @@ func (c *AuthController) ShowAccountForm(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var username, email string
-	err = db.QueryRowContext(r.Context(), "SELECT username, email FROM users WHERE user_id = ?", userID).Scan(&username, &email)
-	if err != nil {
-		http.Error(w, "ユーザー情報の取得に失敗しました", http.StatusInternalServerError)
-		return
-	}
+	// ShowAccountForm: SELECT句に login_id, two_factor_enabled を追加
+	var username, email, loginID string
+	var twoFactor bool
+	err = db.QueryRowContext(r.Context(), "SELECT login_id, username, COALESCE(email, ''), two_factor_enabled FROM users WHERE user_id = ?", userID).
+		Scan(&loginID, &username, &email, &twoFactor)
 
+// dataマップに詰め直す
 	data := map[string]interface{}{
 		"User": map[string]interface{}{
-			"Username": username,
-			"Email":    email,
+			"LoginID":          loginID,
+			"Username":         username,
+			"Email":            email,
+			"TwoFactorEnabled": twoFactor,
 		},
 	}
 
@@ -643,17 +646,32 @@ func (c *AuthController) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// UpdateAccount メソッド内のフォーム取得〜更新処理部分
 	_ = r.ParseForm()
+	loginID := strings.TrimSpace(r.FormValue("login_id")) // ★追加
 	username := strings.TrimSpace(r.FormValue("username"))
 	email := strings.TrimSpace(r.FormValue("email"))
 	password := r.FormValue("password")
 	passwordConfirm := r.FormValue("password_confirm")
 
-	if username == "" || email == "" {
-		session["error"] = "ユーザー名とメールアドレスは必須です。"
+	// ★追加: ユーザーIDの形式チェック
+	if !loginIDRegex.MatchString(loginID) {
+		session["error"] = "ユーザーIDは5〜15文字の半角英数字およびアンダースコア（_）で入力してください。"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/account", http.StatusFound)
 		return
+	}
+
+	if username == "" {
+		session["error"] = "ユーザー名は必須です。"
+		views.SaveSession(w, session)
+		http.Redirect(w, r, "/account", http.StatusFound)
+		return
+	}
+
+	twoFactor := r.FormValue("two_factor") == "1"
+	if email == "" {
+		twoFactor = false
 	}
 
 	defer func() {
@@ -666,17 +684,29 @@ func (c *AuthController) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 
 	db, err := models.DatabaseConnect()
 	if err != nil {
-		// エラー処理（例: ログ出力やpanic、リダイレクトなど）
 		log.Printf("DB接続エラー: %v", err)
 		return
 	}
+
+	// ★追加: 他のユーザーとのユーザーID重複チェック
 	var existingUserId int
-	err = db.QueryRow("SELECT user_id FROM users WHERE email = ? AND user_id != ?", email, userId).Scan(&existingUserId)
+	err = db.QueryRow("SELECT user_id FROM users WHERE login_id = ? AND user_id != ?", loginID, userId).Scan(&existingUserId)
 	if err == nil {
-		session["error"] = "このメールアドレスは既に他のアカウントで使用されています。"
+		session["error"] = "このユーザーIDは既に他のアカウントで使用されています。"
 		views.SaveSession(w, session)
 		http.Redirect(w, r, "/account", http.StatusFound)
 		return
+	}
+
+	// メール重複チェック（メールが入力されている場合のみチェック）
+	if email != "" {
+		err = db.QueryRow("SELECT user_id FROM users WHERE email = ? AND user_id != ?", email, userId).Scan(&existingUserId)
+		if err == nil {
+			session["error"] = "このメールアドレスは既に他のアカウントで使用されています。"
+			views.SaveSession(w, session)
+			http.Redirect(w, r, "/account", http.StatusFound)
+			return
+		}
 	}
 
 	if password != "" {
@@ -699,14 +729,16 @@ func (c *AuthController) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 		hashedPassword := string(hashedBytes)
 
-		_, err = db.Exec("UPDATE users SET username = ?, email = ?, password_hash = ?, updated_at = NOW() WHERE user_id = ?",
-			username, email, hashedPassword, userId)
+		// ★ login_id を UPDATE に追加
+		_, err = db.Exec("UPDATE users SET login_id = ?, username = ?, email = NULLIF(?, ''), two_factor_enabled = ?, password_hash = ?, updated_at = NOW() WHERE user_id = ?",
+			loginID, username, email, twoFactor, hashedPassword, userId)
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		_, err := db.Exec("UPDATE users SET username = ?, email = ?, updated_at = NOW() WHERE user_id = ?",
-			username, email, userId)
+		// ★ login_id を UPDATE に追加
+		_, err := db.Exec("UPDATE users SET login_id = ?, username = ?, email = NULLIF(?, ''), two_factor_enabled = ?, updated_at = NOW() WHERE user_id = ?",
+			loginID, username, email, twoFactor, userId)
 		if err != nil {
 			panic(err)
 		}

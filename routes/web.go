@@ -35,6 +35,7 @@ func RegisterRoutes(r *gin.Engine) {
 	r.GET("/mydecks", gin.WrapF(deckCtrl.MyDecks))
 	r.GET("/search", gin.WrapF(deckCtrl.Search))
 	r.GET("/decks/new", gin.WrapF(deckCtrl.Create))
+	r.GET("/decks/edit", gin.WrapF(deckCtrl.Edit))
 	r.GET("/decks/playtest", gin.WrapF(deckCtrl.Playtest))
 
 	// API: カード関連 (CardController)
