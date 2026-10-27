@@ -62,12 +62,140 @@ const CcfoliaExporter = (function () {
         else if (blob.type === 'image/jpeg') ext = 'jpeg';
         const filename = `${hash}.${ext}`;
         if (!resourcesObj[filename]) {
-            // ★ BlobをArrayBufferとして確実にZIPへ書き込む
             const buffer = await blob.arrayBuffer();
             zip.file(filename, buffer);
             resourcesObj[filename] = { type: blob.type || 'image/png' };
         }
         return filename;
+    }
+
+    /**
+     * 単一カードのmemo文字列を組み立てる（index.htmlと完全同一仕様）
+     */
+    function buildSingleCardMemo(cardData) {
+        if (!cardData) return '';
+        let line1Parts = [];
+        const cardName = cardData.card_name ? cardData.card_name.trim() : '';
+        if (cardName) line1Parts.push(cardName);
+
+        let civs = [];
+        const rawCivs = cardData.civ_ids || cardData.civilization || '';
+        if (rawCivs) {
+            civs = String(rawCivs).split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+        }
+        const civNamesMap = { 1: '光', 2: '水', 3: '闇', 4: '火', 5: '自然', 6: 'ゼロ' };
+        if (civs.length > 0) {
+            civs.sort((a, b) => a - b);
+            let civStr = civs.map(id => civNamesMap[id]).filter(Boolean).join('/');
+            if (civStr) line1Parts.push(civStr + '文明');
+        }
+
+        if (cardData.cost !== null && cardData.cost !== undefined && cardData.cost !== '') {
+            line1Parts.push(`(${cardData.cost})`);
+        }
+        let line1 = line1Parts.join('　');
+
+        let cardTypeStr = cardData.typename || cardData.cardtype_names || cardData.cardtype_name || '';
+        let raceStr = cardData.race_names || cardData.race_name || '';
+        let cardTypeIds = cardData.cardtype_ids ? String(cardData.cardtype_ids).split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : [];
+        let raceIds = cardData.race_ids ? String(cardData.race_ids).split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : [];
+
+        let isNonCreatureWithNoRace = (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) && (raceIds.length === 0 || (raceIds.length === 1 && raceIds[0] === 1));
+        let line2Head = isNonCreatureWithNoRace ? cardTypeStr : [cardTypeStr, raceStr || (cardTypeIds.length > 0 && !cardTypeIds.includes(1) ? '(種族なし)' : '')].filter(Boolean).join('：');
+        let line2Pow = (cardData.pow !== null && cardData.pow !== undefined && cardData.pow !== '') ? cardData.pow : '';
+        let line2 = (line2Head && line2Pow) ? `${line2Head}　${line2Pow}` : (line2Head || line2Pow);
+
+        let text = cardData.text ? cardData.text.trim() : '';
+        let memoLines = [];
+        if (line1) memoLines.push(line1);
+        if (line2) memoLines.push(line2);
+        if (text) memoLines.push(text);
+
+        return memoLines.join('\n');
+    }
+
+    /**
+     * ツインパクト・ハイパーモード等の面構成を考慮した完成版memoを生成
+     */
+    function createCardMemo(card) {
+        if (!card) return '';
+
+        // 面配列（combination_sides）が存在する場合（create.html用）
+        if (Array.isArray(card.combination_sides) && card.combination_sides.length >= 2) {
+            const isTwin = card.twinpact == 1 || card.twinpact === '1' || card.combination_sides.some(s => s.twinpact == 1);
+            if (isTwin) {
+                const topMemo = buildSingleCardMemo(card.combination_sides[0]);
+                const btmMemo = buildSingleCardMemo(card.combination_sides[1]);
+                return `上面\n${topMemo}\n\n下面\n${btmMemo}`;
+            }
+        }
+
+        // ダミーカードのツインパクトの場合
+        if (card.is_dummy && (card.dummy_card_type === 'twinpact' || card.dummy_partner_name)) {
+            const topData = {
+                card_name: card.card_name,
+                cost: card.cost,
+                civ_ids: card.civ_ids,
+                typename: card.typename || '',
+                race_names: card.race_names || '',
+                text: ''
+            };
+            const btmData = {
+                card_name: card.dummy_partner_name,
+                cost: card.dummy_partner_cost,
+                civ_ids: card.dummy_partner_civ_ids || card.civ_ids,
+                typename: card.partner_typename || '',
+                race_names: card.partner_race_names || '',
+                text: ''
+            };
+            return `上面\n${buildSingleCardMemo(topData)}\n\n下面\n${buildSingleCardMemo(btmData)}`;
+        }
+
+        // index.html互換形式（partner_* プロパティが存在する場合）
+        const isTwinpact = card.twinpact == 1 || card.twinpact === '1' || card.twinpact === true;
+        const hasCombination = !!card.combination_id && !!card.partner_card_id;
+        const isSelfHyper = card.hypermode == 1 || card.hypermode === '1';
+        const isPartnerHyper = card.partner_hypermode == 1 || card.partner_hypermode === '1';
+        const isHypermode = hasCombination && (isSelfHyper || isPartnerHyper);
+
+        if (hasCombination && (isTwinpact || isHypermode)) {
+            const selfId = parseInt(card.card_id);
+            const partnerId = parseInt(card.partner_card_id);
+
+            const selfData = { ...card, card_id: selfId, is_hyper: isSelfHyper };
+            const partnerData = {
+                card_id: partnerId,
+                card_name: card.partner_card_name,
+                cost: card.partner_cost,
+                pow: card.partner_pow,
+                text: card.partner_text || '',
+                civ_ids: card.partner_civ_ids,
+                typename: card.partner_typename,
+                cardtype_ids: card.partner_cardtype_ids,
+                race_ids: card.partner_race_ids,
+                race_names: card.partner_race_names,
+                is_hyper: isPartnerHyper
+            };
+
+            const minCard = selfId < partnerId ? selfData : partnerData;
+            const otherCard = selfId < partnerId ? partnerData : selfData;
+
+            if (isHypermode) {
+                const hyperCard = minCard.is_hyper ? minCard : otherCard;
+                const baseCard = minCard.is_hyper ? otherCard : minCard;
+                const baseMemo = buildSingleCardMemo(minCard);
+                let hyperOnlyText = hyperCard.text || '';
+                if (baseCard.text) hyperOnlyText = hyperOnlyText.split(baseCard.text).join('').trim();
+                const hyperPowStr = hyperCard.pow ? `　${hyperCard.pow}` : '';
+                return `${baseMemo}\n\nハイパーモード${hyperPowStr}${hyperOnlyText ? '\n' + hyperOnlyText : ''}`;
+            }
+
+            if (isTwinpact) {
+                return `上面\n${buildSingleCardMemo(minCard)}\n\n下面\n${buildSingleCardMemo(otherCard)}`;
+            }
+        }
+
+        return buildSingleCardMemo(card);
     }
 
     /**
@@ -83,7 +211,6 @@ const CcfoliaExporter = (function () {
 
         const zip = new JSZip();
 
-        // ★修正: .token がサーバーに実在する場合のみ追加し、取得できない(404等)時は空ファイルを作らない
         try {
             const tokenRes = await fetch('/images/.token');
             if (tokenRes.ok) {
@@ -92,9 +219,7 @@ const CcfoliaExporter = (function () {
                     zip.file('.token', await tokenBlob.arrayBuffer());
                 }
             }
-        } catch (e) {
-            // 失敗時は .token を一切含めない（デッキ・カード単体インポートとして扱う）
-        }
+        } catch (e) {}
 
         const resourcesObj = {};
         const decksObj = {};
@@ -120,7 +245,7 @@ const CcfoliaExporter = (function () {
         }
 
         // 2. サブデッキ群
-        let posX = 3; // ★ここで確実に定義
+        let posX = 3;
         if (options.subDecks && options.subDecks.length > 0) {
             for (const sub of options.subDecks) {
                 if (!sub.cards || sub.cards.length === 0) continue;
@@ -183,6 +308,8 @@ const CcfoliaExporter = (function () {
     return { 
         buildZip,
         generateId,
-        calculateSha256
+        calculateSha256,
+        createCardMemo,
+        buildSingleCardMemo
     };
 })();

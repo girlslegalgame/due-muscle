@@ -1,0 +1,799 @@
+<!-- app/Views/deck/dummy_cards_partial.html -->
+{{define "dummy_cards_partial"}}
+<!-- ダミーカード作成モーダル -->
+<div id="dummyCardModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
+        <div class="sub-modal-header" style="background: #fd7e14;">
+            <span>未実装カードの追加</span>
+            <span onclick="closeDummyCardModal()" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="background: #fff8f0; border: 1px solid #fed7aa; border-radius: 6px; padding: 10px; font-size: 11px; color: #7c2d12; line-height: 1.5;">
+                <span style="font-weight: bold; display: block; margin-bottom: 2px;">【カード情報の自動反映について】</span>
+                データベースに同名カードが追加された際、自動的にそちらのカード画像・情報へと置き換わります。<br>
+                ※ツインパクトや両面カードは、組み合わせ（上面/下面、表面/裏面）の両方が完全一致した場合のみ置き換わります。
+            </div>
+
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 5px;">カード形式</label>
+                <div style="display: flex; gap: 10px;">
+                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="normal" checked onchange="toggleDummyCardType('create')"> 通常</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="twinpact" onchange="toggleDummyCardType('create')"> ツインパクト</label>
+                    <label style="font-size: 13px; cursor: pointer;"><input type="radio" name="dummy-type" value="double" onchange="toggleDummyCardType('create')"> 両面カード</label>
+                </div>
+            </div>
+
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px;">所属ゾーン</label>
+                <select id="dummy-input-zone" style="width:100%; padding:8px; border:1px solid #ccc; border-radius:6px; background:#fff;">
+                    <option value="main">メインデッキ</option>
+                    <option value="super_dimensional">超次元ゾーン</option>
+                    <option value="gr">超GRゾーン</option>
+                </select>
+                <span id="dummy-zone-hint" style="display: none; font-size: 11px; color: #dc3545; margin-top: 2px;">※両面カードは超次元ゾーン限定となります。</span>
+            </div>
+
+            <!-- 第1面（上面／表面） -->
+            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span id="dummy-face1-title" style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">カード情報</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名 <span style="color:red;">*</span></label>
+                    <input type="text" id="dummy-input-name" placeholder="カード名を入力" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
+                        <input type="number" id="dummy-input-cost" placeholder="例: 5" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第2面（下面／裏面） -->
+            <div id="dummy-partner-section" style="display: none; background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span id="dummy-face2-title" style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">下面 / 裏面情報</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名</label>
+                    <input type="text" id="dummy-input-partner-name" placeholder="第2面のカード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
+                        <input type="number" id="dummy-input-partner-cost" placeholder="例: 3" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-partner-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- プレビュー表示 -->
+            <div class="dummy-preview-wrapper">
+                <div class="dummy-preview-col">
+                    <span id="dummy-preview-label1" style="display:none; font-size: 11px; font-weight: bold; color: #555;">表面</span>
+                    <img id="dummy-preview-img">
+                </div>
+                <div id="dummy-preview-back-wrap" class="dummy-preview-col" style="display: none;">
+                    <span style="font-size: 11px; font-weight: bold; color: #555;">裏面</span>
+                    <img id="dummy-preview-back-img">
+                </div>
+            </div>
+        </div>
+        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button type="button" onclick="closeDummyCardModal()" style="flex:1; padding:8px; background:#f2f2f7; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">キャンセル</button>
+            <button type="button" onclick="createAndAddDummyCard()" style="flex:2; padding:8px; background:#fd7e14; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">デッキに追加</button>
+        </div>
+    </div>
+</div>
+
+<!-- 通常ダミーカード編集モーダル -->
+<div id="dummyEditModal-normal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
+        <div class="sub-modal-header" style="background: #e67e22;">
+            <span>通常カードの編集</span>
+            <span onclick="closeDummyEditModal('normal')" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
+                <span style="font-weight: bold; font-size: 13px;">採用枚数</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(-1)">-</button>
+                    <span id="dummy-edit-normal-qty" style="font-weight:bold; font-size:16px;">1</span> 枚
+                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(1)">+</button>
+                </div>
+            </div>
+            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カード名 <span style="color:red;">*</span></label>
+                    <input type="text" id="dummy-edit-normal-name" placeholder="カード名を入力" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
+                    <input type="number" id="dummy-edit-normal-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-normal-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: center; background: #eee; padding: 10px; border-radius: 6px;">
+                <img id="dummy-edit-normal-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
+            </div>
+        </div>
+        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:8px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
+            <button type="button" onclick="openReplaceCardSelector()" style="flex:1.5; padding:8px; background:#17a2b8; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">実在カードに置換</button>
+            <button type="button" onclick="saveDummyCardEdit('normal')" style="flex:2; padding:8px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ツインパクトダミーカード編集モーダル -->
+<div id="dummyEditModal-twinpact" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
+        <div class="sub-modal-header" style="background: #e67e22;">
+            <span>ツインパクトカードの編集</span>
+            <span onclick="closeDummyEditModal('twinpact')" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
+                <span style="font-weight: bold; font-size: 13px;">採用枚数</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(-1)">-</button>
+                    <span id="dummy-edit-twinpact-qty" style="font-weight:bold; font-size:16px;">1</span> 枚
+                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(1)">+</button>
+                </div>
+            </div>
+            <!-- 上面 -->
+            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">上面（クリーチャー等）</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">上面 カード名 <span style="color:red;">*</span></label>
+                    <input type="text" id="dummy-edit-twinpact-name" placeholder="上面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">上面 コスト</label>
+                    <input type="number" id="dummy-edit-twinpact-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">上面 文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+            <!-- 下面 -->
+            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">下面（呪文等）</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">下面 カード名</label>
+                    <input type="text" id="dummy-edit-twinpact-partner-name" placeholder="下面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">下面 コスト</label>
+                    <input type="number" id="dummy-edit-twinpact-partner-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">下面 文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-twinpact-partner-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+            <div style="display: flex; justify-content: center; background: #eee; padding: 10px; border-radius: 6px;">
+                <img id="dummy-edit-twinpact-preview-img" style="width:110px; height:154px; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,0.2); display: block;">
+            </div>
+        </div>
+        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:8px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
+            <button type="button" onclick="openReplaceCardSelector()" style="flex:1.5; padding:8px; background:#17a2b8; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">実在カードに置換</button>
+            <button type="button" onclick="saveDummyCardEdit('twinpact')" style="flex:2; padding:8px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- 両面ダミーカード編集モーダル -->
+<div id="dummyEditModal-double" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 440px; height: auto; max-height: 90vh; margin: 5vh auto; overflow-y: auto;">
+        <div class="sub-modal-header" style="background: #e67e22;">
+            <span>両面カードの編集</span>
+            <span onclick="closeDummyEditModal('double')" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 15px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; background: #f8f9fa; padding: 6px 12px; border-radius: 6px; border: 1px solid #eee;">
+                <span style="font-weight: bold; font-size: 13px;">採用枚数</span>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(-1)">-</button>
+                    <span id="dummy-edit-double-qty" style="font-weight:bold; font-size:16px;">1</span> 枚
+                    <button type="button" class="btn-qty" style="width:30px; height:30px;" onclick="adjustDummyQty(1)">+</button>
+                </div>
+            </div>
+            <!-- 表面 -->
+            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">表面</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">表面 カード名 <span style="color:red;">*</span></label>
+                    <input type="text" id="dummy-edit-double-name" placeholder="表面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">表面 コスト</label>
+                    <input type="number" id="dummy-edit-double-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">表面 文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+            <!-- 裏面 -->
+            <div style="background: #fdfdfd; border: 1px solid #ddd; padding: 10px; border-radius: 6px;">
+                <span style="font-weight: bold; font-size: 12px; color: #333; margin-bottom: 6px; display: block;">裏面（覚醒後など）</span>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">裏面 カード名</label>
+                    <input type="text" id="dummy-edit-double-partner-name" placeholder="裏面カード名" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">裏面 コスト</label>
+                    <input type="number" id="dummy-edit-double-partner-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size: 12px; display: block; margin-bottom: 4px;">裏面 文明</label>
+                    <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="1"> 光</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="2"> 水</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="3"> 闇</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="4"> 火</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="5"> 自然</label>
+                        <label style="font-size: 11px; padding: 4px;"><input type="checkbox" class="dummy-edit-double-partner-civ-check" value="6"> ゼロ</label>
+                    </div>
+                </div>
+            </div>
+            <!-- プレビュー -->
+            <div class="dummy-preview-wrapper">
+                <div class="dummy-preview-col">
+                    <span style="font-size: 11px; font-weight: bold; color: #555;">表面</span>
+                    <img id="dummy-edit-double-preview-img">
+                </div>
+                <div class="dummy-preview-col">
+                    <span style="font-size: 11px; font-weight: bold; color: #555;">裏面</span>
+                    <img id="dummy-edit-double-preview-back-img">
+                </div>
+            </div>
+        </div>
+        <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:8px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
+            <button type="button" onclick="openReplaceCardSelector()" style="flex:1.5; padding:8px; background:#17a2b8; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">実在カードに置換</button>
+            <button type="button" onclick="saveDummyCardEdit('double')" style="flex:2; padding:8px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ダミー置換用カード選択モーダル -->
+<div id="replaceCardSelectModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 450px; height: 80vh;">
+        <div class="sub-modal-header" style="background: #17a2b8;">
+            <span>置き換える実在カードを検索・選択</span>
+            <span onclick="closeReplaceCardSelector()" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div style="padding: 12px;">
+            <input type="text" id="replace-card-search-input" placeholder="カード名を入力して検索..." style="width:100%; padding:10px; border:1px solid #ccc; border-radius:6px; box-sizing:border-box; font-size:14px;" autocomplete="off">
+        </div>
+        <div id="replace-card-results" class="sub-modal-body" style="padding: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; align-content: start;">
+        </div>
+    </div>
+</div>
+
+<script>
+// --- ダミーカード生成 & モーダル関連処理 ---
+function openDummyCardModal() {
+    document.getElementById('dummyCardModal').style.display = 'block';
+    updateDummyPreview();
+}
+
+function closeDummyCardModal() {
+    document.getElementById('dummyCardModal').style.display = 'none';
+}
+
+const CIV_COLORS = {
+    '1': '#f1c40f',
+    '2': '#3498db',
+    '3': '#34495e',
+    '4': '#e74c3c',
+    '5': '#2ecc71',
+    '6': '#95a5a6'
+};
+
+function toggleDummyCardType(mode = 'create') {
+    const isEditMode = (mode === 'edit');
+    const prefix = isEditMode ? 'dummy-edit-' : 'dummy-';
+    
+    const checkedRadio = document.querySelector('input[name="' + (isEditMode ? 'dummy-edit-type' : 'dummy-type') + '"]:checked');
+    const type = checkedRadio ? checkedRadio.value : 'normal';
+    const partnerSection = document.getElementById(prefix + 'partner-section');
+    const face1Title = document.getElementById(prefix + 'face1-title');
+    const face2Title = document.getElementById(prefix + 'face2-title');
+
+    if (type === 'normal') {
+        if (partnerSection) partnerSection.style.display = 'none';
+        if (face1Title) face1Title.innerText = 'カード情報';
+    } else if (type === 'twinpact') {
+        if (partnerSection) partnerSection.style.display = 'block';
+        if (face1Title) face1Title.innerText = '上面（クリーチャー等）';
+        if (face2Title) face2Title.innerText = '下面（呪文等）';
+    } else if (type === 'double') {
+        if (partnerSection) partnerSection.style.display = 'block';
+        if (face1Title) face1Title.innerText = '表面';
+        if (face2Title) face2Title.innerText = '裏面（覚醒後など）';
+    }
+
+    if (isEditMode) {
+        updateDummyEditPreview();
+    } else {
+        updateDummyPreview();
+    }
+}
+
+function updateDummyPreview() {
+    const checkedTypeRadio = document.querySelector('input[name="dummy-type"]:checked');
+    const type = checkedTypeRadio ? checkedTypeRadio.value : 'normal';
+    const name = document.getElementById('dummy-input-name').value.trim();
+    const cost = document.getElementById('dummy-input-cost').value;
+    const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
+
+    const pName = document.getElementById('dummy-input-partner-name').value.trim();
+    const pCost = document.getElementById('dummy-input-partner-cost').value;
+    const pCivs = Array.from(document.querySelectorAll('.dummy-partner-civ-check:checked')).map(c => c.value);
+
+    const backWrap = document.getElementById('dummy-preview-back-wrap');
+    const label1 = document.getElementById('dummy-preview-label1');
+
+    if (type === 'double') {
+        document.getElementById('dummy-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), 'double');
+        document.getElementById('dummy-preview-back-img').src = generateDummyCardImage(pName || '裏面カード名', pCost, pCivs.join(','), 'double');
+        backWrap.style.display = 'flex';
+        label1.style.display = 'block';
+    } else {
+        document.getElementById('dummy-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
+        backWrap.style.display = 'none';
+        label1.style.display = 'none';
+    }
+}
+
+document.getElementById('dummy-input-name').addEventListener('input', updateDummyPreview);
+document.getElementById('dummy-input-cost').addEventListener('input', updateDummyPreview);
+document.querySelectorAll('.dummy-civ-check').forEach(el => el.addEventListener('change', updateDummyPreview));
+document.getElementById('dummy-input-partner-name').addEventListener('input', updateDummyPreview);
+document.getElementById('dummy-input-partner-cost').addEventListener('input', updateDummyPreview);
+document.querySelectorAll('.dummy-partner-civ-check').forEach(el => el.addEventListener('change', updateDummyPreview));
+
+function createAndAddDummyCard() {
+    const type = document.querySelector('input[name="dummy-type"]:checked').value;
+    const name = document.getElementById('dummy-input-name').value.trim();
+    if (!name) {
+        alert("カード名を入力してください。");
+        return;
+    }
+    const cost = document.getElementById('dummy-input-cost').value;
+    const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
+
+    const pName = document.getElementById('dummy-input-partner-name').value.trim();
+    const pCost = document.getElementById('dummy-input-partner-cost').value;
+    const pCivs = Array.from(document.querySelectorAll('.dummy-partner-civ-check:checked')).map(c => c.value);
+
+    const zone = (type === 'double') ? 'super_dimensional' : document.getElementById('dummy-input-zone').value;
+
+    const dummyId = 'dummy_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const dataUrl = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
+
+    let charIds = (zone === 'super_dimensional') ? '3' : (zone === 'gr' ? '10' : '');
+
+    const cardObj = {
+        card_id: dummyId,
+        card_name: name,
+        cost: cost !== '' ? parseInt(cost, 10) : null,
+        civ_ids: civs.join(','),
+        civilization: civs.join(','),
+        char_ids: charIds,
+        image_data_url: dataUrl,
+        imagepath: dataUrl,
+        card_limit: 99,
+        is_dummy: true,
+        dummy_card_type: type,
+        dummy_partner_name: pName,
+        dummy_partner_cost: pCost !== '' ? parseInt(pCost, 10) : null,
+        dummy_partner_civ_ids: pCivs.join(','),
+        text: type === 'twinpact' 
+            ? '【上面】' + name + ' (コスト:' + (cost || '?') + ')\n【下面】' + pName + ' (コスト:' + (pCost || '?') + ')'
+            : (type === 'double' ? '【表面】' + name + '\n【裏面】' + pName : 'カード名: ' + name + '\nコスト: ' + (cost || '?'))
+    };
+
+    addCardToDeck(cardObj, zone);
+    closeDummyCardModal();
+
+    document.getElementById('dummy-input-name').value = '';
+    document.getElementById('dummy-input-cost').value = '';
+    document.getElementById('dummy-input-partner-name').value = '';
+    document.getElementById('dummy-input-partner-cost').value = '';
+    document.querySelectorAll('.dummy-civ-check, .dummy-partner-civ-check').forEach(c => c.checked = false);
+}
+
+// --- ダミーカード編集 ---
+let currentEditingDummyEl = null;
+let currentEditingDummyType = 'normal';
+let currentEditingDummyName = '';
+
+function openDummyEditModal(el) {
+    const name = el.dataset.cardName || '';
+    currentEditingDummyName = name;
+
+    const cost = el.dataset.cost || '';
+    const civs = (el.dataset.civ || '').split(',').filter(Boolean);
+    const cardType = el.dataset.dummyCardType || 'normal';
+    currentEditingDummyType = cardType;
+
+    const pName = el.dataset.dummyPartnerName || '';
+    const pCost = el.dataset.dummyPartnerCost || '';
+    const pCivs = (el.dataset.dummyPartnerCivIds || '').split(',').filter(Boolean);
+
+    const parent = el.parentNode;
+    const sameCards = parent.querySelectorAll('img[data-card-name="' + escapeSelectorValue(name) + '"]');
+    const qtyEl = document.getElementById('dummy-edit-' + cardType + '-qty');
+    if (qtyEl) qtyEl.innerText = sameCards.length;
+
+    document.getElementById('dummy-edit-' + cardType + '-name').value = name;
+    document.getElementById('dummy-edit-' + cardType + '-cost').value = cost;
+    document.querySelectorAll('.dummy-edit-' + cardType + '-civ-check').forEach(cb => {
+        cb.checked = civs.includes(cb.value);
+    });
+
+    if (cardType === 'twinpact' || cardType === 'double') {
+        document.getElementById('dummy-edit-' + cardType + '-partner-name').value = pName;
+        document.getElementById('dummy-edit-' + cardType + '-partner-cost').value = pCost;
+        document.querySelectorAll('.dummy-edit-' + cardType + '-partner-civ-check').forEach(cb => {
+            cb.checked = pCivs.includes(cb.value);
+        });
+    }
+
+    updateDummySpecificEditPreview(cardType);
+
+    const targetModal = document.getElementById('dummyEditModal-' + cardType);
+    if (targetModal) targetModal.style.display = 'block';
+}
+
+function closeDummyEditModal(type) {
+    const t = type || currentEditingDummyType;
+    const targetModal = document.getElementById('dummyEditModal-' + t);
+    if (targetModal) targetModal.style.display = 'none';
+}
+
+function updateDummySpecificEditPreview(type) {
+    const name = document.getElementById('dummy-edit-' + type + '-name').value.trim();
+    const cost = document.getElementById('dummy-edit-' + type + '-cost').value;
+    const civs = Array.from(document.querySelectorAll('.dummy-edit-' + type + '-civ-check:checked')).map(c => c.value);
+
+    let pName = '', pCost = '', pCivs = [];
+    if (type === 'twinpact' || type === 'double') {
+        pName = document.getElementById('dummy-edit-' + type + '-partner-name').value.trim();
+        pCost = document.getElementById('dummy-edit-' + type + '-partner-cost').value;
+        pCivs = Array.from(document.querySelectorAll('.dummy-edit-' + type + '-partner-civ-check:checked')).map(c => c.value);
+    }
+
+    if (type === 'double') {
+        document.getElementById('dummy-edit-double-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), 'double');
+        document.getElementById('dummy-edit-double-preview-back-img').src = generateDummyCardImage(pName || '裏面カード名', pCost, pCivs.join(','), 'double');
+    } else {
+        document.getElementById('dummy-edit-' + type + '-preview-img').src = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
+    }
+}
+
+['normal', 'twinpact', 'double'].forEach(type => {
+    const nameInput = document.getElementById('dummy-edit-' + type + '-name');
+    const costInput = document.getElementById('dummy-edit-' + type + '-cost');
+    if (nameInput) nameInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
+    if (costInput) costInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
+    document.querySelectorAll('.dummy-edit-' + type + '-civ-check').forEach(el => el.addEventListener('change', () => updateDummySpecificEditPreview(type)));
+
+    if (type === 'twinpact' || type === 'double') {
+        const pNameInput = document.getElementById('dummy-edit-' + type + '-partner-name');
+        const pCostInput = document.getElementById('dummy-edit-' + type + '-partner-cost');
+        if (pNameInput) pNameInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
+        if (pCostInput) pCostInput.addEventListener('input', () => updateDummySpecificEditPreview(type));
+        document.querySelectorAll('.dummy-edit-' + type + '-partner-civ-check').forEach(el => el.addEventListener('change', () => updateDummySpecificEditPreview(type)));
+    }
+});
+
+function getDummyParentAndCards() {
+    if (!currentEditingDummyName) return { parent: null, sameCards: [] };
+
+    const lists = [mainList, superDimList, grList];
+    for (const list of lists) {
+        const found = Array.from(list.querySelectorAll('img[data-card-name="' + escapeSelectorValue(currentEditingDummyName) + '"]'));
+        if (found.length > 0) return { parent: list, sameCards: found };
+    }
+    const specialBoxes = document.querySelectorAll('.special-box.active img');
+    for (const img of specialBoxes) {
+        if (img.dataset.cardName === currentEditingDummyName) {
+            return { parent: img.parentNode, sameCards: [img] };
+        }
+    }
+    return { parent: null, sameCards: [] };
+}
+
+function adjustDummyQty(diff) {
+    const { parent, sameCards } = getDummyParentAndCards();
+    if (!parent || sameCards.length === 0) {
+        closeDummyEditModal(currentEditingDummyType);
+        return;
+    }
+
+    if (diff > 0) {
+        let maxZoneLimit = 60;
+        let zoneName = "メインデッキ";
+        if (parent.id === 'super-dim-list') { maxZoneLimit = 8; zoneName = "超次元ゾーン"; }
+        else if (parent.id === 'gr-list') { maxZoneLimit = 12; zoneName = "超GRゾーン"; }
+
+        if (parent.querySelectorAll('img').length >= maxZoneLimit) {
+            alert(zoneName + 'は合計' + maxZoneLimit + '枚までです。');
+            return;
+        }
+
+        const clone = sameCards[0].cloneNode(true);
+        parent.appendChild(clone);
+    } else {
+        if (sameCards.length <= 1) {
+            deleteCurrentDummyCard();
+            return;
+        }
+        sameCards[sameCards.length - 1].remove();
+    }
+
+    updateDeckDisplay();
+    const updatedCards = parent.querySelectorAll('img[data-card-name="' + escapeSelectorValue(currentEditingDummyName) + '"]');
+    const qtyEl = document.getElementById('dummy-edit-' + currentEditingDummyType + '-qty');
+    if (qtyEl) qtyEl.innerText = updatedCards.length;
+}
+
+function deleteCurrentDummyCard() {
+    const { parent, sameCards } = getDummyParentAndCards();
+    if (!parent) {
+        closeDummyEditModal(currentEditingDummyType);
+        return;
+    }
+    sameCards.forEach(img => img.remove());
+    updateDeckDisplay();
+    closeDummyEditModal(currentEditingDummyType);
+}
+
+function saveDummyCardEdit(type) {
+    const { parent, sameCards } = getDummyParentAndCards();
+    if (!parent || sameCards.length === 0) {
+        closeDummyEditModal(type);
+        return;
+    }
+
+    const newName = document.getElementById('dummy-edit-' + type + '-name').value.trim();
+    if (!newName) {
+        alert("カード名を入力してください。");
+        return;
+    }
+    const newCost = document.getElementById('dummy-edit-' + type + '-cost').value;
+    const newCivs = Array.from(document.querySelectorAll('.dummy-edit-' + type + '-civ-check:checked')).map(c => c.value);
+    const civStr = newCivs.join(',');
+
+    let pName = '', pCost = '', pCivStr = '';
+    if (type === 'twinpact' || type === 'double') {
+        pName = document.getElementById('dummy-edit-' + type + '-partner-name').value.trim();
+        pCost = document.getElementById('dummy-edit-' + type + '-partner-cost').value;
+        const pCivs = Array.from(document.querySelectorAll('.dummy-edit-' + type + '-partner-civ-check:checked')).map(c => c.value);
+        pCivStr = pCivs.join(',');
+    }
+
+    const newImage = generateDummyCardImage(newName, newCost, civStr, type, pName, pCost, pCivStr);
+
+    sameCards.forEach(img => {
+        img.dataset.cardName = newName;
+        img.dataset.cost = newCost !== '' ? newCost : '';
+        img.dataset.civ = civStr;
+        img.dataset.dummyCardType = type;
+        img.dataset.dummyPartnerName = pName;
+        img.dataset.dummyPartnerCost = pCost !== '' ? pCost : '';
+        img.dataset.dummyPartnerCivIds = pCivStr;
+        img.dataset.imagepath = newImage;
+        img.src = newImage;
+        img.alt = newName;
+    });
+
+    currentEditingDummyName = newName;
+    updateDeckDisplay();
+    closeDummyEditModal(type);
+}
+
+// --- ダミーカード置換 ---
+function openReplaceCardSelector() {
+    closeDummyEditModal(currentEditingDummyType);
+    document.getElementById('replaceCardSelectModal').style.display = 'block';
+    
+    const inputEl = document.getElementById('replace-card-search-input');
+    inputEl.value = currentEditingDummyName || '';
+    searchCardsForReplacement(currentEditingDummyName || '');
+}
+
+function closeReplaceCardSelector() {
+    document.getElementById('replaceCardSelectModal').style.display = 'none';
+}
+
+let replaceSearchTimeout = null;
+const replaceSearchInput = document.getElementById('replace-card-search-input');
+const newReplaceSearchInput = replaceSearchInput.cloneNode(true);
+replaceSearchInput.parentNode.replaceChild(newReplaceSearchInput, replaceSearchInput);
+
+newReplaceSearchInput.addEventListener('input', function() {
+    const q = this.value.trim();
+    clearTimeout(replaceSearchTimeout);
+    replaceSearchTimeout = setTimeout(() => {
+        searchCardsForReplacement(q);
+    }, 300);
+});
+
+function searchCardsForReplacement(query) {
+    const resultsContainer = document.getElementById('replace-card-results');
+    resultsContainer.innerHTML = '<div style="grid-column: span 3; text-align:center; padding:20px; color:#666;">検索中...</div>';
+
+    const p = new URLSearchParams();
+    if (query) p.append('q', query);
+    p.append('limit', '30');
+
+    fetch('/api/cards?' + p.toString())
+        .then(res => res.json())
+        .then(data => {
+            resultsContainer.innerHTML = '';
+            if (!Array.isArray(data) || data.length === 0) {
+                resultsContainer.innerHTML = '<div style="grid-column: span 3; text-align:center; padding:20px; color:#666;">カードが見つかりませんでした。</div>';
+                return;
+            }
+
+            data.forEach(card => {
+                cardCache[card.card_id] = card;
+
+                const wrapper = document.createElement('div');
+                wrapper.style.cursor = 'pointer';
+                wrapper.style.textAlign = 'center';
+
+                const img = document.createElement('img');
+                img.src = getCardImagePath(card);
+                img.alt = card.card_name;
+                img.style.width = '100%';
+                img.style.aspectRatio = '110/154';
+                img.style.objectFit = 'contain';
+                img.style.borderRadius = '6px';
+                img.style.border = '2px solid #ddd';
+                img.style.backgroundColor = '#fff';
+                img.style.display = 'block';
+                
+                wrapper.onmouseenter = () => img.style.borderColor = '#007bff';
+                wrapper.onmouseleave = () => img.style.borderColor = '#ddd';
+
+                wrapper.onclick = (e) => {
+                    e.stopImmediatePropagation();
+                    executeReplaceDummyWithRealCard(card);
+                };
+
+                img.onerror = () => handleImageError(img);
+
+                wrapper.appendChild(img);
+                resultsContainer.appendChild(wrapper);
+            });
+        })
+        .catch(err => {
+            console.error("置換カード検索エラー:", err);
+            resultsContainer.innerHTML = '<div style="grid-column: span 3; text-align:center; padding:20px; color:red;">検索エラーが発生しました。</div>';
+        });
+}
+
+let isReplacingCard = false;
+
+function executeReplaceDummyWithRealCard(realCard) {
+    if (isReplacingCard) return;
+    isReplacingCard = true;
+
+    const { parent, sameCards } = getDummyParentAndCards();
+    if (!parent || sameCards.length === 0) {
+        alert("置換対象のダミーカードが見つかりません。");
+        closeReplaceCardSelector();
+        isReplacingCard = false;
+        return;
+    }
+
+    const oldName = currentEditingDummyName;
+    const currentCount = sameCards.length;
+
+    const limitVal = realCard.card_limit;
+    const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
+
+    let targetCardsToReplace = sameCards;
+    let excessCount = 0;
+
+    if (currentCount > nameLimit) {
+        excessCount = currentCount - nameLimit;
+        for (let i = 0; i < excessCount; i++) {
+            sameCards[sameCards.length - 1 - i].remove();
+        }
+        targetCardsToReplace = sameCards.slice(0, nameLimit);
+        alert(`「${realCard.card_name}」の採用上限（${nameLimit}枚）を超えるため、${excessCount}枚分を除外し、${nameLimit}枚に調整して置き換えます。`);
+    }
+
+    cardCache[realCard.card_id] = realCard;
+
+    targetCardsToReplace.forEach(img => {
+        img.dataset.cardId = realCard.card_id;
+        img.dataset.cardName = realCard.card_name;
+        img.dataset.reading = realCard.reading || '';
+        img.dataset.comboNames = realCard.combo_names || '';
+        img.dataset.charIds = realCard.char_ids || '';
+        img.dataset.imagepath = realCard.imagepath || '';
+        img.dataset.cardLimit = realCard.card_limit !== undefined && realCard.card_limit !== null ? realCard.card_limit : '';
+        img.dataset.civ = realCard.civilization || realCard.civ || realCard.civ_ids || '';
+        img.dataset.cost = realCard.cost !== undefined ? realCard.cost : '';
+        
+        delete img.dataset.isDummy;
+        delete img.dataset.dummyCardType;
+        delete img.dataset.dummyPartnerName;
+        delete img.dataset.dummyPartnerCost;
+        delete img.dataset.dummyPartnerCivIds;
+
+        img.src = getCardImagePath(realCard);
+        img.alt = realCard.card_name;
+    });
+
+    closeReplaceCardSelector();
+    updateDeckDisplay();
+
+    alert(`「${oldName}」のダミーカード ${targetCardsToReplace.length}枚を、「${realCard.card_name}」に置き換えました！`);
+    
+    setTimeout(() => {
+        isReplacingCard = false;
+    }, 300);
+}
+</script>
+{{end}}
