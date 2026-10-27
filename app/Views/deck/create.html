@@ -1719,7 +1719,7 @@
             <!-- ★追加：自動置換に関する案内文 -->
             <div style="background: #fff8f0; border: 1px solid #fed7aa; border-radius: 6px; padding: 10px; font-size: 11px; color: #7c2d12; line-height: 1.5;">
                 <span style="font-weight: bold; display: block; margin-bottom: 2px;">【カード情報の自動反映について】</span>
-                データベースに同名カードが追加された際、自動的に本物のカード画像・情報へと置き換わります。<br>
+                データベースに同名カードが追加された際、自動的にそちらのカード画像・情報へと置き換わります。<br>
                 ※ツインパクトや両面カードは、組み合わせ（上面/下面、表面/裏面）の両方が完全一致した場合のみ置き換わります。
             </div>
 
@@ -2011,6 +2011,29 @@
         <div style="padding: 12px 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
             <button type="button" onclick="deleteCurrentDummyCard()" style="flex:1; padding:8px; background:#dc3545; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">削除</button>
             <button type="button" onclick="saveDummyCardEdit('double')" style="flex:2; padding:8px; background:#28a745; color:#fff; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">変更を保存</button>
+        </div>
+    </div>
+</div>
+<!-- 未ログイン時アクション選択モーダル -->
+<div id="loginOrExportModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 420px; height: auto; max-height: 90vh;">
+        <div class="sub-modal-header" style="background: #17a2b8;">
+            <span>保存確認</span>
+            <span onclick="closeLoginOrExportModal()" style="cursor:pointer; font-size:24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px; text-align: center; display: flex; flex-direction: column; gap: 15px;">
+            <p style="font-size: 14px; color: #333; line-height: 1.6; margin: 0;">
+                デッキを保存するにはログインが必要です。<br>どのように処理しますか？
+            </p>
+            <button type="button" onclick="proceedToLogin()" style="width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;">
+                ログインして保存する
+            </button>
+            <button type="button" onclick="proceedToExportZip()" style="width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer;">
+                保存せずにココフォリアZIPを出力する
+            </button>
+        </div>
+        <div style="padding: 15px 20px; border-top: 1px solid #f2f2f7; background: #fff; text-align: right;">
+            <button type="button" onclick="closeLoginOrExportModal()" style="padding: 8px 16px; background: #f2f2f7; color: #555; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px;">キャンセル</button>
         </div>
     </div>
 </div>
@@ -3353,6 +3376,35 @@ function setThumbnail(cardId, imagepath) {
     placeholder.style.display = 'none';
 }
 
+let pendingDeckPayload = null; // 保留中のペイロードを一時保持
+
+function closeLoginOrExportModal() {
+    document.getElementById('loginOrExportModal').style.display = 'none';
+    pendingDeckPayload = null;
+    
+    // 保存ボタンを元の状態に戻す
+    const submitBtn = document.querySelector('#deckSaveModal button[onclick="submitDeckSave()"]');
+    isSubmittingDeck = false;
+    if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerText = '保存する';
+    }
+}
+
+function proceedToLogin() {
+    if (!pendingDeckPayload) return;
+    localStorage.setItem('pending_deck_payload', JSON.stringify(pendingDeckPayload));
+    localStorage.setItem('pending_deck_save', 'true');
+    window.location.href = '/login';
+}
+
+async function proceedToExportZip() {
+    if (!pendingDeckPayload) return;
+    closeLoginOrExportModal();
+    closeSaveModal();
+    await exportDeckAsCcfoliaZip(pendingDeckPayload);
+}
+
 function submitDeckSave() {
     // 既に送信中であれば処理を中断
     if (isSubmittingDeck) return;
@@ -3371,7 +3423,6 @@ function submitDeckSave() {
         return alert("有効なフォーマットを選択してください。");
     }
     
-    // ★ここから：ダミーカード情報も正確に抽出して収集する処理
     const extractCardData = (img, type) => {
         const isDummy = img.dataset.isDummy === "1";
         const cached = cardCache[img.dataset.cardId] || {};
@@ -3382,7 +3433,6 @@ function submitDeckSave() {
             dummy_name: isDummy ? img.dataset.cardName : null,
             dummy_cost: isDummy ? (parseInt(img.dataset.cost, 10) || null) : null,
             dummy_civ_ids: isDummy ? (img.dataset.civ || null) : null,
-            // ★追加
             dummy_card_type: cached.dummy_card_type || 'normal',
             dummy_partner_name: cached.dummy_partner_name || null,
             dummy_partner_cost: cached.dummy_partner_cost || null,
@@ -3400,7 +3450,6 @@ function submitDeckSave() {
 
     const allCards = [...mainCards, ...superDimCards, ...grCards, ...specialCards];    
     if (!allCards.length) return alert("カードを1枚以上入れてください。");
-    // ★ここまで
 
     // モーダル内の保存ボタンを取得して無効化＆文言変更
     const submitBtn = document.querySelector('#deckSaveModal button[onclick="submitDeckSave()"]');
@@ -3424,14 +3473,13 @@ function submitDeckSave() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
     })
-    .then(res => {
+    .then(async res => {
         if (res.status === 401) {
-            localStorage.setItem('pending_deck_payload', JSON.stringify(payload));
-            localStorage.setItem('pending_deck_save', 'true');
-            
-            alert("デッキを保存するにはログインが必要です。ログイン画面に移動します。\n（ログイン完了後、自動的に保存されます）");
-            window.location.href = '/login';
-            throw new Error("REDIRECTED_TO_LOGIN");
+            // 未ログイン時は専用モーダルを表示して選択を促す
+            pendingDeckPayload = payload;
+            closeSaveModal(); // デッキ保存モーダルは一旦閉じる
+            document.getElementById('loginOrExportModal').style.display = 'block';
+            throw new Error("UNAUTHORIZED_CHOICE_PENDING");
         }
         return res.json();
     })
@@ -3454,7 +3502,7 @@ function submitDeckSave() {
         }
     })
     .catch(err => {
-        if (err.message !== "REDIRECTED_TO_LOGIN") {
+        if (err.message !== "UNAUTHORIZED_CHOICE_PENDING") {
             console.error(err);
             isSubmittingDeck = false;
             if (submitBtn) {
@@ -3463,6 +3511,85 @@ function submitDeckSave() {
             }
         }
     });
+}
+
+/**
+ * ココフォリア用ZIPとしてデッキを出力するヘルパー関数
+ */
+async function exportDeckAsCcfoliaZip(payload) {
+    if (typeof CcfoliaExporter === 'undefined' || typeof JSZip === 'undefined') {
+        alert("ココフォリア出力に必要なライブラリが読み込まれていません。");
+        return;
+    }
+
+    try {
+        const mainDeckItems = [];
+        const subDecksMap = { super_dimensional: [], gr: [], special: [] };
+
+        // カードの画像Blobを取得するヘルパー
+        const fetchImageBlob = async (url) => {
+            try {
+                const res = await fetch(url);
+                if (res.ok) return await res.blob();
+            } catch (e) {}
+            // 失敗時はデフォルトのnoimageを返す
+            const res = await fetch('/images/card/noimage.webp');
+            return await res.blob();
+        };
+
+        for (const card of payload.cards) {
+            let imgUrl = '';
+            if (cardCache[card.id] && cardCache[card.id].imagepath) {
+                imgUrl = getCardImagePath(cardCache[card.id]);
+            } else {
+                // DOMから直接画像URLを取得
+                const imgEl = document.querySelector(`img[data-card-id="${card.id}"]`) || document.querySelector(`img[data-card-name="${escapeSelectorValue(card.card_name)}"]`);
+                imgUrl = imgEl ? imgEl.src : '/images/card/noimage.webp';
+            }
+
+            const blob = await fetchImageBlob(imgUrl);
+            const item = { blob: blob, memo: card.card_name, count: 1 };
+
+            if (card.type === 'main') {
+                mainDeckItems.push(item);
+            } else if (card.type === 'super_dimensional' || card.type === 'gr' || card.type === 'special') {
+                subDecksMap[card.type].push(item);
+            }
+        }
+
+        const subDecks = [];
+        if (subDecksMap.super_dimensional.length > 0) {
+            subDecks.push({ name: '超次元ゾーン', cards: subDecksMap.super_dimensional });
+        }
+        if (subDecksMap.gr.length > 0) {
+            subDecks.push({ name: '超GRゾーン', cards: subDecksMap.gr });
+        }
+        if (subDecksMap.special.length > 0) {
+            subDecks.push({ name: '特殊ゾーン', cards: subDecksMap.special });
+        }
+
+        const zipBlob = await CcfoliaExporter.buildZip({
+            deckName: payload.deck_name,
+            mainDeck: mainDeckItems,
+            subDecks: subDecks,
+            standalones: []
+        });
+
+        // ダウンロードの実行
+        const url = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${payload.deck_name || 'deck'}_ccfolia.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        closeSaveModal();
+    } catch (e) {
+        console.error("ココフォリアZIP出力エラー:", e);
+        alert("ZIPファイルの生成に失敗しました。");
+    }
 }
 
 
