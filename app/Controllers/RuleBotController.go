@@ -290,6 +290,11 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 					flagStr = " 【" + strings.Join(flags, "/") + "】"
 				}
 
+				reading := "なし"
+				if c.Reading.Valid && c.Reading.String != "" {
+					reading = c.Reading.String
+				}
+
 				typenames := "なし"
 				if c.Typenames.Valid && c.Typenames.String != "" {
 					typenames = c.Typenames.String
@@ -311,7 +316,7 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 					pow = c.Pow.String
 				}
 
-				cardContext += fmt.Sprintf("■ 《%s》%s\n", c.CardName, flagStr)
+				cardContext += fmt.Sprintf("■ 《%s》（読み: %s）%s\n", c.CardName, reading, flagStr)
 				cardContext += fmt.Sprintf("  タイプ: %s\n", typenames)
 				cardContext += fmt.Sprintf("  文明: %s\n", civNames)
 				cardContext += fmt.Sprintf("  種族: %s\n", raceNames)
@@ -473,9 +478,15 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 
 革命チェンジが各ターン1度だけ適用できる置換効果などで入れ替えが失敗した場合、その置換効果は適用したことにはなりません。
 
-名前指定の効果では、ルビが指定されます。
+名前指定の効果では、ルビも指定されます。
 例:
 《ナ・チュラルゴ・デンジャー / ナチュラル・トラップ》の能力に「名前に《トラップ》とある呪文を唱えた時」とあるので、ルビにトラップを含む《調和と繁栄の罠》を唱えた時、能力がトリガーする。
+
+「同じ名前を持つカード」とは、指定したクリーチャーの名前と完全に同じ文字列が名前に含まれているカードを指します。
+例1:
+《龍覇 グレンモルト》から見て、《二刀龍覇 グレンモルト 「王」》は同じ名前を持つカードです。
+例2:
+《トロン》から見て《ドンジャングルS7》は、読みが《ドンジャングルストロングセブン》のため、同じ名前を持つカードです。
 
 「○○枚まで××する。その後、同じ数の～」というテキストで、「××する」行為が行えなかった場合でも、その行為を行うとした数を「同じ数」に適応させることができます。
 例1:
@@ -638,6 +649,12 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 相手の《終納 カボード=ロウ》のような、タップしているクリーチャーのパワーをマイナスする交換が発生しているとき、自分のクリーチャーを「ハイパー化」でハイパーモードを開放するためにタップしたクリーチャーのパワーが0になったなら、ハイパーモードが解放される前に状況起因処理で破壊されます。結果的にハイパーモードは解放されますが、ハイパーモードの「クリーチャーが破壊された時」の能力はタイミングを逃しているため、トリガーしません。
 
 《終焉の禁断 ドルマゲドンX》は《FORBIDDEN STAR ～世界最後の日～》側を裏面として扱います。
+
+ハイパーモードが解放された《料理犬のヴィヤンドゥ》の「自分の山札の上から１枚目をマナゾーンに置く。それがドリームメイト・クリーチャーなら、出してもよい。」のように、置換効果などでカードがマナゾーンに置かれなかった場合でも、ゾーンの指定が無い場合は、参照することが可能です。
+
+「可能なら攻撃する」能力を持つクリーチャーや、効果を受けているクリーチャーは、攻撃可能な状態である限り、何度でも攻撃をする必要があります。
+
+「山札の上からn枚を見る」という効果は、山札がn枚未満の場合は見ることができません。また、その文章に「そうしたら」と続く場合、山札を見ることができていないため、行う事はできません。
 
 9. 質問で聞かれていない余談や私見は語らず、文章が途中で切れないよう必ず文末まで完結させてください。`
 

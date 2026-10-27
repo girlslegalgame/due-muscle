@@ -516,6 +516,34 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 
 	var orderBy string
 	switch sort {
+	case "relevance":
+		if q != "" {
+			qKata := convertKana(q, "C")
+			qHira := convertKana(q, "c")
+			qClean := cleanSearchString(q)
+			qKataClean := cleanSearchString(qKata)
+			qHiraClean := cleanSearchString(qHira)
+
+			params[":q_rel_exact"] = qClean
+			params[":q_rel_k_exact"] = qKataClean
+			params[":q_rel_h_exact"] = qHiraClean
+			params[":q_rel_prefix"] = qClean + "%"
+			params[":q_rel_k_prefix"] = qKataClean + "%"
+			params[":q_rel_h_prefix"] = qHiraClean + "%"
+
+			orderBy = `ORDER BY (
+				CASE 
+					WHEN REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') = :q_rel_exact THEN 1
+					WHEN REPLACE(REPLACE(REPLACE(c.reading, '・', ''), ' ', ''), '　', '') IN (:q_rel_exact, :q_rel_k_exact, :q_rel_h_exact) THEN 2
+					WHEN REPLACE(REPLACE(REPLACE(c.card_name, '・', ''), ' ', ''), '　', '') LIKE :q_rel_prefix THEN 3
+					WHEN REPLACE(REPLACE(REPLACE(c.reading, '・', ''), ' ', ''), '　', '') LIKE :q_rel_k_prefix 
+					  OR REPLACE(REPLACE(REPLACE(c.reading, '・', ''), ' ', ''), '　', '') LIKE :q_rel_h_prefix THEN 4
+					ELSE 5
+				END
+			) ASC, CHAR_LENGTH(c.card_name) ASC, cd.release_date DESC, c.card_id DESC `
+		} else {
+			orderBy = "ORDER BY cd.release_date DESC, cd.goods_id DESC, c.card_id DESC "
+		}
 	case "release_asc":
 		orderBy = "ORDER BY cd.release_date ASC, cd.goods_id ASC, c.card_id ASC "
 	case "cost_desc":

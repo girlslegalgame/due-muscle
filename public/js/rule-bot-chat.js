@@ -71,7 +71,7 @@ class RuleBotChat {
         const query = match[1].trim();
         this.suggestTimer = setTimeout(async () => {
             try {
-                const res = await fetch(`/api/cards?q=${encodeURIComponent(query)}`);
+                const res = await fetch(`/api/cards?q=${encodeURIComponent(query)}&sort=relevance`);
                 const cards = await res.json();
                 if (!cards || cards.length === 0) {
                     this.suggestList.style.display = 'none';
