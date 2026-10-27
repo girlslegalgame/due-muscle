@@ -224,7 +224,7 @@ const appHTML = `<!DOCTYPE html>
         <div class="header-left">
             <h1>
                 <a href="/">
-                    <img src="/images/logo.webp" alt="DECK MAKER" class="header-logo">
+                    <img src="/images/logo.webp" alt="デュエ筋" class="header-logo">
                 </a>
             </h1>
         </div>
