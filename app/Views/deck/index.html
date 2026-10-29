@@ -817,6 +817,8 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             };
         }
 
+        const targetThumbnailId = thumbnailId || (cards.find(c => c.thumbnail_card_id)?.thumbnail_card_id);
+
         let partnerExtracted = false;
         let standaloneX = -12; // 個別カード配置のX座標起点
         // ★ 追加: 重複出力を防ぐための出力済み2枚目カード名Set
@@ -1064,8 +1066,14 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
             const memoText = includeText ? createMemoText(card) : "";
 
             for (let q = 0; q < qty; q++) {
-                if (separatePartner && !partnerExtracted && thumbnailId && String(card.card_id) === String(thumbnailId)) {
-                    addStandaloneCard(meta.filename, null, memoText, -6, -3);
+                const isThumbnail = targetThumbnailId && (
+                    String(card.card_id) === String(targetThumbnailId) ||
+                    (card.partner_card_id && String(card.partner_card_id) === String(targetThumbnailId))
+                );
+
+                if (separatePartner && !partnerExtracted && isThumbnail) {
+                    // 通常山札(x: -2, 幅4)の左側に1マス空けて配置 (-2 - 4 - 1 = -7)
+                    addStandaloneCard(meta.filename, null, memoText, -7, -3);
                     partnerExtracted = true;
                 } else {
                     mainDeckItems[generateId()] = {

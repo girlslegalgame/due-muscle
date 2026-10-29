@@ -173,6 +173,7 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
 
 	// ★ 2. カード一覧取得クエリ（ダミーのツインパクト・両面情報対応版）
 	sqlCards := `SELECT 
+                (SELECT thumbnail_card_id FROM decks WHERE deck_id = dc.deck_id) as thumbnail_card_id,
                 COALESCE(c.card_id, CONCAT('dummy_', dc.sort_order)) as card_id, 
                 CASE 
                     WHEN dc.dummy_card_type = 'twinpact' AND dc.dummy_partner_name IS NOT NULL AND dc.dummy_partner_name <> '' THEN 
