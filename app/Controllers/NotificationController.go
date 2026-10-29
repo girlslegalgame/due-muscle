@@ -21,7 +21,7 @@ func getSessionUserId(r *http.Request) interface{} {
 	if err != nil || cookie.Value == "" {
 		return nil
 	}
-	return cookie.Value
+	return views.GetSessionUserID(r)
 }
 
 func (c *NotificationController) Index(w http.ResponseWriter, r *http.Request) {
@@ -85,9 +85,13 @@ func (c *NotificationController) Index(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	isLoggedIn := (userId != nil && fmt.Sprintf("%v", userId) != "" && fmt.Sprintf("%v", userId) != "0")
+
 	views.RenderView(w, r, "notification/index.html", map[string]interface{}{
 		"globalNotifications": globalNotifications,
 		"userNotifications":   userNotifications,
+		"IsLoggedIn":          isLoggedIn,
+		"UserID":              userId,
 	})
 }
 

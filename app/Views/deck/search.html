@@ -301,6 +301,8 @@
     </div>
 </div>
 
+<div id="search-data-bridge" data-is-logged-in="{{if .IsLoggedIn}}1{{else}}0{{end}}" style="display: none;"></div>
+
 <!-- カード選択モーダル -->
 <div id="cardSelectModal" class="card-select-modal">
     <div class="card-select-modal-content">
@@ -329,10 +331,14 @@
 </div>
 
 <script>
+// app/Views/deck/search.html の <script> 先頭付近
+
 let ALL_CARDS = [];
 let tempSelectedCards = new Set();
-const IS_LOGGED_IN = document.cookie.includes('user_id=');
 
+// ★ 修正: document.cookie ではなく DOM経由でログイン判定を取得
+const searchDataBridge = document.getElementById('search-data-bridge');
+const IS_LOGGED_IN = searchDataBridge ? (searchDataBridge.dataset.isLoggedIn === '1') : false;
 // カード選択モーダル用データ取得
 function fetchSearchCardList() {
     if (ALL_CARDS.length > 0) return;
@@ -504,5 +510,54 @@ function submitDeckReport() {
             alert(data.error || '送信に失敗しました。');
         }
     });
+}
+// app/Views/deck/search.html の <script> 末尾（submitDeckReport の後など）に追加
+
+function copyShareUrlFromItem(event, btnElement) {
+    if (event && event.stopPropagation) {
+        event.stopPropagation();
+    }
+
+    const deckId = (btnElement && btnElement.dataset) ? btnElement.dataset.deckId : btnElement;
+    if (!deckId) {
+        alert('デッキIDの取得に失敗しました。');
+        return;
+    }
+
+    const url = window.location.origin + '/decks/share?deck_id=' + deckId;
+
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(url).then(() => {
+            alert('共有用URLをクリップボードにコピーしました！\n' + url);
+        }).catch(() => {
+            fallbackCopyText(url);
+        });
+    } else {
+        fallbackCopyText(url);
+    }
+}
+
+function fallbackCopyText(text) {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.top = '-9999px';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+
+    try {
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+            alert('共有用URLをクリップボードにコピーしました！\n' + text);
+        } else {
+            prompt('以下のURLをコピーしてください:', text);
+        }
+    } catch (err) {
+        document.body.removeChild(textArea);
+        prompt('以下のURLをコピーしてください:', text);
+    }
 }
 </script>

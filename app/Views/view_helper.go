@@ -294,3 +294,9 @@ var tmplFuncs = template.FuncMap{
 		return dict, nil
 	},
 }
+
+// app/Views/view_helper.go 内のインポート直下などに追加
+
+func init() {
+	layouts.GetUnreadNotificationCount = GetUnreadNotificationCount
+}

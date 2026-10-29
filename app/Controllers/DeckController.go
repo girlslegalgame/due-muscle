@@ -351,6 +351,7 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 		d["ThumbnailImagePath"] = thumb
 		d["thumbnail_imagepath"] = thumb
 		d["CreatorName"] = d["creator_name"]
+		d["UserID"] = d["user_id"] // ★ この行を追加
 		d["FormatName"] = d["format_name"]
 		d["IsPublic"] = true
 		d["is_public"] = 1
@@ -1278,6 +1279,8 @@ func (c *DeckController) UserPublicDecks(w http.ResponseWriter, r *http.Request)
     `, userId)
 	defer rows.Close()
 
+	// app/Controllers/DeckController.go の UserPublicDecks 内
+
 	cols, _ := rows.Columns()
 	var decks []map[string]interface{}
 	for rows.Next() {
@@ -1296,12 +1299,64 @@ func (c *DeckController) UserPublicDecks(w http.ResponseWriter, r *http.Request)
 				rowMap[colName] = *val
 			}
 		}
+
+		// ★ ここから追加・修正（文明判定、パス解決、フィールド補完）
+		did, _ := strconv.Atoi(fmt.Sprintf("%v", rowMap["deck_id"]))
+
+		var civList string
+		_ = db.QueryRow(`
+			SELECT GROUP_CONCAT(DISTINCT cc.civilization_id)
+			FROM deck_cards dc
+			LEFT JOIN card_civilization cc ON dc.card_id = cc.card_id
+			WHERE dc.deck_id = ? AND (dc.card_type_in_deck IS NULL OR dc.card_type_in_deck = 'main')
+		`, did).Scan(&civList)
+
+		rowMap["civ_light"] = strings.Contains(civList, "1")
+		rowMap["civ_water"] = strings.Contains(civList, "2")
+		rowMap["civ_dark"] = strings.Contains(civList, "3")
+		rowMap["civ_fire"] = strings.Contains(civList, "4")
+		rowMap["civ_nature"] = strings.Contains(civList, "5")
+
+		rawDate := fmt.Sprintf("%v", rowMap["updated_at"])
+		if len(rawDate) >= 10 {
+			rowMap["formatted_at"] = strings.ReplaceAll(rawDate[:10], "-", "/")
+		}
+
+		thumb := fmt.Sprintf("%v", rowMap["thumbnail_imagepath"])
+		if thumb == "" || thumb == "<nil>" {
+			thumb = "noimage.webp"
+		} else if strings.HasPrefix(thumb, "/images/card/") {
+			thumb = strings.TrimPrefix(thumb, "/images/card/")
+		}
+
+		rowMap["DeckID"] = did
+		rowMap["deck_id"] = did
+		rowMap["DeckName"] = rowMap["deck_name"]
+		rowMap["ThumbnailImagePath"] = thumb
+		rowMap["thumbnail_imagepath"] = thumb
+		rowMap["CreatorName"] = rowMap["creator_name"]
+		rowMap["UserID"] = rowMap["user_id"]
+		rowMap["FormatName"] = rowMap["format_name"]
+		rowMap["IsPublic"] = true
+		rowMap["is_public"] = 1
+
+		rowMap["context"] = "search"
+		rowMap["Context"] = "search"
+
+		rowMap["deck"] = rowMap
+		rowMap["Deck"] = rowMap
+		// ★ ここまで
+
 		decks = append(decks, rowMap)
 	}
+
+	currentUserID, isLoggedIn := getSessionUserID(r) // ★ ログイン状態を取得
 
 	views.RenderView(w, r, "deck/user_decks.html", map[string]interface{}{
 		"targetUser": targetUser,
 		"decks":      decks,
+		"IsLoggedIn": isLoggedIn,    // ★ 追加
+		"UserID":     currentUserID, // ★ 追加
 	})
 }
 

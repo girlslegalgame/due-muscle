@@ -59,7 +59,7 @@
     <div class="deck-list">
         {{if .decks}}
             {{range .decks}}
-                {{template "deck_item.html" (dict "deck" . "context" "search")}}
+                {{template "deck_item.html" (dict "Deck" . "Context" "search")}}
             {{end}}
         {{else}}
             <p style="grid-column: 1 / -1; text-align: center; color: #666; padding: 40px 0;">現在公開されているデッキはありません。</p>
@@ -124,14 +124,15 @@
         </div>
     </div>
 </div>
-<div id="user-data-bridge" data-user-id="{{.targetUser.user_id}}" style="display: none;"></div>
-
+<div id="user-data-bridge" 
+     data-user-id="{{.targetUser.user_id}}" 
+     data-is-logged-in="{{if .IsLoggedIn}}1{{else}}0{{end}}" 
+     style="display: none;"></div>
 
 <script>
-const IS_LOGGED_IN = document.cookie.includes('user_id=');
-const TARGET_USER_ID = Number(document.getElementById('user-data-bridge').dataset.userId);
-
-function copyDeck(deckId) {
+const userDataBridge = document.getElementById('user-data-bridge');
+const IS_LOGGED_IN = userDataBridge ? (userDataBridge.dataset.isLoggedIn === '1') : false;
+const TARGET_USER_ID = Number(userDataBridge ? userDataBridge.dataset.userId : 0);function copyDeck(deckId) {
     if (!confirm("このデッキをコピーしてマイデッキに登録しますか？")) return;
     fetch('/api/decks/copy', {
         method: 'POST',

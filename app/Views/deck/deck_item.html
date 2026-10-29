@@ -31,13 +31,15 @@
     </div>
 
     <!-- 4. 製作者名（クリックでユーザーの公開デッキ一覧へ） -->
-    {{if and .Deck.CreatorName .Deck.UserID}}
+    {{ $creatorId := or .Deck.UserID .Deck.user_id }}
+    {{ $creatorName := or .Deck.CreatorName .Deck.creator_name }}
+    {{if and $creatorName $creatorId}}
         <div class="deck-creator">
-            製作者: <a href="/users/decks?user_id={{.Deck.UserID}}" style="color: #007bff; text-decoration: underline;">{{.Deck.CreatorName}}</a>
+            製作者: <a href="/users/decks?user_id={{$creatorId}}" style="color: #007bff; text-decoration: underline;">{{$creatorName}}</a>
         </div>
-    {{else if .Deck.CreatorName}}
+    {{else if $creatorName}}
         <div class="deck-creator">
-            製作者: {{.Deck.CreatorName}}
+            製作者: {{$creatorName}}
         </div>
     {{end}}
 

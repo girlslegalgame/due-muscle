@@ -369,3 +369,311 @@
         <button type="button" class="btn-adm btn-adm-primary" style="width: 100%; padding: 10px; font-size: 0.9rem;" onclick="sendManualNotification()">お知らせを送信する</button>
     </div>
 </div> <!-- ★ ここに欠落していた大枠の閉じタグを追加 -->
+
+<script>
+// 1. 処理済み通報の一括削除
+function cleanProcessedReports() {
+    if (!confirm('対応済および却下の通報をすべて削除しますか？')) return;
+    fetch('/api/admin/reports/clean', { method: 'POST' })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                alert(`${data.deleted_count}件の通報を削除しました。`);
+                location.reload();
+            } else {
+                alert(data.error || '削除に失敗しました');
+            }
+        })
+        .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 2. 通常通報の処理（非公開化 / 却下）
+function handleReport(reportId, deckId, action) {
+    let reason = '';
+    if (action === 'make_private') {
+        reason = prompt('非公開にする理由を入力してください（ユーザーへの通知に記載されます）:', '利用規約違反が確認されたため');
+        if (reason === null) return;
+    } else if (!confirm('この通報を却下しますか？')) {
+        return;
+    }
+
+    fetch('/api/admin/reports/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: Number(reportId), deck_id: Number(deckId), action, reason })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('処理が完了しました。');
+            location.reload();
+        } else {
+            alert(data.error || '処理に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 3. ペナルティ操作（付与 / 解除）
+function applyPenalty(userId, type, action, deckId = 0) {
+    let reason = '';
+    if (action === 'apply_1week') {
+        reason = prompt('ペナルティ適用の理由を入力してください:', '利用規約違反のため');
+        if (reason === null) return;
+    } else if (!confirm('ペナルティを解除しますか？')) {
+        return;
+    }
+
+    fetch('/api/admin/penalty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: Number(userId), type, action, reason, deck_id: Number(deckId) })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('操作が完了しました。');
+            location.reload();
+        } else {
+            alert(data.error || '操作に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 4. 連投・不適切名通報の専用処置
+function resolveUserReport(reportId, action, confirmMsg) {
+    if (!confirm(confirmMsg)) return;
+
+    fetch('/api/admin/reports/resolve-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ report_id: Number(reportId), action })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('処置が完了しました。');
+            location.reload();
+        } else {
+            alert(data.error || '処置に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 5. ユーザー名変更
+function updateUsername(userId) {
+    const input = document.getElementById(`username_${userId}`);
+    const username = input ? input.value.trim() : '';
+    if (!username) {
+        alert('ユーザー名を入力してください');
+        return;
+    }
+    if (!confirm(`ユーザー名を「${username}」に変更しますか？`)) return;
+
+    fetch('/api/admin/users/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: Number(userId), username })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('ユーザー名を更新しました。');
+            location.reload();
+        } else {
+            alert(data.error || '更新に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 6. ロール変更
+function updateUserRole(userId) {
+    const select = document.getElementById(`role_${userId}`);
+    const role = select ? select.value : '';
+    if (!confirm(`ロールを「${role}」に変更しますか？`)) return;
+
+    fetch('/api/admin/users/role', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: Number(userId), role })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('ロールを更新しました。');
+            location.reload();
+        } else {
+            alert(data.error || '更新に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 7. ユーザー削除
+function deleteUser(userId, username) {
+    if (!confirm(`ユーザー「${username}」(ID: ${userId}) を完全に削除しますか？\n※関連するデッキなども削除される可能性があります。`)) return;
+
+    fetch('/api/admin/users/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: Number(userId) })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('ユーザーを削除しました。');
+            location.reload();
+        } else {
+            alert(data.error || '削除に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 8. ユーザーデッキ一覧モーダル
+let currentModalUserId = 0;
+let currentModalReportId = 0;
+
+function openUserDecksModal(userId, username) {
+    currentModalUserId = Number(userId);
+    currentModalReportId = 0;
+    document.getElementById('userDecksModalTitle').innerText = `${username} さんのデッキ一覧`;
+    document.getElementById('checkAllUserDecks').checked = false;
+    loadUserDecks(userId);
+}
+
+function openUserDecksModalForSpam(userId, username, reportId) {
+    currentModalUserId = Number(userId);
+    currentModalReportId = Number(reportId);
+    document.getElementById('userDecksModalTitle').innerText = `${username} さんの連投デッキ対応`;
+    document.getElementById('checkAllUserDecks').checked = true;
+    loadUserDecks(userId, true);
+}
+
+function loadUserDecks(userId, autoCheckPublic = false) {
+    const listEl = document.getElementById('userDecksList');
+    listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">読み込み中...</div>';
+    document.getElementById('userDecksModal').style.display = 'block';
+
+    fetch(`/api/admin/user-decks?user_id=${userId}`)
+        .then(res => res.json())
+        .then(decks => {
+            if (!decks || decks.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#666;">デッキがありません。</div>';
+                return;
+            }
+            listEl.innerHTML = decks.map(d => {
+                const isPub = (d.is_public === 1 || d.is_public === true);
+                const checked = (autoCheckPublic && isPub) ? 'checked' : '';
+                return `
+                    <label style="display:flex; align-items:center; justify-content:space-between; padding:8px 12px; background:#fff; border:1px solid #e2e8f0; border-radius:6px; cursor:pointer;">
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" class="user-deck-checkbox" value="${d.deck_id}" data-is-public="${isPub ? '1' : '0'}" ${checked}>
+                            <span style="font-weight:bold; font-size:0.9rem;">${d.deck_name}</span>
+                        </div>
+                        <span class="badge ${isPub ? 'badge-public' : 'badge-private'}">${isPub ? '公開中' : '非公開'}</span>
+                    </label>
+                `;
+            }).join('');
+        })
+        .catch(() => {
+            listEl.innerHTML = '<div style="text-align:center; padding:20px; color:#dc3545;">デッキの取得に失敗しました。</div>';
+        });
+}
+
+function closeUserDecksModal() {
+    document.getElementById('userDecksModal').style.display = 'none';
+}
+
+function toggleSelectAllDecks(checked) {
+    document.querySelectorAll('.user-deck-checkbox').forEach(cb => {
+        if (cb.dataset.isPublic === '1') {
+            cb.checked = checked;
+        }
+    });
+}
+
+function bulkMakeDecksPrivate() {
+    const selectedIds = Array.from(document.querySelectorAll('.user-deck-checkbox:checked')).map(cb => Number(cb.value));
+    if (selectedIds.length === 0) {
+        alert('非公開にするデッキを選択してください。');
+        return;
+    }
+
+    const applyBan = confirm('対象のデッキを一括非公開にします。\n同時に【1週間のデッキ公開禁止ペナルティ】を科しますか？\n（[OK]=ペナルティあり / [キャンセル]=非公開のみ）');
+    const reason = prompt('非公開にする理由を入力してください:', '利用規約違反が確認されたため');
+    if (reason === null) return;
+
+    fetch('/api/admin/decks/bulk-private', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            deck_ids: selectedIds,
+            user_id: currentModalUserId,
+            reason: reason,
+            apply_public_ban: applyBan,
+            report_id: currentModalReportId
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('一括非公開処理が完了しました。');
+            location.reload();
+        } else {
+            alert(data.error || '処理に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+
+// 9. お知らせ送信
+function sendManualNotification() {
+    const target = document.getElementById('notif_target').value;
+    const userId = document.getElementById('notif_user_id').value;
+    const title = document.getElementById('notif_title').value.trim();
+    const message = document.getElementById('notif_message').value.trim();
+    const actionUrl = document.getElementById('notif_url').value.trim();
+    const actionLabel = document.getElementById('notif_label').value.trim();
+
+    if (target === 'user' && !userId) {
+        alert('対象ユーザーIDを入力してください');
+        return;
+    }
+    if (!title || !message) {
+        alert('タイトルと本文を入力してください');
+        return;
+    }
+
+    if (!confirm('この内容でお知らせを送信しますか？')) return;
+
+    fetch('/api/admin/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            target,
+            user_id: target === 'user' ? Number(userId) : null,
+            title,
+            message,
+            action_url: actionUrl,
+            action_label: actionLabel
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('お知らせを送信しました。');
+            document.getElementById('notif_title').value = '';
+            document.getElementById('notif_message').value = '';
+            document.getElementById('notif_url').value = '';
+            document.getElementById('notif_label').value = '';
+        } else {
+            alert(data.error || '送信に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+</script>
