@@ -149,34 +149,199 @@
 .proxy-select-mode .deck-item .deck-thumbnail {
     pointer-events: none; /* サムネイルクリックによるモーダル起動を無効化 */
 }
-/* --- デッキ操作メニュー用ボタンスタイル --- */
-.deck-menu-list {
+
+/* --- スマート・アクションメニュー --- */
+.deck-smart-menu {
+    padding: 16px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding: 15px;
+    gap: 12px;
+    background: #fdfdfd;
 }
 
-.deck-menu-btn {
+/* メインカード（確認：一人回し・分析・査定） */
+.menu-hero-btn {
     width: 100%;
-    height: 44px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    padding: 16px;
+    background: #1a202c;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 12px rgba(26, 32, 44, 0.15);
+}
+.menu-hero-btn:hover {
+    background: #2d3748;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(26, 32, 44, 0.2);
+}
+.menu-hero-title {
+    font-size: 1.15rem;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.menu-hero-tags {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+}
+.menu-hero-tag {
+    font-size: 0.7rem;
+    background: rgba(255, 255, 255, 0.18);
+    color: #edf2f7;
+    padding: 2px 7px;
+    border-radius: 4px;
+}
+
+/* 2×2のアクションタイル（編集・出力・共有・複製） */
+.menu-grid-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.menu-action-btn {
     background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 14px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
     color: #2d3748;
+    font-weight: bold;
     font-size: 0.95rem;
+}
+.menu-action-btn:hover {
+    background: #f7fafc;
+    border-color: #cbd5e0;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.05);
+}
+.menu-action-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: #4a5568;
+    flex-shrink: 0;
+}
+
+/* 最下部：削除（誤タップを防ぎつつスマートに配置） */
+.menu-danger-btn {
+    background: transparent;
+    border: 1px dashed #feb2b2;
+    border-radius: 8px;
+    padding: 10px;
+    color: #e53e3e;
+    font-size: 0.85rem;
     font-weight: bold;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-    box-sizing: border-box;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+.menu-danger-btn:hover {
+    background: #fff5f5;
+    border-color: #fc8181;
 }
 
-.deck-menu-btn:hover {
-    background-color: #f7fafc;
+
+/* --- デッキ操作メニュー用ボタンスタイル（画像レイアウト準拠） --- */
+.deck-menu-container {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 上段・下段の3列グリッド */
+.deck-menu-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+/* 共通ボタンスタイル */
+.deck-grid-btn {
+    border: 1.5px solid #e2e8f0;
+    background: #ffffff;
+    color: #2d3748;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+    text-align: center;
+    padding: 10px;
+}
+.deck-grid-btn:hover {
+    background-color: #f8fafc;
     border-color: #cbd5e0;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+}
+
+/* 上段の大きな正方形カードボタン */
+.deck-grid-btn-large {
+    aspect-ratio: 1 / 1;
+    min-height: 110px;
+}
+.deck-grid-btn-large .btn-label {
+    font-size: 1.25rem;
+    font-weight: bold;
+    letter-spacing: 0.05em;
+}
+.deck-grid-btn-large .btn-subtext {
+    font-size: 0.72rem;
+    color: #718096;
+    margin-top: 6px;
+    line-height: 1.2;
+}
+
+/* メイン操作「確認」 */
+.deck-grid-btn-primary {
+    background-color: #1a202c;
+    color: #ffffff;
+    border-color: #1a202c;
+}
+.deck-grid-btn-primary:hover {
+    background-color: #2d3748;
+    border-color: #2d3748;
+}
+.deck-grid-btn-primary .btn-subtext {
+    color: #a0aec0;
+}
+
+/* 下段の横長ボタン */
+.deck-grid-btn-compact {
+    height: 48px;
+}
+.deck-grid-btn-compact .btn-label {
+    font-size: 0.95rem;
+    font-weight: bold;
+}
+
+/* 危険操作「削除」 */
+.deck-grid-btn-danger {
+    color: #e53e3e;
+    background-color: #ffffff;
+    border-color: #fed7d7;
+}
+.deck-grid-btn-danger:hover {
+    background-color: #fff5f5;
+    border-color: #feb2b2;
 }
 
 /* メイン操作「確認」：サイトヘッダーに合わせたシックな黒 */
@@ -363,21 +528,62 @@
 
 <!-- デッキ操作メニューモーダル -->
 <div id="deck-action-menu-modal" class="sub-modal" style="display: none;">
-    <div class="sub-modal-content" style="max-width: 320px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);">
-        <div class="sub-modal-header" style="background: #1a202c; padding: 12px 16px;">
-            <span id="action-menu-deck-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 240px; font-size: 0.95rem;">デッキメニュー</span>
+    <div class="sub-modal-content" style="width: 92%; max-width: 440px; border-radius: 14px; box-shadow: 0 16px 36px rgba(0,0,0,0.25); overflow: hidden; background: #fff;">
+        <!-- ヘッダー（黒背景・白文字） -->
+        <div class="sub-modal-header" style="background: #1a202c; padding: 14px 18px;">
+            <span id="action-menu-deck-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px; font-size: 1rem; font-weight: bold; color: #ffffff;">デッキメニュー</span>
             <button type="button" onclick="closeDeckActionMenu()" style="background:none; border:none; color:#a0aec0; font-size:1.4rem; cursor:pointer; line-height: 1;">×</button>
         </div>
-        <div class="deck-menu-list">
-            <button type="button" class="deck-menu-btn deck-menu-btn-primary" onclick="onMenuAction('view')">デッキを確認</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('edit')">編集する</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('share')">共有URLをコピー</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('export')">画像 / ZIPで出力</button>
-            <button type="button" class="deck-menu-btn" onclick="onMenuAction('copy')">デッキを複製</button>
-            <button type="button" class="deck-menu-btn deck-menu-btn-danger" onclick="onMenuAction('delete')">削除する</button>
+
+        <div class="deck-smart-menu">
+            <!-- 1. 最重要：デッキの確認（一人回し・分析・査定） -->
+            <button type="button" class="menu-hero-btn" onclick="onMenuAction('view')">
+                <div>
+                    <div class="menu-hero-title">
+                        <span>デッキを確認する</span>
+                    </div>
+                    <div class="menu-hero-tags">
+                        <span class="menu-hero-tag">分析</span>
+                        <span class="menu-hero-tag">一人回し</span>
+                        <span class="menu-hero-tag">価格査定</span>
+                    </div>
+                </div>
+                <!-- 矢印アイコン -->
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+
+            <!-- 2. 主要ツール（2×2グリッド） -->
+            <div class="menu-grid-actions">
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('edit')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    <span>編集する</span>
+                </button>
+
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('export')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    <span>画像 / ZIP出力</span>
+                </button>
+
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('share')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    <span>共有URLコピー</span>
+                </button>
+
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('copy')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>デッキを複製</span>
+                </button>
+            </div>
+
+            <!-- 3. 危険操作：削除（控えめに下部配置） -->
+            <button type="button" class="menu-danger-btn" onclick="onMenuAction('delete')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span>デッキを削除</span>
+            </button>
         </div>
     </div>
 </div>
+
 <!-- デッキ出力方法選択モーダル -->
 <div id="deck-export-choice-modal" class="sub-modal" style="display: none;">
     <div class="sub-modal-content" style="max-width: 420px;">
