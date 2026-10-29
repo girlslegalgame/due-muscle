@@ -49,6 +49,19 @@
             pointer-events: auto !important;
             -webkit-user-drag: element !important;
         }
+        
+        /* ★ 追加: PC用最上部バナー広告エリア（リーダーボード枠） */
+        .pc-top-ad-wrapper {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 90px;
+            margin-bottom: 8px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 4px;
+        }
 
         .playtest-container {
             max-width: 100%;
@@ -129,7 +142,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            height: calc(100vh - 65px);
+            height: calc(100vh - 170px); /* ★ 広告枠(90px)＋マージン分を差し引いて画面内に収める */
         }
         .playtest-row {
             display: flex;
@@ -166,14 +179,17 @@
         /* 各ゾーンのPC標準サイズ */
         .zone-battle { flex: 1.5; min-height: 250px; padding: 25px 12px 10px 12px; }
         .zone-shield { 
-            flex: 1 1 0%;
-            min-width: 0;
+            flex: 1 1 0% !important;   /* ★ 0%ベースで余剰領域のみを占有し、子要素による肥大化を完全阻止 */
+            min-width: 0 !important;   /* ★ flex子要素の最小幅を0に抑える */
+            width: 0 !important;       /* ★ コンテナの横幅強制制限 */
             min-height: 230px; 
             padding: 30px 12px 10px 12px;
             box-sizing: border-box;
-            overflow-x: auto;
+            overflow-x: auto !important; /* ★ 枠内で横スクロール */
+            overflow-y: hidden !important;
+            white-space: nowrap;
         }
-        .zone-mana   { flex: 1.2; min-height: 230px; padding: 25px 12px 10px 12px; }
+        .zone-mana { flex: 1.2; min-height: 230px; padding: 25px 12px 10px 12px; }
 
         /* ドラッグオーバー時のハイライト */
         .zone-shield.drag-over,
@@ -579,6 +595,10 @@
         スマホ・モバイル横画面専用レスポンシブ (完全収容版)
         ========================================================= */
         @media screen and (orientation: landscape) and (max-height: 900px), screen and (max-height: 600px) {
+            .pc-top-ad-wrapper {
+                display: none !important;
+            }
+
             html, body {
                 padding: 0 env(safe-area-inset-right, 4px) 0 env(safe-area-inset-left, 4px) !important;
                 margin: 0 !important;
@@ -682,12 +702,14 @@
 
             /* ★修正点1：シールドゾーンの極細を根絶。flex縮小を無効化し、固定ゾーン以外の横幅を全て奪い取る */
             .zone-shield {
-                flex: 1 1 auto !important;
-                width: 50% !important; /* 初期幅を大きく確保 */
-                min-width: 45% !important; /* どんなことがあっても45%未満には縮まない */
+                flex: 1 1 0% !important;
+                min-width: 0 !important;
+                width: 0 !important;
                 height: 100% !important;
+                box-sizing: border-box !important;
                 overflow-x: auto !important;
                 overflow-y: hidden !important;
+                white-space: nowrap !important;
             }
 
             /* 固定ゾーン（山札・墓地・超次元・GR） */
@@ -806,10 +828,14 @@
 </div>
 
 <div class="playtest-container">
+    <div class="pc-top-ad-wrapper">
+        <!-- Google AdSenseのバナータグをここに配置してください (例: 728x90) -->
+    </div>
     <div class="header-bar">
         <h2>1人回し: {{if .deckName}}{{.deckName}}{{else}}デッキ{{end}}</h2>
         <div>
-            <button class="btn-exit" style="background:#fd7e14; margin-right:8px;" onclick="ptPassTurnAndStart()">ターン終了</button>
+            <!-- ★ クラス btn-turn-end を追加 -->
+            <button class="btn-exit btn-turn-end" style="background:#fd7e14; margin-right:8px;" onclick="ptPassTurnAndStart()">ターン終了</button>
             <button class="btn-exit" style="background:#17a2b8; margin-right:8px;" onclick="openUntapMenu()">カードをアンタップ</button>
             <!-- 【修正】IDを追加し、表記を「一括選択モード」に変更 -->
             <button id="btnToggleSelect" class="btn-exit" style="background:#28a745; margin-right:8px;" onclick="toggleSelectMode()">一括選択モード</button>
@@ -1200,6 +1226,9 @@ window.onload = function() {
 
         //山札クリック時は手札を退避させず、中央下部の表示を維持する
         if (e.target.closest('#pt-zone-deck')) return;
+
+        // ★ 追加: 「ターン終了」ボタン押下時も手札を退避させず、中央表示を維持する
+        if (e.target.closest('.btn-turn-end')) return;
 
         // 手札以外のゾーンやボタン、盤面を操作・タップした場合のみ手札を退避
         if (e.target.closest('.playtest-zone, .fixed-zone, .header-bar')) {
@@ -1740,8 +1769,17 @@ function renderZone(zoneId, arr, name) {
             el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
 
             // タップ（クリック）時の拡大フォーカス制御
+            // タップ（クリック）時の拡大フォーカス制御
             el.onclick = (e) => {
                 e.stopPropagation();
+
+                // ★ 追加: 手札が右下に退避（minimized）している時は、拡大を行わず手札を中央へ復帰させるだけにする
+                const handZone = document.getElementById('pt-zone-hand');
+                if (handZone && handZone.classList.contains('minimized')) {
+                    restoreHandZone();
+                    return;
+                }
+
                 restoreHandZone();
 
                 if (isSelectMode) {
@@ -3517,6 +3555,16 @@ function ptPassTurnAndStart() {
             updated = true;
         }
     });
+
+    // ★ 追加: マナゾーンのカードも全件アンタップする
+    if (ptState.mana && ptState.mana.length > 0) {
+        ptState.mana.forEach(card => {
+            if (card.tapped) {
+                card.tapped = false;
+                updated = true;
+            }
+        });
+    }
 
     if (ptState.deck.length > 0) {
         let card = ptState.deck.pop();
