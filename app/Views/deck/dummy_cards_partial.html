@@ -414,14 +414,35 @@ function createAndAddDummyCard() {
         alert("カード名を入力してください。");
         return;
     }
+
+    const zone = (type === 'double') ? 'super_dimensional' : document.getElementById('dummy-input-zone').value;
+
+    // ★追加: ゾーンの最大枚数上限チェック
+    let targetList = mainList;
+    let maxZoneLimit = 60;
+    let zoneName = "メインデッキ";
+
+    if (zone === 'super_dimensional') {
+        targetList = superDimList;
+        maxZoneLimit = 8;
+        zoneName = "超次元ゾーン";
+    } else if (zone === 'gr') {
+        targetList = grList;
+        maxZoneLimit = 12;
+        zoneName = "超GRゾーン";
+    }
+
+    if (targetList.querySelectorAll('img').length >= maxZoneLimit) {
+        alert(`${zoneName}は合計${maxZoneLimit}枚までです。`);
+        return;
+    }
+
     const cost = document.getElementById('dummy-input-cost').value;
     const civs = Array.from(document.querySelectorAll('.dummy-civ-check:checked')).map(c => c.value);
 
     const pName = document.getElementById('dummy-input-partner-name').value.trim();
     const pCost = document.getElementById('dummy-input-partner-cost').value;
     const pCivs = Array.from(document.querySelectorAll('.dummy-partner-civ-check:checked')).map(c => c.value);
-
-    const zone = (type === 'double') ? 'super_dimensional' : document.getElementById('dummy-input-zone').value;
 
     const dummyId = 'dummy_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     const dataUrl = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));

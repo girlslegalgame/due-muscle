@@ -1218,6 +1218,10 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
 		deckName = dn
 	}
 
+	// ★ 追加: format_id と thumbnail_card_id を確実に数値(int)として抽出
+	formatId, _ := strconv.Atoi(fmt.Sprintf("%v", deck["format_id"]))
+	thumbnailCardId, _ := strconv.Atoi(fmt.Sprintf("%v", deck["thumbnail_card_id"]))
+
 	cardSql := `
         SELECT 
             dc.*, 
@@ -1296,12 +1300,14 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
 	cardsJSON, _ := json.Marshal(cards)
 
 	views.RenderView(w, r, "deck/playtest.html", map[string]interface{}{
-		"hideHeader": true,
-		"hideFooter": true,
-		"deck":       deck,
-		"deckName":   deckName,
-		"cards":      cards,
-		"cardsJSON":  template.JS(cardsJSON),
+		"hideHeader":      true,
+		"hideFooter":      true,
+		"deck":            deck,
+		"deckName":        deckName,
+		"formatId":        formatId,        // ★ 数値で渡す
+		"thumbnailCardId": thumbnailCardId, // ★ 数値で渡す
+		"cards":           cards,
+		"cardsJSON":       template.JS(cardsJSON),
 	})
 }
 
