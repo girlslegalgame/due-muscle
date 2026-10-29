@@ -726,7 +726,7 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 
 	// ★修正1: モデル名を実在する「gemini-1.5-flash」に変更
 	// ★修正2: URLからAPIキーを削除（ログ流出防止）
-	apiUrl := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+	apiUrl := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent"
 
 	userPrompt := fmt.Sprintf("【デュエル・マスターズ 総合ゲームルール原文】\n%s\n\n%s\n\n%s\n\n【プレイヤーからの質問】\n%s",
 		comprehensiveRules, cardContext, abilityContext, message)
