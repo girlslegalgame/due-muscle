@@ -416,7 +416,14 @@
             border-radius: 4px;
             padding: 5px 0;
             min-width: 180px;
+            max-width: 85vw;
+            max-height: 80vh;
+            overflow-y: auto !important;
+            touch-action: pan-y !important;            /* ★ 追加: 縦スワイプを明示的に許可 */
+            -webkit-overflow-scrolling: touch;         /* ★ 追加: iOS慣性スクロール */
+            overscroll-behavior: contain;              /* ★ 追加: 背面へのスクロール伝播防止 */
             font-size: 13px;
+            box-sizing: border-box;
         }
         .context-menu li {
             padding: 8px 15px;
@@ -426,37 +433,46 @@
         .context-menu li:hover { background: #007bff; color: white; }
         .context-menu hr { border: 0; border-top: 1px solid #444; margin: 4px 0; }
 
-        /* ★ 追加: カスケード型サブメニュー */
+        /* ★ 修正: アコーディオン型サブメニュー（真下に展開） */
         .context-menu li.has-submenu {
-            position: relative;
+            display: block;
+            padding: 0;
+        }
+        .context-menu .submenu-header {
+            padding: 8px 15px;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-weight: bold;
+            background: #2a2a2a;
+            border-bottom: 1px solid #333;
         }
-        .context-menu li.has-submenu::after {
-            content: "▶";
+        .context-menu .submenu-header::after {
+            content: "▼";
             font-size: 9px;
-            margin-left: 10px;
             color: #888;
+            transition: transform 0.15s;
         }
-        .context-menu li.has-submenu:hover::after {
+        .context-menu li.has-submenu.open .submenu-header::after {
+            transform: rotate(180deg);
             color: #fff;
         }
         .context-submenu {
             display: none;
-            position: absolute;
-            top: -5px;
-            left: 100%;
-            background: #252525;
-            color: #eee;
-            border: 1px solid #444;
-            box-shadow: 2px 2px 10px rgba(0,0,0,0.5);
-            border-radius: 4px;
-            padding: 5px 0;
-            min-width: 170px;
-            z-index: 26000;
+            background: #1e1e1e;
+            padding: 0;
+            margin: 0;
+            border-top: 1px solid #333;
         }
-        .context-menu li.has-submenu:hover > .context-submenu,
+        .context-submenu li {
+            padding: 7px 15px 7px 25px; /* インデント */
+            font-size: 12px;
+            color: #ccc;
+        }
+        .context-submenu li:hover {
+            background: #007bff;
+            color: #fff;
+        }
         .context-menu li.has-submenu.open > .context-submenu {
             display: block;
         }
@@ -732,19 +748,21 @@
                 left: 50% !important;
                 transform: translateX(-50%) !important;
                 width: auto !important;
-                height: 88px !important;
+                height: 80px !important;
                 min-height: 0 !important;
                 overflow: visible !important;
                 z-index: 500 !important;
             }
             .zone-hand .playtest-card {
-                height: 88px !important;            /* 75pxから88pxに拡大 */
-                border: none !important;           /* 枠線消去 */
-                background: transparent !important;/* 背景透明化 */
+                height: 110px !important;            /* ★ PC比率に合わせて110px */
+                aspect-ratio: 5 / 7 !important;
+                border: none !important;
+                background: transparent !important;
                 box-shadow: none !important;
             }
-            .hand-fan-card {
-                bottom: 0px !important;
+            /* ★ 追加: スマホ横画面用の回転軸をカード下端から離して設定 */
+            .zone-hand .hand-fan-card {
+                transform-origin: 50% 180% !important;
             }
 
             /* 手札カードタップ拡大時：適度なサイズで画面中央に表示 */
@@ -1083,9 +1101,10 @@ document.addEventListener('touchend', function (e) {
 }, { passive: false });
 
 // 画面全体の意図しない縦スクロールを防止
+// 画面全体の意図しない縦スクロールを防止
 document.addEventListener('touchmove', function (e) {
-    // ゾーン内の横スクロールやモーダル内部のスクロール以外は画面スクロールをキャンセル
-    if (!e.target.closest('.playtest-zone') && !e.target.closest('.pt-modal-body')) {
+    // ★ 修正: .context-menu 内のスクロールもキャンセル対象から除外する
+    if (!e.target.closest('.playtest-zone') && !e.target.closest('.pt-modal-body') && !e.target.closest('.context-menu')) {
         e.preventDefault();
     }
 }, { passive: false });
@@ -1663,15 +1682,19 @@ function renderZone(zoneId, arr, name) {
     // === 手札ゾーンの扇状・最新右側配置 ＆ タップ拡大表示 ===
     if (zoneId === 'pt-zone-hand') {
         const total = arr.length;
+        const isMobile = (window.innerHeight <= 500 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
 
-        // 枚数に応じた角度の広がり（1枚なら0度、枚数が多い時は重なりを綺麗に）
-        const maxAngle = total <= 1 ? 0 : Math.min(36, (total - 1) * 6);
+        // ★ 修正: スマホ時はカード同士を密着・密集（間隔20〜24px）させる
+        const maxAngle = isMobile 
+            ? (total <= 1 ? 0 : Math.min(26, (total - 1) * 3.8))
+            : (total <= 1 ? 0 : Math.min(36, (total - 1) * 6));
         const startAngle = -maxAngle / 2;
         const angleStep = total > 1 ? maxAngle / (total - 1) : 0;
 
-        // 画面幅に応じたカード同士の重なり間隔（全カードが必ず見えるように自動調整）
-        const maxHandWidth = Math.min(window.innerWidth * 0.7, 550);
-        const spacing = total > 1 ? Math.min(50, maxHandWidth / (total - 1)) : 0;
+        const maxHandWidth = isMobile ? Math.min(window.innerWidth * 0.6, 260) : Math.min(window.innerWidth * 0.7, 550);
+        const maxSpacing = isMobile ? 22 : 50; // ★ スマホは密集させるため上限22px
+        const spacing = total > 1 ? Math.min(maxSpacing, maxHandWidth / (total - 1)) : 0;
+        const archStrength = isMobile ? 0.45 : (total > 5 ? 1.2 : 2.0);
 
         arr.forEach((card, idx) => {
             const el = document.createElement('div');
@@ -1684,9 +1707,8 @@ function renderZone(zoneId, arr, name) {
             // 綺麗な扇状のアーチ位置を計算
             const angle = startAngle + (angleStep * idx);
             const xOffset = (idx - (total - 1) / 2) * spacing;
-            // 中央が持ち上がり、両端がわずかに下がる美しい円弧
             const normalizedIdx = (idx - (total - 1) / 2);
-            const yOffset = Math.pow(normalizedIdx, 2) * (total > 5 ? 1.2 : 2.0);
+            const yOffset = Math.pow(normalizedIdx, 2) * archStrength;
 
             el.dataset.defaultTransform = `translate(${xOffset}px, ${yOffset}px) rotate(${angle}deg)`;
             el.style.transform = el.dataset.defaultTransform;
@@ -2469,12 +2491,12 @@ function openPtDeckMenu(e) {
     e.stopPropagation();
     const menu = document.getElementById('ptContextMenu');
     menu.innerHTML = `
-        <li class="has-submenu" onclick="ptToggleSubmenu(event, this)">
-            山札の上
+        <li class="has-submenu open">
+            <div class="submenu-header" onclick="ptToggleSubmenu(event, this.parentNode)">山札の上</div>
             <ul class="context-submenu">
                 <li onclick="ptLookAtDeckTop(1)">1枚見る</li>
                 <li onclick="ptLookAtDeckTopPrompt()">指定枚数見る</li>
-                <li onclick="ptOpenRevealUntilModal()">条件を指定して表向きにする</li> <!-- ★ ここへ移動 -->
+                <li onclick="ptOpenRevealUntilModal()">条件を指定して表向きにする</li>
                 <hr>
                 <li onclick="ptMoveDeckTopTo('hand')">手札に置く</li>
                 <li onclick="ptMoveDeckTopTo('mana')">マナに置く</li>
@@ -2484,8 +2506,8 @@ function openPtDeckMenu(e) {
                 <li onclick="ptMoveDeckTopTo('psychic')">超次元に置く</li>
             </ul>
         </li>
-        <li class="has-submenu" onclick="ptToggleSubmenu(event, this)">
-            山札の下
+        <li class="has-submenu">
+            <div class="submenu-header" onclick="ptToggleSubmenu(event, this.parentNode)">山札の下</div>
             <ul class="context-submenu">
                 <li onclick="ptLookAtDeckBottom(1)">1枚見る</li>
                 <li onclick="ptLookAtDeckBottomPrompt()">指定枚数見る</li>
@@ -2498,11 +2520,10 @@ function openPtDeckMenu(e) {
                 <li onclick="ptMoveDeckBottomTo('psychic')">超次元に置く</li>
             </ul>
         </li>
-        <li class="has-submenu" onclick="ptToggleSubmenu(event, this)">
-            全体
+        <li class="has-submenu">
+            <div class="submenu-header" onclick="ptToggleSubmenu(event, this.parentNode)">全体</div>
             <ul class="context-submenu">
                 <li onclick="ptViewDeck()">山札を見る</li>
-                <!-- ★ 「条件を指定して表向きにする」を削除 -->
                 <hr>
                 <li onclick="ptShuffleDeckAction()">山札をシャッフル</li>
             </ul>
@@ -2530,28 +2551,34 @@ function openPtGRMenu(e) {
 }
 
 function adjustMenuPosition(e, menu) {
-    let x = e.clientX + window.scrollX;
-    let y = e.clientY + window.scrollY;
-    
-    // 一時的に表示してサイズを正確に取得
+    let x = e.clientX;
+    let y = e.clientY;
+
     menu.style.visibility = 'hidden';
     menu.style.display = 'block';
+
     const menuWidth = menu.offsetWidth || 180;
     const menuHeight = menu.offsetHeight || 200;
     menu.style.visibility = 'visible';
-    
-    // 右端のはみ出し防止（マージン10px）
-    if (e.clientX + menuWidth > window.innerWidth - 10) {
-        x = window.innerWidth - menuWidth - 10 + window.scrollX;
+
+    // 画面横幅のクランプ（8pxマージン）
+    if (x + menuWidth > window.innerWidth - 8) {
+        x = window.innerWidth - menuWidth - 8;
     }
-    // 下端のはみ出し防止（マージン10px）
-    if (e.clientY + menuHeight > window.innerHeight - 10) {
-        y = window.innerHeight - menuHeight - 10 + window.scrollY;
+    if (x < 8) x = 8;
+
+    // 画面縦幅のクランプ
+    // 下にはみ出るなら上方向へ持ち上げ、それでもはみ出るなら画面上端（8px）から収める
+    if (y + menuHeight > window.innerHeight - 8) {
+        y = window.innerHeight - menuHeight - 8;
     }
-    // 左端・上端のはみ出し防止
-    if (x < 10) x = 10;
-    if (y < 10) y = 10;
-    
+    if (y < 8) {
+        y = 8;
+        menu.style.maxHeight = (window.innerHeight - 16) + 'px';
+    } else {
+        menu.style.maxHeight = (window.innerHeight - y - 8) + 'px';
+    }
+
     menu.style.left = x + 'px';
     menu.style.top = y + 'px';
 }
@@ -6802,24 +6829,21 @@ function ptExecuteDeckDrop(cardId, fromZone, action) {
 }
 
 function ptToggleSubmenu(e, liEl) {
-    if (e.target !== liEl && !e.target.matches('.has-submenu')) return;
     e.stopPropagation();
-    const isOpen = liEl.classList.contains('open');
+    const wasOpen = liEl.classList.contains('open');
+    // 他を閉じてタップしたカテゴリだけ開く
     document.querySelectorAll('.context-menu li.has-submenu').forEach(el => el.classList.remove('open'));
-    if (!isOpen) {
+    if (!wasOpen) {
         liEl.classList.add('open');
-        // サブメニューが画面右端をはみ出す場合は左側に展開
-        const sub = liEl.querySelector('.context-submenu');
-        if (sub) {
-            const rect = sub.getBoundingClientRect();
-            if (rect.right > window.innerWidth - 10) {
-                sub.style.left = 'auto';
-                sub.style.right = '100%';
-            } else {
-                sub.style.left = '100%';
-                sub.style.right = 'auto';
-            }
-        }
+    }
+
+    // 展開・格納後に画面下部からはみ出さないよう再クランプ
+    const menu = document.getElementById('ptContextMenu');
+    const rect = menu.getBoundingClientRect();
+    if (rect.bottom > window.innerHeight - 8) {
+        let newTop = window.innerHeight - rect.height - 8;
+        if (newTop < 8) newTop = 8;
+        menu.style.top = newTop + 'px';
     }
 }
 </script>
