@@ -466,15 +466,19 @@
 </head>
 <body>
 
+<!-- app/Views/deck/index.html の <div class="container"> 直下付近 -->
+
 <div class="container">
     <h2>マイデッキ一覧</h2>
     <div style="display: flex; gap: 10px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
         <a href="/decks/new" class="create-btn" style="margin-bottom: 0;">＋ 新規作成</a>
-        <!-- 他のボタンと共通の create-btn スタイルを適用 -->
         <button type="button" id="btn-proxy-action" class="create-btn" style="margin-bottom: 0; border: none; cursor: pointer;" onclick="handleProxyButtonClick()">
             プロキシPDF出力
         </button>
     </div>
+
+    <!-- ★ 追加: デッキ検索フォーム（部品呼び出し） -->
+    {{template "search_form_partial.html" (dict "actionUrl" "/mydecks" "formats" .formats "civilizations" .civilizations "searchValues" .searchValues)}}
 
     <div class="deck-list">
         {{ if .Decks }}

@@ -70,36 +70,147 @@ func getSessionUserID(r *http.Request) (int, bool) {
 	return 0, false
 }
 
+// app/Controllers/DeckController.go の MyDecks 内
+
 func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 	var myDecks []map[string]interface{}
 	totalDecks := 0
 	perPage := 15
 	currentPage := 1
 
-	if pageStr := r.URL.Query().Get("page"); pageStr != "" {
+	query := r.URL.Query()
+	if pageStr := query.Get("page"); pageStr != "" {
 		if p, err := strconv.Atoi(pageStr); err == nil && p > 1 {
 			currentPage = p
 		}
 	}
 
+	deckName := strings.TrimSpace(query.Get("deck_name"))
+	formatId := query.Get("format_id")
+	cardName := strings.TrimSpace(query.Get("card_name"))
+	civIds := query["civ_ids"]
+	civLogic := query.Get("civ_logic")
+	if civLogic == "" {
+		civLogic = "include"
+	}
+
 	totalPages := 1
 	userID, ok := getSessionUserID(r)
-	if ok {
-		db := getDB()
-		deckModel := models.NewDeck(db) // package名を Models に統一
-		allDecks, _ := deckModel.GetByUserId(userID)
+	db := getDB()
 
-		// ★ 追加: 各デッキの文明（光・水・闇・火・自然）の有無を判定してマップにセット
+	if ok {
+		sqlStr := `SELECT d.*, f.format_name, cd.imagepath AS thumbnail_imagepath
+                   FROM decks d 
+                   JOIN formats f ON d.format_id = f.format_id 
+                   LEFT JOIN card_detail cd ON d.thumbnail_card_id = cd.card_id
+                   WHERE d.user_id = ?`
+
+		var params []interface{}
+		params = append(params, userID)
+
+		if deckName != "" {
+			sqlStr += " AND d.deck_name LIKE ?"
+			params = append(params, "%"+deckName+"%")
+		}
+		if formatId != "" {
+			fid, _ := strconv.Atoi(formatId)
+			sqlStr += " AND d.format_id = ?"
+			params = append(params, fid)
+		}
+		if cardName != "" {
+			rawNames := strings.Split(cardName, ",")
+			for _, name := range rawNames {
+				trimmed := strings.TrimSpace(name)
+				if trimmed != "" {
+					sqlStr += ` AND EXISTS (
+                        SELECT 1 FROM deck_cards dc 
+                        JOIN card c ON dc.card_id = c.card_id 
+                        WHERE dc.deck_id = d.deck_id AND c.card_name LIKE ?
+                    )`
+					params = append(params, "%"+trimmed+"%")
+				}
+			}
+		}
+
+		if len(civIds) > 0 {
+			if civLogic == "only" {
+				allCivs := []int{1, 2, 3, 4, 5, 6}
+				var civIdsInt []int
+				for _, cid := range civIds {
+					if v, err := strconv.Atoi(cid); err == nil {
+						civIdsInt = append(civIdsInt, v)
+					}
+				}
+				var excludedCivs []string
+				for _, ac := range allCivs {
+					found := false
+					for _, ic := range civIdsInt {
+						if ac == ic {
+							found = true
+							break
+						}
+					}
+					if !found {
+						excludedCivs = append(excludedCivs, strconv.Itoa(ac))
+					}
+				}
+
+				if len(excludedCivs) > 0 {
+					excludedList := strings.Join(excludedCivs, ",")
+					sqlStr += fmt.Sprintf(` AND NOT EXISTS (
+                        SELECT 1 FROM deck_cards dc 
+                        JOIN card_civilization cc ON dc.card_id = cc.card_id 
+                        WHERE dc.deck_id = d.deck_id AND cc.civilization_id IN (%s)
+                    )`, excludedList)
+				}
+			} else {
+				for _, id := range civIds {
+					cid, _ := strconv.Atoi(id)
+					sqlStr += ` AND EXISTS (
+                        SELECT 1 FROM deck_cards dc 
+                        JOIN card_civilization cc ON dc.card_id = cc.card_id 
+                        WHERE dc.deck_id = d.deck_id AND cc.civilization_id = ?
+                    )`
+					params = append(params, cid)
+				}
+			}
+		}
+
+		sqlStr += " ORDER BY d.updated_at DESC"
+
+		rows, err := db.Query(sqlStr, params...)
+		var allDecks []map[string]interface{}
+		if err == nil {
+			defer rows.Close()
+			cols, _ := rows.Columns()
+			for rows.Next() {
+				columns := make([]interface{}, len(cols))
+				columnPointers := make([]interface{}, len(cols))
+				for i := range columns {
+					columnPointers[i] = &columns[i]
+				}
+				rows.Scan(columnPointers...)
+				rowMap := make(map[string]interface{})
+				for i, colName := range cols {
+					val := columnPointers[i].(*interface{})
+					if b, ok := (*val).([]byte); ok {
+						rowMap[colName] = string(b)
+					} else {
+						rowMap[colName] = *val
+					}
+				}
+				allDecks = append(allDecks, rowMap)
+			}
+		}
+
 		for _, d := range allDecks {
 			did, _ := strconv.Atoi(fmt.Sprintf("%v", d["deck_id"]))
 
-			// 公開フラグを数値(1/0)・真偽値(true/false)の両方に確実にセット
 			pubStr := fmt.Sprintf("%v", d["is_public"])
 			isPub := (pubStr == "1" || pubStr == "true")
+			d["is_public"] = 0
 			if isPub {
 				d["is_public"] = 1
-			} else {
-				d["is_public"] = 0
 			}
 			d["IsPublic"] = isPub
 
@@ -117,7 +228,6 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 			d["civ_fire"] = strings.Contains(civList, "4")
 			d["civ_nature"] = strings.Contains(civList, "5")
 
-			// ★ 追加: 日付を YYYY/MM/DD にフォーマット
 			rawDate := fmt.Sprintf("%v", d["updated_at"])
 			if len(rawDate) >= 10 {
 				d["formatted_at"] = strings.ReplaceAll(rawDate[:10], "-", "/")
@@ -139,7 +249,6 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ページネーション用変数の計算
 	startPage := currentPage - 2
 	if startPage < 1 {
 		startPage = 1
@@ -154,18 +263,64 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 		pageList = append(pageList, p)
 	}
 
+	fRows, _ := db.Query("SELECT format_id, format_name FROM formats ORDER BY format_id ASC")
+	var formats []map[string]interface{}
+	if fRows != nil {
+		defer fRows.Close()
+		for fRows.Next() {
+			var id int
+			var name string
+			fRows.Scan(&id, &name)
+			formats = append(formats, map[string]interface{}{"format_id": id, "format_name": name})
+		}
+	}
+
+	allCivMaster := []map[string]interface{}{
+		{"civilization_id": 1, "civilization_name": "光"},
+		{"civilization_id": 2, "civilization_name": "水"},
+		{"civilization_id": 3, "civilization_name": "闇"},
+		{"civilization_id": 4, "civilization_name": "火"},
+		{"civilization_id": 5, "civilization_name": "自然"},
+		{"civilization_id": 6, "civilization_name": "ゼロ"},
+	}
+	var civilizations []map[string]interface{}
+	for _, cm := range allCivMaster {
+		cidStr := strconv.Itoa(cm["civilization_id"].(int))
+		checked := false
+		for _, picked := range civIds {
+			if picked == cidStr {
+				checked = true
+				break
+			}
+		}
+		civilizations = append(civilizations, map[string]interface{}{
+			"civilization_id":   cm["civilization_id"],
+			"civilization_name": cm["civilization_name"],
+			"checked":           checked,
+		})
+	}
+
 	views.RenderView(w, r, "deck/index.html", map[string]interface{}{
-		"Decks":       myDecks,
-		"CurrentPage": currentPage,
-		"TotalPages":  totalPages,
-		"TotalDecks":  totalDecks,
-		"StartPage":   startPage,
-		"EndPage":     endPage,
-		"PageList":    pageList,
-		"PrevPage":    currentPage - 1,
-		"NextPage":    currentPage + 1,
-		"IsLoggedIn":  ok,
-		"UserID":      userID,
+		"Decks":         myDecks,
+		"CurrentPage":   currentPage,
+		"TotalPages":    totalPages,
+		"TotalDecks":    totalDecks,
+		"StartPage":     startPage,
+		"EndPage":       endPage,
+		"PageList":      pageList,
+		"PrevPage":      currentPage - 1,
+		"NextPage":      currentPage + 1,
+		"IsLoggedIn":    ok,
+		"UserID":        userID,
+		"formats":       formats,
+		"civilizations": civilizations,
+		"searchValues": map[string]interface{}{
+			"deck_name": deckName,
+			"format_id": formatId,
+			"card_name": cardName,
+			"civ_ids":   civIds,
+			"civ_logic": civLogic,
+		},
 	})
 }
 

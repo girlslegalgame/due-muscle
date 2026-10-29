@@ -25,11 +25,6 @@ func RenderIndex(w io.Writer, data IndexViewData) error {
 	}
 	_ = pdo_db
 
-	var currentUserIDStr string
-	if data.UserID != nil {
-		currentUserIDStr = fmt.Sprintf("%d", *data.UserID)
-	}
-
 	// --- HTML Header & CSS (静的コンテンツ) ---
 	fmt.Fprintf(w, `<!DOCTYPE html>
 <html lang="ja">
@@ -610,30 +605,6 @@ func RenderIndex(w io.Writer, data IndexViewData) error {
         </div>
     </div>
 </div>
-<script>
-/**
- * デッキ削除
- */
-function deleteDeck(deckId) {
-...
-/* --- [JavaScript部分は変更なしのため省略: generateProxyPdf内のセッション出力箇所まで] --- */
-...
-        // 1. 各デッキのカードリストを取得
-        let allPrintCards = [];
-`)
-
-	// <?= isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : '' ?> の再現
-	fmt.Fprintf(w, "        const currentUserId = '%s';\n", currentUserIDStr)
-
-	fmt.Fprint(w, `
-...
-/* --- [以降のJavaScriptも変更なしのため省略: 元ファイルの続きから </html> までそのまま記載] --- */
-...
-function getIndexCardImageUrl(card) {
-    return getCardImageUrl(card);
-}
-</script>
-
 </body>
 </html>
 `)
