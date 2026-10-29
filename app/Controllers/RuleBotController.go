@@ -696,7 +696,7 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 
 9. 質問で聞かれていない余談や私見は語らず、文章が途中で切れないよう必ず文末まで完結させてください。`
 
-	// 4. 有料Gemini API へ総合ルールとカード情報・質問を送信
+	// 4. Gemini API へ総合ルールとカード情報・質問を送信
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
 		// .env からフォールバック読み込み
@@ -719,7 +719,15 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	apiUrl := "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=" + apiKey
+	if apiKey == "" {
+		sendJSONError(w, http.StatusInternalServerError, "GEMINI_API_KEYが設定されていません。")
+		return
+	}
+
+	// ★修正1: モデル名を実在する「gemini-1.5-flash」に変更
+	// ★修正2: URLからAPIキーを削除（ログ流出防止）
+	apiUrl := "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
 	userPrompt := fmt.Sprintf("【デュエル・マスターズ 総合ゲームルール原文】\n%s\n\n%s\n\n%s\n\n【プレイヤーからの質問】\n%s",
 		comprehensiveRules, cardContext, abilityContext, message)
 
@@ -755,8 +763,11 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	geminiReq.Header.Set("Content-Type", "application/json")
+	// ★修正3: APIキーはヘッダー（x-goog-api-key）で安全に渡す
+	geminiReq.Header.Set("x-goog-api-key", apiKey)
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	// ★修正4: クライアント側のタイムアウトをctx（120秒）に合わせるため0（無制限）にするか120秒にする
+	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(geminiReq)
 	if err != nil {
 		sendJSONError(w, http.StatusInternalServerError, "Gemini APIの呼び出しに失敗しました: "+err.Error())
@@ -771,7 +782,7 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		sendJSONError(w, http.StatusInternalServerError, "Gemini APIの呼び出しに失敗しました: "+string(respBytes))
+		sendJSONError(w, http.StatusInternalServerError, "Gemini APIエラー ("+resp.Status+"): "+string(respBytes))
 		return
 	}
 
