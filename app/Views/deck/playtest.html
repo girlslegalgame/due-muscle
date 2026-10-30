@@ -17,7 +17,26 @@
             touch-action: none;              /* ピンチズーム・ダブルタップ拡大・画面スクロールを抑制 */
             overscroll-behavior: none;        /* 画面端のバウンススクロールを防止 */
         }
-
+.playtest-shield-linked-name {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.85);
+    color: #ffc107;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #ffc107;
+    white-space: nowrap;
+    max-width: 90%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    pointer-events: none;
+    z-index: 20;
+}
 
         /* 共通ヘッダー・フッターの完全非表示化 */
         header, footer {
@@ -1665,7 +1684,6 @@ function renderPtBoard() {
     } catch (e) {
         console.error("Psychic header render error:", e);
     }
-
     try { renderZone('pt-zone-battle', ptState.battle, 'バトルゾーン'); } catch (e) { console.error("Battle zone render error:", e); }
     try { renderZone('pt-zone-shield', ptState.shield, 'シールドゾーン'); } catch (e) { console.error("Shield zone render error:", e); }
     try { renderZone('pt-zone-mana', ptState.mana, 'マナゾーン'); } catch (e) { console.error("Mana zone render error:", e); }
@@ -1877,7 +1895,7 @@ function renderZone(zoneId, arr, name) {
             el.classList.add('is-landscape');
         }
 
-        img.onload = function() {
+img.onload = function() {
             if (!card.faceDown && img.naturalWidth > img.naturalHeight) {
                 // 初回ロード時に横長判定された画像パスをキャッシュに保存
                 if (!ptLandscapeCache.has(displaySrc)) {
@@ -1887,10 +1905,20 @@ function renderZone(zoneId, arr, name) {
             }
         };
         el.appendChild(img);
+
+        // ★ 追加: シールドゾーンの場合、紐付けられたカード名を表示
+        if (zoneId === 'pt-zone-shield') {
+            const displayName = getLinkedShieldDisplayName(card);
+            if (displayName) {
+                const label = document.createElement('div');
+                label.className = 'playtest-shield-linked-name';
+                label.innerText = displayName;
+                el.appendChild(label);
+            }
+        }
         
         if (card.is_zeron && !card.flipped) {
-            const counter = document.createElement('div');
-            counter.className = 'playtest-zone-center-text'; 
+            const counter = document.createElement('div');            counter.className = 'playtest-zone-center-text'; 
             counter.innerText = card.zeron_count || 0;
             el.appendChild(counter);
         }
@@ -2192,15 +2220,22 @@ function ptMoveCard(cardId, from, to, opts = {}) {
         ptState.partner = [card];
     }
 
-    // ★ 追加: バトルゾーンから離れて他ゾーンへ配置完了した直後にパートナー帰還確認
+// ★ 追加: バトルゾーンから離れて他ゾーンへ配置完了した直後にパートナー帰還確認
     if (isDueParty && card.is_partner && from === 'battle' && to !== 'battle' && to !== 'partner' && !opts.skipPartnerCheck) {
         renderPtBoard();
         ptOpenPartnerReturnChoiceModal(card, to);
         return true;
     }
+    // ★ 追加: ability_id 10 / 68 のシールド追加能力の判定
+    if (to === 'battle' && !opts.skipShieldAddCheck) {
+        ptCheckShieldAddAbility(card);
+    }
 
     renderPtBoard();
     return true;
+
+
+    
 }
 
 // 2. 新規追加：バトルゾーンの構成カードから移動するカードを選択するモーダル
@@ -4089,6 +4124,107 @@ function ptMoveSeal(cardId, targetZone, opts = {}) {
 let ptEvoSelectedIds = [];      // 順番指定用の選択ID配列
 let ptEvoDeckTop3Cards = [];    // ability_id: 319 で山札から一時退避させる配列
 
+// ==========================================
+// ability_id 10 / 68：シールド追加能力の制御
+// ==========================================
+
+// バトルゾーンのカード（およびその上に重なったカード）の状態に応じて、シールドに表示すべき名前を判定
+function getLinkedShieldDisplayName(shieldCard) {
+    if (!shieldCard.linked_source_id) return null;
+
+    // バトルゾーンにあるすべてのカード束を走査
+    for (let bCard of ptState.battle) {
+        const allComps = [bCard, ...(bCard.underCards || [])];
+        const hasSource = allComps.some(c => c.id === shieldCard.linked_source_id);
+        
+        if (hasSource) {
+            // 一番上のカードを取得
+            const topCard = bCard;
+            const topAbIds = topCard.ability_ids || [];
+            
+            // 一番上のカードが 10 または 68 を持っているか判定
+            const hasAbility = topAbIds.includes(10) || topAbIds.includes(68);
+            if (hasAbility) {
+                // 持っていれば、一番上のカードの名前を表示
+                return topCard.name;
+            } else {
+                // 10や68を持たないカードが上に重なっている時は非表示
+                return null;
+            }
+        }
+    }
+    // バトルゾーンから離れている場合は非表示
+    return null;
+}
+
+// 出すときの ability_id (10 または 68) チェック
+function ptCheckShieldAddAbility(card) {
+    if (!card || !card.ability_ids) return;
+    const abIds = card.ability_ids;
+    let count = 0;
+    if (abIds.includes(68)) {
+        count = 2; // 68: 2枚
+    } else if (abIds.includes(10)) {
+        count = 1; // 10: 1枚
+    }
+
+    if (count > 0) {
+        ptOpenShieldAddChoiceModal(card, count);
+    }
+}
+
+// シールド追加の選択モーダルを表示（アラートではなくモーダル）
+function ptOpenShieldAddChoiceModal(card, count) {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "能力の使用確認";
+    body.innerHTML = `
+        <div style="text-align: center; padding: 10px 0;">
+            <img src="${card.src}" style="width: 120px; height: 168px; border-radius: 6px; margin-bottom: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
+            <p style="font-size: 15px; font-weight: bold; margin-bottom: 8px;">${card.name}</p>
+            <p style="font-size: 13px; color: #ddd; margin: 0 0 15px 0;">
+                山札の上から <strong>${count}枚</strong> を、新しく裏向きでシールドに置きますか？
+            </p>
+        </div>
+    `;
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">置かない</button>
+        <button class="btn-pt-primary" onclick="ptExecuteShieldAdd('${card.id}', ${count}); closePtModal();" style="background: #28a745;">シールドに置く</button>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+// 実際に山札から裏向きでシールドに置き、発動元のカードと紐付ける
+function ptExecuteShieldAdd(sourceCardId, count) {
+    const sourceCard = ptState.battle.find(c => c.id === sourceCardId);
+    if (!sourceCard) return;
+
+    if (ptState.deck.length < count) {
+        alert("山札の枚数が足りません。");
+        return;
+    }
+
+    for (let i = 0; i < count; i++) {
+        let deckCard = ptState.deck.pop();
+        if (deckCard) {
+            deckCard.faceDown = true;
+            deckCard.tapped = false;
+            deckCard.inverted = false;
+            // 発動元カードのIDを紐付け
+            deckCard.linked_source_id = sourceCard.id;
+            ptState.shield.push(deckCard);
+        }
+    }
+
+    renderPtBoard();
+}
+
+
 // 特性とability_idをチェックし、進化演出プロセスへ分岐させる
 function ptCheckEvolutionAndPlay(cardId, fromZone) {
     const card = ptState[fromZone].find(c => c.id === cardId);
@@ -4106,19 +4242,24 @@ function ptCheckEvolutionAndPlay(cardId, fromZone) {
     const isEvo = charIds.some(id => [2, 9, 16].includes(id));
 
     // 通常カード（進化特性を持たない）はそのままバトルゾーンへ
+   // 通常カード（進化特性を持たない）はそのままバトルゾーンへ
     if (!isEvo) {
         ptMoveCard(cardId, fromZone, 'battle');
+        // ★ 追加
+        const bCard = ptState.battle.find(c => c.id === cardId);
+        if (bCard) ptCheckShieldAddAbility(bCard);
         return;
     }
 
     // ability_idのグループ定義
-    const abZoneBattle = [18, 27, 93, 94, 95, 142, 143, 145, 159, 185, 186];
+ const abZoneBattle = [18, 27, 93, 94, 95, 142, 143, 145, 159, 185, 186];
     const abZoneMana = [269, 270, 318];
     const abZoneGrave = [188, 189, 245, 246, 247, 248];
-    const abZoneShield = [126];
-    const abZoneHand = [190, 191];
+    const abZoneShield = [126, 335];          // ★ 335 を追加 (シールドから裏向きで重ねる)
+    const abZoneHand = [190, 191, 334];       // ★ 334 を追加 (手札から表向きで重ねる)
     const abZoneDeckTop = [193, 194];
     const abZoneDeckTop3 = [319];
+    const abZoneDeckShuffleTop = [333];       // ★ 333 を追加 (シャッフル後トップを裏向きで重ねる)
     const abZoneMulti = [144, 187];
 
     let mode = null;
@@ -4136,6 +4277,8 @@ function ptCheckEvolutionAndPlay(cardId, fromZone) {
         mode = 'deck_top';
     } else if (abIds.some(id => abZoneDeckTop3.includes(id))) {
         mode = 'deck_top3';
+    } else if (abIds.some(id => abZoneDeckShuffleTop.includes(id))) { // ★ 333の判定を追加
+        mode = 'deck_shuffle_top';
     } else if (abIds.some(id => abZoneMulti.includes(id))) {
         mode = 'multi';
     }
@@ -4151,10 +4294,44 @@ function ptCheckEvolutionAndPlay(cardId, fromZone) {
         openEvoDeckTopModal(cardId, fromZone);
     } else if (mode === 'deck_top3') {
         openEvoDeckTop3Modal(cardId, fromZone);
+    } else if (mode === 'deck_shuffle_top') {
+        // 山札が空の場合は警告
+        if (ptState.deck.length === 0) {
+            alert("山札にカードがありません。");
+            return;
+        }
+
+        // 1. 山札をシャッフル
+        ptShuffle(ptState.deck);
+
+        // 2. M・ロマノフ本体をバトルゾーンに出す
+        ptMoveCard(cardId, fromZone, 'battle', { skipUnderCheck: true });
+        let card = ptState.battle.find(c => c.id === cardId);
+
+        // 3. シャッフル後の山札の一番上を裏向きで下に重ねる
+        if (card) {
+            let deckCard = ptState.deck.pop();
+            if (deckCard) {
+                deckCard.faceDown = true;         // 裏向き
+                deckCard.is_under_stacked = true; // 下敷きフラグ
+                card.underCards.push(deckCard);
+            }
+        }
+
+        // 4. 画面を再描画
+
+        renderPtBoard();
     } else {
         openEvoTargetSelector(cardId, fromZone, mode);
     }
 }
+
+
+
+// 単体で出すか、重ねるかの意思決定画面
+ 
+
+
 
 // 単体で出すか、重ねるかの意思決定画面
 function openEvolutionChoiceModal(cardId, fromZone, mode) {
