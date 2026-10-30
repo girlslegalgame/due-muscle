@@ -1120,12 +1120,15 @@ function recalculateTotalPrice() {
             }
             subtotalCell.dataset.val = subtotal;
             total += subtotal;
+        } else {
+            // 単価が取得できていないカードは小計もリセット
+            subtotalCell.innerText = '-';
+            subtotalCell.dataset.val = '';
         }
     });
 
-    if (hasPrice) {
-        document.getElementById('deck-total-price').innerText = total.toLocaleString();
-    }
+    // 査定結果が1件以上ある場合は合計額、0件の場合は '-' を表示
+    document.getElementById('deck-total-price').innerText = hasPrice ? total.toLocaleString() : '-';
 }
 
 /**
@@ -1399,19 +1402,27 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             rows.forEach(tr => {
                 const name = tr.dataset.cardName;
                 const c = cardResultMap[name];
-                if (c) {
-                    const priceStr = c.price !== null ? `¥${Number(c.price).toLocaleString()}` : '-';
+                const unitCell = tr.querySelector('.cell-unit-price');
+                const shopCell = tr.querySelector('.cell-shop');
+                const linkCell = tr.querySelector('.cell-link');
+
+                if (c && c.price !== null) {
+                    const priceStr = `¥${Number(c.price).toLocaleString()}`;
                     const shopStr = c.shop_name ? `<span style="font-size:0.75rem; word-break:break-all;">${c.shop_name}</span>` : '-';
                     const linkHtml = c.affiliate_url 
                         ? `<a href="${c.affiliate_url}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline; font-weight: bold;">購入</a>`
                         : '<span style="color: #999;">-</span>';
 
-                    const unitCell = tr.querySelector('.cell-unit-price');
                     unitCell.innerText = priceStr;
-                    unitCell.dataset.val = c.price !== null ? c.price : '';
-
-                    tr.querySelector('.cell-shop').innerHTML = shopStr;
-                    tr.querySelector('.cell-link').innerHTML = linkHtml;
+                    unitCell.dataset.val = c.price;
+                    if (shopCell) shopCell.innerHTML = shopStr;
+                    if (linkCell) linkCell.innerHTML = linkHtml;
+                } else {
+                    // 該当ショップに在庫/取り扱いがない場合は前回の情報をクリア
+                    unitCell.innerText = '-';
+                    unitCell.dataset.val = '';
+                    if (shopCell) shopCell.innerHTML = '-';
+                    if (linkCell) linkCell.innerHTML = '-';
                 }
             });
 
