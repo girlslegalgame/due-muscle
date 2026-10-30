@@ -1760,7 +1760,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 	totalPrice := 0
 	notFoundCount := 0
 	var debugLog []map[string]interface{}
-	var items []map[string]interface{}
+	items := make([]map[string]interface{}, 0)
 
 	apiBaseUrl := "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
 	ngTitlePattern := regexp.MustCompile(`(?i)(ス\s*リーブ|カードス\s*リーブ|プレイマット|ラバーマット|デッキケース|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ|プロテクト|DXカード)`)
@@ -1771,7 +1771,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		s = strings.ReplaceAll(s, "Σ", "シグマ")
 		s = width.Fold.String(s)
 		s = strings.ToLower(s)
-		reg := regexp.MustCompile(`[\s・−―ー〜～~/／()（）「」『』【】[\]"'”"'♪!！？?==::**++&&-]`) // ★ 修正
+		reg := regexp.MustCompile(`[\s・−―ー〜～~/／()（）「」『』【】[\]"'”"'♪!！？?==::**++&&-]`)
 		return reg.ReplaceAllString(s, "")
 	}
 
@@ -2288,7 +2288,7 @@ func (c *DeckController) GetOwnedCardsApi(w http.ResponseWriter, r *http.Request
 	userID, ok := getSessionUserID(r)
 
 	if deckId == 0 || !ok {
-		json.NewEncoder(w).Encode([]string{})
+		json.NewEncoder(w).Encode(map[string]int{})
 		return
 	}
 
@@ -2296,7 +2296,7 @@ func (c *DeckController) GetOwnedCardsApi(w http.ResponseWriter, r *http.Request
 	var ownerID int
 	err := db.QueryRow("SELECT user_id FROM decks WHERE deck_id = ?", deckId).Scan(&ownerID)
 	if err != nil || ownerID != userID {
-		json.NewEncoder(w).Encode([]string{})
+		json.NewEncoder(w).Encode(map[string]int{})
 		return
 	}
 
@@ -2304,30 +2304,31 @@ func (c *DeckController) GetOwnedCardsApi(w http.ResponseWriter, r *http.Request
         CREATE TABLE IF NOT EXISTS deck_owned_cards (
             deck_id INT NOT NULL,
             card_name VARCHAR(255) NOT NULL,
+            quantity INT NOT NULL DEFAULT 1,
             PRIMARY KEY (deck_id, card_name),
             INDEX idx_deck_id (deck_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
+	// 既存テーブルに quantity 列がない場合の補正
+	db.Exec("ALTER TABLE deck_owned_cards ADD COLUMN quantity INT NOT NULL DEFAULT 1;")
 
-	rows, err := db.Query("SELECT card_name FROM deck_owned_cards WHERE deck_id = ?", deckId)
+	rows, err := db.Query("SELECT card_name, quantity FROM deck_owned_cards WHERE deck_id = ?", deckId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 	defer rows.Close()
 
-	var list []string
+	ownedMap := make(map[string]int)
 	for rows.Next() {
 		var name string
-		rows.Scan(&name)
-		list = append(list, name)
+		var qty int
+		rows.Scan(&name, &qty)
+		ownedMap[name] = qty
 	}
 
-	if list == nil {
-		list = []string{}
-	}
-	json.NewEncoder(w).Encode(list)
+	json.NewEncoder(w).Encode(ownedMap)
 }
 
 /**
@@ -2348,10 +2349,6 @@ func (c *DeckController) SaveOwnedCardsApi(w http.ResponseWriter, r *http.Reques
 	deckId := 0
 	if did, ok := input["deck_id"].(float64); ok {
 		deckId = int(did)
-	}
-	var ownedList []interface{}
-	if ol, ok := input["owned_cards"].([]interface{}); ok {
-		ownedList = ol
 	}
 
 	if deckId == 0 {
@@ -2379,10 +2376,14 @@ func (c *DeckController) SaveOwnedCardsApi(w http.ResponseWriter, r *http.Reques
 
 	tx.Exec("DELETE FROM deck_owned_cards WHERE deck_id = ?", deckId)
 
-	for _, name := range ownedList {
-		cName := strings.TrimSpace(fmt.Sprintf("%v", name))
-		if cName != "" && cName != "<nil>" {
-			tx.Exec("INSERT INTO deck_owned_cards (deck_id, card_name) VALUES (?, ?)", deckId, cName)
+	// { "カード名": 所持枚数 } のマップ形式を受け取る
+	if ownedMap, ok := input["owned_cards"].(map[string]interface{}); ok {
+		for name, qVal := range ownedMap {
+			cName := strings.TrimSpace(name)
+			qty, _ := strconv.Atoi(fmt.Sprintf("%v", qVal))
+			if cName != "" && qty > 0 {
+				tx.Exec("INSERT INTO deck_owned_cards (deck_id, card_name, quantity) VALUES (?, ?, ?)", deckId, cName, qty)
+			}
 		}
 	}
 

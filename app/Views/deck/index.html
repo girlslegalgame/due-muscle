@@ -1786,9 +1786,18 @@ async function generateProxyPdf() {
         const startX = Math.max(0, (pageWidth - gridWidth) / 2);
         const startY = Math.max(0, (pageHeight - gridHeight) / 2);
 
-        // 1. 各デッキのカードリストを取得
+        // ★ ここに追加: 対象カードを格納する配列を初期化
         let allPrintCards = [];
-        const currentUserId = '{{ if .UserID }}{{ .UserID }}{{ end }}';
+
+        // 1. 各デッキのカードリストを取得
+        try {
+            const ins = loadingModal ? loadingModal.querySelector('ins.adsbygoogle') : null;
+            if (ins && !ins.getAttribute('data-adsbygoogle-status')) {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            }
+        } catch (e) {
+            // console.error('AdSense error:', e);
+        }
 
         for (const cb of selectedCheckboxes) {
             const deckId = cb.value;
@@ -1796,34 +1805,97 @@ async function generateProxyPdf() {
             const cards = await res.json();
             if (!Array.isArray(cards)) continue;
 
-            let ownedList = [];
-            if (targetMode === 'unowned' && currentUserId) {
+            let ownedMap = {};
+            if (targetMode === 'unowned') {
+                // ① localStorage から取得
+                try {
+                    const localData = localStorage.getItem('deck_owned_cards_' + deckId);
+                    if (localData) {
+                        const parsed = JSON.parse(localData);
+                        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                            Object.assign(ownedMap, parsed);
+                        }
+                    }
+                } catch(e) {}
+
+                // ② サーバーAPIから取得してマージ
                 try {
                     const ownedRes = await fetch(`/api/decks/owned-cards?deck_id=${deckId}`);
-                    ownedList = await ownedRes.json();
-                    if (!Array.isArray(ownedList)) ownedList = [];
+                    if (ownedRes.ok) {
+                        const fetched = await ownedRes.json();
+                        if (fetched && typeof fetched === 'object' && !Array.isArray(fetched)) {
+                            Object.assign(ownedMap, fetched);
+                        }
+                    }
                 } catch(e) {}
             }
 
-            for (const c of cards) {
+            // カード名の表記揺れ（空白等）を吸収して所持枚数を取得するヘルパー
+            const getOwnedCount = (nameKey) => {
+                if (ownedMap[nameKey] !== undefined) return parseInt(ownedMap[nameKey]) || 0;
+                // 空白を除去して比較
+                const clean = nameKey.replace(/\s+/g, '');
+                for (const k in ownedMap) {
+                    if (k.replace(/\s+/g, '') === clean) {
+                        return parseInt(ownedMap[k]) || 0;
+                    }
+                }
+                return 0;
+            };
+
+            // ★ デッキ内の各カードごとの「未購入（残り印刷必要）枚数」をあらかじめ集計
+            // 1. まずデッキ内の全カードの総採用数を計算
+            const cardTotalCounts = {};
+            cards.forEach(c => {
                 let name = (c.card_name || '').trim();
                 const isTwin = (c.twinpact == 1 || c.twinpact === true || c.twinpact === '1') && !!c.partner_card_id;
+                let fullName = name;
                 if (isTwin) {
                     const sid = parseInt(c.card_id);
                     const pid = parseInt(c.partner_card_id);
-                    name = sid < pid ? `${c.card_name} / ${c.partner_card_name}` : `${c.partner_card_name} / ${c.card_name}`;
+                    fullName = sid < pid ? `${c.card_name} / ${c.partner_card_name}` : `${c.partner_card_name} / ${c.card_name}`;
+                }
+                const qty = parseInt(c.quantity || 1);
+                cardTotalCounts[fullName] = (cardTotalCounts[fullName] || 0) + qty;
+            });
+
+            // 2. 所持数を引いた「残り必要枚数」カウンターを作成
+            const neededRemainingMap = {};
+            for (const fullName in cardTotalCounts) {
+                const total = cardTotalCounts[fullName];
+                if (targetMode === 'unowned') {
+                    const owned = getOwnedCount(fullName);
+                    neededRemainingMap[fullName] = Math.max(0, total - owned);
+                } else {
+                    neededRemainingMap[fullName] = total;
+                }
+            }
+
+            // 3. 残り必要枚数分だけ allPrintCards に追加
+            for (const c of cards) {
+                let name = (c.card_name || '').trim();
+                const isTwin = (c.twinpact == 1 || c.twinpact === true || c.twinpact === '1') && !!c.partner_card_id;
+                let fullName = name;
+                if (isTwin) {
+                    const sid = parseInt(c.card_id);
+                    const pid = parseInt(c.partner_card_id);
+                    fullName = sid < pid ? `${c.card_name} / ${c.partner_card_name}` : `${c.partner_card_name} / ${c.card_name}`;
                 }
 
-                if (targetMode === 'unowned' && ownedList.includes(name)) {
+                const rowQty = parseInt(c.quantity || 1);
+                const remaining = neededRemainingMap[fullName] || 0;
+
+                if (remaining <= 0) {
                     continue;
                 }
 
-                const qty = parseInt(c.quantity || 1);
-                // ★修正: ダミーカードならCanvas画像URL、通常なら画像ファイルパス
+                // 今回の行から追加する枚数
+                const countToAdd = Math.min(rowQty, remaining);
+                neededRemainingMap[fullName] -= countToAdd;
+
                 const imgPath = getIndexCardImageUrl(c);
-                
-                for (let q = 0; q < qty; q++) {
-                    allPrintCards.push({ name, imgPath });
+                for (let q = 0; q < countToAdd; q++) {
+                    allPrintCards.push({ name: fullName, imgPath });
                 }
             }
         }
