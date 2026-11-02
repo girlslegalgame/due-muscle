@@ -1778,6 +1778,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		s = strings.ReplaceAll(s, "Σ", "シグマ")
 		s = width.Fold.String(s)
 		s = strings.ToLower(s)
+		// ★ 修正: 半角・全角ハイフン・長音記号・ダッシュを全て除去して比較
 		reg := regexp.MustCompile(`[\s・−―ー〜～~/／()（）「」『』【】[\]"'”"'♪!！？?==::**++&&-]`)
 		return reg.ReplaceAllString(s, "")
 	}
@@ -1890,7 +1891,8 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		cleanSearchWord := func(str string) string {
 			s := strings.ReplaceAll(str, "&amp;", " ")
 			s = strings.ReplaceAll(s, "&AMP;", " ")
-			re := regexp.MustCompile(`["'”"'()（）「」『』【】[\]〜～~/／!！？?♪==::−―&&-]`) // ★ 修正
+			// ★ 修正: ハイフン類（- − ―）を正規表現から除外（マイナス検索化を防ぎ、型番・番号を残す）
+			re := regexp.MustCompile(`["'”"'()（）「」『』【】[\]〜～~/／!！？?♪==::*+&]`)
 			s = re.ReplaceAllString(s, " ")
 			fields := strings.Fields(s)
 			if len(fields) <= 1 {
@@ -1899,11 +1901,15 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			var result []string
 			carry := ""
 			for _, t := range fields {
+				// ★ 単体で "-" になってしまったもの（孤立したマイナス）は除外検索になるため取り除く
+				if t == "-" || t == "−" || t == "―" {
+					continue
+				}
 				if carry != "" {
 					t = carry + t
 					carry = ""
 				}
-				if len([]rune(t)) <= 1 {
+				if len([]rune(t)) <= 1 && t != "-" {
 					carry = t
 				} else {
 					result = append(result, t)
@@ -1932,12 +1938,12 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			keywordsToTry = append(keywordsToTry, safeKw+" "+extraKw)
 			keywordsToTry = append(keywordsToTry, baseSearchName+" "+extraKw)
 		}
-
+		
 		if isSpecialFiveSet {
 			keywordsToTry = append(keywordsToTry, safeKw + " 5枚セット", baseSearchName + " 5枚セット")
 		} else {
 			keywordsToTry = append(keywordsToTry, safeKw)
-			if !strings.Contains(baseSearchName, "-") && baseSearchName != safeKw {
+			if baseSearchName != safeKw {
 				keywordsToTry = append(keywordsToTry, baseSearchName)
 			}
 			if strings.Contains(baseSearchName, "“") || strings.Contains(baseSearchName, "”") || strings.Contains(baseSearchName, "\"") || len([]rune(safeKw)) <= 5 {
