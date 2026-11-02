@@ -1410,7 +1410,15 @@
                     </div>
                 </div>
             </div>
-
+            <!-- 発売年グループ -->
+            <div class="filter-group" style="margin-bottom: 20px;">
+                <label>発売年</label>
+                <div class="range-inputs">
+                    <input type="number" id="release-year-min" placeholder="下限 (例: 2002)" min="2002" max="2099">
+                    <span class="range-separator">〜</span>
+                    <input type="number" id="release-year-max" placeholder="上限 (例: 2024)" min="2002" max="2099">
+                </div>
+            </div>
             <!-- 種族グループ -->
             <div class="filter-group">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
@@ -1830,7 +1838,9 @@ const input = document.getElementById('card-search-input');
 // 検索・通信管理
 let currentFilters = { 
     q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
-    pow_min: '', pow_max: '', races: [], abilities: [], 
+    pow_min: '', pow_max: '',
+    release_year_min: '', release_year_max: '', // ★ 追加
+    races: [], abilities: [], 
     characteristics: [], cardtypes: [],
     goods: [],
     race_logic: 'OR', ability_logic: 'OR', 
@@ -2759,6 +2769,8 @@ function fetchAndRender() {
     if (currentFilters.cost_max) p.append('cost_max', currentFilters.cost_max);
     if (currentFilters.pow_min) p.append('pow_min', currentFilters.pow_min);
     if (currentFilters.pow_max) p.append('pow_max', currentFilters.pow_max);
+    if (currentFilters.release_year_min) p.append('release_year_min', currentFilters.release_year_min);
+    if (currentFilters.release_year_max) p.append('release_year_max', currentFilters.release_year_max);
     if (currentFilters.races.length) p.append('races', currentFilters.races.join(','));
     p.append('race_logic', currentFilters.race_logic);
     if (currentFilters.abilities.length) p.append('abilities', currentFilters.abilities.join(','));
@@ -2953,6 +2965,8 @@ function applyFilters() {
     currentFilters.cost_max = document.getElementById('cost-max').value;
     currentFilters.pow_min = document.getElementById('pow-min').value;
     currentFilters.pow_max = document.getElementById('pow-max').value;
+    currentFilters.release_year_min = document.getElementById('release-year-min').value;
+    currentFilters.release_year_max = document.getElementById('release-year-max').value;
     currentFilters.races = Array.from(document.querySelectorAll('.race-check:checked')).map(el => el.value);
     currentFilters.race_logic = document.querySelector('input[name="race_logic"]:checked').value;
     currentFilters.abilities = Array.from(document.querySelectorAll('.ability-check:checked')).map(el => el.value);
@@ -2996,13 +3010,15 @@ function clearAllFilters() {
     input.value = '';
     currentFilters = { 
         q: '', scope: ['name'], civs: [], cost_min: '', cost_max: '', 
-        pow_min: '', pow_max: '', races: [], abilities: [], 
+        pow_min: '', pow_max: '',
+        release_year_min: '', release_year_max: '', // ★ 追加
+        races: [], abilities: [], 
         characteristics: [], cardtypes: [],
         goods: [],
         race_logic: 'OR', ability_logic: 'OR', reg: [],
         characteristic_logic: 'OR', cardtype_logic: 'OR',
         civ_type: '', civ_match_type: 'include', exclude_civs: [],
-        twinpact: '' // ★追加
+        twinpact: ''
     };
     
     clearSubSelection('race');

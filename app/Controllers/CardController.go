@@ -164,6 +164,8 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 	costMax := query.Get("cost_max")
 	powMin := query.Get("pow_min")
 	powMax := query.Get("pow_max")
+	releaseYearMin := query.Get("release_year_min")
+	releaseYearMax := query.Get("release_year_max")
 	civs := parseIntSlice(parseStringSlice(query.Get("civs")))
 	races := parseIntSlice(parseStringSlice(query.Get("races")))
 	abilities := parseIntSlice(parseStringSlice(query.Get("abilities")))
@@ -335,7 +337,18 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 			params[":pMax"] = val
 		}
 	}
-
+	if releaseYearMin != "" {
+		if val, err := strconv.Atoi(releaseYearMin); err == nil {
+			searchSql += " AND YEAR(cd_search.release_date) >= :ryMin"
+			params[":ryMin"] = val
+		}
+	}
+	if releaseYearMax != "" {
+		if val, err := strconv.Atoi(releaseYearMax); err == nil {
+			searchSql += " AND YEAR(cd_search.release_date) <= :ryMax"
+			params[":ryMax"] = val
+		}
+	}
 	if civType == "single" {
 		searchSql += " AND (SELECT COUNT(*) FROM card_civilization cc WHERE cc.card_id = c_search.card_id) <= 1"
 	} else if civType == "multi" {
@@ -503,6 +516,8 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 		costMax != "" ||
 		powMin != "" ||
 		powMax != "" ||
+		releaseYearMin != "" || // ★ 追加
+		releaseYearMax != "" ||
 		civType != "" ||
 		len(civs) > 0 ||
 		len(excludeCivs) > 0 ||
