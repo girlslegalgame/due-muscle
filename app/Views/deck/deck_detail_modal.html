@@ -79,7 +79,7 @@
 
     .price-table {
         width: 100%;
-        min-width: 540px; /* 列が潰れないための最低幅 */
+        min-width: 640px; /* 列が潰れないための最低幅 */
         border-collapse: collapse;
         font-size: 0.85rem;
     }
@@ -706,6 +706,17 @@
                 <!-- 操作パネル -->
                 <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px 15px; margin-bottom: 15px;">
                     <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;">
+                        <!-- サービス選択 (楽天 / Yahoo!) -->
+                        <div style="display: flex; align-items: center; gap: 12px; font-size: 0.9rem; font-weight: bold;">
+                            <span>モール:</span>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="price_estimate_service" value="rakuten" checked onchange="onServiceChange()"> 楽天市場
+                            </label>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="price_estimate_service" value="yahoo" onchange="onServiceChange()"> Yahoo!ショッピング
+                            </label>
+                        </div>
+
                         <!-- 査定対象の選択 -->
                         <div style="display: flex; align-items: center; gap: 15px; font-size: 0.9rem; font-weight: bold;">
                             <span>査定対象:</span>
@@ -717,10 +728,10 @@
                             </label>
                         </div>
 
-                        <!-- ショップ指定 -->
+                        <!-- ★ ショップ指定セレクトボックス（これが確実に配置されているか確認） -->
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label for="price-shop-select" style="font-size: 0.85rem; font-weight: bold; color: #555;">ショップ:</label>
-                            <select id="price-shop-select" onchange="onShopChange()" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; font-weight: bold;">
+                            <select id="price-shop-select" onchange="onShopChange()" style="padding: 5px 8px; border-radius: 4px; border: 1px solid #ccc; font-size: 0.85rem; font-weight: bold; max-width: 200px;">
                                 <option value="">すべてのショップ（最安値）</option>
                             </select>
                         </div>
@@ -1355,8 +1366,34 @@ function onShopChange() {
     const shopCode = document.getElementById('price-shop-select').value;
     runPriceEstimate(shopCode);
 }
+// モール切り替え時
+function onServiceChange() {
+    const service = document.querySelector('input[name="price_estimate_service"]:checked')?.value || 'rakuten';
+    const btn = document.getElementById('btn-start-estimate');
+    if (btn) {
+        btn.innerText = (service === 'yahoo' ? 'Yahoo!ショッピングで査定する' : '楽天市場で査定する');
+    }
+    // サービス変更時はショップ選択状態を初期化
+    knownShops = {};
+    const shopSelect = document.getElementById('price-shop-select');
+    if (shopSelect) {
+        shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
+    }
+    // 過去の査定結果単価をリセット
+    document.querySelectorAll('#price-card-list-body tr').forEach(tr => {
+        tr.querySelector('.cell-unit-price').innerText = '-';
+        tr.querySelector('.cell-unit-price').dataset.val = '';
+        tr.querySelector('.cell-subtotal').innerText = '-';
+        tr.querySelector('.cell-subtotal').dataset.val = '';
+        tr.querySelector('.cell-shop').innerText = '-';
+        tr.querySelector('.cell-link').innerText = '-';
+    });
+    recalculateTotalPrice();
+}
 /**
  * 査定実行
+ * @param {string} shopCode 特定ショップ指定（空文字の場合はすべてのショップの最安値）
+ * @param {boolean} refresh キャッシュをクリアして再取得するかどうか
  */
 function runPriceEstimate(shopCode = '', refresh = false) {
     if (!currentDeckId) return;
@@ -1369,10 +1406,14 @@ function runPriceEstimate(shopCode = '', refresh = false) {
     btn.style.opacity = '0.6';
     loading.style.display = 'block';
 
-const targetMode = document.querySelector('input[name="price_estimate_target"]:checked')?.value || 'unowned';
+    // 1. 選択中のモールサービス（rakuten / yahoo）
+    const service = document.querySelector('input[name="price_estimate_service"]:checked')?.value || 'rakuten';
+
+    // 2. 査定対象（未購入のみ / 全カード）
+    const targetMode = document.querySelector('input[name="price_estimate_target"]:checked')?.value || 'unowned';
     let excludeCardsParam = '';
 
-    // ★ 追加: 各行のカード名と追加キーワードのマッピングを収集
+    // 3. 各行の追加キーワード（バージョン・型番指定等）の収集
     const extraKeywordsMap = {};
     document.querySelectorAll('#price-card-list-body tr').forEach(tr => {
         const cardName = tr.dataset.cardName;
@@ -1390,11 +1431,13 @@ const targetMode = document.querySelector('input[name="price_estimate_target"]:c
             const inputVal = tr.querySelector('.owned-qty-input')?.value;
             const ownedQty = (inputVal !== undefined && inputVal !== '') ? parseInt(inputVal) : 0;
 
+            // 総枚数が1以上で、かつ購入済み枚数が総枚数に達しているカードを除外
             if (totalQty > 0 && ownedQty >= totalQty && cardName) {
                 fullyOwnedCards.push(cardName);
             }
         });
 
+        // 全カードが購入済みの場合は査定リクエストを送らず即時0円表示
         const totalRows = document.querySelectorAll('#price-card-list-body tr').length;
         if (totalRows > 0 && fullyOwnedCards.length >= totalRows) {
             loading.style.display = 'none';
@@ -1410,12 +1453,12 @@ const targetMode = document.querySelector('input[name="price_estimate_target"]:c
         }
     }
 
+    // 4. APIエンドポイントURL組み立て
     let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
+    url += '&service=' + encodeURIComponent(service);
     if (shopCode) url += '&shop_code=' + encodeURIComponent(shopCode);
     if (refresh) url += '&refresh=1';
     if (excludeCardsParam) url += '&exclude_cards=' + excludeCardsParam;
-    
-    // ★ 追加: extra_keywords を JSON 文字列としてURLパラメータに追加
     if (Object.keys(extraKeywordsMap).length > 0) {
         url += '&extra_keywords=' + encodeURIComponent(JSON.stringify(extraKeywordsMap));
     }
@@ -1436,27 +1479,33 @@ const targetMode = document.querySelector('input[name="price_estimate_target"]:c
                 return;
             }
 
-            if (data.shops) {
+            // 5. ショップ一覧ドロップダウンの再構築
+            if (data.shops && typeof data.shops === 'object') {
                 Object.assign(knownShops, data.shops);
                 if (shopSelect) {
+                    const currentSelected = shopCode || shopSelect.value || '';
                     shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
-                    
-                    const renderedNames = new Set();
-                    Object.keys(knownShops).forEach(code => {
+
+                    const shopKeys = Object.keys(knownShops);
+                    shopKeys.sort((a, b) => (knownShops[a] || '').localeCompare(knownShops[b] || '', 'ja'));
+
+                    shopKeys.forEach(code => {
                         const name = knownShops[code];
-                        if (!renderedNames.has(name)) {
-                            renderedNames.add(name);
+                        if (name && name !== '<nil>' && name !== '') {
                             const opt = document.createElement('option');
                             opt.value = code;
                             opt.textContent = name;
-                            if (code === shopCode) opt.selected = true;
+                            if (code === currentSelected) {
+                                opt.selected = true;
+                            }
                             shopSelect.appendChild(opt);
                         }
                     });
-                    shopSelect.value = shopCode;
+                    shopSelect.value = currentSelected;
                 }
             }
 
+            // 6. 各行への単価・小計・ショップ名・リンク反映
             const cardResultMap = {};
             const resultCards = Array.isArray(data.cards) ? data.cards : [];
             resultCards.forEach(c => {
@@ -1483,7 +1532,6 @@ const targetMode = document.querySelector('input[name="price_estimate_target"]:c
                     if (shopCell) shopCell.innerHTML = shopStr;
                     if (linkCell) linkCell.innerHTML = linkHtml;
                 } else {
-                    // 該当ショップに在庫/取り扱いがない場合は前回の情報をクリア
                     unitCell.innerText = '-';
                     unitCell.dataset.val = '';
                     if (shopCell) shopCell.innerHTML = '-';
@@ -1491,6 +1539,7 @@ const targetMode = document.querySelector('input[name="price_estimate_target"]:c
                 }
             });
 
+            // 7. ヒットしなかったカードの警告表示と再計算・並び替え
             const warnEl = document.getElementById('price-not-found-warn');
             warnEl.innerText = data.not_found_cards > 0 ? `※ ${data.not_found_cards} 種のカードは見つかりませんでした（0円として計算）` : '';
             sortPriceTableRows();
