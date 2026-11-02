@@ -578,10 +578,13 @@
             <div id="content-analysis" class="tab-content">
                 <!-- 左上の切り替えドロップダウン -->
                 <div style="margin-bottom: 15px; border-bottom: 1px solid #ddd; padding-bottom: 12px; display: flex; justify-content: flex-start;">
+                    <!-- app/Views/deck/deck_detail_modal.html の modal-analysis-mode-select 内 -->
                     <select id="modal-analysis-mode-select" onchange="switchModalAnalysisMode()" style="padding: 6px 12px; border-radius: 4px; border: 1px solid #ccc; font-size: 14px; font-weight: bold; cursor: pointer; outline: none;">
                         <option value="draw">初手ドロー</option>
                         <option value="first-action">初動チェック</option>
                         <option value="analysis" selected>デッキ分析</option>
+                        <!-- ★ 追加: 清永ヒット率計算（デフォルト非表示） -->
+                        <option value="kiyonaga" id="modal-opt-kiyonaga" style="display: none;">清永ヒット率計算</option>
                         <option value="playtest">1人回し（別ページ）</option>
                     </select>
                 </div>
@@ -672,6 +675,30 @@
                         <button class="modal-btn-hand-qty" onclick="adjustModalFaHand(-1)">-</button>
                         <span id="modal-fa-hand-val" style="font-size: 18px; font-weight: bold; min-width: 25px; text-align: center;">5</span>
                         <button class="modal-btn-hand-qty" onclick="adjustModalFaHand(1)">+</button>
+                    </div>
+                </div>
+                <!-- 4. 清永ヒット率計算ビュー -->
+                <div id="modal-analysis-view-kiyonaga" class="modal-analysis-mode-content" style="display: none;">
+                    <div class="modal-fa-header">
+                        <span class="modal-fa-title">五輪の求道者 清永 ヒット率計算</span>
+                    </div>
+                    <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px 15px; margin-bottom: 15px; font-size: 0.85rem; color: #555; line-height: 1.5;">
+                        メインデッキから3枚めくった際、すべてのコストが異なる確率を計算します。<br>
+                        ※ツインパクトカードは上面・下面のいずれかのコストを選択してすべて異なる組み合わせを作れる場合にヒットと判定します。
+                    </div>
+                    <div class="modal-fa-result-box">
+                        <div class="modal-fa-result-item">
+                            <span class="modal-fa-result-label">メインデッキ総枚数</span>
+                            <span class="modal-fa-result-val" style="color: #333;"><span id="modal-kiyonaga-deck-count">0</span> 枚</span>
+                        </div>
+                        <div class="modal-fa-result-item">
+                            <span class="modal-fa-result-label">3枚コスト不重複（ヒット）確率</span>
+                            <span class="modal-fa-result-val"><span id="modal-kiyonaga-hit-percent">0.00</span> %</span>
+                        </div>
+                        <div class="modal-fa-result-item">
+                            <span class="modal-fa-result-label">ヒットする組み合わせ数</span>
+                            <span class="modal-fa-result-val" style="font-size: 15px; color: #555;"><span id="modal-kiyonaga-hit-combos">0</span> / <span id="modal-kiyonaga-total-combos">0</span> 通り</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -796,6 +823,26 @@ function getModalCardImagePath(card) {
     return getCardImageUrl(card);
 }
 
+function checkKiyonagaOption(cards) {
+    const optKiyonaga = document.getElementById('modal-opt-kiyonaga');
+    const select = document.getElementById('modal-analysis-mode-select');
+    if (!optKiyonaga) return;
+
+    // メインデッキに「五輪の求道者 清永」または「清永」が含まれているかチェック
+    const hasKiyonaga = cards.some(c => {
+        const isMain = (c.card_type_in_deck === 'main' || !c.card_type_in_deck);
+        const name = c.card_name || '';
+        return isMain && (name.includes('五輪の求道者 清永') || name.includes('清永'));
+    });
+
+    optKiyonaga.style.display = hasKiyonaga ? 'block' : 'none';
+
+    // 清永が入っていないデッキを開いた時に「清永」が選ばれていたらデフォルトに戻す
+    if (!hasKiyonaga && select && select.value === 'kiyonaga') {
+        select.value = 'analysis';
+    }
+}
+
 /**
  * モーダルオープン時の処理更新
  */
@@ -835,7 +882,6 @@ function openDeckModal(deckId, deckName) {
             const text = await res.text();
             try {
                 const parsed = JSON.parse(text);
-                // ★ 配列で返ってきた場合（旧データ/空配列）は空オブジェクト {} に変換
                 if (Array.isArray(parsed)) {
                     return {};
                 }
@@ -848,7 +894,6 @@ function openDeckModal(deckId, deckName) {
     .then(([cardsData, ownedData]) => {
         currentDeckCards = cardsData;
         
-        // ★ サーバーから取得できたオブジェクトを適用
         if (ownedData && typeof ownedData === 'object' && !Array.isArray(ownedData)) {
             currentDeckOwnedCards = ownedData;
             try { localStorage.setItem('deck_owned_cards_' + deckId, JSON.stringify(ownedData)); } catch(e){}
@@ -858,6 +903,7 @@ function openDeckModal(deckId, deckName) {
         renderImages(cardsData);
         initCharts(cardsData);
         initPriceTable(cardsData);
+        checkKiyonagaOption(cardsData); // ★ スッキリ呼び出す
     })
     .catch(err => {
         mainList.innerHTML = 'データの読み込みに失敗しました。';
@@ -1463,13 +1509,9 @@ window.addEventListener('click', (e) => {
 function switchModalAnalysisMode() {
     const mode = document.getElementById('modal-analysis-mode-select').value;
     
-    // === 1人回しを選択した際、新しいタブで開く ===
     if (mode === 'playtest') {
         if (currentDeckId) {
-            // ルーティングに合わせて /decks/playtest?deck_id=xxx を開く
             window.open('/decks/playtest?deck_id=' + encodeURIComponent(currentDeckId), '_blank');
-            
-            // ドロップダウンの選択状態を「デッキ分析」に戻す
             document.getElementById('modal-analysis-mode-select').value = 'analysis';
         } else {
             alert('デッキIDが特定できませんでした。');
@@ -1489,6 +1531,9 @@ function switchModalAnalysisMode() {
     } else if (mode === 'first-action') {
         document.getElementById('modal-analysis-view-first-action').style.display = 'block';
         resetModalFirstAction();
+    } else if (mode === 'kiyonaga') { // ★ 追加
+        document.getElementById('modal-analysis-view-kiyonaga').style.display = 'block';
+        calculateKiyonagaHitRate();
     }
 }
 
@@ -1787,5 +1832,111 @@ function combination(n, r) {
         den *= i;
     }
     return num / den;
+}
+function calculateKiyonagaHitRate() {
+    const mainCards = currentDeckCards.filter(c => {
+        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
+        if (isSpecial) return false;
+        return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
+    });
+
+    // フォーマットIDおよびサムネイル（パートナー）カードIDの判定
+    const firstCard = currentDeckCards[0] || {};
+    const formatId = parseInt(firstCard.format_id);
+    const thumbCardId = parseInt(firstCard.thumbnail_card_id);
+    const isDueparty = (formatId === 4);
+
+    let partnerExcluded = false; // パートナー1枚除外フラグ（デュエパーティー用）
+    let kiyonagaExcluded = false; // ★ 清永1枚除外フラグ（バトルゾーンにいる清永自身）
+
+    // デッキを展開し、各カードが取り得るコストの配列 [cost1, cost2] を作成
+    const deckCardCosts = [];
+    mainCards.forEach(c => {
+        let qty = parseInt(c.quantity || 1);
+        const cardId = parseInt(c.card_id);
+        const cardName = c.card_name || '';
+        const isKiyonagaCard = cardName.includes('五輪の求道者 清永') || cardName.includes('清永');
+
+        // 1. デュエパーティーの場合、パートナーカードを山札から1枚除外
+        if (isDueparty && !partnerExcluded && thumbCardId && cardId === thumbCardId) {
+            qty = Math.max(0, qty - 1);
+            partnerExcluded = true;
+            // 清永がパートナーの場合、パートナー除外＝清永がバトルゾーンにいる状態となるため清永除外も完了扱いにする
+            if (isKiyonagaCard) {
+                kiyonagaExcluded = true;
+            }
+        }
+
+        // 2. 清永自身（バトルゾーンに存在するため山札から1枚除外）
+        if (!kiyonagaExcluded && isKiyonagaCard) {
+            qty = Math.max(0, qty - 1);
+            kiyonagaExcluded = true;
+        }
+
+        if (qty <= 0) return;
+
+        const costs = [];
+        const mainCost = parseInt(c.cost);
+        if (!isNaN(mainCost)) costs.push(mainCost);
+
+        // ツインパクトの場合、相方のコストも取り得るコストに追加
+        const isTwin = (!empty(c.twinpact) || c.dummy_card_type === 'twinpact');
+        if (isTwin) {
+            const partnerCost = parseInt(c.partner_cost || c.dummy_partner_cost);
+            if (!isNaN(partnerCost) && !costs.includes(partnerCost)) {
+                costs.push(partnerCost);
+            }
+        }
+
+        if (costs.length === 0) costs.push(-1); // コスト不明カード用
+
+        for (let i = 0; i < qty; i++) {
+            deckCardCosts.push(costs);
+        }
+    });
+
+    const N = deckCardCosts.length;
+    document.getElementById('modal-kiyonaga-deck-count').innerText = N;
+
+    // （以降の組み合わせ全探索・表示処理は変更なし）
+    if (N < 3) {
+        document.getElementById('modal-kiyonaga-hit-percent').innerText = '0.00';
+        document.getElementById('modal-kiyonaga-hit-combos').innerText = '0';
+        document.getElementById('modal-kiyonaga-total-combos').innerText = '0';
+        return;
+    }
+
+    let totalCombos = 0;
+    let hitCombos = 0;
+
+    function canFormDistinctCosts(costsA, costsB, costsC) {
+        for (let a of costsA) {
+            for (let b of costsB) {
+                if (a === b) continue;
+                for (let c of costsC) {
+                    if (a !== c && b !== c) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    for (let i = 0; i < N - 2; i++) {
+        for (let j = i + 1; j < N - 1; j++) {
+            for (let k = j + 1; k < N; k++) {
+                totalCombos++;
+                if (canFormDistinctCosts(deckCardCosts[i], deckCardCosts[j], deckCardCosts[k])) {
+                    hitCombos++;
+                }
+            }
+        }
+    }
+
+    const hitPercent = totalCombos > 0 ? ((hitCombos / totalCombos) * 100).toFixed(2) : '0.00';
+    document.getElementById('modal-kiyonaga-hit-percent').innerText = hitPercent;
+    document.getElementById('modal-kiyonaga-hit-combos').innerText = hitCombos.toLocaleString();
+    document.getElementById('modal-kiyonaga-total-combos').innerText = totalCombos.toLocaleString();
 }
 </script>

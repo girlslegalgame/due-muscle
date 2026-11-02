@@ -247,8 +247,13 @@ function renderCardDetail(card) {
     document.getElementById('detail-text').innerText = card.text || "効果なし";
     
     const imgEl = document.getElementById('detail-main-img');
-    const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
-    imgEl.src = '/images/card' + path;
+    const imagepath = card.imagepath || '';
+    if (imagepath) {
+        const path = imagepath.startsWith('/') ? imagepath : '/' + imagepath;
+        imgEl.src = '/images/card' + path;
+    } else {
+        imgEl.src = '/images/card/noimage.webp';
+    }
     imgEl.onerror = function() { this.src = '/images/card/noimage.webp'; this.onerror = null; };
 
     const comboSection = document.getElementById('combination-section');
@@ -259,8 +264,13 @@ function renderCardDetail(card) {
         comboList.innerHTML = '';
         currentCombinationCards.forEach(c => {
             const vImg = document.createElement('img');
-            const vPath = c.imagepath.startsWith('/') ? c.imagepath : '/' + c.imagepath;
-            vImg.src = '/images/card' + vPath;
+            const vImagePath = c.imagepath || '';
+            if (vImagePath) {
+                const vPath = vImagePath.startsWith('/') ? vImagePath : '/' + vImagePath;
+                vImg.src = '/images/card' + vPath;
+            } else {
+                vImg.src = '/images/card/noimage.webp';
+            }
             vImg.className = 'combination-thumb';
             if (c.card_id == card.card_id) vImg.classList.add('selected');
             

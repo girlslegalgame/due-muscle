@@ -277,6 +277,7 @@
                     <option value="draw">初手ドロー</option>
                     <option value="first-action">初動チェック</option>
                     <option value="analysis" selected>デッキ分析</option>
+                    <option value="kiyonaga" id="create-opt-kiyonaga" style="display: none;">清永ヒット率計算</option>
                 </select>
             </div>
             <span onclick="closeAnalysisModal()" style="cursor:pointer; font-size: 24px;">&times;</span>
@@ -384,6 +385,29 @@
                     <button class="btn-hand-qty" onclick="adjustFaHand(1)">+</button>
                 </div>
             </div>
+            <div id="analysis-view-kiyonaga" class="analysis-mode-content" style="display: none;">
+                <div class="fa-header">
+                    <span class="fa-title">五輪の求道者 清永 ヒット率計算</span>
+                </div>
+                <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 12px 15px; margin-bottom: 15px; font-size: 0.85rem; color: #555; line-height: 1.5;">
+                    メインデッキから3枚めくった際、すべてのコストが異なる確率を計算します。<br>
+                    ※ツインパクトカードは上面・下面のいずれかのコストを選択して重複しない組み合わせを作れる場合にヒットと判定します。
+                </div>
+                <div class="fa-result-box">
+                    <div class="fa-result-item">
+                        <span class="fa-result-label">メインデッキ枚数</span>
+                        <span class="fa-result-val" style="color: #333;"><span id="create-kiyonaga-deck-count">0</span> 枚</span>
+                    </div>
+                    <div class="fa-result-item">
+                        <span class="fa-result-label">ヒット率</span>
+                        <span class="fa-result-val"><span id="create-kiyonaga-hit-percent">0.00</span> %</span>
+                    </div>
+                    <div class="fa-result-item">
+                        <span class="fa-result-label">ヒットする組み合わせ数</span>
+                        <span class="fa-result-val" style="font-size: 15px; color: #555;"><span id="create-kiyonaga-hit-combos">0</span> / <span id="create-kiyonaga-total-combos">0</span> 通り</span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -442,6 +466,9 @@ function switchAnalysisMode() {
     } else if (mode === 'first-action') {
         document.getElementById('analysis-view-first-action').style.display = 'block';
         resetFirstAction(); // 初動チェック選択時にリセットをかける
+    } else if (mode === 'kiyonaga') {
+        document.getElementById('analysis-view-kiyonaga').style.display = 'block';
+        calculateCreateKiyonagaHitRate();
     }
 }
 
@@ -827,6 +854,84 @@ function updateAnalysisCharts() {
             }
         });
     }
+}
+// openAnalysisModal 内で清永オプションの表示切り替え
+function openAnalysisModal() {
+    document.getElementById('analysisModal').style.display = 'block';
+    
+    // 清永の有無チェック (mainList 内の img をチェック)
+    const mainImgs = Array.from(mainList.querySelectorAll('img'));
+    const hasKiyonaga = mainImgs.some(img => {
+        const name = img.dataset.cardName || '';
+        return name.includes('五輪の求道者 清永') || name.includes('清永');
+    });
+    const opt = document.getElementById('create-opt-kiyonaga');
+    if (opt) opt.style.display = hasKiyonaga ? 'block' : 'none';
+
+    const modeSelect = document.getElementById('analysis-mode-select');
+    modeSelect.value = 'analysis';
+    switchAnalysisMode();
+}
+
+// 計算ロジック
+function calculateCreateKiyonagaHitRate() {
+    const mainImgs = Array.from(mainList.querySelectorAll('img'));
+    const deckCardCosts = [];
+
+    mainImgs.forEach(img => {
+        const costs = [];
+        const cost1 = parseInt(img.dataset.cost);
+        if (!isNaN(cost1)) costs.push(cost1);
+
+        // ツインパクト等でデータ属性に partnerCost があれば取得
+        const cost2 = parseInt(img.dataset.partnerCost);
+        if (!isNaN(cost2) && !costs.includes(cost2)) {
+            costs.push(cost2);
+        }
+
+        if (costs.length === 0) costs.push(-1);
+        deckCardCosts.push(costs);
+    });
+
+    const N = deckCardCosts.length;
+    document.getElementById('create-kiyonaga-deck-count').innerText = N;
+
+    if (N < 3) {
+        document.getElementById('create-kiyonaga-hit-percent').innerText = '0.00';
+        document.getElementById('create-kiyonaga-hit-combos').innerText = '0';
+        document.getElementById('create-kiyonaga-total-combos').innerText = '0';
+        return;
+    }
+
+    let totalCombos = 0;
+    let hitCombos = 0;
+
+    for (let i = 0; i < N - 2; i++) {
+        for (let j = i + 1; j < N - 1; j++) {
+            for (let k = j + 1; k < N; k++) {
+                totalCombos++;
+                const cA = deckCardCosts[i], cB = deckCardCosts[j], cC = deckCardCosts[k];
+                let hit = false;
+                outer: for (let a of cA) {
+                    for (let b of cB) {
+                        if (a === b) continue;
+                        for (let c of cC) {
+                            if (a !== c && b !== c) {
+                                hit = true;
+                                break outer;
+                            }
+                        }
+                    }
+                }
+                if (hit) hitCombos++;
+            }
+        }
+    }
+
+    const hitPercent = totalCombos > 0 ? ((hitCombos / totalCombos) * 100).toFixed(2) : '0.00';
+    document.getElementById('create-kiyonaga-hit-percent').innerText = hitPercent;
+    document.getElementById('create-kiyonaga-hit-combos').innerText = hitCombos.toLocaleString();
+    document.getElementById('create-kiyonaga-total-combos').innerText = totalCombos.toLocaleString();
 }
 </script>
 {{ end }}
