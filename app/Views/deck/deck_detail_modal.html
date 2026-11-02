@@ -764,6 +764,7 @@
                                     </div>
                                 </th>
                                 <th class="price-card-name-col">カード名</th>
+                                <th style="width: 100px;">追加ワード</th>
                                 <th style="width: 42px;">枚数</th>
                                 <th style="width: 75px;">最安単価</th>
                                 <th style="width: 75px;">小計</th>
@@ -1040,6 +1041,12 @@ function initPriceTable(cards) {
                 </div>
             </td>
             <td class="price-card-name-col" title="${escapeHtmlAttr(c.name)}">${c.name}</td>
+            <!-- ★ 追加: カードごとの追加キーワード入力欄 -->
+            <td>
+                <input type="text" class="card-extra-keyword-input" placeholder="型番・Ver等" 
+                    style="width: 90px; padding: 2px 4px; font-size: 0.75rem; border: 1px solid #ccc; border-radius: 4px;"
+                    title="バージョン指定用キーワード（例: RP21, プロモ, 初期など）">
+            </td>
             <td class="cell-total-qty">${c.quantity}</td>
             <td class="cell-unit-price">-</td>
             <td class="cell-subtotal" style="font-weight: bold;">-</td>
@@ -1362,8 +1369,18 @@ function runPriceEstimate(shopCode = '', refresh = false) {
     btn.style.opacity = '0.6';
     loading.style.display = 'block';
 
-    const targetMode = document.querySelector('input[name="price_estimate_target"]:checked')?.value || 'unowned';
+const targetMode = document.querySelector('input[name="price_estimate_target"]:checked')?.value || 'unowned';
     let excludeCardsParam = '';
+
+    // ★ 追加: 各行のカード名と追加キーワードのマッピングを収集
+    const extraKeywordsMap = {};
+    document.querySelectorAll('#price-card-list-body tr').forEach(tr => {
+        const cardName = tr.dataset.cardName;
+        const extraKw = tr.querySelector('.card-extra-keyword-input')?.value.trim();
+        if (cardName && extraKw) {
+            extraKeywordsMap[cardName] = extraKw;
+        }
+    });
 
     if (targetMode === 'unowned') {
         const fullyOwnedCards = [];
@@ -1373,13 +1390,11 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             const inputVal = tr.querySelector('.owned-qty-input')?.value;
             const ownedQty = (inputVal !== undefined && inputVal !== '') ? parseInt(inputVal) : 0;
 
-            // 総枚数が1以上で、かつ購入済み枚数が総枚数に達しているカードのみ除外
             if (totalQty > 0 && ownedQty >= totalQty && cardName) {
                 fullyOwnedCards.push(cardName);
             }
         });
 
-        // 全カードが購入済みの場合は査定リクエストを送らず即時0円表示
         const totalRows = document.querySelectorAll('#price-card-list-body tr').length;
         if (totalRows > 0 && fullyOwnedCards.length >= totalRows) {
             loading.style.display = 'none';
@@ -1399,6 +1414,11 @@ function runPriceEstimate(shopCode = '', refresh = false) {
     if (shopCode) url += '&shop_code=' + encodeURIComponent(shopCode);
     if (refresh) url += '&refresh=1';
     if (excludeCardsParam) url += '&exclude_cards=' + excludeCardsParam;
+    
+    // ★ 追加: extra_keywords を JSON 文字列としてURLパラメータに追加
+    if (Object.keys(extraKeywordsMap).length > 0) {
+        url += '&extra_keywords=' + encodeURIComponent(JSON.stringify(extraKeywordsMap));
+    }
 
     fetch(url)
         .then(async res => {

@@ -1626,6 +1626,13 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 	targetShopCode := strings.TrimSpace(query.Get("shop_code"))
 	forceRefresh := query.Get("refresh") != ""
 	excludeCardsRaw := query.Get("exclude_cards")
+	extraKeywordsRaw := query.Get("extra_keywords") // ★ 追加
+
+	// カードごとの追加キーワードマップ（"カード名": "キーワード"）
+	extraKeywords := make(map[string]string)
+	if extraKeywordsRaw != "" {
+		_ = json.Unmarshal([]byte(extraKeywordsRaw), &extraKeywords)
+	}
 
 	var excludeCards []string
 	if excludeCardsRaw != "" {
@@ -1813,6 +1820,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		isTwinpact := cardInfo.IsTwinpact
 		topName := cardInfo.TopName
 		bottomName := cardInfo.BottomName
+		extraKw := strings.TrimSpace(extraKeywords[cardInfo.DisplayName])
 
 		sanitizeCardName := func(str string) string {
 			if str == "" {
@@ -1840,7 +1848,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		}
 		topName = strings.ReplaceAll(topName, "∑", "Σ")
 
-		cacheKey := fmt.Sprintf("%x", md5Sum(cardInfo.DisplayName+"_"+targetShopCode))
+		cacheKey := fmt.Sprintf("%x", md5Sum(cardInfo.DisplayName+"_"+targetShopCode+"_"+extraKw))
 
 		if !forceRefresh {
 			var cachedPrice sql.NullInt64
@@ -1919,8 +1927,14 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 		safeKw := cleanSearchWord(baseSearchName)
 		var keywordsToTry []string
+		
+		if extraKw != "" {
+			keywordsToTry = append(keywordsToTry, safeKw+" "+extraKw)
+			keywordsToTry = append(keywordsToTry, baseSearchName+" "+extraKw)
+		}
+
 		if isSpecialFiveSet {
-			keywordsToTry = []string{safeKw + " 5枚セット", baseSearchName + " 5枚セット"}
+			keywordsToTry = append(keywordsToTry, safeKw + " 5枚セット", baseSearchName + " 5枚セット")
 		} else {
 			keywordsToTry = append(keywordsToTry, safeKw)
 			if !strings.Contains(baseSearchName, "-") && baseSearchName != safeKw {
