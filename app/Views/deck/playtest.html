@@ -604,9 +604,10 @@
         .pt-grid-item .badge-selected-count {
             position: absolute; top: 4px; left: 4px;
             background: #28a745; color: white; border-radius: 4px;
-            padding: 2px 4px; font-size: 10px;
+            padding: 2px 6px; font-size: 11px;
             display: flex; align-items: center; justify-content: center;
             font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.8);
             z-index: 15;
         }
 
@@ -4842,22 +4843,42 @@ function ptMoveLookingCardsBatch(targetZone) {
 }
 function ptProcessNextBatchMove() {
     if (!ptBatchMoveQueue || ptBatchMoveQueue.length === 0) {
-        // すべてのキューを消化し終えた場合、通常通り前の確認画面に帰還
         ptBatchMoveTargetZone = null;
         ptReturnToPreviousModal();
         return;
     }
 
-    const cardId = ptBatchMoveQueue.shift(); // 待機キューの先頭から1枚取り出す
-    const idx = ptLookingCards.findIndex(c => c.id === cardId);
-    if (idx === -1) {
-        // 万が一カードが見つからなければスキップして次へ進む
+    const cardId = ptBatchMoveQueue.shift();
+    let card = null;
+
+    if (ptActiveRevealContext === 'revealed') {
+        let mIdx = ptRevealedMatchedCards.findIndex(c => c.id === cardId);
+        if (mIdx !== -1) {
+            card = ptRevealedMatchedCards.splice(mIdx, 1)[0];
+        } else {
+            let uIdx = ptRevealedUnmatchedCards.findIndex(c => c.id === cardId);
+            if (uIdx !== -1) {
+                card = ptRevealedUnmatchedCards.splice(uIdx, 1)[0];
+            }
+        }
+        if (card) {
+            ptState.deck.push(card);
+        }
+    } else if (ptActiveRevealContext === 'deck_view') {
+        const found = ptState.deck.find(c => c.id === cardId);
+        if (found) card = found;
+    } else {
+        const idx = ptLookingCards.findIndex(c => c.id === cardId);
+        if (idx !== -1) {
+            card = ptLookingCards.splice(idx, 1)[0];
+            ptState.deck.push(card);
+        }
+    }
+
+    if (!card) {
         ptProcessNextBatchMove();
         return;
     }
-
-    let card = ptLookingCards.splice(idx, 1)[0];
-    ptState.deck.push(card); // 一時的に山札の上に戻す
 
     if (ptBatchMoveTargetZone === 'shield') {
         ptOpenShieldDropSelectModal(cardId, 'deck');

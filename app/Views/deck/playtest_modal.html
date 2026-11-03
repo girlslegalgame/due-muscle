@@ -1,6 +1,6 @@
 <!-- リスト選択用汎用モーダル -->
 <div id="ptListModal" class="pt-modal" onclick="ptCloseModalManual()">
-    <div class="pt-modal-content" onclick="event.stopPropagation()">
+    <div class="pt-modal-content" onclick="ptHideContextMenu(); event.stopPropagation()">
         <div class="pt-modal-header">
             <h3 id="ptModalTitle">カード選択</h3>
             <button class="pt-modal-close" onclick="ptCloseModalManual()">&times;</button>
@@ -14,11 +14,17 @@
 // ==========================================
 // モーダル共通制御
 // ==========================================
+function ptHideContextMenu() {
+    const menu = document.getElementById('ptContextMenu');
+    if (menu) menu.style.display = 'none';
+}
 function closePtModal() {
+    ptHideContextMenu();
     document.getElementById('ptListModal').style.display = 'none';
 }
 
 function ptCloseModalManual() {
+    ptHideContextMenu();
     let needRender = false;
 
     if (ptLookingCards && ptLookingCards.length > 0) {
@@ -57,10 +63,12 @@ function ptCloseModalManual() {
 }
 
 function handleGroupItemClick(itemEl, allIds) {
+    ptHideContextMenu();
     const max = allIds.length;
     const currentSelectedIds = JSON.parse(itemEl.getAttribute('data-selected-ids') || '[]');
     const currentCount = currentSelectedIds.length;
     
+    // 1クリックで1枚追加、最大枚数を超えたら選択解除(0)
     let nextCount = currentCount + 1;
     if (nextCount > max) nextCount = 0;
 
@@ -68,15 +76,15 @@ function handleGroupItemClick(itemEl, allIds) {
         const selectedIds = allIds.slice(0, nextCount);
         itemEl.classList.add('selected');
         itemEl.setAttribute('data-selected-ids', JSON.stringify(selectedIds));
-        updateItemSelectionBadge(itemEl, nextCount);
+        updateItemSelectionBadge(itemEl, nextCount, max);
     } else {
         itemEl.classList.remove('selected');
         itemEl.removeAttribute('data-selected-ids');
-        updateItemSelectionBadge(itemEl, 0);
+        updateItemSelectionBadge(itemEl, 0, max);
     }
 }
 
-function updateItemSelectionBadge(itemEl, selectedCount) {
+function updateItemSelectionBadge(itemEl, selectedCount, maxCount) {
     let selectBadge = itemEl.querySelector('.badge-selected-count');
     if (selectedCount > 0) {
         if (!selectBadge) {
@@ -84,7 +92,7 @@ function updateItemSelectionBadge(itemEl, selectedCount) {
             selectBadge.className = 'badge-selected-count';
             itemEl.appendChild(selectBadge);
         }
-        selectBadge.innerText = `${selectedCount}枚選択`;
+        selectBadge.innerText = `${selectedCount} / ${maxCount}枚`;
         selectBadge.style.display = 'flex';
     } else {
         if (selectBadge) selectBadge.style.display = 'none';
@@ -167,6 +175,7 @@ function openUntapMenu() {
 // 山札閲覧・一括操作モーダル
 // ==========================================
 function ptViewDeck() {
+    ptActiveRevealContext = 'deck_view';
     const modal = document.getElementById('ptListModal');
     const title = document.getElementById('ptModalTitle');
     const body = document.getElementById('ptModalBody');
@@ -174,7 +183,7 @@ function ptViewDeck() {
 
     title.innerText = "山札を見る";
     body.innerHTML = `
-        <p>カードをクリックして選択（枚数指定可能）し、下のボタンから操作してください。</p>
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">カードをクリックして選択（枚数指定可能）し、<b>右クリック</b>で移動先を指定できます。</p>
         <div class="pt-grid" id="ptDeckViewGrid"></div>
     `;
 
@@ -198,18 +207,17 @@ function ptViewDeck() {
             <div class="card-qty">${group.card.name}</div>
         `;
         itemEl.onclick = () => handleGroupItemClick(itemEl, group.ids);
+        itemEl.oncontextmenu = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            openDeckViewContextMenu(e, itemEl, group.ids);
+        };
         grid.appendChild(itemEl);
     });
-
     footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">閉じる</button>
         <button class="btn-pt-secondary" onclick="ptBatchDeckAction('top')">山札の一番上に戻す</button>
         <button class="btn-pt-secondary" onclick="ptBatchDeckAction('bottom')">山札の一番下に置く</button>
         <button class="btn-pt-secondary" onclick="ptBatchDeckAction('shuffle_deck')">山札に加えてシャッフル</button>
-        <button class="btn-pt-primary" onclick="ptBatchMoveFromDeck('hand')">手札に加える</button>
-        <button class="btn-pt-primary" onclick="ptBatchMoveFromDeck('battle')">バトルゾーンに置く</button>
-        <button class="btn-pt-primary" onclick="ptBatchMoveFromDeck('mana')">マナに置く</button>
-        <button class="btn-pt-primary" onclick="ptBatchMoveFromDeck('graveyard')">墓地に置く</button>
-        <button class="btn-pt-primary" onclick="ptBatchMoveFromDeck('shield_select')">シールドに置く...</button>
     `;
     modal.style.display = 'flex';
 }
@@ -787,6 +795,7 @@ function ptOpenRevealUntilModal() {
 
 function renderRevealedUntilModal() {
     ptActiveRevealContext = 'revealed';
+    ptRevealedSelectedIds = [];
     const modal = document.getElementById('ptListModal');
     const title = document.getElementById('ptModalTitle');
     const body = document.getElementById('ptModalBody');
@@ -794,53 +803,44 @@ function renderRevealedUntilModal() {
 
     title.innerText = "条件捲り確認";
     body.innerHTML = `
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">カードをクリックして選択し、<b>右クリック</b>で移動先を指定できます（直接右クリックも可能）。</p>
         <div style="display:flex; flex-direction:column; gap:16px; max-height: 60vh; overflow-y: auto;">
             <div>
                 <h4 style="margin:0 0 8px 0; color:#28a745; border-bottom:1px solid #333; padding-bottom:4px;">🌟 条件合致カード (${ptRevealedMatchedCards.length}枚)</h4>
-                <p style="font-size:11px; color:#aaa; margin:0 0 8px 0;">合致したカードは、それぞれ配置する場所を個別に選んで移動してください。</p>
                 <div class="pt-grid" id="ptRevealMatchedGrid"></div>
             </div>
             <div>
                 <h4 style="margin:0 0 8px 0; color:#dc3545; border-bottom:1px solid #333; padding-bottom:4px;">❌ 条件外のカード (${ptRevealedUnmatchedCards.length}枚)</h4>
-                <p style="font-size:11px; color:#aaa; margin:0 0 8px 0;">道中で捲れた適合しないカードです。下部アクションから一括で処理します。</p>
                 <div class="pt-grid" id="ptRevealUnmatchedGrid"></div>
             </div>
         </div>
     `;
 
+    const setupRevealedItem = (card, containerEl) => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'pt-grid-item';
+        itemEl.dataset.cardId = card.id;
+        itemEl.innerHTML = `<img src="${card.src}"><div class="card-qty">${card.name}</div>`;
+        itemEl.onclick = () => toggleRevealedSelect(itemEl, card.id);
+        itemEl.oncontextmenu = (e) => {
+            e.preventDefault(); e.stopPropagation();
+            openRevealedCardMenu(e, card);
+        };
+        containerEl.appendChild(itemEl);
+    };
+
     const matchedGrid = document.getElementById('ptRevealMatchedGrid');
     if (ptRevealedMatchedCards.length === 0) {
         matchedGrid.innerHTML = '<div style="font-size:12px; color:#666; padding:10px;">なし</div>';
     } else {
-        ptRevealedMatchedCards.forEach(card => {
-            const itemEl = document.createElement('div');
-            itemEl.className = 'pt-grid-item';
-            itemEl.innerHTML = `
-                <img src="${card.src}">
-                <div class="card-qty">${card.name}</div>
-                <div style="margin-top:6px; display:flex; gap:3px; justify-content:center; flex-wrap:wrap;">
-                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'hand')">手札</button>
-                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'mana')">マナ</button>
-                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'graveyard')">墓地</button>
-                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px; background:#28a745;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'battle')">バトル</button>
-                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px; background:#ffc107; color:#000;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'shield')">シールド</button>
-                    <button class="btn-pt-primary" style="padding:2px 4px; font-size:10px; background:#17a2b8;" onclick="event.stopPropagation(); ptMoveRevealedCardDirectly('${card.id}', 'psychic')">超次元</button>
-                </div>
-            `;
-            matchedGrid.appendChild(itemEl);
-        });
+        ptRevealedMatchedCards.forEach(card => setupRevealedItem(card, matchedGrid));
     }
 
     const unmatchedGrid = document.getElementById('ptRevealUnmatchedGrid');
     if (ptRevealedUnmatchedCards.length === 0) {
         unmatchedGrid.innerHTML = '<div style="font-size:12px; color:#666; padding:10px;">なし</div>';
     } else {
-        ptRevealedUnmatchedCards.forEach(card => {
-            const itemEl = document.createElement('div');
-            itemEl.className = 'pt-grid-item';
-            itemEl.innerHTML = `<img src="${card.src}"><div class="card-qty">${card.name}</div>`;
-            unmatchedGrid.appendChild(itemEl);
-        });
+        ptRevealedUnmatchedCards.forEach(card => setupRevealedItem(card, unmatchedGrid));
     }
 
     footer.innerHTML = `
@@ -1614,5 +1614,147 @@ function openEvolutionChoiceModal(cardId, fromZone, mode) {
     `;
     footer.innerHTML = `<button class="btn-pt-secondary" onclick="closePtModal()">閉じる</button>`;
     modal.style.display = 'flex';
+}
+function openDeckViewContextMenu(e, itemEl, groupIds) {
+    const items = document.querySelectorAll('#ptDeckViewGrid .pt-grid-item.selected');
+    let allSelectedIds = [];
+    items.forEach(item => {
+        const ids = JSON.parse(item.getAttribute('data-selected-ids') || '[]');
+        allSelectedIds = allSelectedIds.concat(ids);
+    });
+
+    // 何も選択されていない場合は、右クリックされた枠から「1枚のみ」選択する
+    if (allSelectedIds.length === 0) {
+        handleGroupItemClick(itemEl, groupIds);
+        allSelectedIds = JSON.parse(itemEl.getAttribute('data-selected-ids') || '[]');
+    }
+
+    const count = allSelectedIds.length;
+    if (count === 0) return;
+
+    const menu = document.getElementById('ptContextMenu');
+    menu.innerHTML = `
+        <li onclick="ptMoveDeckViewBatch('hand')">選択した ${count} 枚を手札に加える</li>
+        <li onclick="ptMoveDeckViewBatch('mana')">選択した ${count} 枚をマナに置く</li>
+        <li onclick="ptMoveDeckViewBatch('graveyard')">選択した ${count} 枚を墓地に置く</li>
+        <li onclick="ptMoveDeckViewBatch('battle')">選択した ${count} 枚をバトルゾーンに置く</li>
+        <li onclick="ptMoveDeckViewBatch('shield')">選択した ${count} 枚をシールドに置く</li>
+        <li onclick="ptMoveDeckViewBatch('psychic')">選択した ${count} 枚を超次元に置く</li>
+    `;
+    menu.style.display = 'block';
+    adjustMenuPosition(e, menu);
+}
+function ptMoveDeckViewBatch(targetZone) {
+    ptHideContextMenu();
+    const items = document.querySelectorAll('#ptDeckViewGrid .pt-grid-item.selected');
+    let allIds = [];
+    items.forEach(item => {
+        const ids = JSON.parse(item.getAttribute('data-selected-ids') || '[]');
+        allIds = allIds.concat(ids);
+    });
+    if (allIds.length === 0) return;
+
+    if (targetZone === 'battle' || targetZone === 'shield') {
+        ptActiveRevealContext = 'deck_view';
+        ptBatchMoveQueue = allIds;
+        ptBatchMoveTargetZone = targetZone;
+        ptProcessNextBatchMove();
+    } else {
+        allIds.forEach(id => {
+            ptMoveCard(id, 'deck', targetZone);
+        });
+        closePtModal();
+        renderPtBoard();
+    }
+}
+function toggleRevealedSelect(itemEl, cardId) {
+    ptHideContextMenu();
+    const idx = ptRevealedSelectedIds.indexOf(cardId);
+    if (idx !== -1) {
+        ptRevealedSelectedIds.splice(idx, 1);
+        itemEl.classList.remove('selected');
+        const badge = itemEl.querySelector('.badge-selected-count');
+        if (badge) badge.style.display = 'none';
+    } else {
+        ptRevealedSelectedIds.push(cardId);
+        itemEl.classList.add('selected');
+        let badge = itemEl.querySelector('.badge-selected-count');
+        if (!badge) {
+            badge = document.createElement('div');
+            badge.className = 'badge-selected-count';
+            itemEl.appendChild(badge);
+        }
+        badge.innerText = '選択中';
+        badge.style.display = 'flex';
+    }
+}
+function openRevealedCardMenu(e, card) {
+    if (!ptRevealedSelectedIds.includes(card.id)) {
+        ptRevealedSelectedIds.push(card.id);
+        const el = document.querySelector(`.pt-grid-item[data-card-id="${card.id}"]`);
+        if (el) {
+            el.classList.add('selected');
+            let badge = el.querySelector('.badge-selected-count');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'badge-selected-count';
+                el.appendChild(badge);
+            }
+            badge.innerText = '選択中';
+            badge.style.display = 'flex';
+        }
+    }
+
+    const count = ptRevealedSelectedIds.length;
+    const menu = document.getElementById('ptContextMenu');
+    menu.innerHTML = `
+        <li onclick="ptMoveRevealedCardsBatch('hand')">選択した ${count} 枚を手札に加える</li>
+        <li onclick="ptMoveRevealedCardsBatch('mana')">選択した ${count} 枚をマナに置く</li>
+        <li onclick="ptMoveRevealedCardsBatch('graveyard')">選択した ${count} 枚を墓地に置く</li>
+        <li onclick="ptMoveRevealedCardsBatch('battle')">選択した ${count} 枚をバトルゾーンに置く</li>
+        <li onclick="ptMoveRevealedCardsBatch('shield')">選択した ${count} 枚をシールドに置く</li>
+        <li onclick="ptMoveRevealedCardsBatch('psychic')">選択した ${count} 枚を超次元に置く</li>
+    `;
+    menu.style.display = 'block';
+    adjustMenuPosition(e, menu);
+}
+function ptMoveRevealedCardsBatch(targetZone) {
+    ptHideContextMenu();
+    let idsToMove = [...ptRevealedSelectedIds];
+    if (idsToMove.length === 0) return;
+    ptRevealedSelectedIds = [];
+
+    if (targetZone === 'battle' || targetZone === 'shield') {
+        ptBatchMoveQueue = idsToMove;
+        ptBatchMoveTargetZone = targetZone;
+        ptProcessNextBatchMove();
+    } else {
+        idsToMove.forEach(id => {
+            let card = null;
+            let mIdx = ptRevealedMatchedCards.findIndex(c => c.id === id);
+            if (mIdx !== -1) {
+                card = ptRevealedMatchedCards.splice(mIdx, 1)[0];
+            } else {
+                let uIdx = ptRevealedUnmatchedCards.findIndex(c => c.id === id);
+                if (uIdx !== -1) {
+                    card = ptRevealedUnmatchedCards.splice(uIdx, 1)[0];
+                }
+            }
+            if (card) {
+                ptState.deck.push(card);
+                ptMoveCard(id, 'deck', targetZone);
+            }
+        });
+
+        const hasMatched = ptRevealedMatchedCards && ptRevealedMatchedCards.length > 0;
+        const hasUnmatched = ptRevealedUnmatchedCards && ptRevealedUnmatchedCards.length > 0;
+        if (!hasMatched && !hasUnmatched) {
+            closePtModal();
+            ptActiveRevealContext = null;
+        } else {
+            renderRevealedUntilModal();
+        }
+        renderPtBoard();
+    }
 }
 </script>

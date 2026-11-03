@@ -203,6 +203,14 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                 dc.dummy_partner_civ_ids,
                 cc.combination_id,
                 (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                (
+                    SELECT GROUP_CONCAT(DISTINCT ca_all.ability_id)
+                    FROM card_ability ca_all
+                    WHERE ca_all.card_id = c.card_id
+                       OR (cc.combination_id IS NOT NULL AND ca_all.card_id IN (
+                           SELECT cc_sub.card_id FROM card_combination cc_sub WHERE cc_sub.combination_id = cc.combination_id
+                       ))
+                ) as ability_ids,
                 COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id), dc.dummy_civ_ids) as civ_ids,
                 (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                 (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,

@@ -506,6 +506,74 @@
     .btn-qty-step:hover {
         background-color: #e2e6ea;
     }
+    .ability-control-panel {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .ability-select-group {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex: 1;
+        min-width: 0; /* flexboxでの文字溢れ防止 */
+    }
+    /* --- 特殊能力選択ボタン スマートスタイル --- */
+    .btn-ability-select-smart {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        background: #ffffff;
+        color: #334155;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        white-space: nowrap;      /* ★ 文字の折り返しを禁止 */
+        flex-shrink: 0;           /* ★ スマホで幅が潰れるのを防止 */
+        user-select: none;
+        outline: none;
+    }
+
+    .btn-ability-select-smart:hover {
+        border-color: #007bff;
+        color: #007bff;
+        background: #f8fafc;
+        box-shadow: 0 2px 5px rgba(0, 123, 255, 0.15);
+        transform: translateY(-1px);
+    }
+
+    .btn-ability-select-smart:active {
+        transform: translateY(0);
+        box-shadow: none;
+    }
+
+    /* 選択件数バッジ */
+    .ability-count-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 6px;
+        background: #007bff;
+        color: #ffffff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border-radius: 10px;
+        transition: background 0.2s;
+    }
+
+    /* 0件の時は控えめなグレーにする */
+    .ability-count-badge.empty {
+        background: #94a3b8;
+    }
     @media (max-width: 768px) {
         /* モーダル余白の最適化 */
         .modal-content {
@@ -534,6 +602,30 @@
         .modal-draw-card-list img { height: 85px; }
         .modal-draw-card-list { min-height: 105px; }
         .modal-fa-selected-cards { grid-template-columns: repeat(4, 1fr); }
+        .ability-control-panel {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 10px !important;
+        }
+
+        .ability-select-group {
+            width: 100% !important;
+            justify-content: space-between !important;
+        }
+
+        .btn-ability-select-smart {
+            padding: 5px 12px !important;
+            font-size: 0.8rem !important;
+        }
+
+        .ability-display-mode-group {
+            display: flex !important;
+            justify-content: flex-end !important;
+            width: 100% !important;
+            padding-top: 6px !important;
+            border-top: 1px dashed #e2e8f0 !important;
+            font-size: 0.8rem !important;
+        }
     }
 </style>
 <!-- 共通デッキ詳細モーダルのHTML -->
@@ -583,7 +675,7 @@
                         <option value="draw">初手ドロー</option>
                         <option value="first-action">初動チェック</option>
                         <option value="analysis" selected>デッキ分析</option>
-                        <!-- ★ 追加: 清永ヒット率計算（デフォルト非表示） -->
+                        <option value="ability">特殊能力集計</option>    
                         <option value="kiyonaga" id="modal-opt-kiyonaga" style="display: none;">清永ヒット率計算</option>
                         <option value="playtest">1人回し（別ページ）</option>
                     </select>
@@ -700,6 +792,47 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- 5. 特殊能力集計ビュー -->
+                <div id="modal-analysis-view-ability" class="modal-analysis-mode-content" style="display: none;">
+                    <!-- 操作ヘッダー -->
+                    <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 10px 12px; margin-bottom: 12px;">
+                        <div class="ability-control-panel">
+                            <!-- ボタン & 選択中バッジ -->
+                            <div class="ability-select-group">
+                                <button type="button" class="btn-ability-select-smart" onclick="openModalAbilitySelectModal()">
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    </svg>
+                                    <span>能力を選択</span>
+                                    <span id="modal-ability-selected-count" class="ability-count-badge empty">0</span>
+                                </button>
+                                <div id="modal-ability-selected-badges" style="display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 4px; padding: 2px 0;"></div>
+                            </div>
+
+                            <!-- 表示形式ラジオボタン -->
+                            <div class="ability-display-mode-group" style="display: flex; align-items: center; gap: 10px; font-weight: bold; color: #475569;">
+                                <span>表示形式:</span>
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; font-size: 0.8rem;">
+                                    <input type="radio" name="modal_ability_display_mode" value="combined" checked onchange="renderModalAbilityCards()"> まとめて
+                                </label>
+                                <label style="cursor: pointer; display: flex; align-items: center; gap: 3px; font-size: 0.8rem;">
+                                    <input type="radio" name="modal_ability_display_mode" value="separated" onchange="renderModalAbilityCards()"> 能力別
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 集計サマリー（合計枚数など） -->
+                    <div style="background: #eef9f1; border: 1px solid #b7ebc5; border-radius: 8px; padding: 8px 12px; margin-bottom: 15px; font-size: 0.9rem; font-weight: bold; color: #28a745; display: flex; justify-content: space-between;">
+                        <span>該当カード総数（延べ枚数）: <span id="modal-ability-total-qty" style="font-size: 1.2rem;">0</span> 枚</span>
+                        <span>種類数: <span id="modal-ability-total-types">0</span> 種</span>
+                    </div>
+
+                    <!-- カード結果一覧コンテナ -->
+                    <div id="modal-ability-result-container" style="min-height: 200px;"></div>
+                </div>
             </div>
             <!-- デッキ価格査定 -->
             <div id="content-price" class="tab-content">
@@ -807,6 +940,37 @@
         </div>
     </div>
 </div>
+<!-- 特殊能力選択サブモーダル -->
+<div id="modalAbilitySelectModal" class="sub-modal" style="z-index: 10002;">
+    <div class="sub-modal-content" style="max-width: 440px; height: 75vh;">
+        <div class="sub-modal-header" style="padding: 12px 15px; background: #333; color: #fff; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold; font-size: 14px;">特殊能力を選択</span>
+            <span onclick="closeModalAbilitySelectModal()" style="cursor: pointer; font-size: 22px;">&times;</span>
+        </div>
+        <div style="padding: 10px 15px;">
+            <input type="text" id="modal-ability-search-input" placeholder="能力を検索..." 
+                style="width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 13px;"
+                oninput="filterModalAbilityList(this.value)">
+            <!-- ★ 一括選択ボタンと選択解除ボタンを横並びで配置 -->
+            <div style="display: flex; gap: 8px; margin-top: 8px;">
+                <button type="button" onclick="bulkSelectModalAbilityVisible()" style="flex: 1; padding: 6px; font-size: 12px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    表示中を一括選択
+                </button>
+                <button type="button" onclick="clearModalAbilitySelection()" style="flex: 1; padding: 6px; font-size: 12px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">
+                    全選択解除
+                </button>
+            </div>
+        </div>
+        <div id="modal-ability-list-container" class="sub-modal-body" style="padding: 5px 15px; flex: 1; overflow-y: auto;">
+            <!-- JSで動的にリスト生成 -->
+        </div>
+        <div style="padding: 12px 15px; border-top: 1px solid #eee; background: #fff;">
+            <button type="button" onclick="confirmModalAbilitySelection()" style="width: 100%; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
+                決定
+            </button>
+        </div>
+    </div>
+</div>
 <!-- 共通デッキ詳細モーダルの制御スクリプト -->
 <script>
 let colorChart = null;
@@ -823,6 +987,8 @@ let modalFaSelectedCardIds = new Set();
 let modalFaHandCount = 5;
 let priceEstimateCache = {};
 let currentDeckOwnedCards = {};
+let modalSelectedAbilityIds = new Set(); // 選択された能力IDのSet
+let modalMasterAbilities = []; 
 
 // --- ダミーカード対応の安全な画像取得ヘルパー ---
 const MODAL_CIV_COLORS = {
@@ -1599,9 +1765,13 @@ function switchModalAnalysisMode() {
     } else if (mode === 'first-action') {
         document.getElementById('modal-analysis-view-first-action').style.display = 'block';
         resetModalFirstAction();
-    } else if (mode === 'kiyonaga') { // ★ 追加
+    } else if (mode === 'kiyonaga') {
         document.getElementById('modal-analysis-view-kiyonaga').style.display = 'block';
         calculateKiyonagaHitRate();
+    } else if (mode === 'ability') { // ★ 追加
+        document.getElementById('modal-analysis-view-ability').style.display = 'block';
+        loadModalAbilityMaster();
+        renderModalAbilityCards();
     }
 }
 
@@ -2006,5 +2176,306 @@ function calculateKiyonagaHitRate() {
     document.getElementById('modal-kiyonaga-hit-percent').innerText = hitPercent;
     document.getElementById('modal-kiyonaga-hit-combos').innerText = hitCombos.toLocaleString();
     document.getElementById('modal-kiyonaga-total-combos').innerText = totalCombos.toLocaleString();
+}
+// 2. 特殊能力マスタの取得とリスト生成
+function loadModalAbilityMaster() {
+    if (modalMasterAbilities.length > 0) return;
+    fetch('/api/master-data')
+        .then(res => res.json())
+        .then(data => {
+            if (data.abilities) {
+                modalMasterAbilities = data.abilities;
+                renderModalAbilityList();
+            }
+        });
+}
+
+function openModalAbilitySelectModal() {
+    loadModalAbilityMaster();
+    renderModalAbilityList();
+    document.getElementById('modalAbilitySelectModal').style.display = 'flex';
+}
+
+function closeModalAbilitySelectModal() {
+    document.getElementById('modalAbilitySelectModal').style.display = 'none';
+}
+
+function renderModalAbilityList() {
+    const container = document.getElementById('modal-ability-list-container');
+    container.innerHTML = '';
+
+    modalMasterAbilities.forEach(item => {
+        const id = String(item.ability_id);
+        const name = item.ability_name;
+        const isChecked = modalSelectedAbilityIds.has(id);
+
+        const label = document.createElement('label');
+        label.className = 'list-item';
+        label.dataset.name = (name + (item.reading || '')).toLowerCase();
+        label.style.display = 'flex';
+        label.style.alignItems = 'center';
+        label.style.justifyContent = 'space-between';
+        label.style.padding = '8px 4px';
+        label.style.borderBottom = '1px solid #f2f2f7';
+        label.style.cursor = 'pointer';
+
+        label.innerHTML = `
+            <span style="font-size: 13px;">${name}</span>
+            <input type="checkbox" value="${id}" ${isChecked ? 'checked' : ''} onchange="toggleModalAbilityCheck('${id}', this.checked)">
+        `;
+        container.appendChild(label);
+    });
+}
+
+function toggleModalAbilityCheck(id, checked) {
+    if (checked) {
+        modalSelectedAbilityIds.add(id);
+    } else {
+        modalSelectedAbilityIds.delete(id);
+    }
+}
+
+function filterModalAbilityList(q) {
+    const query = q.toLowerCase();
+    document.querySelectorAll('#modal-ability-list-container .list-item').forEach(el => {
+        el.style.display = el.dataset.name.includes(query) ? 'flex' : 'none';
+    });
+}
+
+function clearModalAbilitySelection() {
+    modalSelectedAbilityIds.clear();
+    document.querySelectorAll('#modal-ability-list-container input[type="checkbox"]').forEach(c => c.checked = false);
+}
+
+function confirmModalAbilitySelection() {
+    closeModalAbilitySelectModal();
+    updateModalAbilityBadges();
+    renderModalAbilityCards();
+}
+
+function updateModalAbilityBadges() {
+    const countEl = document.getElementById('modal-ability-selected-count');
+    const badgeContainer = document.getElementById('modal-ability-selected-badges');
+    const size = modalSelectedAbilityIds.size;
+
+    countEl.innerText = size;
+    // ★ 0件ならグレー、1件以上ならブルーに切り替え
+    if (size > 0) {
+        countEl.classList.remove('empty');
+    } else {
+        countEl.classList.add('empty');
+    }
+
+    badgeContainer.innerHTML = '';
+
+    modalSelectedAbilityIds.forEach(id => {
+        const item = modalMasterAbilities.find(a => String(a.ability_id) === id);
+        if (item) {
+            const badge = document.createElement('span');
+            badge.style.background = '#e0f2fe';
+            badge.style.color = '#0369a1';
+            badge.style.padding = '2px 8px';
+            badge.style.borderRadius = '12px';
+            badge.style.fontSize = '11px';
+            badge.style.fontWeight = 'bold';
+            badge.innerText = item.ability_name;
+            badgeContainer.appendChild(badge);
+        }
+    });
+}
+
+// 4. カードアイテムの生成（枚数バッジ付き・詳細モーダル連動）
+function renderModalAbilityCards() {
+    const container = document.getElementById('modal-ability-result-container');
+    container.innerHTML = '';
+
+    if (modalSelectedAbilityIds.size === 0) {
+        container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">「能力を選択する」ボタンから集計したい能力を選んでください。</div>';
+        document.getElementById('modal-ability-total-qty').innerText = '0';
+        document.getElementById('modal-ability-total-types').innerText = '0';
+        return;
+    }
+
+    const displayMode = document.querySelector('input[name="modal_ability_display_mode"]:checked')?.value || 'combined';
+
+    const mainCards = currentDeckCards.filter(c => {
+        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
+        if (isSpecial) return false;
+        return c.card_type_in_deck === 'main' || !c.card_type_in_deck;
+    });
+
+    // ★ カードが持つ能力IDを確実に文字列配列として抽出
+    const getCardAbilityIds = (c) => {
+        const idSet = new Set();
+        if (c.ability_ids) {
+            String(c.ability_ids).split(',').forEach(id => {
+                const trimmed = id.trim();
+                if (trimmed) idSet.add(trimmed);
+            });
+        }
+        return Array.from(idSet);
+    };
+
+    if (displayMode === 'combined') {
+        const matchedMap = {};
+        let totalCount = 0;
+
+        mainCards.forEach(c => {
+            const cAbilities = getCardAbilityIds(c);
+            // 選択されたいずれかの能力IDが含まれているか判定
+            const isHit = Array.from(modalSelectedAbilityIds).some(id => cAbilities.includes(String(id)));
+
+            if (isHit) {
+                const key = c.card_name;
+                const qty = parseInt(c.quantity || 1);
+                if (!matchedMap[key]) {
+                    matchedMap[key] = {
+                        card: c,
+                        count: 0
+                    };
+                }
+                matchedMap[key].count += qty;
+                totalCount += qty;
+            }
+        });
+
+        const cards = Object.values(matchedMap);
+        document.getElementById('modal-ability-total-qty').innerText = totalCount;
+        document.getElementById('modal-ability-total-types').innerText = cards.length;
+
+        if (cards.length === 0) {
+            container.innerHTML = '<div style="text-align: center; color: #999; padding: 40px;">該当する能力を持つカードはありません。</div>';
+            return;
+        }
+
+        const grid = document.createElement('div');
+        grid.style.display = 'grid';
+        grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(90px, 1fr))';
+        grid.style.gap = '8px';
+
+        cards.forEach(item => {
+            grid.appendChild(createAbilityCardElement(item.card, item.count));
+        });
+        container.appendChild(grid);
+
+    } else {
+        // --- 能力ごとに分ける ---
+        let totalSum = 0;
+        let uniqueNamesAll = new Set();
+
+        modalSelectedAbilityIds.forEach(abilityId => {
+            const strId = String(abilityId);
+            const abilityInfo = modalMasterAbilities.find(a => String(a.ability_id) === strId);
+            const abilityName = abilityInfo ? abilityInfo.ability_name : '能力';
+
+            const matchedMap = {};
+            let subTotal = 0;
+
+            mainCards.forEach(c => {
+                const cAbilities = getCardAbilityIds(c);
+                if (cAbilities.includes(strId)) {
+                    const key = c.card_name;
+                    const qty = parseInt(c.quantity || 1);
+                    if (!matchedMap[key]) {
+                        matchedMap[key] = { card: c, count: 0 };
+                    }
+                    matchedMap[key].count += qty;
+                    subTotal += qty;
+                    uniqueNamesAll.add(key);
+                }
+            });
+
+            totalSum += subTotal;
+            const cards = Object.values(matchedMap);
+
+            const section = document.createElement('div');
+            section.style.marginBottom = '20px';
+            section.style.background = '#fff';
+            section.style.border = '1px solid #ddd';
+            section.style.borderRadius = '8px';
+            section.style.padding = '10px 12px';
+
+            section.innerHTML = `
+                <div style="font-weight: bold; font-size: 0.95rem; margin-bottom: 8px; color: #333; display: flex; justify-content: space-between; border-bottom: 2px solid #007bff; padding-bottom: 4px;">
+                    <span>【${abilityName}】</span>
+                    <span style="font-size: 0.85rem; color: #666;">計 ${subTotal} 枚 (${cards.length}種)</span>
+                </div>
+            `;
+
+            if (cards.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.color = '#999';
+                empty.style.fontSize = '0.8rem';
+                empty.innerText = '該当カードなし';
+                section.appendChild(empty);
+            } else {
+                const grid = document.createElement('div');
+                grid.style.display = 'grid';
+                grid.style.gridTemplateColumns = 'repeat(auto-fill, minmax(80px, 1fr))';
+                grid.style.gap = '6px';
+
+                cards.forEach(item => {
+                    grid.appendChild(createAbilityCardElement(item.card, item.count));
+                });
+                section.appendChild(grid);
+            }
+            container.appendChild(section);
+        });
+
+        document.getElementById('modal-ability-total-qty').innerText = totalSum;
+        document.getElementById('modal-ability-total-types').innerText = uniqueNamesAll.size;
+    }
+}
+function createAbilityCardElement(card, count) {
+    const wrapper = document.createElement('div');
+    wrapper.style.position = 'relative';
+    wrapper.style.cursor = 'pointer';
+    wrapper.style.borderRadius = '4px';
+    wrapper.style.overflow = 'hidden';
+    wrapper.style.border = '1px solid #ddd';
+
+    const img = document.createElement('img');
+    img.src = getModalCardImagePath(card);
+    img.style.width = '100%';
+    img.style.height = 'auto';
+    img.style.aspectRatio = '110/154';
+    img.style.objectFit = 'contain';
+    img.style.display = 'block';
+    img.title = card.card_name;
+    img.onerror = function() { this.src = '/images/card/noimage.webp'; this.onerror = null; };
+
+    // クリック時に詳細モーダルを開く
+    wrapper.onclick = () => {
+        if (typeof openCardDetail === 'function' && !String(card.card_id).startsWith('dummy_')) {
+            openCardDetail(card.card_id);
+        }
+    };
+
+    const badge = document.createElement('div');
+    badge.style.position = 'absolute';
+    badge.style.bottom = '2px';
+    badge.style.right = '2px';
+    badge.style.background = 'rgba(0, 0, 0, 0.85)';
+    badge.style.color = '#fff';
+    badge.style.fontSize = '12px';
+    badge.style.fontWeight = 'bold';
+    badge.style.padding = '1px 6px';
+    badge.style.borderRadius = '4px';
+    badge.innerText = `×${count}`;
+
+    wrapper.appendChild(img);
+    wrapper.appendChild(badge);
+    return wrapper;
+}
+function bulkSelectModalAbilityVisible() {
+    document.querySelectorAll('#modal-ability-list-container .list-item').forEach(el => {
+        if (el.style.display !== 'none') {
+            const cb = el.querySelector('input[type="checkbox"]');
+            if (cb) {
+                cb.checked = true;
+                modalSelectedAbilityIds.add(String(cb.value));
+            }
+        }
+    });
 }
 </script>
