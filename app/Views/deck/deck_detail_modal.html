@@ -865,10 +865,10 @@
                         <div style="display: flex; align-items: center; gap: 12px; font-size: 0.9rem; font-weight: bold;">
                             <span>バージョン:</span>
                             <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                                <input type="radio" name="price_estimate_version_mode" value="exact" checked onchange="onVersionModeChange()">デッキに採用されているバージョンを検索(β版)
+                                <input type="radio" name="price_estimate_version_mode" value="exact" onchange="onVersionModeChange()">デッキに採用されているバージョンを検索(β版)
                             </label>
                             <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
-                                <input type="radio" name="price_estimate_version_mode" value="any" onchange="onVersionModeChange()">バージョンを問わずに検索
+                                <input type="radio" name="price_estimate_version_mode" value="any" checked onchange="onVersionModeChange()">バージョンを問わずに検索
                             </label>
                         </div>
 
@@ -1167,7 +1167,7 @@ function initPriceTable(cards) {
     tbody.innerHTML = '';
 
     const ownedMap = getOwnedCardsFromStorage(currentDeckId);
-    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'exact';
+    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'any';
 
     const cardMap = {};
     cards.forEach(c => {
@@ -1665,7 +1665,7 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             excludeCardsParam = encodeURIComponent(fullyOwnedCards.join('|||'));
         }
     }
-    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'exact';
+    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'any';
     // 4. APIエンドポイントURL組み立て
     let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
     url += '&service=' + encodeURIComponent(service);

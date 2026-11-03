@@ -1660,9 +1660,9 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 	if targetService == "" {
 		targetService = "rakuten"
 	}
-	versionMode := strings.ToLower(strings.TrimSpace(query.Get("version_mode"))) // ★ 追加
+	versionMode := strings.ToLower(strings.TrimSpace(query.Get("version_mode")))
 	if versionMode == "" {
-		versionMode = "exact" // デフォルトは指定バージョン
+		versionMode = "any" // ★ デフォルトをバージョン不問に変更
 	}
 	forceRefresh := query.Get("refresh") != ""
 	excludeCardsRaw := query.Get("exclude_cards")
