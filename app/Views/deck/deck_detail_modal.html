@@ -861,6 +861,17 @@
                             </label>
                         </div>
 
+                        <!-- バージョン指定の切り替え -->
+                        <div style="display: flex; align-items: center; gap: 12px; font-size: 0.9rem; font-weight: bold;">
+                            <span>バージョン:</span>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="price_estimate_version_mode" value="exact" checked onchange="onVersionModeChange()">デッキに採用されているバージョンを検索(β版)
+                            </label>
+                            <label style="cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                <input type="radio" name="price_estimate_version_mode" value="any" onchange="onVersionModeChange()">バージョンを問わずに検索
+                            </label>
+                        </div>
+
                         <!-- ★ ショップ指定セレクトボックス（これが確実に配置されているか確認） -->
                         <div style="display: flex; align-items: center; gap: 6px;">
                             <label for="price-shop-select" style="font-size: 0.85rem; font-weight: bold; color: #555;">ショップ:</label>
@@ -1019,7 +1030,7 @@ function checkKiyonagaOption(cards) {
         select.value = 'analysis';
     }
 }
-
+let priceTableInitialized = false;
 /**
  * モーダルオープン時の処理更新
  */
@@ -1029,10 +1040,12 @@ function openDeckModal(deckId, deckName) {
     knownShops = {};
     priceEstimateCache = {};
     currentDeckOwnedCards = {};
+    priceTableInitialized = false; // フラグリセット
+
     document.getElementById('deck-total-price').innerText = '-';
     document.getElementById('price-not-found-warn').innerText = '';
-
     document.getElementById('modal-deck-title').innerText = deckName;
+
     const mainList = document.getElementById('modal-main-list');
     mainList.innerHTML = '読み込み中...';
     document.getElementById('modal-dim-list').innerHTML = '';
@@ -1043,9 +1056,9 @@ function openDeckModal(deckId, deckName) {
     document.body.style.overflow = 'hidden'; 
     switchTab('main'); 
 
-    // デッキカードと購入済みリストを並行取得
-    Promise.all([
-        fetch('/api/decks/view?deck_id=' + deckId).then(async res => {
+    // ★ /api/decks/view だけを最優先で取得し、即座に画像を描画する
+    fetch('/api/decks/view?deck_id=' + deckId)
+        .then(async res => {
             const text = await res.text();
             try {
                 return JSON.parse(text);
@@ -1053,39 +1066,18 @@ function openDeckModal(deckId, deckName) {
                 console.error("【/api/decks/view エラー】\n", text);
                 throw new Error("decks/view APIでエラーが発生しました");
             }
-        }),
-        fetch('/api/decks/owned-cards?deck_id=' + deckId).then(async res => {
-            if (!res.ok) return {};
-            const text = await res.text();
-            try {
-                const parsed = JSON.parse(text);
-                if (Array.isArray(parsed)) {
-                    return {};
-                }
-                return parsed || {};
-            } catch (e) {
-                return {};
-            }
-        }).catch(() => ({}))
-    ])
-    .then(([cardsData, ownedData]) => {
-        currentDeckCards = cardsData;
-        
-        if (ownedData && typeof ownedData === 'object' && !Array.isArray(ownedData)) {
-            currentDeckOwnedCards = ownedData;
-            try { localStorage.setItem('deck_owned_cards_' + deckId, JSON.stringify(ownedData)); } catch(e){}
-        } else {
-            currentDeckOwnedCards = getOwnedCardsFromStorage(deckId);
-        }
-        renderImages(cardsData);
-        initCharts(cardsData);
-        initPriceTable(cardsData);
-        checkKiyonagaOption(cardsData); // ★ スッキリ呼び出す
-    })
-    .catch(err => {
-        mainList.innerHTML = 'データの読み込みに失敗しました。';
-        console.error(err);
-    });
+        })
+        .then(cardsData => {
+            currentDeckCards = cardsData;
+            // メイン表示に必要なものだけを最速実行
+            renderImages(cardsData);
+            initCharts(cardsData);
+            checkKiyonagaOption(cardsData);
+        })
+        .catch(err => {
+            mainList.innerHTML = 'データの読み込みに失敗しました。';
+            console.error(err);
+        });
 }
 
 // ユーザーID（Goテンプレート展開）
@@ -1160,7 +1152,12 @@ function toggleAllOwned(selectAll) {
     saveOwnedCardsToStorage(currentDeckId, newOwnedMap);
     recalculateTotalPrice();
 }
-
+// バージョンモード切り替え時のハンドラ
+function onVersionModeChange() {
+    if (currentDeckCards && currentDeckCards.length > 0) {
+        initPriceTable(currentDeckCards);
+    }
+}
 /**
  * 査定テーブルの初期構築（査定前でも全カードを表示）
  */
@@ -1170,12 +1167,14 @@ function initPriceTable(cards) {
     tbody.innerHTML = '';
 
     const ownedMap = getOwnedCardsFromStorage(currentDeckId);
+    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'exact';
 
     const cardMap = {};
     cards.forEach(c => {
         let name = (c.card_name || '').trim();
-        const isTwinpact = !empty(c.twinpact) && !empty(c.partner_card_id);
-        if (isTwinpact) {
+        // card_combination または twinpact のカードは上下を結合
+        const isCombo = !empty(c.combination_id) || (!empty(c.twinpact) && !empty(c.partner_card_id));
+        if (isCombo && !empty(c.partner_card_id)) {
             const selfId = parseInt(c.card_id);
             const partnerId = parseInt(c.partner_card_id);
             if (selfId < partnerId) {
@@ -1184,22 +1183,41 @@ function initPriceTable(cards) {
                 name = `${c.partner_card_name} / ${c.card_name}`;
             }
         }
+
         const qty = parseInt(c.quantity || 1);
-        if (!cardMap[name]) {
-            cardMap[name] = { name: name, quantity: 0 };
+        const modelnum = (c.modelnum || '').trim();
+        const cardId = c.card_id;
+
+        // バージョン指定（exact）の場合は modelnum でグループ分け
+        let key = name;
+        let displayName = name;
+        if (versionMode === 'exact') {
+            key = modelnum ? `${name}___${modelnum}` : `${name}___${cardId}`;
+            if (modelnum) {
+                displayName = `${name} [${modelnum}]`;
+            }
         }
-        cardMap[name].quantity += qty;
+
+        if (!cardMap[key]) {
+            cardMap[key] = {
+                key: key,
+                name: name,
+                displayName: displayName,
+                modelnum: modelnum,
+                quantity: 0
+            };
+        }
+        cardMap[key].quantity += qty;
     });
 
-    // --- app/Views/deck/deck_detail_modal.html (initPriceTable 内の Object.values ループ部分) ---
     Object.values(cardMap).forEach(c => {
-        // ★ ownedMap が配列の場合でもクラッシュしないように防御
         const ownedMapSafe = (ownedMap && typeof ownedMap === 'object' && !Array.isArray(ownedMap)) ? ownedMap : {};
-        const ownedQty = Math.min(ownedMapSafe[c.name] || 0, c.quantity);
+        const ownedQty = Math.min(ownedMapSafe[c.displayName] || ownedMapSafe[c.name] || 0, c.quantity);
         const isFullOwned = (c.quantity > 0 && ownedQty >= c.quantity);
 
         const tr = document.createElement('tr');
-        tr.dataset.cardName = c.name;
+        tr.dataset.cardName = c.displayName; // ★ 表示名（型番付き）を行キーにする
+        tr.dataset.rawName = c.name;
         tr.dataset.totalQty = c.quantity;
         tr.className = isFullOwned ? 'card-row-owned' : '';
         if (isFullOwned) {
@@ -1213,12 +1231,11 @@ function initPriceTable(cards) {
                     <button type="button" class="btn-qty-step" onclick="stepOwnedQty(this, -1)">-</button>
                     <input type="number" class="owned-qty-input" min="0" max="${c.quantity}" value="${ownedQty}" 
                         style="width: 32px; text-align: center; padding: 2px 0; border: 1px solid #ccc; border-radius: 4px; -moz-appearance: textfield; font-size: 0.85rem;"
-                        onchange="changeCardOwnedQty(this, '${escapeHtmlAttr(c.name)}', ${c.quantity})">
+                        onchange="changeCardOwnedQty(this, '${escapeHtmlAttr(c.displayName)}', ${c.quantity})">
                     <button type="button" class="btn-qty-step" onclick="stepOwnedQty(this, 1)">+</button>
                 </div>
             </td>
-            <td class="price-card-name-col" title="${escapeHtmlAttr(c.name)}">${c.name}</td>
-            <!-- ★ 追加: カードごとの追加キーワード入力欄 -->
+            <td class="price-card-name-col" title="${escapeHtmlAttr(c.displayName)}">${c.displayName}</td>
             <td>
                 <input type="text" class="card-extra-keyword-input" placeholder="型番・Ver等" 
                     style="width: 90px; padding: 2px 4px; font-size: 0.75rem; border: 1px solid #ccc; border-radius: 4px;"
@@ -1399,38 +1416,50 @@ function renderImages(cards) {
     
     [mainList, dimList, grList, specialList].forEach(el => el.innerHTML = '');
 
+    // ★ DocumentFragment を作成して描画負荷を軽減
+    const fragMain = document.createDocumentFragment();
+    const fragDim = document.createDocumentFragment();
+    const fragGr = document.createDocumentFragment();
+    const fragSpecial = document.createDocumentFragment();
+
     cards.forEach(card => {
         const isSpecial = card.card_type_in_deck === 'special' || (card.card_name && (card.card_name.includes('ドルマゲドン') || card.card_name.includes('零龍')));
+        const src = getModalCardImagePath(card);
 
-        for(let i=0; i < card.quantity; i++) {
+        for (let i = 0; i < card.quantity; i++) {
             const img = document.createElement('img');
-            // ★修正: nullでもクラッシュせず、ダミーカード画像を自動生成して適用
-            img.src = getModalCardImagePath(card);
+            img.src = src;
             img.dataset.cardId = card.card_id;
             img.style.cursor = 'pointer';
+            img.loading = 'eager'; // ★ 最優先で読み込む
             
-            // ダミーカード以外の場合のみ詳細モーダルを開く
             if (card.is_dummy != 1 && !String(card.card_id).startsWith('dummy_')) {
                 img.onclick = () => openCardDetail(card.card_id);
             }
             img.onerror = function() { this.src = '/images/card/noimage.webp'; this.onerror = null; };
 
             if (isSpecial) {
-                specialList.appendChild(img);
+                fragSpecial.appendChild(img);
             } else if (card.card_type_in_deck === 'super_dimensional') {
-                dimList.appendChild(img);
+                fragDim.appendChild(img);
             } else if (card.card_type_in_deck === 'gr') {
-                grList.appendChild(img);
+                fragGr.appendChild(img);
             } else {
-                mainList.appendChild(img);
+                fragMain.appendChild(img);
             }
         }
     });
 
-    if (!mainList.innerHTML) mainList.innerHTML = '<p>メインデッキが空です</p>';
-    if (!dimList.innerHTML) dimList.innerHTML = '<p style="color:#666; font-size:14px;">超次元カードはありません</p>';
-    if (!grList.innerHTML) grList.innerHTML = '<p style="color:#666; font-size:14px;">超GRカードはありません</p>';
-    if (!specialList.innerHTML) specialList.innerHTML = '<p style="color:#666; font-size:14px;">特殊カードはありません</p>';
+    // まとめてDOMに追加（画面のカクつきと遅延を排除）
+    mainList.appendChild(fragMain);
+    dimList.appendChild(fragDim);
+    grList.appendChild(fragGr);
+    specialList.appendChild(fragSpecial);
+
+    if (!mainList.hasChildNodes()) mainList.innerHTML = '<p>メインデッキが空です</p>';
+    if (!dimList.hasChildNodes()) dimList.innerHTML = '<p style="color:#666; font-size:14px;">超次元カードはありません</p>';
+    if (!grList.hasChildNodes()) grList.innerHTML = '<p style="color:#666; font-size:14px;">超GRカードはありません</p>';
+    if (!specialList.hasChildNodes()) specialList.innerHTML = '<p style="color:#666; font-size:14px;">特殊カードはありません</p>';
 }
 
 function initCharts(cards) {
@@ -1513,15 +1542,33 @@ function initCharts(cards) {
 }
 
 function switchTab(type) {
-    const types = ['main', 'extra', 'analysis', 'price']; // ★ 'price' を追加
+    const types = ['main', 'extra', 'analysis', 'price'];
     types.forEach(t => {
         const tabEl = document.getElementById('tab-' + t);
         const contEl = document.getElementById('content-' + t);
         if(tabEl) tabEl.classList.toggle('active', t === type);
         if(contEl) contEl.classList.toggle('active', t === type);
     });
+
     if (type === 'analysis') {
         switchModalAnalysisMode();
+    } else if (type === 'price') {
+        // ★ 価格査定タブが開かれた時に初めてテーブルを構築する
+        if (!priceTableInitialized && currentDeckCards.length > 0) {
+            priceTableInitialized = true;
+            // 購入済みカード情報を取得してからテーブルを生成
+            fetch('/api/decks/owned-cards?deck_id=' + currentDeckId)
+                .then(res => res.json())
+                .catch(() => ({}))
+                .then(ownedData => {
+                    if (ownedData && typeof ownedData === 'object' && !Array.isArray(ownedData)) {
+                        currentDeckOwnedCards = ownedData;
+                    } else {
+                        currentDeckOwnedCards = getOwnedCardsFromStorage(currentDeckId);
+                    }
+                    initPriceTable(currentDeckCards);
+                });
+        }
     }
 }
 
@@ -1618,10 +1665,11 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             excludeCardsParam = encodeURIComponent(fullyOwnedCards.join('|||'));
         }
     }
-
+    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'exact';
     // 4. APIエンドポイントURL組み立て
     let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
     url += '&service=' + encodeURIComponent(service);
+    url += '&version_mode=' + encodeURIComponent(versionMode); // ★ 追加
     if (shopCode) url += '&shop_code=' + encodeURIComponent(shopCode);
     if (refresh) url += '&refresh=1';
     if (excludeCardsParam) url += '&exclude_cards=' + excludeCardsParam;

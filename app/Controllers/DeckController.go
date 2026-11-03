@@ -1604,7 +1604,37 @@ func (c *DeckController) SetDeckPublicApi(w http.ResponseWriter, r *http.Request
 
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true, "is_public": isPublic})
 }
+// カード詳細・商品情報からバージョン指定用キーワードを生成するヘルパー
+func getVersionKeywords(db *sql.DB, cardId int) string {
+	if cardId <= 0 {
+		return ""
+	}
+	var modelnum sql.NullString
+	err := db.QueryRow("SELECT modelnum FROM card_detail WHERE card_id = ? LIMIT 1", cardId).Scan(&modelnum)
+	if err != nil || !modelnum.Valid || modelnum.String == "" {
+		return ""
+	}
 
+	mNum := strings.TrimSpace(modelnum.String)
+	var words []string
+
+	// ハイフンより前の部分を抽出（例: dm01-001 -> dm01）
+	if idx := strings.Index(mNum, "-"); idx > 0 {
+		prefix := strings.TrimSpace(mNum[:idx])
+		if prefix != "" {
+			words = append(words, prefix)
+		}
+	} else if mNum != "" {
+		words = append(words, mNum)
+	}
+
+	// Sec / SEC / sec が含まれる場合、「シークレット」を追加
+	if strings.Contains(strings.ToLower(mNum), "sec") {
+		words = append(words, "シークレット")
+	}
+
+	return strings.Join(words, " ")
+}
 /**
  * 楽天市場APIを用いたデッキ価格査定API
  */
@@ -1626,9 +1656,13 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 	deckIdStr := query.Get("deck_id")
 	targetShopCode := strings.TrimSpace(query.Get("shop_code"))
-	targetService := strings.ToLower(strings.TrimSpace(query.Get("service"))) // ★ 追加: "rakuten" または "yahoo"
+	targetService := strings.ToLower(strings.TrimSpace(query.Get("service")))
 	if targetService == "" {
 		targetService = "rakuten"
+	}
+	versionMode := strings.ToLower(strings.TrimSpace(query.Get("version_mode"))) // ★ 追加
+	if versionMode == "" {
+		versionMode = "exact" // デフォルトは指定バージョン
 	}
 	forceRefresh := query.Get("refresh") != ""
 	excludeCardsRaw := query.Get("exclude_cards")
@@ -1734,6 +1768,8 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		TopName     string
 		BottomName  string
 		Quantity    int
+		CardID      int
+		ModelNum    string // ★ 追加
 	}
 
 	cardMap := make(map[string]*CardInfo)
@@ -1741,6 +1777,24 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 	for _, c := range mainCards {
 		name := strings.TrimSpace(fmt.Sprintf("%v", c["card_name"]))
+		cid, _ := strconv.Atoi(fmt.Sprintf("%v", c["card_id"]))
+
+		// ★ バージョン指定時は card_detail から modelnum を確実に取得
+		modelnum := strings.TrimSpace(fmt.Sprintf("%v", c["modelnum"]))
+		if (modelnum == "" || modelnum == "<nil>") && versionMode == "exact" && cid > 0 {
+			var dbModelNum sql.NullString
+			if err := db.QueryRow("SELECT modelnum FROM card_detail WHERE card_id = ? LIMIT 1", cid).Scan(&dbModelNum); err == nil && dbModelNum.Valid {
+				modelnum = strings.TrimSpace(dbModelNum.String)
+			}
+		}
+		if modelnum == "<nil>" {
+			modelnum = ""
+		}
+
+		// card_combination または twinpact の判定
+		combId := fmt.Sprintf("%v", c["combination_id"])
+		isCombo := (combId != "" && combId != "<nil>") || (fmt.Sprintf("%v", c["twinpact"]) == "1" && c["partner_card_id"] != nil)
+
 		qty := 1
 		if qVal, ok := c["quantity"]; ok {
 			if qInt, err := strconv.Atoi(fmt.Sprintf("%v", qVal)); err == nil && qInt > 0 {
@@ -1748,15 +1802,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			}
 		}
 
-		isTwinpact := false
-		if tp, ok := c["twinpact"]; ok && fmt.Sprintf("%v", tp) == "1" && c["partner_card_id"] != nil {
-			isTwinpact = true
-		}
-
 		topName := name
 		bottomName := ""
 
-		if isTwinpact {
+		if isCombo && c["partner_card_id"] != nil {
 			selfId, _ := strconv.Atoi(fmt.Sprintf("%v", c["card_id"]))
 			partnerId, _ := strconv.Atoi(fmt.Sprintf("%v", c["partner_card_id"]))
 			partnerCardName := fmt.Sprintf("%v", c["partner_card_name"])
@@ -1769,14 +1818,26 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			}
 		}
 
-		key := name
-		if isTwinpact {
-			key = fmt.Sprintf("%s / %s", topName, bottomName)
+		baseName := name
+		if isCombo && bottomName != "" {
+			baseName = fmt.Sprintf("%s / %s", topName, bottomName)
+		}
+
+		// ★ バージョン指定時は modelnum ごとにキーを分離
+		key := baseName
+		displayName := baseName
+		if versionMode == "exact" {
+			if modelnum != "" {
+				key = fmt.Sprintf("%s___%s", baseName, modelnum)
+				displayName = fmt.Sprintf("%s [%s]", baseName, modelnum)
+			} else {
+				key = fmt.Sprintf("%s___id%d", baseName, cid)
+			}
 		}
 
 		isExcluded := false
 		for _, ex := range excludeCards {
-			if ex == key {
+			if ex == displayName || ex == baseName {
 				isExcluded = true
 				break
 			}
@@ -1787,11 +1848,13 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 		if _, exists := cardMap[key]; !exists {
 			cardMap[key] = &CardInfo{
-				DisplayName: key,
-				IsTwinpact:  isTwinpact,
+				DisplayName: displayName,
+				IsTwinpact:  isCombo,
 				TopName:     topName,
 				BottomName:  bottomName,
 				Quantity:    0,
+				CardID:      cid,
+				ModelNum:    modelnum, // ★ 追加
 			}
 			cardKeys = append(cardKeys, key)
 		}
@@ -1856,7 +1919,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		topName := cardInfo.TopName
 		bottomName := cardInfo.BottomName
 		extraKw := strings.TrimSpace(extraKeywords[cardInfo.DisplayName])
-
+		var verKw string
+		if versionMode == "exact" {
+			verKw = getVersionKeywords(db, cardInfo.CardID)
+		}
 		sanitizeCardName := func(str string) string {
 			if str == "" {
 				return ""
@@ -1883,7 +1949,11 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		}
 		topName = strings.ReplaceAll(topName, "∑", "Σ")
 
-		cacheKey := fmt.Sprintf("%x", md5Sum(targetService+"_"+cardInfo.DisplayName+"_"+targetShopCode+"_"+extraKw))
+		if versionMode == "exact" {
+			verKw = getVersionKeywords(db, cardInfo.CardID)
+		}
+
+		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
 
 		if !forceRefresh {
 			var cachedPrice sql.NullInt64
@@ -1910,10 +1980,11 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 				items = append(items, map[string]interface{}{
 					"card_name":     cardInfo.DisplayName,
+					"modelnum":      cardInfo.ModelNum, // ★ 追加
 					"quantity":      qty,
 					"price":         minPrice,
 					"subtotal":      subtotal,
-					"affiliate_url": affUrl, // ★ ここで affUrl を代入して使用する
+					"affiliate_url": affUrl,
 					"item_title":    ititle,
 					"shop_name":     sname,
 					"shop_code":     scode,
@@ -1969,11 +2040,21 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		safeKw := cleanSearchWord(baseSearchName)
 		var keywordsToTry []string
 		
+		// 1. ユーザー手動入力の追加キーワードがあれば最優先
 		if extraKw != "" {
 			keywordsToTry = append(keywordsToTry, safeKw+" "+extraKw)
 			keywordsToTry = append(keywordsToTry, baseSearchName+" "+extraKw)
 		}
+
+		// 2. バージョン指定モード（exact）の場合、型番キーワード（例: "dm01", "dm01 シークレット"）を追加
+		if versionMode == "exact" && verKw != "" {
+			keywordsToTry = append(keywordsToTry, safeKw+" "+verKw)
+			if baseSearchName != safeKw {
+				keywordsToTry = append(keywordsToTry, baseSearchName+" "+verKw)
+			}
+		}
 		
+		// 3. 通常カード名での検索候補
 		if isSpecialFiveSet {
 			keywordsToTry = append(keywordsToTry, safeKw + " 5枚セット", baseSearchName + " 5枚セット")
 		} else {
@@ -2048,9 +2129,9 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			endpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&sort=%%2Bprice&results=20",
 				url.QueryEscape(yahooAppId), url.QueryEscape(kw))
 
-			// ★ 追加: ショップ指定がある場合は seller_id をエンドポイントに追加
+			// ★ 修正: seller_id は必ず小文字化して渡す（大文字が混ざると0件になるため）
 			if targetShopCode != "" {
-				endpoint += "&seller_id=" + url.QueryEscape(targetShopCode)
+				endpoint += "&seller_id=" + url.QueryEscape(strings.ToLower(targetShopCode))
 			}
 
 			client := &http.Client{Timeout: 4 * time.Second}
@@ -2225,7 +2306,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 								sCode = fmt.Sprintf("%v", seller["sellerId"])
 							}
 
-							if targetShopCode != "" && sCode != targetShopCode {
+							if targetShopCode != "" && !strings.EqualFold(sCode, targetShopCode) {
 								continue
 							}
 
@@ -2317,6 +2398,19 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 						}
 
 						if isMatched {
+							// ★ 追加: ショップ指定がある場合はショップコードをチェック
+							if targetShopCode != "" {
+								itemSCode := ""
+								if seller, ok := item["seller"].(map[string]interface{}); ok && seller != nil {
+									if id, ok := seller["sellerId"]; ok && id != nil {
+										itemSCode = fmt.Sprintf("%v", id)
+									}
+								}
+								if !strings.EqualFold(itemSCode, targetShopCode) {
+									continue
+								}
+							}
+
 							pVal, _ := strconv.Atoi(fmt.Sprintf("%v", item["price"]))
 							if pVal > 0 && pVal < lowestPrice {
 								lowestPrice = pVal
@@ -2424,6 +2518,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 		items = append(items, map[string]interface{}{
 			"card_name":     cardInfo.DisplayName,
+			"modelnum":      cardInfo.ModelNum, // ★ 追加
 			"quantity":      qty,
 			"price":         minPrice,
 			"subtotal":      subtotal,

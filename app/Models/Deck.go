@@ -40,6 +40,13 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
 			_ = recover()
 		}()
 
+		// ★ ここを追加: ダミーカードが存在しない場合は重いクエリを実行せず即座にスキップ
+		var dummyExists int
+		errCheck := d.db.QueryRow("SELECT 1 FROM deck_cards WHERE deck_id = ? AND dummy_name IS NOT NULL LIMIT 1", deckId).Scan(&dummyExists)
+		if errCheck != nil || dummyExists == 0 {
+			return
+		}
+
 		sqlDummies := `
             SELECT 
                 dc.sort_order,
@@ -203,14 +210,13 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                 dc.dummy_partner_civ_ids,
                 cc.combination_id,
                 (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
-                (
-                    SELECT GROUP_CONCAT(DISTINCT ca_all.ability_id)
-                    FROM card_ability ca_all
-                    WHERE ca_all.card_id = c.card_id
-                       OR (cc.combination_id IS NOT NULL AND ca_all.card_id IN (
-                           SELECT cc_sub.card_id FROM card_combination cc_sub WHERE cc_sub.combination_id = cc.combination_id
-                       ))
-                ) as ability_ids,
+                
+                -- ★ OR を排除してインデックスを完全適用（フルスキャン防止）
+                TRIM(BOTH ',' FROM CONCAT_WS(',', 
+                    (SELECT GROUP_CONCAT(DISTINCT ability_id) FROM card_ability WHERE card_id = c.card_id),
+                    (SELECT GROUP_CONCAT(DISTINCT ca2.ability_id) FROM card_combination cc2 JOIN card_ability ca2 ON cc2.card_id = ca2.card_id WHERE cc2.combination_id = cc.combination_id AND cc2.card_id <> c.card_id)
+                )) as ability_ids,
+
                 COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id), dc.dummy_civ_ids) as civ_ids,
                 (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                 (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,
@@ -218,53 +224,35 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                 (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names,
                 
                 -- 相方（下面・裏面）情報
-                (SELECT c_partner.card_id FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_card_id,
-                (SELECT cd_partner.hypermode FROM card_combination cc_p JOIN card_detail cd_partner ON cc_p.card_id = cd_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_hypermode,
+                cc_p.partner_card_id,
+                (SELECT hypermode FROM card_detail WHERE card_id = cc_p.partner_card_id LIMIT 1) as partner_hypermode,
                 COALESCE(
-                    (SELECT c_partner.card_name FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1),
+                    (SELECT card_name FROM card WHERE card_id = cc_p.partner_card_id LIMIT 1),
                     dc.dummy_partner_name
                 ) as partner_card_name,
                 COALESCE(
-                    (SELECT c_partner.cost FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1),
+                    (SELECT cost FROM card WHERE card_id = cc_p.partner_card_id LIMIT 1),
                     dc.dummy_partner_cost
                 ) as partner_cost,
-                (SELECT c_partner.pow FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_pow,
-                (SELECT c_partner.text FROM card_combination cc_p JOIN card c_partner ON cc_p.card_id = c_partner.card_id WHERE cc_p.combination_id = cc.combination_id AND cc_p.card_id <> c.card_id LIMIT 1) as partner_text,
+                (SELECT pow FROM card WHERE card_id = cc_p.partner_card_id LIMIT 1) as partner_pow,
+                (SELECT text FROM card WHERE card_id = cc_p.partner_card_id LIMIT 1) as partner_text,
                 COALESCE(
-                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)),
+                    (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = cc_p.partner_card_id),
                     dc.dummy_partner_civ_ids
                 ) as partner_civ_ids,
-                (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_cardtype_ids,
-                (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_typename,
-                (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_race_ids,
-                (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = (SELECT card_id FROM card_combination WHERE combination_id = cc.combination_id AND card_id <> c.card_id LIMIT 1)) as partner_race_names,
-                (
-                    SELECT JSON_ARRAYAGG(
-                        JSON_OBJECT(
-                            'card_id', c_sub.card_id,
-                            'card_name', c_sub.card_name,
-                            'cost', c_sub.cost,
-                            'pow', c_sub.pow,
-                            'text', c_sub.text,
-                            'imagepath', cd_sub.imagepath,
-                            'is_main_side', cc_sub.is_main_side,
-                            'char_ids', (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c_sub.card_id),
-                            'civ_ids', (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c_sub.card_id),
-                            'cardtype_ids', (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c_sub.card_id),
-                            'typename', (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c_sub.card_id),
-                            'race_ids', (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c_sub.card_id),
-                            'race_names', (SELECT GROUP_CONCAT(r_sub.race_name SEPARATOR '/') FROM card_race cr_sub JOIN race r_sub ON cr_sub.race_id = r_sub.race_id WHERE cr_sub.card_id = c_sub.card_id)
-                        )
-                    )
-                    FROM card_combination cc_sub
-                    JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
-                    JOIN card_detail cd_sub ON c_sub.card_id = cd_sub.card_id
-                    WHERE cc_sub.combination_id = cc.combination_id
-                ) as combination_members_json
+                (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = cc_p.partner_card_id) as partner_cardtype_ids,
+                (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = cc_p.partner_card_id) as partner_typename,
+                (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = cc_p.partner_card_id) as partner_race_ids,
+                (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = cc_p.partner_card_id) as partner_race_names
             FROM deck_cards dc 
             LEFT JOIN card c ON dc.card_id = c.card_id 
             LEFT JOIN card_detail cd ON c.card_id = cd.card_id 
             LEFT JOIN card_combination cc ON c.card_id = cc.card_id
+            LEFT JOIN (
+                SELECT combination_id, card_id as partner_card_id 
+                FROM card_combination 
+                WHERE is_main_side = 0
+            ) cc_p ON cc.combination_id = cc_p.combination_id AND c.card_id <> cc_p.partner_card_id
             WHERE dc.deck_id = ?
             ORDER BY dc.sort_order ASC`
 
