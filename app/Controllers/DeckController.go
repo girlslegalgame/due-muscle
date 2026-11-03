@@ -1681,22 +1681,23 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		yahooAppId = getEnvWithFallback("YAHOO_APP_ID")
 	}
 
-	// ★ 追加: yahooAffiliateUrl の定義（バリューコマース用）
-	yahooAffiliateUrl := os.Getenv("YAHOO_AFFILIATE_URL")
-	if yahooAffiliateUrl == "" {
-		yahooAffiliateUrl = getEnvWithFallback("YAHOO_AFFILIATE_URL")
+	// ★ 修正: バリューコマースの SID と PID を取得してアフィリエイトURLを生成
+	vcSid := os.Getenv("VALUECOMMERCE_SID")
+	if vcSid == "" {
+		vcSid = getEnvWithFallback("VALUECOMMERCE_SID")
+	}
+	vcPid := os.Getenv("VALUECOMMERCE_PID")
+	if vcPid == "" {
+		vcPid = getEnvWithFallback("VALUECOMMERCE_PID")
 	}
 
 	buildYahooAffiliateUrl := func(targetUrl string) string {
 		if targetUrl == "" {
 			return ""
 		}
-		if yahooAffiliateUrl != "" {
-			// バリューコマースのダイレクトリンク/クリック先設定例
-			if strings.Contains(yahooAffiliateUrl, "vc_url=") {
-				return yahooAffiliateUrl + url.QueryEscape(targetUrl)
-			}
-			return yahooAffiliateUrl + "?url=" + url.QueryEscape(targetUrl)
+		if vcSid != "" && vcPid != "" {
+			return fmt.Sprintf("https://ck.jp.ap.valuecommerce.com/servlet/referral?sid=%s&pid=%s&vc_url=%s",
+				url.QueryEscape(vcSid), url.QueryEscape(vcPid), url.QueryEscape(targetUrl))
 		}
 		return targetUrl
 	}
@@ -2334,12 +2335,15 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 								sCode = fmt.Sprintf("%v", id)
 							}
 						}
+						
+						rawUrl := fmt.Sprintf("%v", lowestCandidate["url"])
 						matchedItem = map[string]interface{}{
-							"price":    lowestCandidate["price"],
-							"itemUrl":  lowestCandidate["url"],
-							"itemName": lowestCandidate["name"],
-							"shopName": sName,
-							"shopCode": sCode,
+							"price":        lowestCandidate["price"],
+							"itemUrl":      rawUrl,
+							"affiliateUrl": buildYahooAffiliateUrl(rawUrl), // ★ 追加: アフィリエイトURLを設定
+							"itemName":     lowestCandidate["name"],
+							"shopName":     sName,
+							"shopCode":     sCode,
 						}
 						bestKeywordUsed = fbKw
 					}
@@ -2397,7 +2401,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			notFoundCount++
 			if targetService == "yahoo" {
 				searchUrl := "https://shopping.yahoo.co.jp/search?p=" + url.QueryEscape(baseSearchName)
-				affiliateUrl = buildAffiliateUrl(searchUrl)
+				affiliateUrl = buildYahooAffiliateUrl(searchUrl) // ★ 修正: buildYahooAffiliateUrl を使用
 			} else {
 				searchUrl := "https://search.rakuten.co.jp/search/mall/" + url.QueryEscape(baseSearchName) + "/"
 				affiliateUrl = buildAffiliateUrl(searchUrl)
