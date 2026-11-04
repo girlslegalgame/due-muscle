@@ -1605,15 +1605,18 @@ function onServiceChange() {
 }
 /**
  * 査定実行
- * @param {string} shopCode 特定ショップ指定（空文字の場合はすべてのショップの最安値）
+ * @param {string|null} shopCode 特定ショップ指定
  * @param {boolean} refresh キャッシュをクリアして再取得するかどうか
  */
-function runPriceEstimate(shopCode = '', refresh = false) {
+function runPriceEstimate(shopCode = null, refresh = false) {
     if (!currentDeckId) return;
 
     const btn = document.getElementById('btn-start-estimate');
     const loading = document.getElementById('price-estimate-loading');
     const shopSelect = document.getElementById('price-shop-select');
+
+    // 引数で渡されていない場合は、セレクトボックスの現在値を取得
+    const selectedShop = (shopCode !== null) ? shopCode : (shopSelect ? shopSelect.value : '');
 
     btn.disabled = true;
     btn.style.opacity = '0.6';
@@ -1644,13 +1647,12 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             const inputVal = tr.querySelector('.owned-qty-input')?.value;
             const ownedQty = (inputVal !== undefined && inputVal !== '') ? parseInt(inputVal) : 0;
 
-            // 総枚数が1以上で、かつ購入済み枚数が総枚数に達しているカードを除外
+            // 総枚数が1以上で、かつ購入済み枚数が総枚数に達しているカードのみ除外
             if (totalQty > 0 && ownedQty >= totalQty && cardName) {
                 fullyOwnedCards.push(cardName);
             }
         });
 
-        // 全カードが購入済みの場合は査定リクエストを送らず即時0円表示
         const totalRows = document.querySelectorAll('#price-card-list-body tr').length;
         if (totalRows > 0 && fullyOwnedCards.length >= totalRows) {
             loading.style.display = 'none';
@@ -1666,11 +1668,12 @@ function runPriceEstimate(shopCode = '', refresh = false) {
         }
     }
     const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'any';
+
     // 4. APIエンドポイントURL組み立て
     let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
     url += '&service=' + encodeURIComponent(service);
-    url += '&version_mode=' + encodeURIComponent(versionMode); // ★ 追加
-    if (shopCode) url += '&shop_code=' + encodeURIComponent(shopCode);
+    url += '&version_mode=' + encodeURIComponent(versionMode);
+    if (selectedShop) url += '&shop_code=' + encodeURIComponent(selectedShop);
     if (refresh) url += '&refresh=1';
     if (excludeCardsParam) url += '&exclude_cards=' + excludeCardsParam;
     if (Object.keys(extraKeywordsMap).length > 0) {
@@ -1697,7 +1700,6 @@ function runPriceEstimate(shopCode = '', refresh = false) {
             if (data.shops && typeof data.shops === 'object') {
                 Object.assign(knownShops, data.shops);
                 if (shopSelect) {
-                    const currentSelected = shopCode || shopSelect.value || '';
                     shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
 
                     const shopKeys = Object.keys(knownShops);
@@ -1709,13 +1711,11 @@ function runPriceEstimate(shopCode = '', refresh = false) {
                             const opt = document.createElement('option');
                             opt.value = code;
                             opt.textContent = name;
-                            if (code === currentSelected) {
-                                opt.selected = true;
-                            }
                             shopSelect.appendChild(opt);
                         }
                     });
-                    shopSelect.value = currentSelected;
+                    // 送信した選択値を維持
+                    shopSelect.value = selectedShop;
                 }
             }
 

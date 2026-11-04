@@ -1955,13 +1955,15 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
 
-		if !forceRefresh {
+		// ★ キャッシュクリア指定時は該当キーのキャッシュを事前に削除
+		if forceRefresh {
+			db.Exec("DELETE FROM card_price_cache WHERE cache_key = ?", cacheKey)
+		} else {
 			var cachedPrice sql.NullInt64
 			var affUrl, ititle, sname, scode string
 			err := db.QueryRow("SELECT price, affiliate_url, item_title, shop_name, shop_code FROM card_price_cache WHERE cache_key = ? AND updated_at > NOW() - INTERVAL 12 HOUR", cacheKey).
 				Scan(&cachedPrice, &affUrl, &ititle, &sname, &scode)
 
-			_ = affUrl
 			if err == nil {
 				var minPrice *int = nil
 				if cachedPrice.Valid {
@@ -1980,7 +1982,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 				items = append(items, map[string]interface{}{
 					"card_name":     cardInfo.DisplayName,
-					"modelnum":      cardInfo.ModelNum, // ★ 追加
+					"modelnum":      cardInfo.ModelNum,
 					"quantity":      qty,
 					"price":         minPrice,
 					"subtotal":      subtotal,
@@ -2129,24 +2131,36 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			endpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&sort=%%2Bprice&results=20",
 				url.QueryEscape(yahooAppId), url.QueryEscape(kw))
 
-			// ★ 修正: seller_id は必ず小文字化して渡す（大文字が混ざると0件になるため）
 			if targetShopCode != "" {
 				endpoint += "&seller_id=" + url.QueryEscape(strings.ToLower(targetShopCode))
 			}
 
-			client := &http.Client{Timeout: 4 * time.Second}
-			req, _ := http.NewRequest("GET", endpoint, nil)
-			req.Header.Set("User-Agent", "Mozilla/5.0")
-			
-			resp, err := client.Do(req)
-			if err != nil {
-				log.Printf("[Yahoo API Request Error]: %v", err)
-				return nil, 500
+			client := &http.Client{Timeout: 5 * time.Second}
+			var body []byte
+			httpCode := 0
+
+			// ★ 429(レートリミット)対策として最大2回リトライ
+			for attempt := 0; attempt <= 2; attempt++ {
+				req, _ := http.NewRequest("GET", endpoint, nil)
+				req.Header.Set("User-Agent", "Mozilla/5.0")
+
+				resp, err := client.Do(req)
+				if err != nil {
+					log.Printf("[Yahoo API Request Error]: %v", err)
+					return nil, 500
+				}
+
+				httpCode = resp.StatusCode
+				body, _ = io.ReadAll(resp.Body)
+				resp.Body.Close()
+
+				// レートリミットの場合は待機して再試行
+				if httpCode == 429 {
+					time.Sleep(time.Duration(1000*(attempt+1)) * time.Millisecond) // 1秒 -> 2秒待機
+					continue
+				}
+				break
 			}
-			defer resp.Body.Close()
-			
-			body, _ := io.ReadAll(resp.Body)
-			httpCode := resp.StatusCode
 
 			if httpCode != 200 {
 				log.Printf("[Yahoo API Error Status %d]: %s", httpCode, string(body))
@@ -2318,10 +2332,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 								bestCandidate = map[string]interface{}{
 									"price":        pVal,
 									"itemUrl":      fmt.Sprintf("%v", item["url"]),
-									"affiliateUrl": affUrl, // ★ 追加: affUrl を使用する
+									"affiliateUrl": affUrl,
 									"itemName":     title,
 									"shopName":     sName,
-									"shopCode":     sCode, // Yahoo! のストアID
+									"shopCode":     sCode,
 								}
 							}
 						}
@@ -2333,11 +2347,11 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 						break
 					}
 				}
-				time.Sleep(100 * time.Millisecond)
+				// キーワード試行間のスリープ
+				time.Sleep(250 * time.Millisecond)
 			}
 		} else {
-			for _, kw := range keywordsToTry {
-				cItems, cCode := fetchRakutenItems(kw)
+			for _, kw := range keywordsToTry {				cItems, cCode := fetchRakutenItems(kw)
 				lastApiHitCount = len(cItems)
 				httpCode = cCode
 
