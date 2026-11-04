@@ -2484,16 +2484,32 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 				p, _ = strconv.Atoi(fmt.Sprintf("%v", pr))
 			}
 			minPrice = &p
+
+			// 生URLを取得
 			itemRawUrl := fmt.Sprintf("%v", matchedItem["itemUrl"])
-			if aurl, ok := matchedItem["affiliateUrl"].(string); ok && aurl != "" {
-				affiliateUrl = aurl
-			} else {
-				affiliateUrl = buildAffiliateUrl(itemRawUrl)
+			if itemRawUrl == "" || itemRawUrl == "<nil>" {
+				itemRawUrl = fmt.Sprintf("%v", matchedItem["url"])
 			}
+
+			// ★ サービスに応じて強制的にアフィリエイトURLを生成
+			if targetService == "yahoo" {
+				affiliateUrl = buildYahooAffiliateUrl(itemRawUrl)
+			} else {
+				if aurl, ok := matchedItem["affiliateUrl"].(string); ok && aurl != "" {
+					affiliateUrl = aurl
+				} else {
+					affiliateUrl = buildAffiliateUrl(itemRawUrl)
+				}
+			}
+
 			itemName = fmt.Sprintf("%v", matchedItem["itemName"])
+			if itemName == "" || itemName == "<nil>" {
+				itemName = fmt.Sprintf("%v", matchedItem["name"])
+			}
 			if itemName == "" || itemName == "<nil>" {
 				itemName = fmt.Sprintf("%v", matchedItem["title"])
 			}
+
 			shopName = fmt.Sprintf("%v", matchedItem["shopName"])
 			shopCode = fmt.Sprintf("%v", matchedItem["shopCode"])
 			totalPrice += p * qty
@@ -2509,7 +2525,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			notFoundCount++
 			if targetService == "yahoo" {
 				searchUrl := "https://shopping.yahoo.co.jp/search?p=" + url.QueryEscape(baseSearchName)
-				affiliateUrl = buildYahooAffiliateUrl(searchUrl) // ★ 修正: buildYahooAffiliateUrl を使用
+				affiliateUrl = buildYahooAffiliateUrl(searchUrl)
 			} else {
 				searchUrl := "https://search.rakuten.co.jp/search/mall/" + url.QueryEscape(baseSearchName) + "/"
 				affiliateUrl = buildAffiliateUrl(searchUrl)
