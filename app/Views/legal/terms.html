@@ -26,10 +26,11 @@
     <!-- 4. アフィリエイトプログラム -->
     <section style="margin-bottom: 25px;">
         <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第4条（アフィリエイトプログラム等の利用）</h3>
-        <p>当サイトは、楽天グループ株式会社が提供する「楽天アフィリエイトプログラム」に参加しています。価格査定機能やリンクを経由して商品が購入された場合、当サイト運営者に紹介料等が発生することがあります。</p>
+        <p>当サイトは、楽天グループ株式会社が提供する「楽天アフィリエイトプログラム」、およびバリューコマース株式会社が提供するアフィリエイトプログラム（Yahoo!ショッピング等）に参加しています。</p>
+        <p>価格査定機能やリンクを経由して商品が購入された場合、当サイト運営者に紹介料等が発生することがあります。なお、リンク先での商品の購入・契約手続きは各出店店舗・事業者との間で行われるものであり、当サイトはその取引において一切の責任を負いません。</p>
     </section>
 
-    <!-- ★追加: 広告配信（Google AdSenseおよびCookieの利用について） -->
+    <!-- 5. 広告配信（Google AdSenseおよびCookieの利用について） -->
     <section style="margin-bottom: 25px;">
         <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第5条（広告の配信について）</h3>
         <p>当サイトでは、第三者配信の広告サービス「Google AdSense」を利用しています。</p>
@@ -37,15 +38,15 @@
         <p>Cookieを無効にする設定およびGoogle AdSenseに関する詳細は「<a href="https://policies.google.com/technologies/ads?hl=ja" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline;">広告 – ポリシーと規約 – Google</a>」をご確認ください。</p>
     </section>
 
-    <!-- 5. 個人情報の取り扱い（メールアドレス保護） -->
+    <!-- 6. 個人情報の取り扱い（メールアドレス保護） -->
     <section style="margin-bottom: 25px;">
         <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第6条（個人情報の保護）</h3>
         <p>当サイトのユーザー登録時にご入力いただいたメールアドレスは、本人確認（認証コード送信）およびサイトの重要な連絡・運営目的にのみ使用します。法令に基づく開示請求がある場合を除き、第三者へ提供、譲渡、または外部へ流出させることは一切ありません。</p>
     </section>
 
-    <!-- 6. 免責事項 -->
+    <!-- 7. 免責事項 -->
     <section style="margin-bottom: 25px;">
-        <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第6条（免責事項）</h3>
+        <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第7条（免責事項）</h3>
         <ol style="padding-left: 20px; margin: 0;">
             <li style="margin-bottom: 6px;">当サイトの利用、または利用できなかったことによって生じたいかなる損害・トラブル・損失についても、運営者は一切の責任を負いません。</li>
             <li style="margin-bottom: 6px;">当サイト内で公開されたデッキデータ、ユーザー間のやり取りによって生じた紛争、および本サービスを利用して行われた犯罪行為や規約違反行為について、運営者は一切の責任を負いません。</li>
@@ -54,9 +55,9 @@
         </ol>
     </section>
     
-    <!-- 7. 禁止事項 -->
+    <!-- 8. 禁止事項 -->
     <section style="margin-bottom: 25px;">
-        <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第7条（禁止事項）</h3>
+        <h3 style="font-size: 1.15rem; color: #111; border-left: 4px solid #007bff; padding-left: 10px; margin-bottom: 10px;">第8条（禁止事項）</h3>
         <p>利用者は、当サイトの利用にあたり、以下の行為を行ってはならないものとします。違反が確認された場合、予告なくデッキの非公開化、削除、またはアカウントの停止等の措置を講じる場合があります。</p>
         <ol style="padding-left: 20px; margin: 0;">
             <li style="margin-bottom: 6px;">公序良俗に反する単語、わいせつな表現、他者を誹謗中傷・差別する単語等を含む不適切なユーザー名の登録・使用</li>
@@ -69,6 +70,16 @@
 
 
     <div style="margin-top: 40px; text-align: right; font-size: 0.85rem; color: #777;">
-        制定日：制定日：2026年10月25日
+        制定日：<span id="terms-date"></span>
     </div>
 </div>
+
+<script>
+    (function() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        document.getElementById('terms-date').textContent = `${year}年${month}月${day}日`;
+    })();
+</script>
