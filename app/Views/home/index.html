@@ -1,5 +1,377 @@
-{{ define "home/index.go" }}
-<div class="container" style="text-align: center; padding-top: 50px;">
-    <h2>(作成中)</h2>
+<style>
+    /* この画面のみ完全な黒背景(#000000)、文字を白にする */
+    html, body {
+        background-color: #000000 !important;
+        color: #f0f0f0 !important;
+    }
+    header {
+        display: none !important;
+    }
+    main {
+        padding-top: 0 !important;
+        padding-bottom: 50px !important;
+        background-color: #000000 !important;
+    }
+
+    /* --- オープニング演出 --- */
+    .intro-overlay {
+        position: fixed;
+        inset: 0;
+        background: #000000;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        pointer-events: none;
+        animation: fadeOutIntro 0.4s ease-out 1.6s forwards;
+    }
+    .intro-logo {
+        max-width: 300px;
+        width: 80%;
+        animation: logoBang 0.4s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
+    }
+    .intro-catch {
+        color: #ffc107;
+        font-weight: 900;
+        font-size: 1.4rem;
+        letter-spacing: 2px;
+        margin-top: 20px;
+        opacity: 0;
+        animation: textPop 0.3s ease-out 0.4s forwards;
+        text-shadow: 0 0 10px rgba(255, 193, 7, 0.6);
+    }
+
+    @keyframes logoBang {
+        0% { transform: scale(2.8); opacity: 0; filter: blur(6px); }
+        100% { transform: scale(1); opacity: 1; filter: blur(0); }
+    }
+    @keyframes textPop {
+        0% { transform: translateY(12px); opacity: 0; }
+        100% { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes fadeOutIntro {
+        0% { opacity: 1; }
+        100% { opacity: 0; visibility: hidden; }
+    }
+
+    /* --- ページ本体スタイル --- */
+    .landing-wrapper {
+        max-width: 920px;
+        margin: 0 auto;
+        color: #f0f0f0;
+        line-height: 1.85;
+        background-color: #000000;
+    }
+    .hero-section {
+        text-align: center;
+        padding: 60px 20px 40px;
+        background: #000000;
+        color: #fff;
+    }
+    .hero-logo {
+        max-width: 260px;
+        width: 70%;
+        height: auto;
+        margin-bottom: 12px;
+    }
+    .hero-catch {
+        font-size: 1.8rem;
+        font-weight: 900;
+        color: #ffc107;
+        margin: 12px 0;
+        letter-spacing: 1.5px;
+    }
+    .hero-sub {
+        font-size: 1rem;
+        color: #bbb;
+        max-width: 640px;
+        margin: 0 auto 30px;
+    }
+    .hero-cta {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    .btn-cta-primary {
+        background: #007bff;
+        color: #fff !important;
+        padding: 14px 28px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-decoration: none;
+        box-shadow: 0 4px 14px rgba(0,123,255,0.4);
+        transition: transform 0.2s, background 0.2s;
+    }
+    .btn-cta-primary:hover {
+        background: #0056b3;
+        transform: translateY(-2px);
+    }
+    .btn-cta-secondary {
+        background: #28a745;
+        color: #fff !important;
+        padding: 14px 28px;
+        border-radius: 8px;
+        font-weight: bold;
+        text-decoration: none;
+        box-shadow: 0 4px 14px rgba(40,167,69,0.4);
+        transition: transform 0.2s;
+    }
+    .btn-cta-secondary:hover {
+        background: #218838;
+        transform: translateY(-2px);
+    }
+    .btn-cta-primary,
+    .btn-cta-primary:visited,
+    .btn-cta-primary:hover,
+    .btn-cta-primary:active,
+    .btn-cta-secondary,
+    .btn-cta-secondary:visited,
+    .btn-cta-secondary:hover,
+    .btn-cta-secondary:active,
+    button,
+    .btn-view,
+    .btn-share,
+    .btn-image,
+    .btn-report {
+        color: #ffffff !important;
+        text-decoration: none !important;
+    }
+
+    /* 各コンテンツブロック（枠・影・背景を全撤去） */
+    .content-box {
+        background: transparent;
+        border: none;
+        box-shadow: none;
+        padding: 40px 15px 10px;
+        margin-top: 0;
+        color: #ddd;
+    }
+    .content-box h2 {
+        font-size: 1.6rem;
+        border-left: 6px solid #007bff;
+        padding-left: 14px;
+        margin-top: 0;
+        margin-bottom: 20px;
+        color: #fff;
+    }
+    .content-box a {
+        color: #38bdf8 !important;
+    }
+    .feature-item {
+        margin-top: 40px;
+        padding-top: 25px;
+        border-top: none; /* 区切り枠も撤去 */
+    }
+    .feature-item:first-of-type {
+        margin-top: 20px;
+        padding-top: 0;
+    }
+    .feature-badge {
+        display: inline-block;
+        background: #007bff;
+        color: #fff;
+        font-size: 0.8rem;
+        font-weight: bold;
+        padding: 3px 10px;
+        border-radius: 20px;
+        margin-bottom: 8px;
+    }
+    .feature-item h3 {
+        font-size: 1.3rem;
+        margin: 6px 0 14px;
+        color: #fff;
+    }
+    /* 画像ラッパーも外枠を撤去 */
+    .feature-img-gallery {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        margin: 20px 0;
+        width: 100%;
+    }
+    .feature-img-item {
+        border-radius: 8px;
+        overflow: hidden;
+        background: #111;
+        text-align: center;
+        color: #777;
+        width: 100%;
+    }
+    .feature-img-item img {
+        width: 100%;
+        max-width: 100%;
+        height: auto;
+        display: block;
+        object-fit: contain;
+    }
+    .feature-btn-wrap {
+        margin-top: 20px;
+    }
+</style><!-- 画面ロード時のロゴ演出オーバーレイ -->
+<div class="intro-overlay">
+    <img src="/images/logo.webp" alt="デュエ筋" class="intro-logo">
+    <div class="intro-catch">強い奴は、鍛え方が違う</div>
 </div>
-{{ end }}
+
+<div class="landing-wrapper">
+    <!-- ヒーローセクション -->
+    <div class="hero-section">
+        <img src="/images/logo.webp" alt="デュエ筋" class="hero-logo">
+        <div class="hero-catch">強い奴は、鍛え方が違う</div>
+        <p class="hero-sub">
+            デュエ筋は、デュエル・マスターズのデッキ構築・検証・対戦を徹底的にサポートする次世代のデッキ制作ウェブアプリケーションです。
+        </p>
+        <div class="hero-cta">
+            <a href="/decks/new" class="btn-cta-primary">今すぐデッキを作成する</a>
+            <a href="/search" class="btn-cta-secondary">公開デッキを探す</a>
+        </div>
+    </div>
+
+    <!-- サイト概要 -->
+    <div class="content-box">
+        <h2 style="text-align: center; border-left: none; padding-left: 0;">デュエ筋とは</h2>
+        <p>
+            「デュエ筋」は、デュエル・マスターズを愛するすべてのプレイヤーのために設計された、実践的かつ高機能なデッキ制作ツールです。
+            TCGにおける勝率向上には、練り込まれたデッキリストの構築、精密なマナカーブや文明バランスの計算、そして実戦を想定した一人回しによる検証が欠かせません。
+        </p>
+        <p>
+            デュエ筋は「強い奴は、鍛え方が違う」をスローガンに、プレイヤーが持つアイデアや戦術を最大限に引き出すための多様な分析機能と直感的なインターフェースを提供します。初心者から全国大会を目指す競技プレイヤーまで、すべての決闘者のデッキビルディングを力強くアシストします。
+        </p>
+    </div>
+
+    <!-- デュエ筋の特徴 -->
+    <div class="content-box">
+        <h2 style="text-align: center; border-left: none; padding-left: 0;">デュエ筋の特徴</h2>
+
+        <!-- 特徴1 -->
+        <div class="feature-item">
+            <span class="feature-badge">特徴 01</span>
+            <h3>一人回しシミュレーター&多角的なデッキ分析で徹底調整</h3>
+            <p>
+                紙のカードを広げるスペースがない場所でも、ブラウザ上で直感的に一人回しを行えます。
+                さらに、文明別比率、マナカーブ、S・トリガーなどの特定の能力を持つカードの枚数、初動確率などを自動で可視化・分析。感覚に頼らない論理的なデッキ調整が可能です。
+            </p>
+            <!-- ▼ 画像エリア（不要な画像行は削除、増やしたい場合はコピーして増やせます） ▼ -->
+            <div class="feature-img-gallery">
+                <div class="feature-img-item">
+                    <img src="/images/playtest_image.webp" alt="一人回し機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【一人回し画面 (/images/feature_playtest_1.webp)】';">
+                </div>
+                <div class="feature-img-item">
+                    <img src="/images/analysis_image.webp" alt="デッキ分析機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【デッキ分析画面 (/images/feature_playtest_2.webp)】';">
+                </div>
+            </div>
+            <!-- ▲ 画像エリアここまで ▲ -->
+        </div>
+
+        <!-- 特徴2 -->
+        <div class="feature-item">
+            <span class="feature-badge">特徴 02</span>
+            <h3>ccfoliaによるオンライン即時対戦</h3>
+            <p>
+                デュエ筋で組み上げたデッキは、ワンクリックでオンラインセッションプラットフォーム「<a href="https://ccfolia.com/" target="_blank" rel="noopener">ccfolia（ココフォリア）</a>」にインポート可能なデータとして出力できます。
+                生成されたデータをココフォリアのルームに貼り付けるだけで、即座にカード山札がセットアップ完了。ルームURLを共有すれば、Discord等で通話しながら遠方の友人やライバルとオンライン対戦が楽しめます。(この機能はccfolia非公認の機能です)
+            </p>
+            <!-- ▼ 画像エリア ▼ -->
+            <div class="feature-img-gallery">
+                <div class="feature-img-item">
+                    <img src="/images/ccfolia_image.webp" alt="オンライン対戦の様子" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【対戦画面 (/images/feature_ccfolia_2.webp)】';">
+                </div>
+            </div>
+            <!-- ▲ 画像エリアここまで ▲ -->
+        </div>
+
+        <!-- 特徴3 -->
+        <div class="feature-item">
+            <span class="feature-badge">特徴 03</span>
+            <h3>公開デッキのコピー機能&テンプレート呼び出しで簡単デッキ構築</h3>
+            <p>
+                「ゼロから40枚の束を組むのはハードルが高い」「強い構築をベースに調整したい」という方のために、目的別に活用できる2つの制作サポート機能を備えています。
+            </p>
+            
+            <div style="margin: 16px 0; padding-left: 10px; border-left: 3px solid #007bff;">
+                <h4 style="margin: 0 0 6px 0; color: #fff; font-size: 1.05rem;">① 公開デッキのコピー・編集機能</h4>
+                <p style="margin: 0 0 14px 0; font-size: 0.95rem;">
+                    他のユーザーが公開している入賞デッキや実戦レシピを、ワンクリックで自分のマイデッキへそのまま複製できます。手持ちのカードに合わせて入れ替えたり、仮想敵に合わせたカスタムをすぐに始められます。
+                </p>
+
+                <h4 style="margin: 0 0 6px 0; color: #fff; font-size: 1.05rem;">② デッキテンプレート呼び出し機能</h4>
+                <p style="margin: 0; font-size: 0.95rem;">
+                    新規デッキ作成時に、王道アーキタイプや定番コンセプトの「ベース枠組み（雛形）」を一発で盤面に展開できます。必須パーツが揃った状態からスタートできるため、初心者の方でも迷わず完成度の高いデッキを仕上げることができます。
+                </p>
+            </div>
+
+            <!-- ▼ 画像エリア ▼ -->
+            <div class="feature-img-gallery">
+                <div class="feature-img-item">
+                    <img src="/images/feature_copy_deck.webp" alt="公開デッキコピー画面" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【デッキコピー画面 (/images/feature_copy_deck.webp)】';">
+                </div>
+                <div class="feature-img-item">
+                    <img src="/images/feature_template.webp" alt="テンプレート呼び出し画面" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【テンプレート呼び出し画面 (/images/feature_template.webp)】';">
+                </div>
+            </div>
+            <!-- ▲ 画像エリアここまで ▲ -->
+        </div>
+
+        <!-- 特徴4 -->
+        <div class="feature-item">
+            <span class="feature-badge">特徴 04</span>
+            <h3>デュエマ以外のTCGにも対応！汎用ココフォリアデッキ出力ツール</h3>
+            <p>
+                デュエ筋はデュエル・マスターズにとどまりません。オリジナルの画像や他TCGのカードデータを自由に設定し、ココフォリア対応のデッキデータへと変換・エクスポートできる汎用ツールも提供しています。
+                他のカードゲームをオンラインで楽しみたいプレイヤーや、自作のオリジナルカードゲームをテストプレイしたいクリエイターの方でも無料でご活用いただけます。
+            </p>
+            <!-- ▼ 画像エリア ▼ -->
+            <div class="feature-img-gallery">
+                <div class="feature-img-item">
+                    <img src="/images/feature_generic_1.webp" alt="ココフォリア汎用出力ツール" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【ココフォリア汎用出力ツール画面 (/images/feature_generic_1.webp)】';">
+                </div>
+            </div>
+            <!-- ▲ 画像エリアここまで ▲ -->
+
+            <div class="feature-btn-wrap" style="text-align: center;">
+                <a href="/tools/ccfolia" class="btn-cta-secondary" style="display: inline-block;">ココフォリア出力ツールを開く</a>
+            </div>
+        </div>
+
+        <!-- 特徴5 -->
+        <div class="feature-item">
+            <span class="feature-badge">特徴 05</span>
+            <h3>楽天市場&Yahoo!ショッピング連携によるデッキ価格の概算査定</h3>
+            <p>
+                組んだデッキの総額がいくらになるのか、楽天市場およびYahoo!ショッピングの最新販売相場データを参照してワンクリックで自動査定します。
+                これから紙のカードを揃える際の予算見積もりや、手持ちのデッキ資産価値の把握に役立ちます。各カードのショップ価格も一覧で確認できるため、安く揃えたいプレイヤーの買い物計画を強力にサポートします。
+            </p>
+            <!-- ▼ 画像エリア ▼ -->
+            <div class="feature-img-gallery">
+                <div class="feature-img-item">
+                    <img src="/images/price_estimate_image.webp" alt="デッキ価格査定機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【デッキ価格査定画面のスクリーンショット (/images/feature_price_estimate.webp)】';">
+                </div>
+            </div>
+            <!-- ▲ 画像エリアここまで ▲ -->
+        </div>
+    </div>
+    <!-- 結び・ガイド -->
+    <div class="content-box" style="text-align: center;">
+        <h2 style="border-left: none; padding-left: 0;">強靭なデッキで、最高の決闘を始めよう</h2>
+        <p style="text-align: left;">
+            デッキビルディングは、デュエル・マスターズにおける勝負の半分以上を決める重要なフェーズです。
+            デュエ筋の多彩な機能とスマートな操作感を通じて、あなたの閃きを最強のデッキへと昇華させてください。
+            アカウントを作成すれば、制作したデッキの保存や公開設定、未所持カードの管理機能などもすべて無料でご利用いただけます。
+        </p>
+        <div style="margin-top: 25px;">
+            <a href="/decks/new" class="btn-cta-primary" style="font-size: 1.1rem; padding: 16px 36px;">デッキを作成する</a>
+        </div>
+    </div>
+</div>
+<script>
+    // ページ訪問時・リロード時に強制的にページ最上部へスクロール
+    if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
+    window.addEventListener('load', () => {
+        window.scrollTo(0, 0);
+    });
+</script>

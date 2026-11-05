@@ -11,6 +11,59 @@
 </div>
 
 <script>
+// モーダル内のカード要素用：スマホ長押し判定ヘルパー
+function setupModalItemTouchMenu(itemEl, onTrigger) {
+    let timer = null;
+    let moved = false;
+    let startX = 0, startY = 0;
+
+    itemEl.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) return;
+        moved = false;
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+
+        timer = setTimeout(() => {
+            if (!moved) {
+                if (navigator.vibrate) navigator.vibrate(40);
+                const mockEvent = {
+                    clientX: startX,
+                    clientY: startY,
+                    preventDefault: () => {},
+                    stopPropagation: () => {}
+                };
+                onTrigger(mockEvent);
+                timer = null;
+            }
+        }, 500);
+    }, { passive: true });
+
+    itemEl.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        if (Math.hypot(touch.clientX - startX, touch.clientY - startY) > 8) {
+            moved = true;
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        }
+    }, { passive: true });
+
+    itemEl.addEventListener('touchend', () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    });
+
+    itemEl.addEventListener('touchcancel', () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    });
+}
 // ==========================================
 // モーダル共通制御
 // ==========================================
@@ -211,6 +264,7 @@ function ptViewDeck() {
             e.preventDefault(); e.stopPropagation();
             openDeckViewContextMenu(e, itemEl, group.ids);
         };
+        setupModalItemTouchMenu(itemEl, (mockE) => openDeckViewContextMenu(mockE, itemEl, group.ids)); // ★ 追加
         grid.appendChild(itemEl);
     });
     footer.innerHTML = `
@@ -671,6 +725,7 @@ function renderLookingCardsModal() {
             e.preventDefault(); e.stopPropagation();
             openLookingCardMenu(e, card);
         };
+        setupModalItemTouchMenu(itemEl, (mockE) => openLookingCardMenu(mockE, card)); // ★ 追加
         grid.appendChild(itemEl);
     });
 
@@ -826,6 +881,7 @@ function renderRevealedUntilModal() {
             e.preventDefault(); e.stopPropagation();
             openRevealedCardMenu(e, card);
         };
+        setupModalItemTouchMenu(itemEl, (mockE) => openRevealedCardMenu(mockE, card)); // ★ 追加
         containerEl.appendChild(itemEl);
     };
 
@@ -1484,7 +1540,190 @@ function openStackUnderBattleSelector(cardId, fromZone) {
     `;
     modal.style.display = 'flex';
 }
+let ptBattleStackSelectedIndices = [];
 
+// バトルゾーン間での重ね合わせモーダルを開く
+function openBattleToBattleStackModal(cardId, defaultPosition = 'under') {
+    const sourceCard = ptState.battle.find(c => c.id === cardId);
+    if (!sourceCard) return;
+
+    const targets = ptState.battle.filter(c => c.id !== cardId);
+    if (targets.length === 0) {
+        alert("バトルゾーンに対象となる他のカードがありません。");
+        return;
+    }
+
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "他のカードへ重ね合わせる";
+    ptBattleStackSelectedIndices = [];
+
+    const hasUnder = sourceCard.underCards && sourceCard.underCards.length > 0;
+    const allComponents = [sourceCard, ...(sourceCard.underCards || [])];
+
+    let html = `<div style="padding: 10px 0; display: flex; flex-direction: column; gap: 14px;">`;
+
+    // A. 複数枚で構成されている場合、移動するカードと順番を選択
+    if (hasUnder) {
+        html += `
+            <div>
+                <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #ffc107;">
+                    1. 移動させるカードを順番にクリックして選択してください（1番目が一番下）:
+                </p>
+                <div class="pt-grid" id="ptBattleSourceComponentsGrid"></div>
+            </div>
+        `;
+    }
+
+    // B. 重ねる対象カードの選択
+    html += `
+        <div>
+            <p style="margin: 0 0 8px 0; font-size: 13px; font-weight: bold; color: #aaa;">
+                ${hasUnder ? '2.' : '1.'} 重ねる先のカードを選択してください:
+            </p>
+            <div class="pt-grid" id="ptBattleTargetCandidatesGrid"></div>
+        </div>
+    </div>`;
+
+    body.innerHTML = html;
+
+    // ソースカードのグリッド描画（複数構成時）
+    if (hasUnder) {
+        const sourceGrid = document.getElementById('ptBattleSourceComponentsGrid');
+        allComponents.forEach((comp, idx) => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'pt-grid-item';
+            const displaySrc = comp.faceDown ? '/images/card/backimage.webp' : comp.src;
+            const displayName = comp.faceDown ? '（裏向きのカード）' : comp.name;
+            itemEl.innerHTML = `<img src="${displaySrc}"><div class="card-qty">${displayName}</div>`;
+            itemEl.onclick = () => {
+                const pos = ptBattleStackSelectedIndices.indexOf(idx);
+                if (pos !== -1) {
+                    ptBattleStackSelectedIndices.splice(pos, 1);
+                } else {
+                    ptBattleStackSelectedIndices.push(idx);
+                }
+                updateBattleStackSourceUI();
+            };
+            itemEl.dataset.componentIndex = idx;
+            sourceGrid.appendChild(itemEl);
+        });
+    }
+
+    // ターゲット候補のグリッド描画
+    const targetGrid = document.getElementById('ptBattleTargetCandidatesGrid');
+    targets.forEach(tCard => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'pt-grid-item';
+        const displayCard = ptFindFirstFaceupCard(tCard) || tCard;
+        const displayName = tCard.faceDown ? `${displayCard.name} (封印中)` : displayCard.name;
+        itemEl.innerHTML = `<img src="${displayCard.src}"><div class="card-qty">${displayName}</div>`;
+        itemEl.onclick = () => {
+            document.querySelectorAll('#ptBattleTargetCandidatesGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
+            itemEl.classList.add('selected');
+        };
+        itemEl.dataset.cardId = tCard.id;
+        targetGrid.appendChild(itemEl);
+    });
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
+        <button class="btn-pt-primary" onclick="ptExecuteBattleToBattleStack('${cardId}', 'under')" style="background:#28a745;">🔽 下に重ねる</button>
+        <button class="btn-pt-primary" onclick="ptExecuteBattleToBattleStack('${cardId}', 'over')" style="background:#007bff;">🔼 上に重ねる</button>
+    `;
+    modal.style.display = 'flex';
+}
+
+function updateBattleStackSourceUI() {
+    const items = document.querySelectorAll('#ptBattleSourceComponentsGrid .pt-grid-item');
+    items.forEach(item => {
+        const idx = parseInt(item.dataset.componentIndex, 10);
+        const order = ptBattleStackSelectedIndices.indexOf(idx);
+        let badge = item.querySelector('.badge-selected-count');
+
+        if (order !== -1) {
+            item.classList.add('selected');
+            if (!badge) {
+                badge = document.createElement('div');
+                badge.className = 'badge-selected-count';
+                item.appendChild(badge);
+            }
+            badge.innerText = `${order + 1}番目`;
+            badge.style.display = 'flex';
+        } else {
+            item.classList.remove('selected');
+            if (badge) badge.style.display = 'none';
+        }
+    });
+}
+
+function ptExecuteBattleToBattleStack(sourceCardId, position) {
+    const targetSelected = document.querySelector('#ptBattleTargetCandidatesGrid .pt-grid-item.selected');
+    if (!targetSelected) {
+        alert("重ねる先の対象カードを選択してください。");
+        return;
+    }
+    const targetCardId = targetSelected.dataset.cardId;
+
+    const sourceIdx = ptState.battle.findIndex(c => c.id === sourceCardId);
+    if (sourceIdx === -1) return;
+    const sourceCard = ptState.battle[sourceIdx];
+    const allComponents = [sourceCard, ...(sourceCard.underCards || [])];
+
+    let cardsToMove = [];
+    if (allComponents.length > 1) {
+        if (ptBattleStackSelectedIndices.length === 0) {
+            alert("移動するカードを1枚以上選択してください。");
+            return;
+        }
+        // 選択された順番通りに移動カードを構築
+        ptBattleStackSelectedIndices.forEach(idx => {
+            cardsToMove.push(allComponents[idx]);
+        });
+
+        // 移動元に残るカードの再構成
+        const remainCards = allComponents.filter((_, idx) => !ptBattleStackSelectedIndices.includes(idx));
+        ptState.battle.splice(sourceIdx, 1);
+        if (remainCards.length > 0) {
+            const newParent = remainCards[0];
+            newParent.underCards = remainCards.slice(1);
+            ptState.battle.splice(sourceIdx, 0, newParent);
+        }
+    } else {
+        cardsToMove = [ptState.battle.splice(sourceIdx, 1)[0]];
+    }
+
+    const targetIdx = ptState.battle.findIndex(c => c.id === targetCardId);
+    if (targetIdx === -1) return;
+    const targetCard = ptState.battle[targetIdx];
+
+    cardsToMove.forEach(c => {
+        c.underCards = [];
+        c.faceDown = false;
+        c.tapped = targetCard.tapped;
+        c.inverted = false;
+        c.is_under_stacked = true;
+    });
+
+    if (position === 'under') {
+        // 対象カードの下敷きの末尾に指定順に追加
+        targetCard.underCards = targetCard.underCards || [];
+        cardsToMove.forEach(c => targetCard.underCards.push(c));
+    } else {
+        // 対象カードの上に重ねる（選択順の末尾を新たな一番上のカードとする）
+        const newTop = cardsToMove.pop();
+        newTop.is_under_stacked = false;
+        newTop.underCards = [...cardsToMove, targetCard, ...(targetCard.underCards || [])];
+        targetCard.underCards = [];
+        ptState.battle[targetIdx] = newTop;
+    }
+
+    closePtModal();
+    renderPtBoard();
+}
 function ptExecuteStackUnderBattle(cardId, fromZone) {
     const selected = document.querySelector('#ptStackUnderBattleGrid .pt-grid-item.selected');
     if (!selected) { alert('対象カードを選択してください。'); return; }
