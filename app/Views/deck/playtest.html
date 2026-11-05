@@ -2135,7 +2135,7 @@ function ptMoveCard(cardId, from, to, opts = {}) {
     if (from === 'battle' && ptState.battle[index].faceDown && ptState.battle[index].underCards && ptState.battle[index].underCards.length > 0) {
         card = ptState.battle[index]; 
         
-        let underCards = [...card.underCards];
+        let underCards = [card.underCards];
         let nextTopCard = underCards.shift(); 
         
         nextTopCard.underCards = underCards;   
@@ -2244,7 +2244,7 @@ function ptExecuteUnderCardSelectMove(parentId, toZone, opts = {}) {
     }
 
     const parentCard = ptState.battle[battleIdx];
-    const allComponents = [parentCard, ...parentCard.underCards];
+    const allComponents = [parentCard, parentCard.underCards];
 
     const toMoveIndexes = [];
     selectedItems.forEach(item => {
@@ -2396,17 +2396,18 @@ function openCardMenu(e, card, zone) {
     }
 
     let menuHtml = `
-        <li onclick="ptShowCardDetailModalById('${card.id}', '${zone}')">🔎 拡大表示</li>
+        <li onclick="ptShowCardDetailModalById('${card.id}', '${zone}')">拡大表示</li>
         <hr>
     `;
 
-    // ★ 追加: パートナーゾーンのカード用メニュー
+    // ★ パートナーゾーン
     if (zone === 'partner') {
         const toggleTitle = card.faceDown ? "表向きにする" : "裏向きにする";
         menuHtml += `
             <li onclick="ptToggleFacedown('${card.id}')">${toggleTitle}</li>
             <hr>
             <li onclick="ptMoveCard('${card.id}', 'partner', 'battle')">バトルゾーンに置く</li>
+            <li onclick="openStackUnderBattleSelector('${card.id}', 'partner')">バトルゾーンのカードの下に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'partner', 'mana')">マナゾーンに置く</li>
             <li onclick="ptMoveCard('${card.id}', 'partner', 'hand')">手札に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'partner', 'graveyard')">墓地に置く</li>
@@ -2414,21 +2415,22 @@ function openCardMenu(e, card, zone) {
         `;
     } else if (zone === 'battle') {
         if (card.faceDown) {
-        // 【追加】封印されているカード（裏向きで、かつ下にカードがある）場合
-        if (card.underCards && card.underCards.length > 0) {
+            if (card.underCards && card.underCards.length > 0) {
+                menuHtml += `
+                    <li onclick="ptReleaseSeal('${card.id}')">封印を解除する</li>
+                    <hr>
+                `;
+            }
             menuHtml += `
-                <li onclick="ptReleaseSeal('${card.id}')">封印を解除する</li>
+                <li onclick="ptMoveCard('${card.id}', 'battle', 'hand')">手札に置く</li>
+                <li onclick="ptMoveCard('${card.id}', 'battle', 'mana')">マナに置く</li>
+                <li onclick="ptMoveCard('${card.id}', 'battle', 'shield')">シールドに置く</li>
+                <li onclick="ptMoveCard('${card.id}', 'battle', 'graveyard')">墓地に置く</li>
+                <li onclick="ptMoveCard('${card.id}', 'battle', 'deck', {bottom:true})">山札の下に置く</li>
                 <hr>
+                <li onclick="openStackUnderBattleSelector('${card.id}', 'battle')">他のカードの下に置く</li>
             `;
-        }
-        menuHtml += `
-            <li onclick="ptMoveCard('${card.id}', 'battle', 'hand')">手札に置く</li>
-            <li onclick="ptMoveCard('${card.id}', 'battle', 'mana')">マナに置く</li>
-            <li onclick="ptMoveCard('${card.id}', 'battle', 'shield')">シールドに置く</li>
-            <li onclick="ptMoveCard('${card.id}', 'battle', 'graveyard')">墓地に置く</li>
-            <li onclick="ptMoveCard('${card.id}', 'battle', 'deck', {bottom:true})">山札の下に置く</li>
-        `;
-    } else {
+        } else {
             const canFlip = isDoubleSidedCard(card) || card.name === '禁断 ～封印されしX～' || card.name === 'FORBIDDEN STAR ～世界最後の日～';
             if (canFlip) {
                 menuHtml += `
@@ -2437,22 +2439,19 @@ function openCardMenu(e, card, zone) {
                 `;
             }
 
-            // === 【追加】山札から封印を追加するメニュー項目 ===
             menuHtml += `
-                <li onclick="ptSealCardPrompt('${card.id}')">🔒 山札の上から封印を付ける...</li>
+                <li onclick="ptSealCardPrompt('${card.id}')">山札の上から封印を付ける</li>
                 <hr>
-            `;
-
-            menuHtml += `
                 <li onclick="ptMoveCard('${card.id}', 'battle', 'hand')">手札に置く</li>
                 <li onclick="ptMoveCard('${card.id}', 'battle', 'graveyard')">墓地に置く</li>
                 <li onclick="ptMoveCard('${card.id}', 'battle', 'mana', {faceDown: false})">マナ（表）に置く</li>
                 <li onclick="ptMoveCard('${card.id}', 'battle', 'mana', {faceDown: true})">マナ（裏）に置く</li>
-                <li onclick="openBattleToShieldMenu('${card.id}')">シールドに置く...</li>
-                <li onclick="openBattleToDeckMenu('${card.id}')">山札に置く...</li>
+                <li onclick="openBattleToShieldMenu('${card.id}')">シールドに置く</li>
+                <li onclick="openBattleToDeckMenu('${card.id}')">山札に置く</li>
                 <hr>
                 <li onclick="ptStackUnderCard('${card.id}')">この下にカードを置く</li>
                 <li onclick="ptStackOverCard('${card.id}')">この上にカードを置く</li>
+                <li onclick="openStackUnderBattleSelector('${card.id}', 'battle')">他のカードの下に置く</li>
                 <li onclick="ptRotate180('${card.id}')">上下を裏返す(180度)</li>
             `;
         }
@@ -2462,32 +2461,35 @@ function openCardMenu(e, card, zone) {
             <li onclick="ptToggleFacedown('${card.id}')">${title}</li>
             <hr>
             <li onclick="ptMoveCard('${card.id}', 'mana', 'hand')">手札に置く</li>
-            <li onclick="openManaToBattleMenu('${card.id}')">バトルゾーンに置く...</li>
-            <li onclick="openManaToDeckMenu('${card.id}')">山札に置く...</li>
+            <li onclick="openManaToBattleMenu('${card.id}')">バトルゾーンに置く</li>
+            <li onclick="openStackUnderBattleSelector('${card.id}', 'mana')">バトルゾーンのカードの下に置く</li>
+            <li onclick="openManaToDeckMenu('${card.id}')">山札に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'mana', 'graveyard')">墓地に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'mana', 'psychic')">超次元ゾーンに置く</li>
         `;
     } else if (zone === 'shield') {
         menuHtml += `
             <li onclick="ptMoveCard('${card.id}', 'shield', 'hand')">手札に加える</li>
-            <li onclick="openShieldToBattleMenu('${card.id}')">バトルゾーンに置く...</li>
-            <li onclick="openShieldToDeckMenu('${card.id}')">山札に置く...</li>
+            <li onclick="openShieldToBattleMenu('${card.id}')">バトルゾーンに置く</li>
+            <li onclick="openStackUnderBattleSelector('${card.id}', 'shield')">バトルゾーンのカードの下に置く</li>
+            <li onclick="openShieldToDeckMenu('${card.id}')">山札に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'shield', 'graveyard')">墓地に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'shield', 'mana')">マナゾーンに置く</li>
             <li onclick="ptMoveCard('${card.id}', 'shield', 'psychic')">超次元ゾーンに置く</li>
             <hr>
-            <li onclick="openShieldStackSelector('${card.id}', 'under')">🔽 このシールドの下に重ねる...</li>
-            <li onclick="openShieldStackSelector('${card.id}', 'over')">🔼 このシールドの上に重ねる...</li>
-            <li onclick="ptStackDeckTopToShield('${card.id}', 'under')">🔽 山札の1枚目を下に重ねる</li>
-            <li onclick="ptStackDeckTopToShield('${card.id}', 'over')">🔼 山札の1枚目を上に重ねる</li>
+            <li onclick="openShieldStackSelector('${card.id}', 'under')">このシールドの下に重ねる</li>
+            <li onclick="openShieldStackSelector('${card.id}', 'over')">このシールドの上に重ねる</li>
+            <li onclick="ptStackDeckTopToShield('${card.id}', 'under')">山札の1枚目を下に重ねる</li>
+            <li onclick="ptStackDeckTopToShield('${card.id}', 'over')">山札の1枚目を上に重ねる</li>
         `;
     } else if (zone === 'hand') {
         menuHtml += `
-            <li onclick="openHandToBattleMenu('${card.id}')">バトルゾーンに置く...</li>
+            <li onclick="openHandToBattleMenu('${card.id}')">バトルゾーンに置く</li>
+            <li onclick="openStackUnderBattleSelector('${card.id}', 'hand')">バトルゾーンのカードの下に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'hand', 'mana')">マナに置く</li>
             <li onclick="ptMoveCard('${card.id}', 'hand', 'graveyard')">墓地に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'hand', 'shield')">シールドに置く</li>
-            <li onclick="openHandToDeckMenu('${card.id}')">山札に置く...</li>
+            <li onclick="openHandToDeckMenu('${card.id}')">山札に置く</li>
         `;
     }
 
@@ -2729,7 +2731,7 @@ function ptExecuteStackOver(baseCardId) {
         newTopCard.tapped = baseCard.tapped; // 進化等として元のクリーチャーのタップ状態を継承します
 
         // 新しく上に重ねたカードの直下に元の親カード（baseCard）が来るように整理
-        newTopCard.underCards = [baseCard, ...baseCard.underCards];
+        newTopCard.underCards = [baseCard, baseCard.underCards];
         baseCard.underCards = []; // 元カード側の参照をクリア
 
         ptState.battle[baseCardIndex] = newTopCard;
@@ -3016,7 +3018,7 @@ function ptFlipCardFace(id) {
                     }
                 })
                 .catch(err => {
-                    console.warn(`Endpoint failed: ${urls[index]}, trying next...`);
+                    console.warn(`Endpoint failed: ${urls[index]}, trying next`);
                     fetchWithFallback(index + 1);
                 });
         }
@@ -3246,7 +3248,7 @@ function getLinkedShieldDisplayName(shieldCard) {
 
     // バトルゾーンにあるすべてのカード束を走査
     for (let bCard of ptState.battle) {
-        const allComps = [bCard, ...(bCard.underCards || [])];
+        const allComps = [bCard, (bCard.underCards || [])];
         const hasSource = allComps.some(c => c.id === shieldCard.linked_source_id);
         
         if (hasSource) {
@@ -3475,7 +3477,7 @@ function ptExecuteEvolutionPlay(cardId, fromZone) {
         playedCard.tapped = true;
     }
 
-    const reversedIds = [...ptEvoSelectedIds].reverse();
+    const reversedIds = [ptEvoSelectedIds].reverse();
     reversedIds.forEach(id => {
         let foundZone = findCardZone(id);
         if (foundZone) {
@@ -3799,7 +3801,7 @@ function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
         const battleIdx = ptState.battle.findIndex(c => c.id === parentId);
         if (battleIdx !== -1) {
             const parentCard = ptState.battle[battleIdx];
-            const allComponents = [parentCard, ...parentCard.underCards];
+            const allComponents = [parentCard, parentCard.underCards];
 
             const moveThese = [];
             const keepThese = [];
@@ -3854,7 +3856,7 @@ function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
             baseCard.underCards.push(card);
         } else {
             // シールドの上に重ねる (新しく重ねられたカードを新代表に差し替え)
-            card.underCards = [baseCard, ...baseCard.underCards];
+            card.underCards = [baseCard, baseCard.underCards];
             baseCard.underCards = [];
             
             const baseIdx = ptState.shield.findIndex(c => c.id === baseCard.id);
@@ -3885,7 +3887,7 @@ function ptStackDeckTopToShield(baseCardId, position) {
     if (position === 'under') {
         baseCard.underCards.push(deckCard);
     } else {
-        deckCard.underCards = [baseCard, ...baseCard.underCards];
+        deckCard.underCards = [baseCard, baseCard.underCards];
         baseCard.underCards = [];
         const baseIdx = ptState.shield.findIndex(c => c.id === baseCardId);
         if (baseIdx !== -1) {
@@ -3944,7 +3946,7 @@ function ptMoveShieldComponent(parentId, cardId, toZone) {
     if (shieldIdx === -1) return;
 
     const parentCard = ptState.shield[shieldIdx];
-    const allComponents = [parentCard, ...parentCard.underCards];
+    const allComponents = [parentCard, parentCard.underCards];
 
     // 対象となるカードを特定
     const targetIdx = allComponents.findIndex(c => c.id === cardId);
@@ -4001,7 +4003,7 @@ function ptMoveAllShieldComponents(parentId, toZone) {
     if (shieldIdx === -1) return;
 
     const parentCard = ptState.shield[shieldIdx];
-    const allComponents = [parentCard, ...parentCard.underCards];
+    const allComponents = [parentCard, parentCard.underCards];
 
     // 盤面のシールドから束ごと削除
     ptState.shield.splice(shieldIdx, 1);
@@ -4065,7 +4067,7 @@ function ptExecuteSeal(cardId, count) {
             deckCard.inverted = false;
             
             // 新しい封印カード（deckCard）を代表にし、元のクリーチャー群をすべてその下にスタック
-            deckCard.underCards = [targetCard, ...targetCard.underCards];
+            deckCard.underCards = [targetCard, targetCard.underCards];
             targetCard.underCards = []; // 参照クリア
             
             ptState.battle[cardIndex] = deckCard;
@@ -4151,7 +4153,7 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
 
                 if (isScatter) {
                     c.underCards = [];
-                    c.underCards = [baseCard, ...baseCard.underCards];
+                    c.underCards = [baseCard, baseCard.underCards];
                     baseCard.underCards = [];
                     
                     const baseIdx = ptState.shield.findIndex(sh => sh.id === baseCard.id);
@@ -4161,8 +4163,8 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
                     }
                 } else {
                     c.underCards.forEach(uc => uc.faceDown = isFaceDown);
-                    const originalUnderOfC = [...c.underCards];
-                    c.underCards = [...originalUnderOfC, baseCard, ...baseCard.underCards];
+                    const originalUnderOfC = [c.underCards];
+                    c.underCards = [originalUnderOfC, baseCard, baseCard.underCards];
                     baseCard.underCards = [];
                     
                     const baseIdx = ptState.shield.findIndex(sh => sh.id === baseCard.id);
@@ -4200,7 +4202,7 @@ function ptExecuteShieldUnderCardSelectMove(parentId, toZone, opts = {}) {
     }
 
     const parentCard = ptState.shield[shieldIdx];
-    const allComponents = [parentCard, ...parentCard.underCards];
+    const allComponents = [parentCard, parentCard.underCards];
 
     const toMoveIndexes = [];
     selectedItems.forEach(item => {
@@ -4440,7 +4442,7 @@ function ptCheckAndReturnSpecialCard(card, toZone, opts = {}) {
     if (hasGR || hasPsychic) {
         // 重ねられていたオーラや封印、進化元などを切り離して救出
         if (card.underCards && card.underCards.length > 0) {
-            const attachedCards = [...card.underCards];
+            const attachedCards = [card.underCards];
             card.underCards = []; // GRクリーチャー本体の下敷きからクリア
 
             // 切り離されたカード群を、本来の目的地（toZone）へ移動配置
@@ -4711,13 +4713,13 @@ function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
                 card.tapped = baseCard.tapped;
                 card.inverted = false;
                 
-                card.underCards = [baseCard, ...baseCard.underCards];
+                card.underCards = [baseCard, baseCard.underCards];
                 baseCard.underCards = [];
                 
                 ptState.battle[baseIdx] = card;
             } else {
                 // 封印（裏向きカード）の下にあるクリーチャー本体の上に割り込み進化させる場合
-                let allComps = [baseCard, ...baseCard.underCards];
+                let allComps = [baseCard, baseCard.underCards];
                 let faceupIdx = allComps.findIndex(c => !c.faceDown); // 最初の表向き本体を探す
                 
                 if (faceupIdx !== -1) {
@@ -4729,19 +4731,19 @@ function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
                     
                     // 表向き本体とその下の進化元を新しいカードの下に格納
                     const remainComps = allComps.slice(faceupIdx);
-                    card.underCards = [...remainComps];
+                    card.underCards = [remainComps];
                     
                     // 新しいカードの上に、元々の封印（裏向きカード群）を再配置
                     const seals = allComps.slice(0, faceupIdx);
                     let newParent = seals[0];
-                    newParent.underCards = [...seals.slice(1), card];
+                    newParent.underCards = [seals.slice(1), card];
                     
                     ptState.battle[baseIdx] = newParent;
                 } else {
                     card.faceDown = false;
                     card.tapped = baseCard.tapped;
                     card.inverted = false;
-                    card.underCards = [baseCard, ...baseCard.underCards];
+                    card.underCards = [baseCard, baseCard.underCards];
                     baseCard.underCards = [];
                     ptState.battle[baseIdx] = card;
                 }
@@ -4755,7 +4757,7 @@ function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
             card.tapped = baseCard.tapped;
             card.inverted = false;
             
-            card.underCards = [baseCard, ...baseCard.underCards];
+            card.underCards = [baseCard, baseCard.underCards];
             baseCard.underCards = [];
             
             ptState.battle[baseIdx] = card;
@@ -4804,7 +4806,7 @@ function ptRevertCardToTemporaryPool(cardId, fromZone) {
 }
 
 function ptMoveLookingCardsBatch(targetZone) {
-    let idsToMove = [...ptReturnOrder];
+    let idsToMove = [ptReturnOrder];
     
     if (idsToMove.length === 0 && ptLastRightClickedCardId) {
         idsToMove = [ptLastRightClickedCardId];
@@ -4941,7 +4943,7 @@ function openBatchContextMenu(e) {
         <li onclick="ptExecuteBatchMove('graveyard')">一括して墓地に移動</li>
         <li onclick="ptExecuteBatchMove('battle')">一括してバトルゾーンに移動</li>
         <!-- ⬇️ 【修正】一括配置選択モーダルを呼び出すように変更します -->
-        <li onclick="ptOpenBatchShieldPlacementModal()">一括してシールドに置く...</li>
+        <li onclick="ptOpenBatchShieldPlacementModal()">一括してシールドに置く</li>
         <hr>
         <li onclick="ptExecuteBatchMove('deck')">一括して山札に戻す</li>
     `;
@@ -5013,7 +5015,7 @@ function ptExecuteBatchSeal() {
                 deckCard.inverted = false;
                 
                 // 新しい封印カードを束の代表にし、元の構成を下にスタック
-                deckCard.underCards = [targetCard, ...targetCard.underCards];
+                deckCard.underCards = [targetCard, targetCard.underCards];
                 targetCard.underCards = [];
                 
                 ptState.battle[cardIndex] = deckCard;
@@ -5039,7 +5041,7 @@ function ptReleaseSeal(cardId, skipRender = false) {
         ptState.battle.splice(index, 1);
 
         card.faceDown = false; // 墓地に置くため表向きに戻す
-        const sealUnderCards = [...card.underCards];
+        const sealUnderCards = [card.underCards];
         card.underCards = []; // 参照クリア
         ptState.graveyard.push(card); // 封印カード本体を墓地へ
 
