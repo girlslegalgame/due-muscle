@@ -597,14 +597,52 @@
     }
     @media (max-width: 768px) {
         /* モーダル余白の最適化 */
+        #deckModal {
+            padding: 0;
+        }
         .modal-content {
-            width: 95% !important;
-            padding: 15px 10px !important;
-            height: 94vh !important;
-            margin: 3vh auto !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            height: 100% !important;
+            height: 100dvh !important; /* アドレスバーを考慮した動的高さ */
+            margin: 0 !important;
+            border-radius: 0 !important; /* スマホでは全画面化 */
+            padding: 12px 8px 8px 8px !important;
+            box-sizing: border-box !important;
         }
 
-        /* 分析タブ：グラフを縦並びに切り替え */
+        /* 内部スクロール領域の突き抜け防止 */
+        .scroll-area {
+            flex: 1 1 0% !important;
+            min-height: 0 !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important; /* 横はみ出しをカット */
+            padding: 10px 2px !important;
+        }
+
+        /* GR / 超次元 / 特殊 が横並びで画面幅を突き破るのを縦並びに変更 */
+        .extra-split-container {
+            flex-direction: column !important;
+            align-items: center !important;
+            gap: 15px !important;
+        }
+        .vertical-divider {
+            display: none !important; /* 縦の仕切り線を非表示 */
+        }
+        .horizontal-divider {
+            margin: 15px 0 !important;
+        }
+        .extra-side {
+            width: 100% !important;
+        }
+
+        /* 閉じるボタンの押しやすさ調整 */
+        .close-btn {
+            right: 12px;
+            top: 8px;
+            font-size: 26px;
+        }
+
         .analysis-grid { 
             flex-direction: column !important;
             align-items: center !important;

@@ -1,4 +1,5 @@
 <!-- app/Views/deck/create.html -->
+<title>デッキ作成 - デュエ筋</title>
 <style>
     body {
         margin: 0;
@@ -1896,6 +1897,7 @@ function handleImageError(img) {
 
 // --- B. 初期化 ---
 window.addEventListener('DOMContentLoaded', () => {
+    document.title = "デッキ作成 - デュエ筋";
     // ★ 1. まず先にPHPから渡されたフォーマットデータをセレクトボックスに描画します
     if (formatsFromPhp && formatsFromPhp.length > 0) {
         renderFormatSelect(formatsFromPhp);
