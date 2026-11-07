@@ -179,20 +179,22 @@
             gap: 12px;
             width: 100%;
             max-width: 100%;
+            min-width: 0;                /* ★ 横幅強制クランプ */
             box-sizing: border-box;
         }
         .playtest-row:nth-child(2) {
-            display: flex;
-            flex-direction: row;
-            align-items: stretch;
-            gap: 12px;
-            width: 100%;
-            max-width: 100%;
-            box-sizing: border-box;
-            overflow: hidden;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            gap: 6px !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
         }
+        /* ゾーン共通スタイル */
         .playtest-zone {
-            touch-action: pan-x;
+            touch-action: pan-x !important;               /* ★ 横スクロール操作を明示的に許可 */
             background: rgba(255,255,255,0.05);
             border: 2px dashed rgba(255,255,255,0.15);
             border-radius: 8px;
@@ -202,12 +204,36 @@
             flex-direction: row;
             align-items: center;
             gap: 12px;
-            overflow-x: auto;
+            overflow-x: auto !important;                 /* ★ 横スクロールを強制有効化 */
+            overflow-y: hidden !important;
             white-space: nowrap;
+            -webkit-overflow-scrolling: touch;           /* ★ iOSの滑らかな慣性スクロール */
+            scrollbar-width: thin;                      /* ★ Firefox用スリムスクロールバー */
+            scrollbar-color: rgba(255,255,255,0.3) transparent;
+        }
+
+        /* PC等でのスクロールバー表示（操作しやすくする） */
+        .playtest-zone::-webkit-scrollbar {
+            height: 6px !important;
+            display: block !important;
+        }
+        .playtest-zone::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.25);
+            border-radius: 3px;
+        }
+        .playtest-zone::-webkit-scrollbar-track {
+            background: transparent;
         }
 
         /* 各ゾーンのPC標準サイズ */
-        .zone-battle { flex: 1.5; min-height: 250px; padding: 25px 12px 10px 12px; }
+        .zone-battle { 
+            flex: 1 1 0% !important;   /* ★ 0%ベースで親要素の幅に完全固定 */
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            min-height: 250px; 
+            padding: 25px 12px 10px 12px; 
+        }
         .zone-shield { 
             flex: 1 1 auto !important;
             min-width: 0 !important;
@@ -220,7 +246,14 @@
             white-space: nowrap;
             -webkit-overflow-scrolling: touch; /* ★ iOSの慣性スクロールを有効化 */
         }
-        .zone-mana { flex: 1.2; min-height: 230px; padding: 25px 12px 10px 12px; }
+        .zone-mana { 
+            flex: 1 1 0% !important;   /* ★ 0%ベースで親要素の幅に完全固定 */
+            width: 100% !important;
+            min-width: 0 !important;
+            max-width: 100% !important;
+            min-height: 230px; 
+            padding: 25px 12px 10px 12px; 
+        }
 
         /* ドラッグオーバー時のハイライト */
         .zone-shield.drag-over,
@@ -707,10 +740,18 @@
                 padding: 10px 4px 2px 4px !important;
                 gap: 4px !important;
                 box-sizing: border-box !important;
-                overflow-x: auto !important;
+                overflow-x: auto !important;             /* ★ 横スクロール */
                 overflow-y: hidden !important;
+                touch-action: pan-x !important;
+                -webkit-overflow-scrolling: touch !important;
             }
 
+            /* カードが増えても1枚1枚が縮小して潰れないよう固定 */
+            .zone-battle .playtest-card,
+            .zone-mana .playtest-card,
+            .zone-shield .playtest-card {
+                flex: 0 0 auto !important;               /* ★ カードが縮まずに横に伸び、スクロール可能にする */
+            }
             .playtest-zone-title {
                 font-size: 8px !important;
                 top: 1px !important;
@@ -734,31 +775,36 @@
 
             /* ★修正点1：シールドゾーンの極細を根絶。flex縮小を無効化し、固定ゾーン以外の横幅を全て奪い取る */
             .zone-shield {
-                flex: 1 1 auto !important;
-                min-width: 0 !important;
-                width: 100% !important;
+                flex: 1 1 0% !important;
+                min-width: 45vw !important;  /* ★ 画面の45%以上を強制確保 */
                 height: 100% !important;
+                padding: 10px 6px 2px 6px !important;
                 box-sizing: border-box !important;
                 overflow-x: auto !important;
                 overflow-y: hidden !important;
                 white-space: nowrap !important;
-                -webkit-overflow-scrolling: touch !important; /* ★ iOSの慣性スクロール */
+                -webkit-overflow-scrolling: touch !important;
+                display: flex !important;
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 4px !important;
             }
 
             /* 固定ゾーン(山札・墓地・超次元・GR) */
             .fixed-zones-container {
                 flex: 0 0 auto !important;
                 display: flex !important;
-                gap: 2px !important;
+                align-items: center !important;
+                gap: 3px !important;
                 height: 100% !important;
             }
 
             .fixed-zone {
                 width: auto !important;
-                height: 100% !important;
+                height: 85% !important; /* ★ 高さを少し抑えることで、アスペクト比連動で横幅がスリムになりシールドが広がります */
                 aspect-ratio: 5 / 7 !important;
+                flex: 0 0 auto !important;
                 min-width: 0 !important;
-                min-height: 0 !important;
                 box-sizing: border-box !important;
             }
             .fixed-zone img {
@@ -789,11 +835,12 @@
                 box-sizing: border-box !important;
             }
             .zone-shield .playtest-card {
-                height: calc(100% - 10px) !important;
+                height: calc(100% - 6px) !important;
                 max-height: 100% !important;
                 width: auto !important;
                 aspect-ratio: 5 / 7 !important;
-                flex-shrink: 0 !important; /* ★ 横スクロール時にカード自体が縮まないように固定 */
+                flex: 0 0 auto !important;
+                box-sizing: border-box !important;
             }
             .playtest-card img {
                 width: 100% !important;
@@ -1007,29 +1054,31 @@ function dismissFocusedHandCard(immediate = false) {
 
 function setupTouchEvents(el, card, zoneName) {
     let startX = 0, startY = 0;
+    let isHorizontalScroll = false; // ★ 横スクロール中フラグ
+    let isDragging = false;         // ★ カードドラッグ中フラグ
 
     el.addEventListener('touchstart', (e) => {
         if (e.touches.length > 1) return;
 
-        // ★ 追加: 手札が退避(minimized)状態の時は、カードの長押しタイマーを作動させない
         const handZone = document.getElementById('pt-zone-hand');
         if (handZone && handZone.classList.contains('minimized') && el.closest('#pt-zone-hand')) {
             return;
         }
 
         touchMoved = false;
+        isHorizontalScroll = false;
+        isDragging = false;
+
         const touch = e.touches[0];
         startX = touch.clientX;
         startY = touch.clientY;
 
-        // 長押しでメニューを開く (500ms)
+        // 長押し(500ms)でメニュー表示
         touchTimer = setTimeout(() => {
-            if (!touchMoved) {
-                // 手札が退避中ならメニューを開かない
+            if (!touchMoved && !isHorizontalScroll) {
                 if (handZone && handZone.classList.contains('minimized') && el.closest('#pt-zone-hand')) {
                     return;
                 }
-
                 if (navigator.vibrate) navigator.vibrate(40);
                 
                 const mockEvent = {
@@ -1051,34 +1100,48 @@ function setupTouchEvents(el, card, zoneName) {
                 touchTimer = null;
             }
         }, 500);
-    }, { passive: false });
+    }, { passive: true });
 
     el.addEventListener('touchmove', (e) => {
         const touch = e.touches[0];
         const dx = touch.clientX - startX;
         const dy = touch.clientY - startY;
+        const absX = Math.abs(dx);
+        const absY = Math.abs(dy);
 
-        // 一定以上動いたら長押し判定をキャンセル
-        if (Math.hypot(dx, dy) > 8) {
+        // 一度横スクロールと判定されたらドラッグには移行しない
+        if (isHorizontalScroll) return;
+
+        // 移動開始の判定閾値 (8px)
+        if (!touchMoved && Math.hypot(dx, dy) > 8) {
             touchMoved = true;
             if (touchTimer) {
                 clearTimeout(touchTimer);
                 touchTimer = null;
             }
+
+            // ★ 手札以外のゾーンで、横移動が縦移動より大きい場合は「ゾーンの横スクロール」と判定
+            if (zoneName !== 'hand' && absX > absY * 0.8) {
+                isHorizontalScroll = true;
+                return; // ドラッグを開始せず、通常の横スクロールを許可
+            }
+
+            // それ以外（上下方向へのスワイプ、または手札からのスワイプ）はドラッグと判定
+            isDragging = true;
         }
 
-        // ドラッグ開始
-        if (touchMoved && !document.getElementById('ptContextMenu').style.display.includes('block')) {
-            e.preventDefault(); // スクロール防止
+        // ドラッグ中の動作
+        if (isDragging && !document.getElementById('ptContextMenu').style.display.includes('block')) {
+            if (e.cancelable) e.preventDefault(); // ドラッグ中はスクロールを阻止
 
-            // ★ 追加: 手札からドラッグを始めた場合、即座に手札を通常位置・サイズに戻す
             if (el.closest('#pt-zone-hand')) {
                 restoreHandZone();
             }
 
             if (!touchDraggingCard) {
                 touchDraggingCard = card;
-                const ghost = document.getElementById('touchDragGhost');                ghost.src = card.faceDown ? '/images/card/backimage.webp' : card.src;
+                const ghost = document.getElementById('touchDragGhost');
+                ghost.src = card.faceDown ? '/images/card/backimage.webp' : card.src;
                 ghost.style.width = '70px';
                 ghost.style.height = '98px';
                 ghost.style.display = 'block';
@@ -1088,20 +1151,17 @@ function setupTouchEvents(el, card, zoneName) {
             ghost.style.left = touch.clientX + 'px';
             ghost.style.top = touch.clientY + 'px';
 
-            // 指の下にあるゾーンを判定
             ghost.style.display = 'none';
             const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
             ghost.style.display = 'block';
 
             const zoneElem = elemBelow ? elemBelow.closest('.playtest-zone, .fixed-zone') : null;
 
-            // 全ゾーンのハイライトを一旦リセット
             document.querySelectorAll('.zone-shield, .fixed-zone').forEach(el => el.classList.remove('drag-over'));
 
             const shieldZone = document.getElementById('pt-zone-shield');
             const isSmallTarget = zoneElem && (zoneElem === shieldZone || zoneElem.classList.contains('fixed-zone'));
 
-            // シールドまたは固定ゾーン(山札・墓地・超次元)上の場合は2/3サイズに縮小
             if (isSmallTarget) {
                 ghost.style.width = '48px';
                 ghost.style.height = '66px';
@@ -1124,15 +1184,13 @@ function setupTouchEvents(el, card, zoneName) {
         ghost.style.display = 'none';
         document.querySelectorAll('.zone-shield, .fixed-zone').forEach(el => el.classList.remove('drag-over'));
 
-        if (touchDraggingCard && currentHoverZone) {
-            // pt-zone-xxx からゾーン名を抽出(playtest-zone / fixed-zone 共通)
+        if (isDragging && touchDraggingCard && currentHoverZone) {
             const targetZoneId = currentHoverZone.id.replace('pt-zone-', '');
             const fromZone = findCardZone(touchDraggingCard.id);
 
             if (fromZone && fromZone !== targetZoneId) {
                 ptDraggedCardId = touchDraggingCard.id;
 
-                // 山札への移動時はモーダル、それ以外は各ゾーンへドロップ
                 if (targetZoneId === 'deck') {
                     openDeckDropSelectModal(touchDraggingCard.id, fromZone);
                 } else {
@@ -1144,13 +1202,19 @@ function setupTouchEvents(el, card, zoneName) {
         touchDraggingCard = null;
         currentHoverZone = null;
         touchMoved = false;
+        isHorizontalScroll = false;
+        isDragging = false;
     });
 
     el.addEventListener('touchcancel', () => {
         if (touchTimer) clearTimeout(touchTimer);
         document.getElementById('touchDragGhost').style.display = 'none';
-        document.getElementById('pt-zone-shield').classList.remove('drag-over');
+        document.querySelectorAll('.zone-shield, .fixed-zone').forEach(el => el.classList.remove('drag-over'));
         touchDraggingCard = null;
+        currentHoverZone = null;
+        touchMoved = false;
+        isHorizontalScroll = false;
+        isDragging = false;
     });
 }
 
@@ -1165,13 +1229,23 @@ document.addEventListener('touchend', function (e) {
 }, { passive: false });
 
 // 画面全体の意図しない縦スクロールを防止
-// 画面全体の意図しない縦スクロールを防止
 document.addEventListener('touchmove', function (e) {
     // ★ 修正: .context-menu 内のスクロールもキャンセル対象から除外する
     if (!e.target.closest('.playtest-zone') && !e.target.closest('.pt-modal-body') && !e.target.closest('.context-menu')) {
         e.preventDefault();
     }
 }, { passive: false });
+
+// PCのマウスホイール操作を横スクロールに変換
+document.querySelectorAll('.playtest-zone').forEach(zone => {
+    zone.addEventListener('wheel', (e) => {
+        // 手札ゾーン以外（バトル・マナ・シールド）で横スクロールを適用
+        if (zone.id !== 'pt-zone-hand' && e.deltaY !== 0) {
+            e.preventDefault();
+            zone.scrollLeft += e.deltaY * 0.8;
+        }
+    }, { passive: false });
+});
 
 window.onload = function() {
     try {
