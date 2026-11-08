@@ -2320,16 +2320,14 @@ function ptMoveCard(cardId, from, to, opts = {}) {
         ptOpenPartnerReturnChoiceModal(card, to);
         return true;
     }
-    // ★ 追加: ability_id 10 / 68 のシールド追加能力の判定
+    renderPtBoard();
+
+    // ★ 盤面描画の完了後にシールド追加判定を行う
     if (to === 'battle' && !opts.skipShieldAddCheck) {
         ptCheckShieldAddAbility(card);
     }
 
-    renderPtBoard();
-    return true;
-
-
-    
+    return true;  
 }
 
 // 3. 新規追加：選択されたカードの移動と、残されたカードのバトルゾーン再構成処理
@@ -3364,7 +3362,7 @@ function getLinkedShieldDisplayName(shieldCard) {
 // 出すときの ability_id (10 または 68) チェック
 function ptCheckShieldAddAbility(card) {
     if (!card || !card.ability_ids) return;
-    const abIds = card.ability_ids;
+    const abIds = card.ability_ids.map(Number);
     let count = 0;
     if (abIds.includes(68)) {
         count = 2; // 68: 2枚

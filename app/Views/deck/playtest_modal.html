@@ -993,14 +993,13 @@ function openEvoTargetSelector(cardId, fromZone, mode) {
     let footerHtml = `<button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>`;
     if (canPlayWithoutStack) {
         footerHtml += `<button class="btn-pt-secondary" style="background:#fd7e14; color:white; border:none;" onclick="
-            ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true});
-            const bCard = ptState.battle.find(c => c.id === '${cardId}');
-            if (bCard) ptCheckShieldAddAbility(bCard);
             closePtModal();
+            setTimeout(() => {
+                ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true});
+            }, 60);
         ">重ねずに単体で出す</button>`;
     }
-    footerHtml += `<button class="btn-pt-primary" onclick="ptExecuteEvolutionPlay('${cardId}', '${fromZone}')">決定してバトルゾーンに出す</button>`;
-    footer.innerHTML = footerHtml;
+    footerHtml += `<button class="btn-pt-primary" onclick="ptExecuteEvolutionPlay('${cardId}', '${fromZone}')">決定してバトルゾーンに出す</button>`;    footer.innerHTML = footerHtml;
     modal.style.display = 'flex';
     updateEvoSelectUI();
 }
