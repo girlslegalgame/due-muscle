@@ -2,12 +2,12 @@ package app
 
 import (
 	"bufio"
-	"crypto/tls"
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"net"
 	"net/http"
-	"net/smtp"
 	"os"
 	"path/filepath"
 	"strings"
@@ -190,87 +190,59 @@ func getEnvWithFallback(key string) string {
 	return ""
 }
 
-// 管理者宛にお問い合わせ通知メールを送信
+// 管理者宛にお問い合わせ通知メールを送信（Resend API 利用）
 func sendContactEmail(senderEmail, subject, content string) error {
+	apiKey := getEnvWithFallback("RESEND_API_KEY")
 	adminEmail := getEnvWithFallback("ADMIN_EMAIL")
+
+	if apiKey == "" {
+		return fmt.Errorf("RESEND_API_KEY が設定されていません")
+	}
 	if adminEmail == "" {
 		return fmt.Errorf("ADMIN_EMAIL が設定されていません")
 	}
 
-	smtpHost := getEnvWithFallback("SMTP_HOST")
-	smtpPort := getEnvWithFallback("SMTP_PORT")
-	smtpUser := getEnvWithFallback("SMTP_USER")
-	smtpPass := getEnvWithFallback("SMTP_PASS")
-
-	// SMTP設定がない場合はコンソールログに出力して終了
-	if smtpHost == "" || smtpPort == "" {
-		log.Printf("[Contact] SMTP未設定のためメール送信をスキップ: 送信先=%s, 件名=%s, 差出人=%s", adminEmail, subject, senderEmail)
-		return nil
+	// ドメイン認証が完了していない場合は "onboarding@resend.dev" を使用
+	fromEmail := getEnvWithFallback("FROM_EMAIL")
+	if fromEmail == "" {
+		fromEmail = "onboarding@resend.dev"
 	}
 
-	addr := smtpHost + ":" + smtpPort
-	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+	bodyText := fmt.Sprintf("お問い合わせを受信しました。\n\n【差出人】: %s\n【件名】: %s\n【内容】:\n%s\n",
+		senderEmail, subject, content)
 
-	body := fmt.Sprintf("From: %s\r\nTo: %s\r\nReply-To: %s\r\nSubject: [お問い合わせ] %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nお問い合わせを受信しました。\r\n\r\n【差出人】: %s\r\n【件名】: %s\r\n【内容】:\r\n%s\r\n",
-		smtpUser, adminEmail, senderEmail, subject, senderEmail, subject, content)
-
-	// タイムアウトを10秒に設定
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
-
-	var conn net.Conn
-	var err error
-
-	if smtpPort == "465" {
-		// SSL/TLS (Implicit TLS)
-		tlsConfig := &tls.Config{ServerName: smtpHost}
-		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
-	} else {
-		// 587 等 (STARTTLS / Plain)
-		conn, err = dialer.Dial("tcp", addr)
+	payload := map[string]interface{}{
+		"from":     fmt.Sprintf("Due-Muscle お問い合わせ <%s>", fromEmail),
+		"to":       []string{adminEmail},
+		"reply_to": senderEmail,
+		"subject":  fmt.Sprintf("[お問い合わせ] %s", subject),
+		"text":     bodyText,
 	}
+
+	jsonBytes, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("SMTPサーバー接続失敗 (%s): %w", addr, err)
+		return fmt.Errorf("リクエストJSON作成失敗: %w", err)
 	}
-	defer conn.Close()
 
-	client, err := smtp.NewClient(conn, smtpHost)
+	req, err := http.NewRequest("POST", "https://api.resend.com/emails", bytes.NewBuffer(jsonBytes))
 	if err != nil {
-		return fmt.Errorf("SMTPクライアント初期化失敗: %w", err)
-	}
-	defer client.Quit()
-
-	// 465番以外でSTARTTLSが利用可能な場合は開始
-	if smtpPort != "465" {
-		if ok, _ := client.Extension("STARTTLS"); ok {
-			tlsConfig := &tls.Config{ServerName: smtpHost}
-			if err = client.StartTLS(tlsConfig); err != nil {
-				return fmt.Errorf("StartTLS失敗: %w", err)
-			}
-		}
+		return fmt.Errorf("HTTPリクエスト作成失敗: %w", err)
 	}
 
-	if auth != nil {
-		if ok, _ := client.Extension("AUTH"); ok {
-			if err = client.Auth(auth); err != nil {
-				return fmt.Errorf("SMTP認証失敗: %w", err)
-			}
-		}
-	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
 
-	if err = client.Mail(smtpUser); err != nil {
-		return fmt.Errorf("Mail FROM設定失敗: %w", err)
-	}
-	if err = client.Rcpt(adminEmail); err != nil {
-		return fmt.Errorf("Rcpt TO設定失敗: %w", err)
-	}
-
-	w, err := client.Data()
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("Dataコマンド失敗: %w", err)
+		return fmt.Errorf("Resend API接続失敗: %w", err)
 	}
-	_, err = w.Write([]byte(body))
-	if err != nil {
-		return fmt.Errorf("メール本文書き込み失敗: %w", err)
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		resBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("Resend APIエラー (Status %d): %s", resp.StatusCode, string(resBody))
 	}
-	return w.Close()
+
+	return nil
 }
