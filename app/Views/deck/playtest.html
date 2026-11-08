@@ -94,7 +94,10 @@
         }
 
         .playtest-container {
-            max-width: 100%;
+            width: 100% !important;
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
             margin: 0 auto;
         }
 
@@ -172,15 +175,24 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            height: calc(100vh - 170px); /* ★ 広告枠(90px)＋マージン分を差し引いて画面内に収める */
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            height: calc(100vh - 170px);
         }
         .playtest-row {
-            display: flex;
+            display: flex !important;
+            flex-direction: row !important;
+            align-items: stretch !important;
             gap: 12px;
-            width: 100%;
-            max-width: 100%;
-            min-width: 0;                /* ★ 横幅強制クランプ */
-            box-sizing: border-box;
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            flex: 1 1 0px !important;       /* 各行の高さと幅を厳格にロック */
         }
         .playtest-row:nth-child(2) {
             display: flex !important;
@@ -188,13 +200,15 @@
             align-items: stretch !important;
             width: 100% !important;
             max-width: 100% !important;
-            gap: 6px !important;
+            min-width: 0 !important;
+            gap: 12px !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
+            flex: 1 1 0px !important;
         }
         /* ゾーン共通スタイル */
         .playtest-zone {
-            touch-action: pan-x !important;               /* ★ 横スクロール操作を明示的に許可 */
+            touch-action: pan-x !important;
             background: rgba(255,255,255,0.05);
             border: 2px dashed rgba(255,255,255,0.15);
             border-radius: 8px;
@@ -204,11 +218,12 @@
             flex-direction: row;
             align-items: center;
             gap: 12px;
-            overflow-x: auto !important;                 /* ★ 横スクロールを強制有効化 */
+            overflow-x: scroll !important;               /* ★ autoではなくscrollで確実に有効化 */
             overflow-y: hidden !important;
             white-space: nowrap;
-            -webkit-overflow-scrolling: touch;           /* ★ iOSの滑らかな慣性スクロール */
-            scrollbar-width: thin;                      /* ★ Firefox用スリムスクロールバー */
+            min-width: 0 !important;                     /* ★ 重要: Flexアイテムが中身に合わせて伸びるのを防止 */
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
             scrollbar-color: rgba(255,255,255,0.3) transparent;
         }
 
@@ -227,32 +242,50 @@
 
         /* 各ゾーンのPC標準サイズ */
         .zone-battle { 
-            flex: 1 1 0% !important;   /* ★ 0%ベースで親要素の幅に完全固定 */
-            width: 100% !important;
-            min-width: 0 !important;
+            display: flex !important;
+            flex: 1 1 0px !important;
+            width: 0 !important;             /* ★ 中身の幅を無視して親の幅いっぱいにロック */
+            min-width: 0 !important;         /* ★ Flexアイテムの肥大化を完全阻止 */
             max-width: 100% !important;
             min-height: 250px; 
             padding: 25px 12px 10px 12px; 
+            box-sizing: border-box !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
         }
         .zone-shield { 
-            flex: 1 1 auto !important;
+            display: flex !important;
+            flex: 1 1 0px !important;
+            width: 0 !important;             /* ★ 右側固定ゾーン以外の残り幅に完全固定 */
             min-width: 0 !important;
-            width: 100% !important;
+            max-width: 100% !important;
             min-height: 230px; 
             padding: 30px 12px 10px 12px;
-            box-sizing: border-box;
+            box-sizing: border-box !important;
             overflow-x: auto !important;
             overflow-y: hidden !important;
             white-space: nowrap;
-            -webkit-overflow-scrolling: touch; /* ★ iOSの慣性スクロールを有効化 */
         }
         .zone-mana { 
-            flex: 1 1 0% !important;   /* ★ 0%ベースで親要素の幅に完全固定 */
-            width: 100% !important;
+            display: flex !important;
+            flex: 1 1 0px !important;
+            width: 0 !important;
             min-width: 0 !important;
             max-width: 100% !important;
             min-height: 230px; 
             padding: 25px 12px 10px 12px; 
+            box-sizing: border-box !important;
+            overflow-x: auto !important;
+            overflow-y: hidden !important;
+        }
+        
+        /* カードが縮まずに横一列に並ぶよう指定 */
+        .zone-battle .playtest-card,
+        .zone-shield .playtest-card,
+        .zone-mana .playtest-card {
+            flex: 0 0 auto !important;
+            width: 135px !important;
+            height: 189px !important;
         }
 
         /* ドラッグオーバー時のハイライト */
@@ -825,6 +858,9 @@
             }
 
             /* 盤面カード */
+            .zone-battle .playtest-card,
+            .zone-shield .playtest-card,
+            .zone-mana .playtest-card,
             .playtest-card {
                 height: 100% !important;
                 max-height: 100% !important;
@@ -832,6 +868,7 @@
                 aspect-ratio: 5 / 7 !important;
                 min-height: 0 !important;
                 min-width: 0 !important;
+                flex: 0 0 auto !important;
                 box-sizing: border-box !important;
             }
             .zone-shield .playtest-card {
