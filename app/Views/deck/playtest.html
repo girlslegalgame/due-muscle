@@ -2817,10 +2817,12 @@ function ptExecuteStackOver(baseCardId) {
         newTopCard.inverted = false; 
         newTopCard.faceDown = false;
         newTopCard.tapped = baseCard.tapped; // 進化等として元のクリーチャーのタップ状態を継承します
+        newTopCard.underCards = [];
 
         // 新しく上に重ねたカードの直下に元の親カード(baseCard)が来るように整理
-        newTopCard.underCards = [baseCard, baseCard.underCards];
+        const prevUnders = baseCard.underCards || [];
         baseCard.underCards = []; // 元カード側の参照をクリア
+        newTopCard.underCards = [baseCard, ...prevUnders];
 
         ptState.battle[baseCardIndex] = newTopCard;
     }
@@ -4159,10 +4161,12 @@ function ptExecuteSeal(cardId, count) {
             deckCard.faceDown = true; // 封印なので裏向き
             deckCard.tapped = targetCard.tapped; // 元のタップ状態を引き継ぎ
             deckCard.inverted = false;
+            deckCard.underCards = [];
             
-            // 新しい封印カード(deckCard)を代表にし、元のクリーチャー群をすべてその下にスタック
-            deckCard.underCards = [targetCard, targetCard.underCards];
+            // 新しい封印カード(deckCard)を代表にし、元のクリーチャー群をフラットにその下にスタック
+            const prevUnders = targetCard.underCards || [];
             targetCard.underCards = []; // 参照クリア
+            deckCard.underCards = [targetCard, ...prevUnders];
             
             ptState.battle[cardIndex] = deckCard;
             targetCard = deckCard; // 2枚目以降を連続してその上に重ねるためにターゲットを更新
@@ -4807,13 +4811,14 @@ function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
                 card.tapped = baseCard.tapped;
                 card.inverted = false;
                 
-                card.underCards = [baseCard, baseCard.underCards];
+                const prevUnders = baseCard.underCards || [];
                 baseCard.underCards = [];
+                card.underCards = [baseCard, ...prevUnders];
                 
                 ptState.battle[baseIdx] = card;
             } else {
                 // 封印(裏向きカード)の下にあるクリーチャー本体の上に割り込み進化させる場合
-                let allComps = [baseCard, baseCard.underCards];
+                let allComps = [baseCard, ...(baseCard.underCards || [])];
                 let faceupIdx = allComps.findIndex(c => !c.faceDown); // 最初の表向き本体を探す
                 
                 if (faceupIdx !== -1) {
@@ -4825,20 +4830,21 @@ function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
                     
                     // 表向き本体とその下の進化元を新しいカードの下に格納
                     const remainComps = allComps.slice(faceupIdx);
-                    card.underCards = [remainComps];
+                    card.underCards = [...remainComps];
                     
                     // 新しいカードの上に、元々の封印(裏向きカード群)を再配置
                     const seals = allComps.slice(0, faceupIdx);
                     let newParent = seals[0];
-                    newParent.underCards = [seals.slice(1), card];
+                    newParent.underCards = [...seals.slice(1), card];
                     
                     ptState.battle[baseIdx] = newParent;
                 } else {
                     card.faceDown = false;
                     card.tapped = baseCard.tapped;
                     card.inverted = false;
-                    card.underCards = [baseCard, baseCard.underCards];
+                    const prevUnders = baseCard.underCards || [];
                     baseCard.underCards = [];
+                    card.underCards = [baseCard, ...prevUnders];
                     ptState.battle[baseIdx] = card;
                 }
             }
@@ -4851,8 +4857,9 @@ function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
             card.tapped = baseCard.tapped;
             card.inverted = false;
             
-            card.underCards = [baseCard, baseCard.underCards];
+            const prevUnders = baseCard.underCards || [];
             baseCard.underCards = [];
+            card.underCards = [baseCard, ...prevUnders];
             
             ptState.battle[baseIdx] = card;
         }
@@ -5109,10 +5116,12 @@ function ptExecuteBatchSeal() {
                 deckCard.faceDown = true; // 封印なので裏向き
                 deckCard.tapped = targetCard.tapped; // 元のタップ状態を継承
                 deckCard.inverted = false;
+                deckCard.underCards = [];
                 
-                // 新しい封印カードを束の代表にし、元の構成を下にスタック
-                deckCard.underCards = [targetCard, targetCard.underCards];
+                // 新しい封印カードを束の代表にし、元の構成をフラットに下にスタック
+                const prevUnders = targetCard.underCards || [];
                 targetCard.underCards = [];
+                deckCard.underCards = [targetCard, ...prevUnders];
                 
                 ptState.battle[cardIndex] = deckCard;
             }

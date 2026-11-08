@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv" // ★ 追加
 	"time"
 
 	models "deck-maker/app/Models"
@@ -15,16 +16,21 @@ type NotificationController struct{}
 
 // セッションからuser_idを取得するヘルパー関数
 func getSessionUserId(r *http.Request) interface{} {
-	// 既存のセッション実装に合わせて取得してください
-	// 未ログイン時は nil を返します
-	cookie, err := r.Cookie("user_id")
-	if err != nil || cookie.Value == "" {
-		return nil
+	uidVal := views.GetSessionUserID(r)
+	if uidVal != nil {
+		return uidVal
 	}
-	return views.GetSessionUserID(r)
+	if cookie, err := r.Cookie("user_id"); err == nil && cookie.Value != "" {
+		return cookie.Value
+	}
+	return nil
 }
 
 func (c *NotificationController) Index(w http.ResponseWriter, r *http.Request) {
+	// ★ Cloudflare およびブラウザのキャッシュを完全に無効化
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+
 	db, err := models.DatabaseConnect()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -100,10 +106,14 @@ func (c *NotificationController) Index(w http.ResponseWriter, r *http.Request) {
  */
 func (c *NotificationController) MarkAsReadApi(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+
 	userId := getSessionUserId(r)
 
 	if userId == nil {
-		json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "ログインが必要です"})
 		return
 	}
 
@@ -111,18 +121,24 @@ func (c *NotificationController) MarkAsReadApi(w http.ResponseWriter, r *http.Re
 	json.NewDecoder(r.Body).Decode(&input)
 
 	var notifId int64
-	if val, ok := input["notification_id"]; ok {
+	if val, ok := input["notification_id"]; ok && val != nil {
 		switch v := val.(type) {
 		case float64:
 			notifId = int64(v)
 		case int:
 			notifId = int64(v)
+		case int64:
+			notifId = v
+		case string:
+			if idParsed, err := strconv.ParseInt(v, 10, 64); err == nil {
+				notifId = idParsed
+			}
 		}
 	}
 
 	if notifId == 0 {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "ID不足"})
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "ID不足"})
 		return
 	}
 
