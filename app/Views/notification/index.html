@@ -1,76 +1,197 @@
 <!-- app/Views/notification/index.html -->
+
 <style>
+    /* スマホ実機の横スクロール・はみ出しを強制防止 */
+    html, body {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+    }
+    main {
+        max-width: 100% !important;
+        overflow-x: hidden !important;
+        box-sizing: border-box !important;
+    }
+
+    .notif-container {
+        width: 100% !important;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 10px 8px;
+        box-sizing: border-box !important;
+        overflow-x: hidden !important;
+    }
+
+    .notif-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-bottom: 15px;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .notif-tabs {
+        display: flex;
+        width: 100% !important;
+        border-bottom: 2px solid #ddd;
+        box-sizing: border-box !important;
+    }
+
+    .notif-tabs button {
+        flex: 1 1 50%;
+        -webkit-appearance: none;
+        appearance: none;
+        padding: 8px 4px !important;
+        font-weight: bold;
+        border: none;
+        background: none;
+        cursor: pointer;
+        font-size: 0.85rem !important;
+        text-align: center;
+        border-radius: 0;
+        outline: none;
+        white-space: normal !important;
+        word-break: break-all;
+    }
+
+    .notif-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
+    .notif-actions button {
+        -webkit-appearance: none;
+        appearance: none;
+        font-size: 0.8rem;
+    }
+
+    #notif-pane-global, #notif-pane-personal {
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+
     .notif-item {
         background: #fff;
         border: 1px solid #e2e8f0;
         border-radius: 6px;
-        padding: 12px 14px;
+        padding: 10px 8px;
         display: flex;
         justify-content: space-between;
         align-items: center;
         cursor: pointer;
         transition: background 0.15s;
-        box-sizing: border-box;
-        width: 100%;
-        gap: 10px;
+        box-sizing: border-box !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        gap: 6px;
+        -webkit-tap-highlight-color: transparent;
+        overflow: hidden !important;
     }
+
     .notif-item:hover { background: #f8fafc; }
     .notif-item.unread {
         border-left: 4px solid #007bff;
+    }
+    .notif-item.unread .notif-item-title {
         font-weight: bold;
+        color: #0f172a;
     }
     .notif-item.read { opacity: 0.75; }
+
     .notif-badge-unread {
         background: #ef4444;
         color: #fff;
-        font-size: 0.7rem;
-        padding: 2px 6px;
-        border-radius: 4px;
-        margin-right: 6px;
+        font-size: 0.65rem;
+        padding: 2px 5px;
+        border-radius: 3px;
+        margin-right: 4px;
         flex-shrink: 0;
+        line-height: 1.2;
     }
 
-    /* スマホ・小型画面用調整 */
-    @media (max-width: 640px) {
+    .notif-item-title {
+        font-size: 0.85rem !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+    }
+
+    .notif-item-date {
+        font-size: 0.7rem !important;
+        color: #94a3b8;
+        white-space: nowrap;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+
+    /* モーダル */
+    #notifDetailModal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0;
+        width: 100% !important;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        overflow-y: auto;
+        box-sizing: border-box;
+    }
+
+    #notifDetailModal .sub-modal-content {
+        width: 90% !important;
+        max-width: 550px !important;
+        margin: 20% auto !important;
+        box-sizing: border-box !important;
+        background: #fff;
+        border-radius: 8px;
+    }
+
+    /* PC表示時の調整 */
+    @media screen and (min-width: 641px) {
         .notif-toolbar {
-            flex-direction: column;
-            align-items: stretch !important;
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
         }
         .notif-tabs {
-            width: 100%;
-            display: flex;
+            width: auto !important;
         }
         .notif-tabs button {
-            flex: 1;
-            text-align: center;
-            padding: 8px 6px !important;
-            font-size: 0.85rem !important;
+            flex: initial;
+            padding: 10px 16px !important;
+            font-size: 0.95rem !important;
+            white-space: nowrap !important;
         }
         .notif-actions {
-            justify-content: flex-end;
-            margin-top: 4px;
+            width: auto !important;
         }
-        .sub-modal-content {
-            width: 92% !important;
-            margin: 10% auto !important;
+        .notif-item {
+            padding: 12px 14px;
+        }
+        #notifDetailModal .sub-modal-content {
+            margin: 50px auto !important;
         }
     }
 </style>
 
-<div class="container" style="max-width: 900px;">
-    <h2>お知らせ</h2>
+<div class="notif-container">
+    <h2 style="margin: 0 0 12px 0; font-size: 1.3rem;">お知らせ</h2>
 
     <!-- 操作ツールバー -->
-    <div class="notif-toolbar" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
-        <div class="notif-tabs" style="display: flex; gap: 10px; border-bottom: 2px solid #ddd;">
-            <button type="button" id="tab-btn-global" onclick="switchNotifTab('global')" style="padding: 10px 16px; font-weight: bold; border: none; background: none; cursor: pointer; border-bottom: 3px solid #007bff; color: #007bff; font-size: 0.95rem;">全体へのお知らせ</button>
-            <button type="button" id="tab-btn-personal" onclick="switchNotifTab('personal')" style="padding: 10px 16px; font-weight: bold; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; color: #666; font-size: 0.95rem;">あなたへのお知らせ</button>
+    <div class="notif-toolbar">
+        <div class="notif-tabs">
+            <button type="button" id="tab-btn-global" onclick="switchNotifTab('global')" style="border-bottom: 3px solid #007bff; color: #007bff;">全体へのお知らせ</button>
+            <button type="button" id="tab-btn-personal" onclick="switchNotifTab('personal')" style="border-bottom: 3px solid transparent; color: #666;">あなたへのお知らせ</button>
         </div>
         
         {{ if .IsLoggedIn }}
-            <div class="notif-actions" style="display: flex; gap: 8px;">
-                <button type="button" onclick="deleteNotifications('read')" style="padding: 6px 12px; font-size: 0.8rem; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer;">既読を削除</button>
-                <button type="button" onclick="deleteNotifications('all')" style="padding: 6px 12px; font-size: 0.8rem; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 4px; cursor: pointer;">すべて削除</button>
+            <div class="notif-actions">
+                <button type="button" onclick="deleteNotifications('read')" style="padding: 6px 12px; font-size: 0.8rem; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; cursor: pointer; white-space: nowrap;">既読を削除</button>
+                <button type="button" onclick="deleteNotifications('all')" style="padding: 6px 12px; font-size: 0.8rem; background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; border-radius: 4px; cursor: pointer; white-space: nowrap;">すべて削除</button>
             </div>
         {{ end }}
     </div>
@@ -93,13 +214,13 @@
                          data-action-label="{{ .action_label }}"
                          data-is-read="{{ if .is_read }}1{{ else }}0{{ end }}"
                          onclick="openNotifDetail(this)">
-                        <div style="display: flex; align-items: center; flex: 1 1 0%; min-width: 0; overflow: hidden;">
+                        <div style="display: flex; align-items: center; flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap;">
                             {{ if not .is_read }}
                                 <span class="notif-badge-unread" id="badge_unread_{{ .notification_id }}">未読</span>
                             {{ end }}
-                            <span style="font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; width: 100%;">{{ .title }}</span>
+                            <span class="notif-item-title" style="font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">{{ .title }}</span>
                         </div>
-                        <span style="font-size: 0.75rem; color: #94a3b8; white-space: nowrap; flex-shrink: 0;">{{ slice .created_at 0 10 }}</span>
+                        <span class="notif-item-date" style="font-size: 0.75rem; color: #94a3b8; white-space: nowrap; flex-shrink: 0; margin-left: 4px;">{{ if ge (len (printf "%v" .created_at)) 10 }}{{ slice (printf "%v" .created_at) 0 10 }}{{ else }}{{ .created_at }}{{ end }}</span>
                     </div>
                 {{ end }}
             </div>
@@ -126,13 +247,13 @@
                          data-action-label="{{ .action_label }}"
                          data-is-read="{{ if .is_read }}1{{ else }}0{{ end }}"
                          onclick="openNotifDetail(this)">
-                        <div style="display: flex; align-items: center; flex: 1 1 0%; min-width: 0; overflow: hidden;">
+                        <div style="display: flex; align-items: center; flex: 1 1 0; min-width: 0; overflow: hidden; white-space: nowrap;">
                             {{ if not .is_read }}
                                 <span class="notif-badge-unread" id="badge_unread_{{ .notification_id }}">未読</span>
                             {{ end }}
-                            <span style="font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; width: 100%;">{{ .title }}</span>
+                            <span class="notif-item-title" style="font-size: 0.9rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;">{{ .title }}</span>
                         </div>
-                        <span style="font-size: 0.75rem; color: #94a3b8; white-space: nowrap; flex-shrink: 0;">{{ slice .created_at 0 10 }}</span>
+                        <span class="notif-item-date" style="font-size: 0.75rem; color: #94a3b8; white-space: nowrap; flex-shrink: 0; margin-left: 4px;">{{ if ge (len (printf "%v" .created_at)) 10 }}{{ slice (printf "%v" .created_at) 0 10 }}{{ else }}{{ .created_at }}{{ end }}</span>
                     </div>
                 {{ end }}
             </div>
@@ -141,8 +262,8 @@
 </div>
 
 <!-- お知らせ本文閲覧用モーダル -->
-<div id="notifDetailModal" class="sub-modal">
-    <div class="sub-modal-content" style="max-width: 550px;">
+<div id="notifDetailModal" class="sub-modal" style="display: none;">
+    <div class="sub-modal-content" style="width: 90%; max-width: 550px; box-sizing: border-box;">
         <div class="sub-modal-header">
             <span id="modalNotifTitle" style="font-weight: bold; font-size: 1rem;">お知らせ詳細</span>
             <span style="cursor:pointer; font-size: 1.3rem;" onclick="closeNotifDetail()">&times;</span>
