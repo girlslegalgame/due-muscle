@@ -2,14 +2,18 @@ package app
 
 import (
 	"bufio"
+	"crypto/tls"
+	"fmt"
 	"log"
+	"net"
+	"net/http"
 	"net/smtp"
 	"os"
 	"path/filepath"
 	"strings"
-	"fmt"
+	"time"
+
 	controllers "deck-maker/app/Controllers"
-	"net/http"
 	views "deck-maker/app/Views"
 	deckViews "deck-maker/app/Views/deck"
 
@@ -204,9 +208,69 @@ func sendContactEmail(senderEmail, subject, content string) error {
 		return nil
 	}
 
+	addr := smtpHost + ":" + smtpPort
+	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
+
 	body := fmt.Sprintf("From: %s\r\nTo: %s\r\nReply-To: %s\r\nSubject: [お問い合わせ] %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\nお問い合わせを受信しました。\r\n\r\n【差出人】: %s\r\n【件名】: %s\r\n【内容】:\r\n%s\r\n",
 		smtpUser, adminEmail, senderEmail, subject, senderEmail, subject, content)
 
-	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
-	return smtp.SendMail(smtpHost+":"+smtpPort, auth, smtpUser, []string{adminEmail}, []byte(body))
+	// タイムアウトを10秒に設定
+	dialer := &net.Dialer{Timeout: 10 * time.Second}
+
+	var conn net.Conn
+	var err error
+
+	if smtpPort == "465" {
+		// SSL/TLS (Implicit TLS)
+		tlsConfig := &tls.Config{ServerName: smtpHost}
+		conn, err = tls.DialWithDialer(dialer, "tcp", addr, tlsConfig)
+	} else {
+		// 587 等 (STARTTLS / Plain)
+		conn, err = dialer.Dial("tcp", addr)
+	}
+	if err != nil {
+		return fmt.Errorf("SMTPサーバー接続失敗 (%s): %w", addr, err)
+	}
+	defer conn.Close()
+
+	client, err := smtp.NewClient(conn, smtpHost)
+	if err != nil {
+		return fmt.Errorf("SMTPクライアント初期化失敗: %w", err)
+	}
+	defer client.Quit()
+
+	// 465番以外でSTARTTLSが利用可能な場合は開始
+	if smtpPort != "465" {
+		if ok, _ := client.Extension("STARTTLS"); ok {
+			tlsConfig := &tls.Config{ServerName: smtpHost}
+			if err = client.StartTLS(tlsConfig); err != nil {
+				return fmt.Errorf("StartTLS失敗: %w", err)
+			}
+		}
+	}
+
+	if auth != nil {
+		if ok, _ := client.Extension("AUTH"); ok {
+			if err = client.Auth(auth); err != nil {
+				return fmt.Errorf("SMTP認証失敗: %w", err)
+			}
+		}
+	}
+
+	if err = client.Mail(smtpUser); err != nil {
+		return fmt.Errorf("Mail FROM設定失敗: %w", err)
+	}
+	if err = client.Rcpt(adminEmail); err != nil {
+		return fmt.Errorf("Rcpt TO設定失敗: %w", err)
+	}
+
+	w, err := client.Data()
+	if err != nil {
+		return fmt.Errorf("Dataコマンド失敗: %w", err)
+	}
+	_, err = w.Write([]byte(body))
+	if err != nil {
+		return fmt.Errorf("メール本文書き込み失敗: %w", err)
+	}
+	return w.Close()
 }
