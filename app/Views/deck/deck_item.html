@@ -1,7 +1,7 @@
 {{ $deckId := or .Deck.DeckID .Deck.deck_id }}
 {{ $deckName := or .Deck.DeckName .Deck.deck_name }}
 
-<div class="deck-item mydeck-clickable" data-deck-id="{{ $deckId }}" {{if eq .Context "index"}}onclick="handleDeckItemClick(event, this)"{{end}}>
+<div class="deck-item mydeck-clickable" data-deck-id="{{ $deckId }}" onclick="handleDeckItemClick(event, this)">
     <!-- 1. デッキ名 (プロキシ選択用チェックボックス) -->
     <div style="display: flex; align-items: center; gap: 8px;">
         {{if eq .Context "index"}}
@@ -59,28 +59,5 @@
             </button>
         {{end}}
         <span>{{ or .Deck.formatted_at .FormattedAt }}</span>
-    </div>
-
-    <!-- 6. ボタン群：公開デッキ検索時のみ表示（マイデッキ一覧では全削除） -->
-    {{if eq .Context "search"}}
-        <div class="btn-group btn-group-search" style="display: grid; grid-template-columns: repeat(4, 1fr) !important; gap: 6px; margin-top: auto; padding-top: 6px; align-items: stretch;">
-            <button type="button" class="btn-view" 
-                    data-deck-id="{{ $deckId }}"
-                    data-deck-name="{{ $deckName }}"
-                    onclick="openDeckModal(this.dataset.deckId, this.dataset.deckName)">確認</button>
-            <button type="button" class="btn-share" 
-                    data-deck-id="{{ $deckId }}"
-                    onclick="copyShareUrlFromItem(event, this)">共有</button>
-            <button type="button" class="btn-edit" 
-                    data-deck-id="{{ $deckId }}"
-                    onclick="copyDeck(this.dataset.deckId)" 
-                    style="background-color: #ffc107; color: #212529;">コピー</button>
-            <button type="button" class="btn-report" 
-                    title="通報する"
-                    data-deck-id="{{ $deckId }}"
-                    data-deck-name="{{ $deckName }}"
-                    data-creator-name="{{if .Deck.CreatorName}}{{.Deck.CreatorName}}{{else}}作成者{{end}}"
-                    onclick="openReportModal(this.dataset.deckId, this.dataset.deckName, this.dataset.creatorName)">通報</button>
-        </div>
-    {{end}}
+    </div>  
 </div>

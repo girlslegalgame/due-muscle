@@ -556,8 +556,18 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
 
-            <!-- 2. 主要ツール（2×2グリッド） -->
+            <!-- 2. 主要ツール（グリッドアクション） -->
             <div class="menu-grid-actions">
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('playtest')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <span>一人回し</span>
+                </button>
+
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('price')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    <span>価格査定</span>
+                </button>
+
                 <button type="button" class="menu-action-btn" onclick="onMenuAction('edit')">
                     <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     <span>編集する</span>
@@ -2076,6 +2086,12 @@ function onMenuAction(action) {
     switch (action) {
         case 'view':
             openDeckModal(deck.id, deck.name);
+            break;
+        case 'playtest': // ★ 新しいタブで開くように変更
+            window.open('/decks/playtest?deck_id=' + encodeURIComponent(deck.id), '_blank');
+            break;
+        case 'price': // ★ 追加: デッキ詳細モーダルの価格査定タブを開く
+            openDeckModal(deck.id, deck.name, 'price');
             break;
         case 'edit':
             window.location.href = '/decks/edit?deck_id=' + deck.id;

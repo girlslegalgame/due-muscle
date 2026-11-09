@@ -1113,7 +1113,7 @@ let priceTableInitialized = false;
 /**
  * モーダルオープン時の処理更新
  */
-function openDeckModal(deckId, deckName) {
+function openDeckModal(deckId, deckName, initialTab = 'main') {
     if (typeof isProxySelectMode !== 'undefined' && isProxySelectMode) return;
     currentDeckId = deckId;
     knownShops = {};
@@ -1133,7 +1133,7 @@ function openDeckModal(deckId, deckName) {
 
     document.getElementById('deckModal').style.display = 'block';
     document.body.style.overflow = 'hidden'; 
-    switchTab('main'); 
+    switchTab(initialTab); // ★ 変更: initialTab を反映
 
     // ★ /api/decks/view だけを最優先で取得し、即座に画像を描画する
     fetch('/api/decks/view?deck_id=' + deckId)
@@ -1152,6 +1152,11 @@ function openDeckModal(deckId, deckName) {
             renderImages(cardsData);
             initCharts(cardsData);
             checkKiyonagaOption(cardsData);
+
+            // ★ 追加: 価格査定タブ指定で開かれた場合はデータ取得後にテーブル構築を実行
+            if (initialTab === 'price') {
+                switchTab('price');
+            }
         })
         .catch(err => {
             mainList.innerHTML = 'データの読み込みに失敗しました。';
