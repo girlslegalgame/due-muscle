@@ -932,3 +932,37 @@ func (c *AdminController) ReplyInquiryApi(w http.ResponseWriter, r *http.Request
 
 	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }
+/**
+ * お問い合わせ削除API
+ */
+func (c *AdminController) DeleteInquiryApi(w http.ResponseWriter, r *http.Request) {
+	if !c.ensureAdmin(w, r) {
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	var input map[string]interface{}
+	json.NewDecoder(r.Body).Decode(&input)
+
+	inquiryId := int(getFloat(input["inquiry_id"]))
+	if inquiryId == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "IDが不正です"})
+		return
+	}
+
+	db, err := models.DatabaseConnect()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = db.Exec("DELETE FROM inquiries WHERE inquiry_id = ?", inquiryId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
+}

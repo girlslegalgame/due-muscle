@@ -68,6 +68,13 @@
         margin-bottom: 16px;
     }
 
+    /* メールアドレスのマスク表示用スタイル */
+    .email-masked {
+        filter: blur(5px);
+        user-select: none;
+        transition: filter 0.2s ease;
+    }
+
     @media (max-width: 768px) {
         .admin-form-grid-2,
         .admin-form-grid-url {
@@ -276,12 +283,19 @@
                             <td>{{$inq.CreatedAt}}</td>
                             <!-- 操作列のボタンを以下のように修正 -->
                             <td style="text-align: center;">
-                                <button type="button" class="btn-adm btn-adm-primary" 
-                                    data-id="{{$inq.InquiryID}}"
-                                    data-subject="{{$inq.Subject}}"
-                                    data-username="{{$inq.Username}}"
-                                    data-user-id="{{$inq.UserID}}"
-                                    onclick="openReplyModalFromBtn(this)">返信する</button>
+                                <div style="display: flex; gap: 4px; justify-content: center;">
+                                    <button type="button" class="btn-adm btn-adm-primary" 
+                                        data-id="{{$inq.InquiryID}}"
+                                        data-subject="{{$inq.Subject}}"
+                                        data-username="{{$inq.Username}}"
+                                        data-user-id="{{$inq.UserID}}"
+                                        onclick="openReplyModalFromBtn(this)">
+                                        {{if eq $inq.Status "replied"}}再返信{{else}}返信する{{end}}
+                                    </button>
+                                    {{if eq $inq.Status "replied"}}
+                                        <button type="button" class="btn-adm btn-adm-danger" onclick="deleteInquiry('{{$inq.InquiryID}}')">削除</button>
+                                    {{end}}
+                                </div>
                             </td>
                         </tr>
                     {{end}}
@@ -291,7 +305,10 @@
     </div>
 
     <!-- セクション2: ユーザー管理一覧 -->
-    <div class="admin-section-title">ユーザー一覧</div>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin: 30px 0 12px; flex-wrap: wrap; gap: 8px;">
+        <div class="admin-section-title" style="margin: 0;">ユーザー一覧</div>
+        <button type="button" id="btnToggleEmailMask" class="btn-adm btn-adm-secondary" onclick="toggleEmailMask()">メールアドレスを隠す</button>
+    </div>
     <div class="admin-table-wrapper">
         <table class="admin-table">
             <thead>
@@ -309,14 +326,14 @@
                 {{$sessionUserId := .SessionUserID}}
                 {{range $u := .Users}}
                     <tr>
-<td>{{$u.UserID}}</td>
+                        <td>{{$u.UserID}}</td>
                         <td>
                             <div style="display: flex; align-items: center; gap: 6px;">
                                 <input type="text" class="input-adm-text" id="username_{{$u.UserID}}" value="{{$u.Username}}" style="width: 130px;">
                                 <button class="btn-adm btn-adm-primary" onclick="updateUsername('{{$u.UserID}}')">変更</button>
                             </div>
                         </td>
-                        <td>{{$u.Email}}</td>
+                        <td><span class="user-email-col">{{$u.Email}}</span></td>
                         <!-- ロール列 -->
                         <td>
                             {{if eq $u.Role "admin"}}
@@ -810,5 +827,53 @@ function openReplyModalFromBtn(btn) {
         : '※ゲストユーザーのため、管理画面上の記録のみ更新されます。';
     document.getElementById('replyMessageInput').value = '';
     document.getElementById('replyInquiryModal').style.display = 'flex';
+}
+// メールアドレスの表示・非表示（マスク）切り替え
+function toggleEmailMask() {
+    const emailEls = document.querySelectorAll('.user-email-col');
+    const btn = document.getElementById('btnToggleEmailMask');
+    if (!emailEls.length) return;
+
+    const isMasked = emailEls[0].classList.toggle('email-masked');
+    for (let i = 1; i < emailEls.length; i++) {
+        emailEls[i].classList.toggle('email-masked', isMasked);
+    }
+
+    if (isMasked) {
+        btn.innerText = 'メールアドレスを表示';
+        btn.classList.replace('btn-adm-secondary', 'btn-adm-warning');
+        localStorage.setItem('admin_mask_email', 'true');
+    } else {
+        btn.innerText = 'メールアドレスを隠す';
+        btn.classList.replace('btn-adm-warning', 'btn-adm-secondary');
+        localStorage.setItem('admin_mask_email', 'false');
+    }
+}
+
+// ページ読み込み時に設定を復元（デフォルトで隠したい場合は 'true' に判定）
+document.addEventListener('DOMContentLoaded', () => {
+    if (localStorage.getItem('admin_mask_email') === 'true') {
+        toggleEmailMask();
+    }
+});
+// お問い合わせ削除
+function deleteInquiry(inquiryId) {
+    if (!confirm('このお問い合わせを一覧から削除しますか？')) return;
+
+    fetch('/api/admin/inquiries/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiry_id: Number(inquiryId) })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('お問い合わせを削除しました。');
+            location.reload();
+        } else {
+            alert(data.error || '削除に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
 }
 </script>

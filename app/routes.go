@@ -209,6 +209,7 @@ func RegisterRoutes(r chi.Router) {
 		r.Post("/notifications", adminCtrl.SendNotificationApi)
 		r.Post("/decks/bulk-private", adminCtrl.BulkMakeDecksPrivateApi)
 		r.Post("/inquiries/reply", adminCtrl.ReplyInquiryApi)
+		r.Post("/inquiries/delete", adminCtrl.DeleteInquiryApi)
 	})
 }
 // 環境変数を取得（未設定時は .env からフォールバック取得）

@@ -2653,6 +2653,12 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 	isPublic := false
 	deckOwnerID := 0
 	if deck != nil {
+		// ★ 追加: 更新日時を YYYY/MM/DD 形式にフォーマット
+		rawDate := fmt.Sprintf("%v", deck["updated_at"])
+		if len(rawDate) >= 10 {
+			deck["formatted_at"] = strings.ReplaceAll(rawDate[:10], "-", "/")
+		}
+
 		if p, ok := deck["is_public"]; ok && fmt.Sprintf("%v", p) == "1" {
 			isPublic = true
 		}
