@@ -5312,11 +5312,19 @@ function ptToggleSubmenu(e, liEl) {
     if (rect.bottom > window.innerHeight - 8) {
         let newTop = window.innerHeight - rect.height - 8;
         if (newTop < 8) newTop = 8;
-        menu.style.top = newTop + 'px';
+menu.style.top = newTop + 'px';
     }
 }
+
+// コンテキストメニューを非表示にするヘルパー関数
+function ptHideContextMenu() {
+    const menu = document.getElementById('ptContextMenu');
+    if (menu) menu.style.display = 'none';
+}
+
 // 墓地・超次元ゾーン閲覧モーダル用 右クリックメニュー
 function openGroupedViewerContextMenu(e, itemEl, groupIds, fromZone) {
+
     const items = document.querySelectorAll('#ptViewerGrid .pt-grid-item.selected');
     let allSelectedIds = [];
     items.forEach(item => {
@@ -5371,21 +5379,34 @@ function ptMoveGroupedViewerBatch(fromZone, targetZone) {
         return;
     }
 
-    if (targetZone === 'battle' || targetZone === 'shield') {
-        ptActiveRevealContext = 'deck_view'; // モーダル制御を流用
-        ptBatchMoveQueue = allIds;
-        ptBatchMoveTargetZone = targetZone;
+    let anyModalOpened = false;
+    allIds.forEach(id => {
+        // バトルゾーンへの移動で、進化クリーチャーやオレガ・オーラの場合は専用の出し方処理へ
+        if (targetZone === 'battle') {
+            const card = ptState[fromZone] ? ptState[fromZone].find(c => c.id === id) : null;
+            if (card) {
+                const charIds = card.characteristics_ids || [];
+                const isEvo = charIds.some(cid => [2, 9, 13, 16].includes(cid));
+                const isAura = card.cardtype_ids && card.cardtype_ids.includes(8);
+                if (isEvo || isAura) {
+                    anyModalOpened = true;
+                    closePtModal();
+                    ptCheckEvolutionAndPlay(id, fromZone);
+                    return;
+                }
+            }
+        }
+        // 通常のクリーチャー、またはシールド・手札・マナ等への直接移動
+        ptMoveCard(id, fromZone, targetZone, { skipUnderCheck: true });
+    });
+
+    if (!anyModalOpened) {
         closePtModal();
-        ptProcessNextBatchMove();
-    } else {
-        allIds.forEach(id => {
-            ptMoveCard(id, fromZone, targetZone, { skipUnderCheck: true });
-        });
-        closePtModal();
-        renderPtBoard();
     }
+    renderPtBoard();
 }
 // ability_id: 184 超GRから裏向きで下に重ねて出す処理
+
 function ptExecuteGrUnderPlay(cardId, fromZone, count) {
     let card = ptState[fromZone].find(c => c.id === cardId);
     if (!card) return;
