@@ -688,7 +688,19 @@
             box-shadow: 0 2px 4px rgba(0,0,0,0.8);
             z-index: 15;
         }
-
+        .playtest-card.is-equipped-host {
+            border-top-right-radius: 0 !important;
+            border-bottom-right-radius: 0 !important;
+            border-right: none !important;
+        }
+        .playtest-card.is-gear-attached {
+            margin-left: -13px !important; /* PC版ゾーンの gap: 12px + 境界線1pxを相殺 */
+            border-top-left-radius: 0 !important;
+            border-bottom-left-radius: 0 !important;
+            border-left: 1px dashed rgba(0, 123, 255, 0.8) !important;
+            box-shadow: 0 0 8px rgba(0, 123, 255, 0.6) !important;
+            z-index: 2;
+        }
         /* =========================================================
         スマホ・モバイル横画面専用レスポンシブ (完全収容版)
         ========================================================= */
@@ -933,6 +945,10 @@
                 right: 2px !important;
                 bottom: 2px !important;
                 left: auto !important;
+            }
+
+            .playtest-card.is-gear-attached {
+                margin-left: -5px !important; /* モバイル版ゾーンの gap: 4px + 境界線1pxを相殺 */
             }
         }
     </style>
@@ -1996,12 +2012,44 @@ function renderZone(zoneId, arr, name) {
     }
 
     // 手札以外の個別表示
-    arr.forEach(card => {
+    // ★ cardtype_id: 5 の装備品が装備先クリーチャーの直後に並ぶように並び替え
+    let renderCards = arr;
+    if (zoneId === 'pt-zone-battle') {
+        const equippedGears = [];
+        const nonGears = [];
+        arr.forEach(c => {
+            if (c.equipped_to_id) {
+                equippedGears.push(c);
+            } else {
+                nonGears.push(c);
+            }
+        });
+        renderCards = [];
+        nonGears.forEach(c => {
+            renderCards.push(c);
+            equippedGears.filter(g => g.equipped_to_id === c.id).forEach(g => {
+                renderCards.push(g);
+            });
+        });
+        // 装備先が見つからなかった孤立装備品があれば末尾に追加
+        equippedGears.filter(g => !renderCards.includes(g)).forEach(g => renderCards.push(g));
+    }
+
+    renderCards.forEach(card => {
         const el = document.createElement('div');
         el.className = 'playtest-card';
         el.id = card.id;
         el.draggable = true;
         
+        // ★ 追加: 装備中・被装備中のクラス付与
+        if (zoneId === 'pt-zone-battle') {
+            if (card.equipped_to_id) {
+                el.classList.add('is-gear-attached');
+            } else if (arr.some(g => g.equipped_to_id === card.id)) {
+                el.classList.add('is-equipped-host');
+            }
+        }
+
         if (card.tapped) {
             const isLeftTap = card.cardtype_ids && card.cardtype_ids.some(id => [6, 7, 8].includes(id));
             if (isLeftTap) {
@@ -2026,7 +2074,7 @@ function renderZone(zoneId, arr, name) {
             el.classList.add('is-landscape');
         }
 
-img.onload = function() {
+        img.onload = function() {
             if (!card.faceDown && img.naturalWidth > img.naturalHeight) {
                 // 初回ロード時に横長判定された画像パスをキャッシュに保存
                 if (!ptLandscapeCache.has(displaySrc)) {
@@ -2283,6 +2331,35 @@ function ptMoveCard(cardId, from, to, opts = {}) {
         card.underCards = [];
     } else {
         card = ptState[from].splice(index, 1)[0];
+    }
+
+    // ★ 追加: cardtype_id: 5 のカード自身が移動した場合は装備状態をクリア
+    if (card.equipped_to_id) {
+        card.equipped_to_id = null;
+    }
+
+    // ★ 追加: バトルゾーンからカードが離れた時、このカードに装備されていた cardtype_id: 5 のカードを超次元へ送る
+    if (from === 'battle') {
+        const attachedCards = ptState.battle.filter(c => c.equipped_to_id === card.id);
+        attachedCards.forEach(item => {
+            const itemTypeIds = item.cardtype_ids || [];
+            if (itemTypeIds.includes(5)) {
+                // ウエポン(5): 超次元ゾーンへ戻す
+                const gIdx = ptState.battle.findIndex(c => c.id === item.id);
+                if (gIdx !== -1) {
+                    const gCard = ptState.battle.splice(gIdx, 1)[0];
+                    gCard.equipped_to_id = null;
+                    gCard.faceDown = false;
+                    gCard.tapped = false;
+                    gCard.flipped = false;
+                    if (gCard.original_src) gCard.src = gCard.original_src;
+                    ptState.psychic.push(gCard);
+                }
+            } else {
+                // クロスギア(3)等: 装備を解除してバトルゾーンに残す
+                item.equipped_to_id = null;
+            }
+        });
     }
 
     // ★ ここに挿入: パートナーゾーンへの移動ガード(パートナーカード以外は拒絶して元の位置に戻す)
@@ -2559,6 +2636,21 @@ function openCardMenu(e, card, zone) {
                     <li onclick="ptFlipCardFace('${card.id}')">裏返す</li>
                     <hr>
                 `;
+            }
+
+            const cardtypeIds = card.cardtype_ids || [];
+            if (cardtypeIds.includes(3)) {
+                if (card.equipped_to_id) {
+                    menuHtml += `
+                        <li onclick="ptUncrossGear('${card.id}')">⚔️ クロスを解除する</li>
+                        <hr>
+                    `;
+                } else {
+                    menuHtml += `
+                        <li onclick="openCrossTargetSelector('${card.id}')">⚔️ クリーチャーにクロスする...</li>
+                        <hr>
+                    `;
+                }
             }
 
             menuHtml += `
@@ -3154,37 +3246,39 @@ function ptFlipCardFace(id) {
 }
 
 function executeNormalFlip(card) {
+    // ★ 追加: 裏返ったら装備を解除
+    if (card.equipped_to_id) {
+        card.equipped_to_id = null;
+    }
+
     if (!card.flipped) {
         card.src = card.creature_src;
         card.flipped = true;
     } else {
         card.src = card.original_src;
         card.flipped = false;
-        // === 【追加】クリーチャー以外の面に戻ったら強制的にアンタップします ===
         card.tapped = false;
     }
     renderPtBoard();
 }
 
-// 3D龍解の実行処理 (新規追加)
 function ptExecute3DFlip(cardId, imgPath, cardName, rawCardtypeIds) {
     const card = ptState.battle.find(c => c.id === cardId);
     if (card) {
-        card.src = imgPath;
-        
-        // カードタイプを配列に正規化
-        const cardtypeIds = ptNormalizeIds(rawCardtypeIds);
-        
-        // 選択した面がクリーチャー(cardtype_id: 1)であるかを判定
-        const isCreatureSide = cardtypeIds.includes(1);
-        
-        if (isCreatureSide) {
-            card.flipped = true; // クリーチャー化したのでタップ可能に
-        } else {
-            card.flipped = false; // クリーチャー以外の面(ウエポン等)に戻ったためタップ不可に
-            card.tapped = false;  // 自動的にアンタップ
+        // ★ 追加: 3D龍解したら装備を解除
+        if (card.equipped_to_id) {
+            card.equipped_to_id = null;
         }
-        
+
+        card.src = imgPath;
+        const cardtypeIds = ptNormalizeIds(rawCardtypeIds);
+        const isCreatureSide = cardtypeIds.includes(1);
+        if (isCreatureSide) {
+            card.flipped = true;
+        } else {
+            card.flipped = false;
+            card.tapped = false;
+        }
         renderPtBoard();
     }
     closePtModal();
@@ -3451,9 +3545,24 @@ function ptCheckEvolutionAndPlay(cardId, fromZone) {
         ptOpenAuraPlaySelector(cardId, fromZone);
         return;
     }    
+
+    if (abIds.includes(100)) {
+        ptExecuteAbility100(cardId, fromZone);
+        return;
+    }
+    if (abIds.includes(361)) {
+        openEvo361Selector(cardId, fromZone);
+        return;
+    }
+
+    const cardtypeIds = card.cardtype_ids || [];
+    if (cardtypeIds.includes(5)) {
+        ptOpenEquipGearSelector(cardId, fromZone);
+        return;
+    }
+
     // 進化/重ね合わせ対象の判定(2: 進化クリーチャー, 9: 特殊進化V等, 16: 究極進化等)
     const isEvo = charIds.some(id => [2, 9, 13, 16].includes(id));
-
    // 通常カード(進化特性を持たない)はそのままバトルゾーンへ
     if (!isEvo) {
         ptMoveCard(cardId, fromZone, 'battle');
@@ -5441,6 +5550,452 @@ function ptExecuteGrUnderPlay(cardId, fromZone, count) {
 
     // シールド追加能力のチェック
     ptCheckShieldAddAbility(playedCard);
+}
+// ==========================================
+// ability_id: 100 (指定種族捲り＆下重ね進化)
+// race_id が 71 または 384、かつ characteristics_id に 2, 13, 14 を含まないカードが出るまで捲る
+// ==========================================
+let ptAb100MatchedCards = [];
+let ptAb100UnmatchedCards = [];
+let ptAb100PendingCardId = null;
+let ptAb100PendingFromZone = null;
+
+function ptExecuteAbility100(cardId, fromZone) {
+    if (ptState.deck.length === 0) {
+        alert("山札にカードがありません。");
+        return;
+    }
+
+    ptAb100PendingCardId = cardId;
+    ptAb100PendingFromZone = fromZone;
+    ptAb100MatchedCards = [];
+    ptAb100UnmatchedCards = [];
+
+    while (ptState.deck.length > 0) {
+        let c = ptState.deck.pop();
+        c.faceDown = false;
+
+        const rIds = c.race_ids || [];
+        const chIds = c.characteristics_ids || [];
+
+        const hasTargetRace = rIds.some(id => id === 71 || id === 384);
+        const hasExcludedChar = chIds.some(id => [2, 13, 14].includes(id));
+
+        if (hasTargetRace && !hasExcludedChar) {
+            ptAb100MatchedCards.push(c);
+            break; // 条件に合うカードが出た時点で終了
+        } else {
+            ptAb100UnmatchedCards.push(c);
+        }
+    }
+
+    renderAbility100Modal();
+}
+
+function renderAbility100Modal() {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "禁断スター進化";
+    body.innerHTML = `
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">
+            条件に合うカードが出るまで山札の上から表向きにしました。<br>
+            条件に合ったカードを選択して決定すると、そのカードを下に重ねてバトルゾーンに出し、合わなかったカードは山札に加えてシャッフルされます。
+        </p>
+        <div style="display:flex; flex-direction:column; gap:16px; max-height: 60vh; overflow-y: auto;">
+            <div>
+                <h4 style="margin:0 0 8px 0; color:#28a745; border-bottom:1px solid #333; padding-bottom:4px;">
+                    🌟 条件合致カード (${ptAb100MatchedCards.length}枚)
+                </h4>
+                <div class="pt-grid" id="ptAb100MatchedGrid"></div>
+            </div>
+            <div>
+                <h4 style="margin:0 0 8px 0; color:#dc3545; border-bottom:1px solid #333; padding-bottom:4px;">
+                    ❌ 条件外のカード (${ptAb100UnmatchedCards.length}枚)
+                </h4>
+                <div class="pt-grid" id="ptAb100UnmatchedGrid"></div>
+            </div>
+        </div>
+    `;
+
+    const matchedGrid = document.getElementById('ptAb100MatchedGrid');
+    if (ptAb100MatchedCards.length === 0) {
+        matchedGrid.innerHTML = '<div style="font-size:12px; color:#666; padding:10px;">なし（山札に該当カードがありませんでした）</div>';
+    } else {
+        ptAb100MatchedCards.forEach(card => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'pt-grid-item selected';
+            itemEl.dataset.cardId = card.id;
+            itemEl.innerHTML = `<img src="${card.src}"><div class="card-qty">${card.name}</div>`;
+            itemEl.onclick = () => {
+                document.querySelectorAll('#ptAb100MatchedGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
+                itemEl.classList.add('selected');
+            };
+            matchedGrid.appendChild(itemEl);
+        });
+    }
+
+    const unmatchedGrid = document.getElementById('ptAb100UnmatchedGrid');
+    if (ptAb100UnmatchedCards.length === 0) {
+        unmatchedGrid.innerHTML = '<div style="font-size:12px; color:#666; padding:10px;">なし</div>';
+    } else {
+        ptAb100UnmatchedCards.forEach(card => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'pt-grid-item';
+            itemEl.innerHTML = `<img src="${card.src}"><div class="card-qty">${card.name}</div>`;
+            unmatchedGrid.appendChild(itemEl);
+        });
+    }
+
+    let footerHtml = `<button class="btn-pt-secondary" onclick="ptCancelAbility100()">キャンセル</button>`;
+    if (ptAb100MatchedCards.length > 0) {
+        footerHtml += `<button class="btn-pt-primary" onclick="ptConfirmAbility100()">重ねてバトルゾーンに出す</button>`;
+    } else {
+        footerHtml += `<button class="btn-pt-primary" onclick="ptConfirmAbility100NoMatch()">重ねずに出す</button>`;
+    }
+    footer.innerHTML = footerHtml;
+    modal.style.display = 'flex';
+}
+
+function ptConfirmAbility100() {
+    const selectedEl = document.querySelector('#ptAb100MatchedGrid .pt-grid-item.selected');
+    if (!selectedEl) {
+        alert("下に重ねるカードを選択してください。");
+        return;
+    }
+    const underCardId = selectedEl.dataset.cardId;
+    const underCard = ptAb100MatchedCards.find(c => c.id === underCardId);
+
+    // 1. 合わなかったカードを山札へ戻してシャッフル
+    ptAb100UnmatchedCards.forEach(c => {
+        c.faceDown = true;
+        ptState.deck.push(c);
+    });
+    ptShuffle(ptState.deck);
+
+    // 2. 本体をバトルゾーンに出す
+    ptMoveCard(ptAb100PendingCardId, ptAb100PendingFromZone, 'battle', { skipUnderCheck: true, skipDoubleSidedCheck: true });
+    const playedCard = ptState.battle.find(c => c.id === ptAb100PendingCardId);
+
+    // 3. 条件一致カードを下に重ねる
+    if (playedCard && underCard) {
+        underCard.faceDown = false;
+        underCard.tapped = false;
+        underCard.inverted = false;
+        underCard.is_under_stacked = true;
+        playedCard.underCards.push(underCard);
+    }
+
+    ptAb100MatchedCards = [];
+    ptAb100UnmatchedCards = [];
+    ptAb100PendingCardId = null;
+    ptAb100PendingFromZone = null;
+
+    closePtModal();
+    renderPtBoard();
+    if (playedCard) ptCheckShieldAddAbility(playedCard);
+}
+
+function ptConfirmAbility100NoMatch() {
+    // 捲れたカードを全て山札に戻してシャッフル
+    ptAb100UnmatchedCards.forEach(c => {
+        c.faceDown = true;
+        ptState.deck.push(c);
+    });
+    ptShuffle(ptState.deck);
+
+    // 本体のみバトルゾーンに出す
+    ptMoveCard(ptAb100PendingCardId, ptAb100PendingFromZone, 'battle', { skipUnderCheck: true, skipDoubleSidedCheck: true });
+    const playedCard = ptState.battle.find(c => c.id === ptAb100PendingCardId);
+
+    ptAb100MatchedCards = [];
+    ptAb100UnmatchedCards = [];
+    ptAb100PendingCardId = null;
+    ptAb100PendingFromZone = null;
+
+    closePtModal();
+    renderPtBoard();
+    if (playedCard) ptCheckShieldAddAbility(playedCard);
+}
+
+function ptCancelAbility100() {
+    // 捲ったカードを全て山札に戻してシャッフル
+    [...ptAb100MatchedCards, ...ptAb100UnmatchedCards].forEach(c => {
+        c.faceDown = true;
+        ptState.deck.push(c);
+    });
+    ptShuffle(ptState.deck);
+
+    ptAb100MatchedCards = [];
+    ptAb100UnmatchedCards = [];
+    ptAb100PendingCardId = null;
+    ptAb100PendingFromZone = null;
+
+    closePtModal();
+    renderPtBoard();
+}
+
+// ==========================================
+// ability_id: 361 (バトルゾーンまたは墓地から1枚下に重ねる／重ねずに出す)
+// ==========================================
+let pt361SelectedTarget = null; // { cardId, fromZone }
+
+function openEvo361Selector(cardId, fromZone) {
+    pt361SelectedTarget = null;
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "下に重ねるカードの選択 (バトルゾーン / 墓地)";
+    body.innerHTML = `
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">
+            下に重ねるカードをバトルゾーンまたは墓地から1枚選択してください。<br>
+            重ねずに単体で出すことも可能です。
+        </p>
+        <div class="pt-grid" id="ptEvo361Grid"></div>
+    `;
+
+    const grid = document.getElementById('ptEvo361Grid');
+    let list = [];
+
+    // バトルゾーンのカード（自身以外・裏向き以外）
+    ptState.battle.forEach(c => {
+        if (c.id !== cardId && !c.faceDown) {
+            list.push({ card: c, zone: 'battle' });
+        }
+    });
+
+    // 墓地のカード（自身以外）
+    ptState.graveyard.forEach(c => {
+        if (c.id !== cardId) {
+            list.push({ card: c, zone: 'graveyard' });
+        }
+    });
+
+    list.forEach(item => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'pt-grid-item';
+        itemEl.dataset.cardId = item.card.id;
+        itemEl.dataset.zone = item.zone;
+        itemEl.innerHTML = `<img src="${item.card.src}"><div class="card-qty">${item.card.name} (${zoneJapaneseName(item.zone)})</div>`;
+        itemEl.onclick = () => {
+            const isAlreadySelected = itemEl.classList.contains('selected');
+            document.querySelectorAll('#ptEvo361Grid .pt-grid-item').forEach(el => el.classList.remove('selected'));
+            if (!isAlreadySelected) {
+                itemEl.classList.add('selected');
+                pt361SelectedTarget = { cardId: item.card.id, zone: item.zone };
+            } else {
+                pt361SelectedTarget = null;
+            }
+        };
+        grid.appendChild(itemEl);
+    });
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
+        <button class="btn-pt-secondary" style="background:#fd7e14; color:white; border:none;" onclick="ptExecuteEvo361Standalone('${cardId}', '${fromZone}')">重ねずに単体で出す</button>
+        <button class="btn-pt-primary" onclick="ptExecuteEvo361Stack('${cardId}', '${fromZone}')">選択したカードを重ねて出す</button>
+    `;
+    modal.style.display = 'flex';
+}
+
+function ptExecuteEvo361Standalone(cardId, fromZone) {
+    closePtModal();
+    ptMoveCard(cardId, fromZone, 'battle', { skipUnderCheck: true, skipDoubleSidedCheck: true });
+    const playedCard = ptState.battle.find(c => c.id === cardId);
+    if (playedCard) ptCheckShieldAddAbility(playedCard);
+}
+
+function ptExecuteEvo361Stack(cardId, fromZone) {
+    if (!pt361SelectedTarget) {
+        alert("下に重ねるカードを選択するか、「重ねずに単体で出す」を選択してください。");
+        return;
+    }
+
+    const targetId = pt361SelectedTarget.cardId;
+    const targetZone = pt361SelectedTarget.zone;
+
+    // バトルゾーンのカードがタップされていた場合の状態引継ぎ判定
+    let shouldBeTapped = false;
+    if (targetZone === 'battle') {
+        const bCard = ptState.battle.find(c => c.id === targetId);
+        if (bCard && bCard.tapped) shouldBeTapped = true;
+    }
+
+    // 本体をバトルゾーンへ
+    ptMoveCard(cardId, fromZone, 'battle', { skipUnderCheck: true, skipDoubleSidedCheck: true });
+    const playedCard = ptState.battle.find(c => c.id === cardId);
+    if (!playedCard) {
+        closePtModal();
+        return;
+    }
+
+    if (shouldBeTapped) playedCard.tapped = true;
+
+    // 重ねる対象カードを元のゾーンから引き抜いて下に重ねる
+    const idx = ptState[targetZone].findIndex(c => c.id === targetId);
+    if (idx !== -1) {
+        const underCard = ptState[targetZone].splice(idx, 1)[0];
+        underCard.is_under_stacked = true;
+        underCard.faceDown = false;
+        underCard.tapped = false;
+        underCard.inverted = false;
+
+        const childUnderCards = underCard.underCards || [];
+        underCard.underCards = [];
+
+        playedCard.underCards.push(underCard);
+        childUnderCards.forEach(cu => {
+            cu.is_under_stacked = true;
+            playedCard.underCards.push(cu);
+        });
+    }
+
+    pt361SelectedTarget = null;
+    closePtModal();
+    renderPtBoard();
+    if (playedCard) ptCheckShieldAddAbility(playedCard);
+}
+// ==========================================
+// cardtype_id: 5（クロスギア・ウエポン等）の装備先選択
+// ==========================================
+function ptOpenEquipGearSelector(gearCardId, fromZone) {
+    const gearCard = ptState[fromZone].find(c => c.id === gearCardId);
+    if (!gearCard) return;
+
+    // バトルゾーンにいる他の表向きカード（封印中を除く）
+    const targets = ptState.battle.filter(c => c.id !== gearCardId && !c.faceDown);
+
+    if (targets.length === 0) {
+        // 装備先がない場合は単体でバトルゾーンに出す
+        ptMoveCard(gearCardId, fromZone, 'battle', { skipUnderCheck: true, skipDoubleSidedCheck: true });
+        return;
+    }
+
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "装備対象カードの選択";
+    body.innerHTML = `
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">
+            「${gearCard.name}」を装備するカードを選択してください。<br>
+            装備せずに単体で配置することも可能です。
+        </p>
+        <div class="pt-grid" id="ptEquipTargetGrid"></div>
+    `;
+
+    const grid = document.getElementById('ptEquipTargetGrid');
+    targets.forEach(tCard => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'pt-grid-item';
+        itemEl.dataset.cardId = tCard.id;
+        itemEl.innerHTML = `<img src="${tCard.src}"><div class="card-qty">${tCard.name}</div>`;
+        itemEl.onclick = () => {
+            document.querySelectorAll('#ptEquipTargetGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
+            itemEl.classList.add('selected');
+        };
+        grid.appendChild(itemEl);
+    });
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
+        <button class="btn-pt-secondary" style="background:#fd7e14; color:white; border:none;" onclick="ptExecuteEquipGear('${gearCardId}', '${fromZone}', null)">装備せずに出す</button>
+        <button class="btn-pt-primary" onclick="
+            const sel = document.querySelector('#ptEquipTargetGrid .pt-grid-item.selected');
+            if (!sel) {
+                alert('装備するカードを選択してください。');
+                return;
+            }
+            ptExecuteEquipGear('${gearCardId}', '${fromZone}', sel.dataset.cardId);
+        ">選択したカードに装備</button>
+    `;
+    modal.style.display = 'flex';
+}
+
+function ptExecuteEquipGear(gearCardId, fromZone, targetCardId) {
+    closePtModal();
+    ptMoveCard(gearCardId, fromZone, 'battle', { skipUnderCheck: true, skipDoubleSidedCheck: true });
+    const gearCard = ptState.battle.find(c => c.id === gearCardId);
+    if (gearCard) {
+        gearCard.equipped_to_id = targetCardId || null;
+    }
+    renderPtBoard();
+}
+// ==========================================
+// cardtype_id: 3 (クロスギア) クロス/クロス解除処理
+// ==========================================
+function openCrossTargetSelector(gearCardId) {
+    const gearCard = ptState.battle.find(c => c.id === gearCardId);
+    if (!gearCard) return;
+
+    // バトルゾーン内の他の表向きカード（封印中を除く）
+    const targets = ptState.battle.filter(c => c.id !== gearCardId && !c.faceDown);
+
+    if (targets.length === 0) {
+        alert("バトルゾーンに対象となるクリーチャーがいません。");
+        return;
+    }
+
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "クロス対象の選択";
+    body.innerHTML = `
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">
+            「${gearCard.name}」をクロスする対象のクリーチャーを選択してください。
+        </p>
+        <div class="pt-grid" id="ptCrossTargetGrid"></div>
+    `;
+
+    const grid = document.getElementById('ptCrossTargetGrid');
+    targets.forEach(tCard => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'pt-grid-item';
+        itemEl.dataset.cardId = tCard.id;
+        itemEl.innerHTML = `<img src="${tCard.src}"><div class="card-qty">${tCard.name}</div>`;
+        itemEl.onclick = () => {
+            document.querySelectorAll('#ptCrossTargetGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
+            itemEl.classList.add('selected');
+        };
+        grid.appendChild(itemEl);
+    });
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
+        <button class="btn-pt-primary" onclick="
+            const sel = document.querySelector('#ptCrossTargetGrid .pt-grid-item.selected');
+            if (!sel) {
+                alert('クロスするクリーチャーを選択してください。');
+                return;
+            }
+            ptExecuteCrossGear('${gearCardId}', sel.dataset.cardId);
+        ">選択したクリーチャーにクロス</button>
+    `;
+    modal.style.display = 'flex';
+}
+
+function ptExecuteCrossGear(gearCardId, targetCardId) {
+    closePtModal();
+    const gearCard = ptState.battle.find(c => c.id === gearCardId);
+    if (gearCard) {
+        gearCard.equipped_to_id = targetCardId;
+    }
+    renderPtBoard();
+}
+
+function ptUncrossGear(gearCardId) {
+    const gearCard = ptState.battle.find(c => c.id === gearCardId);
+    if (gearCard) {
+        gearCard.equipped_to_id = null;
+    }
+    renderPtBoard();
 }
 </script>
 </body>

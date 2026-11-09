@@ -41,6 +41,103 @@
     .btn-report-user:hover {
         background-color: #c82333;
     }
+    /* app/Views/deck/user_decks.html の <style> 末尾に追加 */
+    .mydeck-clickable {
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    .mydeck-clickable:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+        border-color: #bbb;
+    }
+    .deck-smart-menu {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        background: #fdfdfd;
+    }
+    .menu-hero-btn {
+        width: 100%;
+        padding: 16px;
+        background: #1a202c;
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        text-align: left;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.2s ease;
+    }
+    .menu-hero-btn:hover {
+        background: #2d3748;
+        transform: translateY(-2px);
+    }
+    .menu-hero-title {
+        font-size: 1.15rem;
+        font-weight: bold;
+    }
+    .menu-hero-tags {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+    }
+    .menu-hero-tag {
+        font-size: 0.7rem;
+        background: rgba(255, 255, 255, 0.18);
+        color: #edf2f7;
+        padding: 2px 7px;
+        border-radius: 4px;
+    }
+    .menu-grid-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+    }
+    .menu-action-btn {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 14px 12px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        color: #2d3748;
+        font-weight: bold;
+        font-size: 0.95rem;
+    }
+    .menu-action-btn:hover {
+        background: #f7fafc;
+        border-color: #cbd5e0;
+    }
+    .menu-action-btn svg {
+        width: 20px;
+        height: 20px;
+        stroke: #4a5568;
+        flex-shrink: 0;
+    }
+    .menu-danger-btn {
+        background: transparent;
+        border: 1px dashed #feb2b2;
+        border-radius: 8px;
+        padding: 10px;
+        color: #e53e3e;
+        font-size: 0.85rem;
+        font-weight: bold;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
+    .menu-danger-btn:hover {
+        background: #fff5f5;
+        border-color: #fc8181;
+    }
 </style>
 
 <div class="container">
@@ -121,6 +218,61 @@
                 <button type="button" class="btn-modal-cancel" onclick="closeDeckReportModal()">キャンセル</button>
                 <button type="button" class="btn-modal-confirm" style="background:#dc3545;" onclick="submitDeckReportFromUserDecks()">送信する</button>
             </div>
+        </div>
+    </div>
+</div>
+<!-- デッキ操作メニューモーダル -->
+<div id="deck-action-menu-modal" class="sub-modal" style="display: none;">
+    <div class="sub-modal-content" style="width: 92%; max-width: 440px; border-radius: 14px; box-shadow: 0 16px 36px rgba(0,0,0,0.25); overflow: hidden; background: #fff;">
+        <div class="sub-modal-header" style="background: #1a202c; padding: 14px 18px;">
+            <span id="action-menu-deck-name" style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 340px; font-size: 1rem; font-weight: bold; color: #ffffff;">デッキメニュー</span>
+            <button type="button" onclick="closeDeckActionMenu()" style="background:none; border:none; color:#a0aec0; font-size:1.4rem; cursor:pointer; line-height: 1;">×</button>
+        </div>
+
+        <div class="deck-smart-menu">
+            <!-- 1. 最重要：デッキの確認 -->
+            <button type="button" class="menu-hero-btn" onclick="onMenuAction('view')">
+                <div>
+                    <div class="menu-hero-title">
+                        <span>デッキを確認する</span>
+                    </div>
+                    <div class="menu-hero-tags">
+                        <span class="menu-hero-tag">分析</span>
+                        <span class="menu-hero-tag">一人回し</span>
+                        <span class="menu-hero-tag">価格査定</span>
+                    </div>
+                </div>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.8;"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+
+            <!-- 2. 主要アクション -->
+            <div class="menu-grid-actions">
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('playtest')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    <span>一人回し</span>
+                </button>
+
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('price')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                    <span>価格査定</span>
+                </button>
+
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('copy')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>デッキを複製</span>
+                </button>
+
+                <button type="button" class="menu-action-btn" onclick="onMenuAction('share')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                    <span>共有URLコピー</span>
+                </button>
+            </div>
+
+            <!-- 3. デッキ通報ボタン -->
+            <button type="button" class="menu-danger-btn" onclick="onMenuAction('report')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                <span>デッキを通報する</span>
+            </button>
         </div>
     </div>
 </div>
@@ -299,6 +451,56 @@ function fallbackCopyText(text) {
     } catch (err) {
         document.body.removeChild(textArea);
         prompt('以下のURLをコピーしてください:', text);
+    }
+}
+let selectedActionDeck = null;
+
+function handleDeckItemClick(event, itemEl) {
+    if (event.target.closest('a')) return;
+
+    const deckId = itemEl.dataset.deckId;
+    const deckName = itemEl.querySelector('h3')?.innerText.trim() || '';
+    const creatorName = '{{.targetUser.username}}';
+
+    selectedActionDeck = {
+        id: deckId,
+        name: deckName,
+        creatorName: creatorName
+    };
+
+    document.getElementById('action-menu-deck-name').innerText = deckName;
+    document.getElementById('deck-action-menu-modal').style.display = 'flex';
+}
+
+function closeDeckActionMenu() {
+    document.getElementById('deck-action-menu-modal').style.display = 'none';
+    selectedActionDeck = null;
+}
+
+function onMenuAction(action) {
+    if (!selectedActionDeck) return;
+    const deck = selectedActionDeck;
+    closeDeckActionMenu();
+
+    switch (action) {
+        case 'view':
+            openDeckModal(deck.id, deck.name);
+            break;
+        case 'playtest':
+            window.open('/decks/playtest?deck_id=' + encodeURIComponent(deck.id), '_blank');
+            break;
+        case 'price':
+            openDeckModal(deck.id, deck.name, 'price');
+            break;
+        case 'copy':
+            copyDeck(deck.id);
+            break;
+        case 'share':
+            copyShareUrlFromItem(null, deck.id);
+            break;
+        case 'report':
+            openReportModal(deck.id, deck.name, deck.creatorName);
+            break;
     }
 }
 </script>
