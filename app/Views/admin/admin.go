@@ -31,6 +31,26 @@ type User struct {
 	ReportBanUntil string
 }
 
+type Inquiry struct {
+	InquiryID    int
+	UserID       int
+	Username     string
+	Subject      string
+	Message      string
+	Status       string
+	ReplyMessage string
+	CreatedAt    string
+	RepliedAt    string
+}
+
+// AdminViewData に Inquiries を追加
+type AdminViewData struct {
+	Reports       []Report
+	Users         []User
+	Inquiries     []Inquiry // ★ 追加
+	SessionUserID int
+}
+
 func (u User) IsPublicBanned() bool {
 	if u.PublicBanUntil == "" {
 		return false
@@ -51,12 +71,6 @@ func (u User) IsReportBanned() bool {
 		return false
 	}
 	return t.After(time.Now())
-}
-
-type AdminViewData struct {
-	Reports       []Report
-	Users         []User
-	SessionUserID int
 }
 
 func RenderAdmin(w io.Writer, data AdminViewData) error {

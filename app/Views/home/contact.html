@@ -13,22 +13,86 @@
         </div>
     {{ end }}
 
-    <form method="POST" action="/contact" style="display: flex; flex-direction: column; gap: 15px;">
-        <div>
-            <label for="email" style="display: block; font-weight: bold; margin-bottom: 5px;">メールアドレス <span style="color: #dc3545;">*</span></label>
-            <input type="email" id="email" name="email" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-        </div>
+    <!-- タブ切り替えボタン -->
+    <div style="display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0;">
+        <button type="button" id="tabSiteBtn" onclick="switchContactTab('site')" style="padding: 10px 16px; font-weight: bold; border: none; background: none; border-bottom: 3px solid #007bff; color: #007bff; cursor: pointer;">
+            サイト内で送信
+        </button>
+        <button type="button" id="tabEmailBtn" onclick="switchContactTab('email')" style="padding: 10px 16px; font-weight: bold; border: none; background: none; border-bottom: 3px solid transparent; color: #64748b; cursor: pointer;">
+            メールで送信
+        </button>
+    </div>
 
-        <div>
-            <label for="subject" style="display: block; font-weight: bold; margin-bottom: 5px;">件名 <span style="color: #dc3545;">*</span></label>
-            <input type="text" id="subject" name="subject" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
-        </div>
+    <!-- 1. サイト内送信フォーム（デフォルト表示） -->
+    <div id="formSiteContact">
+        <p style="font-size: 0.85rem; color: #666; margin-bottom: 15px;">
+            ※ログインして送信すると、管理者からの返信が画面上部「お知らせ」に直接届きます。
+        </p>
+        <form method="POST" action="/contact/site" style="display: flex; flex-direction: column; gap: 15px;">
+            {{ if not .IsLoggedIn }}
+                <div>
+                    <label for="guest_name" style="display: block; font-weight: bold; margin-bottom: 5px;">お名前（任意）</label>
+                    <input type="text" id="guest_name" name="guest_name" placeholder="名無し" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+                </div>
+            {{ end }}
+            <div>
+                <label for="site_subject" style="display: block; font-weight: bold; margin-bottom: 5px;">件名 <span style="color: #dc3545;">*</span></label>
+                <input type="text" id="site_subject" name="subject" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;" placeholder="ご要望・不具合報告など">
+            </div>
 
-        <div>
-            <label for="message" style="display: block; font-weight: bold; margin-bottom: 5px;">お問い合わせ内容 <span style="color: #dc3545;">*</span></label>
-            <textarea id="message" name="message" rows="6" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
-        </div>
+            <div>
+                <label for="site_message" style="display: block; font-weight: bold; margin-bottom: 5px;">お問い合わせ内容 <span style="color: #dc3545;">*</span></label>
+                <textarea id="site_message" name="message" rows="6" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
+            </div>
 
-        <button type="submit" class="create-btn" style="width: 100%;">送信する</button>
-    </form>
+            <button type="submit" class="create-btn" style="width: 100%;">送信する</button>
+        </form>
+    </div>
+
+    <!-- 2. メール送信フォーム -->
+    <div id="formEmailContact" style="display: none;">
+        <form method="POST" action="/contact" style="display: flex; flex-direction: column; gap: 15px;">
+            <div>
+                <label for="email" style="display: block; font-weight: bold; margin-bottom: 5px;">メールアドレス <span style="color: #dc3545;">*</span></label>
+                <input type="email" id="email" name="email" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div>
+                <label for="subject" style="display: block; font-weight: bold; margin-bottom: 5px;">件名 <span style="color: #dc3545;">*</span></label>
+                <input type="text" id="subject" name="subject" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            </div>
+
+            <div>
+                <label for="message" style="display: block; font-weight: bold; margin-bottom: 5px;">お問い合わせ内容 <span style="color: #dc3545;">*</span></label>
+                <textarea id="message" name="message" rows="6" required style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; resize: vertical;"></textarea>
+            </div>
+
+            <button type="submit" class="create-btn" style="width: 100%; background: #6c757d;">メールで送信する</button>
+        </form>
+    </div>
 </div>
+
+<script>
+function switchContactTab(type) {
+    const siteTab = document.getElementById('tabSiteBtn');
+    const emailTab = document.getElementById('tabEmailBtn');
+    const siteForm = document.getElementById('formSiteContact');
+    const emailForm = document.getElementById('formEmailContact');
+
+    if (type === 'site') {
+        siteTab.style.borderBottomColor = '#007bff';
+        siteTab.style.color = '#007bff';
+        emailTab.style.borderBottomColor = 'transparent';
+        emailTab.style.color = '#64748b';
+        siteForm.style.display = 'block';
+        emailForm.style.display = 'none';
+    } else {
+        emailTab.style.borderBottomColor = '#007bff';
+        emailTab.style.color = '#007bff';
+        siteTab.style.borderBottomColor = 'transparent';
+        siteTab.style.color = '#64748b';
+        siteForm.style.display = 'none';
+        emailForm.style.display = 'block';
+    }
+}
+</script>

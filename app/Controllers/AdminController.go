@@ -139,10 +139,52 @@ func (c *AdminController) Index(w http.ResponseWriter, r *http.Request) {
 
 	currentSessionUserId := int(getFloat(getSessionValue(r, "user_id")))
 
-	// ★ admin/admin.go ではなく admin/admin.html を呼び出す
+	// テーブルが存在しない場合に備えて自動作成
+	_, _ = db.Exec(`
+		CREATE TABLE IF NOT EXISTS inquiries (
+			inquiry_id INT AUTO_INCREMENT PRIMARY KEY,
+			user_id INT NULL,
+			guest_name VARCHAR(100) NULL,
+			subject VARCHAR(255) NOT NULL,
+			message TEXT NOT NULL,
+			status VARCHAR(20) DEFAULT 'pending',
+			reply_message TEXT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			replied_at DATETIME NULL
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+	`)
+
+	// お問い合わせ一覧取得
+	sqlInquiries := `
+		SELECT 
+			i.inquiry_id, COALESCE(i.user_id, 0), COALESCE(u.username, i.guest_name, 'ゲスト'),
+			i.subject, i.message, i.status, COALESCE(i.reply_message, ''),
+			DATE_FORMAT(i.created_at, '%Y/%m/%d %H:%i'),
+			COALESCE(DATE_FORMAT(i.replied_at, '%Y/%m/%d %H:%i'), '')
+		FROM inquiries i
+		LEFT JOIN users u ON i.user_id = u.user_id
+		ORDER BY (i.status = 'pending') DESC, i.created_at DESC
+	`
+	rowsInquiries, _ := db.Query(sqlInquiries)
+	var inquiries []adminView.Inquiry
+	if rowsInquiries != nil {
+		defer rowsInquiries.Close()
+		for rowsInquiries.Next() {
+			var inq adminView.Inquiry
+			_ = rowsInquiries.Scan(
+				&inq.InquiryID, &inq.UserID, &inq.Username,
+				&inq.Subject, &inq.Message, &inq.Status, &inq.ReplyMessage,
+				&inq.CreatedAt, &inq.RepliedAt,
+			)
+			inquiries = append(inquiries, inq)
+		}
+	}
+
+	// views.RenderView 呼び出し部分の map に "Inquiries" を追加
 	views.RenderView(w, r, "admin/admin.html", map[string]interface{}{
 		"Reports":       reports,
 		"Users":         users,
+		"Inquiries":     inquiries, // ★ 追加
 		"SessionUserID": currentSessionUserId,
 	})
 }
@@ -834,4 +876,59 @@ func getFloat(val interface{}) float64 {
 	default:
 		return 0
 	}
+}
+
+/**
+ * お問い合わせへの返信API
+ */
+func (c *AdminController) ReplyInquiryApi(w http.ResponseWriter, r *http.Request) {
+	if !c.ensureAdmin(w, r) {
+		return
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+
+	var input map[string]interface{}
+	json.NewDecoder(r.Body).Decode(&input)
+
+	inquiryId := int(getFloat(input["inquiry_id"]))
+	replyMessage := strings.TrimSpace(input["reply_message"].(string))
+
+	if inquiryId == 0 || replyMessage == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "返信内容を入力してください"})
+		return
+	}
+
+	db, err := models.DatabaseConnect()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// ユーザーIDと件名を取得
+	var userId sql.NullInt64
+	var subject string
+	err = db.QueryRow("SELECT user_id, subject FROM inquiries WHERE inquiry_id = ?", inquiryId).Scan(&userId, &subject)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "お問い合わせが見つかりません"})
+		return
+	}
+
+	// お問い合わせの更新
+	_, err = db.Exec("UPDATE inquiries SET reply_message = ?, status = 'replied', replied_at = NOW() WHERE inquiry_id = ?", replyMessage, inquiryId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// 登録ユーザーからの問い合わせだった場合はお知らせ（notifications）に返信を送信
+	if userId.Valid && userId.Int64 > 0 {
+		notifTitle := fmt.Sprintf("【返信】お問い合わせ「%s」について", subject)
+		notifMsg := fmt.Sprintf("お問い合わせいただきありがとうございます。\n管理者より返信が届きました。\n\n【回答内容】\n%s", replyMessage)
+		c.sendNotification(db, userId.Int64, notifTitle, notifMsg, nil, nil)
+	}
+
+	json.NewEncoder(w).Encode(map[string]bool{"success": true})
 }

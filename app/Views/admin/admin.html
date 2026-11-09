@@ -233,6 +233,63 @@
         </table>
     </div>
 
+    <!-- セクション: サイト内お問い合わせ一覧 -->
+    <div class="admin-section-title">お問い合わせ一覧</div>
+    <div class="admin-table-wrapper">
+        <table class="admin-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">ID</th>
+                    <th style="width: 120px;">送信者</th>
+                    <th style="width: 160px;">件名</th>
+                    <th>内容</th>
+                    <th style="width: 80px;">状態</th>
+                    <th style="width: 120px;">送信日時</th>
+                    <th style="width: 100px; text-align: center;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{if not .Inquiries}}
+                    <tr><td colspan="7" style="padding: 25px; text-align: center; color: #94a3b8;">お問い合わせはありません。</td></tr>
+                {{else}}
+                    {{range $inq := .Inquiries}}
+                        <tr>
+                            <td>{{$inq.InquiryID}}</td>
+                            <td>
+                                <strong>{{$inq.Username}}</strong>
+                                {{if $inq.UserID}}<br><small style="color:#64748b;">(UID: {{$inq.UserID}})</small>{{end}}
+                            </td>
+                            <td><strong>{{$inq.Subject}}</strong></td>
+                            <td style="max-width: 250px; word-break: break-word;">
+                                {{nl2br $inq.Message}}
+                                {{if $inq.ReplyMessage}}
+                                    <div style="margin-top:6px; padding:6px; background:#f0fdf4; border-left:3px solid #22c55e; font-size:0.8rem; color:#166534;">
+                                        <strong>返信内容:</strong><br>{{nl2br $inq.ReplyMessage}}
+                                    </div>
+                                {{end}}
+                            </td>
+                            <td>
+                                <span class="badge {{if eq $inq.Status "pending"}}badge-pending{{else}}badge-resolved{{end}}">
+                                    {{if eq $inq.Status "pending"}}未対応{{else}}返信済{{end}}
+                                </span>
+                            </td>
+                            <td>{{$inq.CreatedAt}}</td>
+                            <!-- 操作列のボタンを以下のように修正 -->
+                            <td style="text-align: center;">
+                                <button type="button" class="btn-adm btn-adm-primary" 
+                                    data-id="{{$inq.InquiryID}}"
+                                    data-subject="{{$inq.Subject}}"
+                                    data-username="{{$inq.Username}}"
+                                    data-user-id="{{$inq.UserID}}"
+                                    onclick="openReplyModalFromBtn(this)">返信する</button>
+                            </td>
+                        </tr>
+                    {{end}}
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+
     <!-- セクション2: ユーザー管理一覧 -->
     <div class="admin-section-title">ユーザー一覧</div>
     <div class="admin-table-wrapper">
@@ -369,6 +426,69 @@
         <button type="button" class="btn-adm btn-adm-primary" style="width: 100%; padding: 10px; font-size: 0.9rem;" onclick="sendManualNotification()">お知らせを送信する</button>
     </div>
 </div> <!-- ★ ここに欠落していた大枠の閉じタグを追加 -->
+
+<!-- お問い合わせ返信モーダル -->
+    <div id="replyInquiryModal" class="sub-modal" style="display:none; position:fixed; z-index:3600; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); align-items:center; justify-content:center;">
+        <div style="background:#fff; width:500px; max-width:90%; border-radius:8px; padding:20px; box-sizing:border-box;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <span id="replyModalTitle" style="font-weight:bold; font-size:1rem;">お問い合わせへの返信</span>
+                <span style="cursor:pointer; font-size:1.4rem;" onclick="closeReplyModal()">&times;</span>
+            </div>
+            <p id="replyModalNotice" style="font-size:0.8rem; color:#64748b; margin-bottom:10px;"></p>
+            <input type="hidden" id="replyInquiryId">
+            <div style="margin-bottom:12px;">
+                <label style="display:block; font-size:0.8rem; font-weight:bold; margin-bottom:4px;">返信メッセージ</label>
+                <textarea id="replyMessageInput" class="input-adm-text" rows="5" style="width:100%;" placeholder="返信内容を入力してください"></textarea>
+            </div>
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" class="btn-adm btn-adm-outline" onclick="closeReplyModal()">キャンセル</button>
+                <button type="button" class="btn-adm btn-adm-primary" onclick="submitInquiryReply()">送信する</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+// お問い合わせ返信関連
+function openReplyModal(inquiryId, subject, username, userId) {
+    document.getElementById('replyInquiryId').value = inquiryId;
+    document.getElementById('replyModalTitle').innerText = `返信: ${subject} (${username} 様)`;
+    document.getElementById('replyModalNotice').innerText = (Number(userId) > 0)
+        ? '※このユーザーはお知らせ通知機能へ直接返信メッセージが送信されます。'
+        : '※ゲストユーザーのため、管理画面上の記録のみ更新されます。';
+    document.getElementById('replyMessageInput').value = '';
+    document.getElementById('replyInquiryModal').style.display = 'flex';
+}
+
+function closeReplyModal() {
+    document.getElementById('replyInquiryModal').style.display = 'none';
+}
+
+function submitInquiryReply() {
+    const inquiryId = Number(document.getElementById('replyInquiryId').value);
+    const replyMessage = document.getElementById('replyMessageInput').value.trim();
+
+    if (!replyMessage) {
+        alert('返信メッセージを入力してください');
+        return;
+    }
+
+    fetch('/api/admin/inquiries/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inquiry_id: inquiryId, reply_message: replyMessage })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('返信を送信・記録しました。');
+            location.reload();
+        } else {
+            alert(data.error || '返信処理に失敗しました');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました'));
+}
+</script>
 
 <script>
 // 1. 処理済み通報の一括削除
@@ -675,5 +795,20 @@ function sendManualNotification() {
         }
     })
     .catch(() => alert('通信エラーが発生しました'));
+}
+// 引数をボタン要素から受け取るように変更
+function openReplyModalFromBtn(btn) {
+    const inquiryId = btn.dataset.id;
+    const subject = btn.dataset.subject;
+    const username = btn.dataset.username;
+    const userId = Number(btn.dataset.userId || 0);
+
+    document.getElementById('replyInquiryId').value = inquiryId;
+    document.getElementById('replyModalTitle').innerText = `返信: ${subject} (${username} 様)`;
+    document.getElementById('replyModalNotice').innerText = (userId > 0)
+        ? '※このユーザーはお知らせ通知機能へ直接返信メッセージが送信されます。'
+        : '※ゲストユーザーのため、管理画面上の記録のみ更新されます。';
+    document.getElementById('replyMessageInput').value = '';
+    document.getElementById('replyInquiryModal').style.display = 'flex';
 }
 </script>

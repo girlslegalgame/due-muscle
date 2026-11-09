@@ -14,6 +14,7 @@ import (
 	"time"
 
 	controllers "deck-maker/app/Controllers"
+	models "deck-maker/app/Models" // ★ この行を追加
 	views "deck-maker/app/Views"
 	deckViews "deck-maker/app/Views/deck"
 
@@ -61,9 +62,53 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "home/profile.html", map[string]interface{}{})
 	})
-	// お問い合わせ画面
+	// お問い合わせ画面（GET）
 	r.Get("/contact", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "home/contact.html", map[string]interface{}{})
+		sess := views.GetSession(r)
+		views.RenderView(w, r, "home/contact.html", map[string]interface{}{
+			"IsLoggedIn": sess["user_id"] != nil,
+		})
+	})
+
+	// ★ 追加: サイト内お問い合わせ送信処理（POST /contact/site）
+	r.Post("/contact/site", func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "データ解析失敗"})
+			return
+		}
+		subject := strings.TrimSpace(r.FormValue("subject"))
+		message := strings.TrimSpace(r.FormValue("message"))
+		guestName := strings.TrimSpace(r.FormValue("guest_name"))
+
+		if subject == "" || message == "" {
+			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "件名と内容は必須です。"})
+			return
+		}
+
+		sess := views.GetSession(r)
+		var userId interface{} = nil
+		if sess["user_id"] != nil {
+			userId = sess["user_id"]
+		} else if guestName == "" {
+			guestName = "ゲスト"
+		}
+
+		db, err := models.DatabaseConnect()
+		if err != nil {
+			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "DB接続エラー"})
+			return
+		}
+
+		_, err = db.Exec("INSERT INTO inquiries (user_id, guest_name, subject, message) VALUES (?, ?, ?, ?)", userId, guestName, subject, message)
+		if err != nil {
+			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "送信に失敗しました。"})
+			return
+		}
+
+		views.RenderView(w, r, "home/contact.html", map[string]interface{}{
+			"success":    "お問い合わせをサイト内送信で受け付けました。返信はお知らせ通知またはサイト内にて行われます。",
+			"IsLoggedIn": sess["user_id"] != nil,
+		})
 	})
 	// お問い合わせ送信処理
 	r.Post("/contact", func(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +208,7 @@ func RegisterRoutes(r chi.Router) {
 		r.Post("/reports/clean", adminCtrl.CleanReportsApi)
 		r.Post("/notifications", adminCtrl.SendNotificationApi)
 		r.Post("/decks/bulk-private", adminCtrl.BulkMakeDecksPrivateApi)
+		r.Post("/inquiries/reply", adminCtrl.ReplyInquiryApi)
 	})
 }
 // 環境変数を取得（未設定時は .env からフォールバック取得）
