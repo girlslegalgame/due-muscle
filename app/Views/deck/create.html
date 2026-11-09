@@ -2062,7 +2062,7 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
  * 特殊タイプIDから適切なゾーン名を判定する補助関数
  */
 function determineZoneType(charIdsStr) {
-    const ids = (charIdsStr || '').split(',');
+    const ids = String(charIdsStr || '').split(',');
     if (ids.includes('3') || ids.includes('6') || ids.includes('17')) return 'super_dimensional';
     if (ids.includes('10')) return 'gr';
     return 'main';
@@ -2493,9 +2493,20 @@ function renderDetailModal() {
         count = document.getElementById(slotId).classList.contains('active') ? 1 : 0;
     }
     else {
-        const type = determineZoneType(selectedCardData.char_ids);
-        let targetList = type === 'super_dimensional' ? superDimList : (type === 'gr' ? grList : mainList);
-        count = targetList.querySelectorAll(selector).length; // ★ 修正（selector変数を使用）
+        // ★ 改善: デッキ内のカードを直接クリックした場合はその親リストを優先
+        let targetList = null;
+        if (activeClickedElement && [superDimList, grList, mainList].includes(activeClickedElement.parentElement)) {
+            targetList = activeClickedElement.parentElement;
+        } else {
+            const type = determineZoneType(selectedCardData.char_ids);
+            targetList = type === 'super_dimensional' ? superDimList : (type === 'gr' ? grList : mainList);
+        }
+
+        count = targetList.querySelectorAll(selector).length;
+        // ★ 追加: combo_names でマッチしなかった場合のフォールバック
+        if (count === 0) {
+            count = targetList.querySelectorAll('img[data-card-name="' + escapeSelectorValue(name) + '"]').length;
+        }
     }
     
     // 現在の採用枚数の描画
@@ -2560,7 +2571,11 @@ function adjustQty(diff) {
 
     const comboNames = selectedCardData.combo_names || '';
     const selector = getCardSelector(name, comboNames);
-    const count = targetList.querySelectorAll(selector).length;
+    let count = targetList.querySelectorAll(selector).length;
+    // ★ 追加: フォールバック
+    if (count === 0) {
+        count = targetList.querySelectorAll('img[data-card-name="' + escapeSelectorValue(name) + '"]').length;
+    }
     const totalCount = targetList.querySelectorAll('img').length;
 
     if (diff > 0) {

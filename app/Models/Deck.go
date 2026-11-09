@@ -210,6 +210,12 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                 dc.dummy_partner_civ_ids,
                 cc.combination_id,
                 (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                -- ★ 追加: 超次元・両面カードの面構成名を確実に取得
+                (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
+                 FROM card_combination cc_ref 
+                 JOIN card_combination cc_all ON cc_ref.combination_id = cc_all.combination_id 
+                 JOIN card c_all ON cc_all.card_id = c_all.card_id 
+                 WHERE cc_ref.card_id = c.card_id) as combo_names,
                 
                 -- ★ OR を排除してインデックスを完全適用（フルスキャン防止）
                 TRIM(BOTH ',' FROM CONCAT_WS(',', 
@@ -249,9 +255,10 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
             LEFT JOIN card_detail cd ON c.card_id = cd.card_id 
             LEFT JOIN card_combination cc ON c.card_id = cc.card_id
             LEFT JOIN (
-                SELECT combination_id, card_id as partner_card_id 
+                SELECT combination_id, MIN(card_id) as partner_card_id 
                 FROM card_combination 
                 WHERE is_main_side = 0
+                GROUP BY combination_id
             ) cc_p ON cc.combination_id = cc_p.combination_id AND c.card_id <> cc_p.partner_card_id
             WHERE dc.deck_id = ?
             ORDER BY dc.sort_order ASC`
