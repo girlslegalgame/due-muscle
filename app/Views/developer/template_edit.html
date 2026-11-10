@@ -169,10 +169,31 @@
             return alert("公式テンプレートの場合は商品を選択してください。");
         }
 
-        const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'main' }));
-        const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'super_dimensional' }));
-        const grCards = Array.from(grList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'gr' }));
-        const specialCards = Array.from(document.querySelectorAll('.special-box.active img')).map(img => ({ id: img.dataset.cardId, type: 'special' }));
+        // ★ ダミーカード情報も含めて抽出
+        const extractCardData = (img, type) => {
+            const isDummy = img.dataset.isDummy === "1";
+            const cached = (typeof cardCache !== 'undefined' && cardCache[img.dataset.cardId]) || {};
+            return {
+                id: isDummy ? null : img.dataset.cardId,
+                type: type,
+                is_dummy: isDummy,
+                dummy_name: isDummy ? img.dataset.cardName : null,
+                dummy_cost: isDummy ? (parseInt(img.dataset.cost, 10) || null) : null,
+                dummy_civ_ids: isDummy ? (img.dataset.civ || null) : null,
+                dummy_card_type: cached.dummy_card_type || 'normal',
+                dummy_partner_name: cached.dummy_partner_name || null,
+                dummy_partner_cost: cached.dummy_partner_cost || null,
+                dummy_partner_civ_ids: cached.dummy_partner_civ_ids || null,
+                card_name: img.dataset.cardName,
+                cost: img.dataset.cost,
+                civ_ids: img.dataset.civ
+            };
+        };
+
+        const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => extractCardData(img, 'main'));
+        const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => extractCardData(img, 'super_dimensional'));
+        const grCards = Array.from(grList.querySelectorAll('img')).map(img => extractCardData(img, 'gr'));
+        const specialCards = Array.from(document.querySelectorAll('.special-box.active img')).map(img => extractCardData(img, 'special'));
         const allCards = [...mainCards, ...superDimCards, ...grCards, ...specialCards];
         if (!allCards.length) return alert("カードを1枚以上入れてください。");
 
