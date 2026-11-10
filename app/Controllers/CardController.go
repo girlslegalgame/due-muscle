@@ -11,6 +11,10 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync" // 追加
+
+	"github.com/ikawaha/kagome-dict/ipa"
+	"github.com/ikawaha/kagome/v2/tokenizer"
 )
 
 type CardController struct {
@@ -22,6 +26,93 @@ func NewCardController(db *sql.DB) *AuthController {
 		db: db,
 	}
 }
+
+var (
+	tknzr          *tokenizer.Tokenizer
+	kanjiReadCache map[int]string // card_id -> 漢字読み（ひらがな・記号除去済み）
+	cacheLock      sync.RWMutex
+	cacheOnce      sync.Once
+)
+
+func initTokenizer() {
+	cacheOnce.Do(func() {
+		var err error
+		tknzr, err = tokenizer.New(ipa.Dict(), tokenizer.OmitBosEos())
+		if err != nil {
+			log.Printf("[Kagome Init Error]: %v", err)
+		}
+		kanjiReadCache = make(map[int]string)
+	})
+}
+
+// 漢字文字列をひらがな読みに変換するヘルパー関数
+func toHiraganaReading(text string) string {
+	if tknzr == nil {
+		return ""
+	}
+	tokens := tknzr.Tokenize(text)
+	var sb strings.Builder
+	for _, tok := range tokens {
+		features := tok.Features()
+		// IPA辞書の場合、インデックス7に読み（カタカナ）が格納されている
+		if len(features) > 7 && features[7] != "*" {
+			sb.WriteString(convertKana(features[7], "c"))
+		} else {
+			sb.WriteString(convertKana(tok.Surface, "c"))
+		}
+	}
+	return cleanSearchString(sb.String())
+}
+
+// DBから全カード名を取得して形態素解析読みをロード（遅延初期化）
+func ensureKanjiReadCache(db *sql.DB) {
+	initTokenizer()
+	cacheLock.RLock()
+	if len(kanjiReadCache) > 0 {
+		cacheLock.RUnlock()
+		return
+	}
+	cacheLock.RUnlock()
+
+	cacheLock.Lock()
+	defer cacheLock.Unlock()
+
+	if len(kanjiReadCache) > 0 {
+		return
+	}
+
+	rows, err := db.Query("SELECT card_id, card_name FROM card")
+	if err != nil {
+		log.Printf("[Kagome Cache Load Error]: %v", err)
+		return
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int
+		var name string
+		if err := rows.Scan(&id, &name); err == nil {
+			kanjiReadCache[id] = toHiraganaReading(name)
+		}
+	}
+}
+
+// クエリに合致する漢字読みを持つカードIDを検索
+func findCardIDsByKanjiReading(db *sql.DB, queryHiraClean string) []int {
+	ensureKanjiReadCache(db)
+
+	cacheLock.RLock()
+	defer cacheLock.RUnlock()
+
+	var matchedIDs []int
+	for cardID, reading := range kanjiReadCache {
+		if strings.Contains(reading, queryHiraClean) {
+			matchedIDs = append(matchedIDs, cardID)
+		}
+	}
+	return matchedIDs
+}
+
 
 // mb_convert_kana の簡易互換関数 ("C": ひらがな->カタカナ, "c": カタカナ->ひらがな)
 func convertKana(s string, mode string) string {
@@ -286,6 +377,16 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
                 )`)
 				params[":q_read_kata_clean"] = "%" + qKataClean + "%"
 				params[":q_read_hira_clean"] = "%" + qHiraClean + "%"
+
+				// ★ 追加: 形態素解析による漢字読み（例: どうきのようせい）一致をOR条件に付加
+				matchedKagomeIDs := findCardIDsByKanjiReading(db, qHiraClean)
+				if len(matchedKagomeIDs) > 0 {
+					// 検索数が多い場合のSQL長制限を考慮し最大500件まで注入
+					if len(matchedKagomeIDs) > 500 {
+						matchedKagomeIDs = matchedKagomeIDs[:500]
+					}
+					conds = append(conds, fmt.Sprintf("c_search.card_id IN (%s)", joinInts(matchedKagomeIDs)))
+				}
 			}
 
 			if containsString(scope, "text") {

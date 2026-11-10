@@ -1090,23 +1090,52 @@ function getModalCardImagePath(card) {
     return getCardImageUrl(card);
 }
 
-function checkKiyonagaOption(cards) {
-    const optKiyonaga = document.getElementById('modal-opt-kiyonaga');
-    const select = document.getElementById('modal-analysis-mode-select');
-    if (!optKiyonaga) return;
+let cachedKiyonagaOption = null;
 
-    // メインデッキに「五輪の求道者 清永」または「清永」が含まれているかチェック
+function checkKiyonagaOption(cards) {
+    const select = document.getElementById('modal-analysis-mode-select');
+    if (!select) return;
+
+    let optKiyonaga = document.getElementById('modal-opt-kiyonaga');
+
+    // 初回取得時に要素をキャッシュして保持
+    if (optKiyonaga && !cachedKiyonagaOption) {
+        cachedKiyonagaOption = optKiyonaga;
+    }
+
+    // ★ 完全一致でメインデッキ内の「五輪の求道者 清永」を判定
     const hasKiyonaga = cards.some(c => {
         const isMain = (c.card_type_in_deck === 'main' || !c.card_type_in_deck);
-        const name = c.card_name || '';
-        return isMain && (name.includes('五輪の求道者 清永') || name.includes('清永'));
+        const name = (c.card_name || '').trim();
+        return isMain && name === '五輪の求道者 清永';
     });
 
-    optKiyonaga.style.display = hasKiyonaga ? 'block' : 'none';
-
-    // 清永が入っていないデッキを開いた時に「清永」が選ばれていたらデフォルトに戻す
-    if (!hasKiyonaga && select && select.value === 'kiyonaga') {
-        select.value = 'analysis';
+    if (hasKiyonaga) {
+        // デッキにある場合：select内に無ければ追加し、表示
+        if (!document.getElementById('modal-opt-kiyonaga') && cachedKiyonagaOption) {
+            // 「1人回し」の前、または末尾に挿入
+            const playtestOpt = select.querySelector('option[value="playtest"]');
+            if (playtestOpt) {
+                select.insertBefore(cachedKiyonagaOption, playtestOpt);
+            } else {
+                select.appendChild(cachedKiyonagaOption);
+            }
+        }
+        if (cachedKiyonagaOption) {
+            cachedKiyonagaOption.style.display = 'block';
+            cachedKiyonagaOption.hidden = false;
+            cachedKiyonagaOption.disabled = false;
+        }
+    } else {
+        // デッキにない場合：スマホのoption無視対策としてDOMから完全に除去
+        const currentOpt = document.getElementById('modal-opt-kiyonaga');
+        if (currentOpt) {
+            cachedKiyonagaOption = currentOpt;
+            currentOpt.remove();
+        }
+        if (select.value === 'kiyonaga') {
+            select.value = 'analysis';
+        }
     }
 }
 let priceTableInitialized = false;
@@ -1114,6 +1143,15 @@ let priceTableInitialized = false;
  * モーダルオープン時の処理更新
  */
 function openDeckModal(deckId, deckName, initialTab = 'main') {
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) || 
+                     /iPad|iPhone|iPod/.test(navigator.userAgent);
+    if (isSafari) {
+        const select = document.getElementById('modal-analysis-mode-select');
+        const playtestOpt = select ? select.querySelector('option[value="playtest"]') : null;
+        if (playtestOpt) {
+            playtestOpt.remove();
+        }
+    }
     if (typeof isProxySelectMode !== 'undefined' && isProxySelectMode) return;
     currentDeckId = deckId;
     knownShops = {};
