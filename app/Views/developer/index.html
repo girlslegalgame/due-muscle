@@ -1,0 +1,284 @@
+<div class="container" style="max-width: 1100px;">
+    <h2>開発者ダッシュボード</h2>
+
+    <!-- タブ切り替え -->
+    <div style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #ccc;">
+        <button onclick="switchDevTab('templates')" id="tab-btn-templates" style="padding: 10px 20px; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 4px 4px 0 0; cursor: pointer;">デッキテンプレート管理</button>
+        <button onclick="switchDevTab('master')" id="tab-btn-master" style="padding: 10px 20px; font-weight: bold; background: #eee; color: #333; border: none; border-radius: 4px 4px 0 0; cursor: pointer;">マスタデータ管理</button>
+    </div>
+
+    <!-- 1. デッキテンプレート管理 -->
+    <div id="dev-panel-templates">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h3 style="margin: 0;">登録済みデッキテンプレート</h3>
+            <a href="/developer/templates/new" class="create-btn">+ 新規テンプレ作成</a>
+        </div>
+        <!-- すべて / 公式 / 非公式 切り替えボタン -->
+        <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+            <button type="button" id="tmpl-filter-all" onclick="filterTemplates('all')" style="padding: 6px 14px; font-weight: bold; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer; font-size: 13px;">すべて</button>
+            <button type="button" id="tmpl-filter-official" onclick="filterTemplates(1)" style="padding: 6px 14px; font-weight: bold; border: none; border-radius: 4px; background: #eee; color: #333; cursor: pointer; font-size: 13px;">公式</button>
+            <button type="button" id="tmpl-filter-unofficial" onclick="filterTemplates(0)" style="padding: 6px 14px; font-weight: bold; border: none; border-radius: 4px; background: #eee; color: #333; cursor: pointer; font-size: 13px;">非公式</button>
+        </div>
+        <div id="template-list" class="deck-list"></div>
+    </div>
+          
+    <!-- 2. マスタデータ管理 -->
+    <div id="dev-panel-master" style="display: none;">
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <select id="master-type-select" onchange="loadMasterData()" style="padding: 8px 12px; font-size: 14px; border-radius: 4px; border: 1px solid #ccc;">
+                <option value="race">種族 (race)</option>
+                <option value="ability">特殊能力 (ability)</option>
+                <option value="characteristics">特殊タイプ (characteristics)</option>
+                <option value="cardtype">カードタイプ (cardtype)</option>
+            </select>
+            <button onclick="openMasterEditModal(null)" style="padding: 8px 16px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">+ 新規追加</button>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; background: white; border: 1px solid #ddd; border-radius: 6px; overflow: hidden;">
+            <thead style="background: #333; color: white;">
+                <tr>
+                    <th style="padding: 10px; width: 80px;">ID</th>
+                    <th style="padding: 10px; text-align: left;">名称</th>
+                    <th id="th-reading" style="padding: 10px; text-align: left;">読み仮名</th>
+                    <th style="padding: 10px; width: 100px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="master-tbody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- マスタ編集モーダル -->
+<div id="masterModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 420px; height: auto; margin: 15vh auto;">
+        <div class="sub-modal-header">
+            <span id="master-modal-title">マスタ追加・編集</span>
+            <span onclick="closeMasterModal()" style="cursor: pointer; font-size: 24px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px; display: flex; flex-direction: column; gap: 12px;">
+            <input type="hidden" id="master-edit-id">
+            <div>
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px;">名称 <span style="color:red;">*</span></label>
+                <input type="text" id="master-edit-name" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            </div>
+            <div id="master-reading-group">
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 4px;">読み仮名 (全角カタカナ/ひらがな)</label>
+                <input type="text" id="master-edit-reading" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box;">
+            </div>
+        </div>
+        <div style="padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px;">
+            <button onclick="closeMasterModal()" style="flex: 1; padding: 10px; background: #eee; border: none; border-radius: 4px; cursor: pointer;">キャンセル</button>
+            <button onclick="saveMasterData()" style="flex: 1; padding: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存</button>
+        </div>
+    </div>
+</div>
+
+<script>
+function switchDevTab(tab) {
+    const isTemp = tab === 'templates';
+    const pTemplates = document.getElementById('dev-panel-templates');
+    const pMaster = document.getElementById('dev-panel-master');
+    const bTemplates = document.getElementById('tab-btn-templates');
+    const bMaster = document.getElementById('tab-btn-master');
+
+    if (pTemplates) pTemplates.style.display = isTemp ? 'block' : 'none';
+    if (pMaster) pMaster.style.display = isTemp ? 'none' : 'block';
+    if (bTemplates) {
+        bTemplates.style.background = isTemp ? '#007bff' : '#eee';
+        bTemplates.style.color = isTemp ? '#fff' : '#333';
+    }
+    if (bMaster) {
+        bMaster.style.background = isTemp ? '#eee' : '#007bff';
+        bMaster.style.color = isTemp ? '#333' : '#fff';
+    }
+    if (!isTemp) loadMasterData();
+}
+
+let allDevTemplates = [];
+let currentDevTemplateFilter = 'all';
+
+function filterTemplates(filterType) {
+    currentDevTemplateFilter = filterType;
+    const btnAll = document.getElementById('tmpl-filter-all');
+    const btnOff = document.getElementById('tmpl-filter-official');
+    const btnUnoff = document.getElementById('tmpl-filter-unofficial');
+
+    if (btnAll) {
+        btnAll.style.background = (filterType === 'all') ? '#007bff' : '#eee';
+        btnAll.style.color = (filterType === 'all') ? '#fff' : '#333';
+    }
+    if (btnOff) {
+        btnOff.style.background = (filterType === 1 || filterType === '1') ? '#007bff' : '#eee';
+        btnOff.style.color = (filterType === 1 || filterType === '1') ? '#fff' : '#333';
+    }
+    if (btnUnoff) {
+        btnUnoff.style.background = (filterType === 0 || filterType === '0') ? '#007bff' : '#eee';
+        btnUnoff.style.color = (filterType === 0 || filterType === '0') ? '#fff' : '#333';
+    }
+    renderTemplateList();
+}
+
+function loadTemplates() {
+    const list = document.getElementById('template-list');
+    if (!list) return;
+
+    fetch('/api/developer/templates')
+        .then(res => res.json())
+        .then(templates => {
+            allDevTemplates = Array.isArray(templates) ? templates : [];
+            renderTemplateList();
+        })
+        .catch(err => console.error("テンプレート取得失敗:", err));
+}
+
+function renderTemplateList() {
+    const list = document.getElementById('template-list');
+    if (!list) return;
+    list.innerHTML = '';
+
+    const filtered = allDevTemplates.filter(t => {
+        if (currentDevTemplateFilter === 'all') return true;
+        return Number(t.is_official) === Number(currentDevTemplateFilter);
+    });
+
+    if (!filtered.length) {
+        const typeLabel = (currentDevTemplateFilter === 1 || currentDevTemplateFilter === '1') ? '公式' : ((currentDevTemplateFilter === 0 || currentDevTemplateFilter === '0') ? '非公式' : '');
+        list.innerHTML = `<p style="color:#888;">登録済みの${typeLabel}テンプレートはありません。</p>`;
+        return;
+    }
+
+    filtered.forEach(t => {
+        const item = document.createElement('div');
+        item.className = 'deck-item';
+        const imgPath = t.thumbnail_imagepath 
+            ? ('/images/card' + (t.thumbnail_imagepath.startsWith('/') ? '' : '/') + t.thumbnail_imagepath) 
+            : '/images/card/noimage.webp';
+
+        item.innerHTML = `
+            <h3>${t.template_name}</h3>
+            <div class="deck-thumbnail-wrapper">
+                <img src="${imgPath}" class="deck-thumbnail">
+            </div>
+            <div class="deck-meta-info">
+                <div>
+                    <span class="format-badge">${t.format_name}</span>
+                    ${Number(t.is_official) === 1 
+                        ? `<span style="background:#28a745; color:white; font-size:0.75rem; padding:2px 6px; border-radius:4px; font-weight:bold;">公式</span>` 
+                        : `<span style="background:#6c757d; color:white; font-size:0.75rem; padding:2px 6px; border-radius:4px;">非公式</span>`}
+                </div>
+                <span>${t.updated_at ? t.updated_at.substring(0, 10) : ''}</span>
+            </div>
+            ${t.goods_name ? `<div style="font-size:0.75rem; color:#0056b3; font-weight:bold; margin-top:2px;">商品: ${t.goods_name}</div>` : ''}
+            <div style="font-size:0.8rem; color:#666; max-height:40px; overflow:hidden;">${t.description || ''}</div>
+            <div style="display:flex; gap:6px; margin-top:8px;">
+                <a href="/developer/templates/edit?template_id=${t.template_id}" class="btn-edit" style="flex:1;">編集</a>
+                <button onclick="deleteTemplate(${t.template_id})" class="btn-delete" style="width:42px;">✕</button>
+            </div>
+        `;
+        list.appendChild(item);
+    });
+}
+
+function deleteTemplate(id) {
+    if (!confirm('このテンプレートを削除してもよろしいですか？')) return;
+    fetch('/api/developer/templates/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: id })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) loadTemplates();
+        else alert((data && data.error) || '削除失敗');
+    })
+    .catch(err => alert('通信エラーが発生しました: ' + err.message));
+}
+
+let currentMasterList = [];
+
+function loadMasterData() {
+    const typeSelect = document.getElementById('master-type-select');
+    if (!typeSelect) return;
+    const type = typeSelect.value;
+    const hasReading = (type === 'race' || type === 'ability');
+
+    const thReading = document.getElementById('th-reading');
+    const readGroup = document.getElementById('master-reading-group');
+    if (thReading) thReading.style.display = hasReading ? '' : 'none';
+    if (readGroup) readGroup.style.display = hasReading ? '' : 'none';
+
+    fetch(`/api/developer/master?type=${type}`)
+        .then(res => res.json())
+        .then(data => {
+            currentMasterList = Array.isArray(data) ? data : [];
+            const tbody = document.getElementById('master-tbody');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            currentMasterList.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.style.borderBottom = '1px solid #eee';
+                tr.innerHTML = `
+                    <td style="padding:8px 10px; text-align:center;">${item.id}</td>
+                    <td style="padding:8px 10px; font-weight:bold;">${item.name}</td>
+                    ${hasReading ? `<td style="padding:8px 10px; color:#666;">${item.reading || ''}</td>` : ''}
+                    <td style="padding:8px 10px; text-align:center;">
+                        <button type="button" class="btn-master-edit" data-id="${item.id}" style="padding:4px 10px; background:#ffc107; border:none; border-radius:4px; cursor:pointer; font-weight:bold;">編集</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            tbody.querySelectorAll('.btn-master-edit').forEach(btn => {
+                btn.onclick = () => {
+                    const found = currentMasterList.find(m => String(m.id) === btn.dataset.id);
+                    if (found) openMasterEditModal(found);
+                };
+            });
+        })
+        .catch(err => console.error("マスタデータの取得に失敗:", err));
+}
+
+function openMasterEditModal(item) {
+    document.getElementById('master-edit-id').value = item ? item.id : '';
+    document.getElementById('master-edit-name').value = item ? item.name : '';
+    document.getElementById('master-edit-reading').value = item ? (item.reading || '') : '';
+    document.getElementById('master-modal-title').innerText = item ? 'マスタデータ編集' : 'マスタデータ新規追加';
+    document.getElementById('masterModal').style.display = 'block';
+}
+
+function closeMasterModal() {
+    document.getElementById('masterModal').style.display = 'none';
+}
+
+function saveMasterData() {
+    const typeSelect = document.getElementById('master-type-select');
+    if (!typeSelect) return;
+    const type = typeSelect.value;
+    const id = document.getElementById('master-edit-id').value;
+    const name = document.getElementById('master-edit-name').value.trim();
+    const reading = document.getElementById('master-edit-reading').value.trim();
+
+    if (!name) return alert('名称を入力してください');
+
+    fetch('/api/developer/master/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, id, name, reading })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data && data.success) {
+            closeMasterModal();
+            loadMasterData();
+        } else {
+            alert((data && data.error) || '保存に失敗しました');
+        }
+    })
+    .catch(err => alert('通信エラーが発生しました: ' + err.message));
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    loadTemplates();
+});
+</script>

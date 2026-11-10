@@ -29,6 +29,7 @@ func RegisterRoutes(r chi.Router) {
 	adminCtrl := &controllers.AdminController{}
 	ruleBotCtrl := &controllers.RuleBotController{}
 	notifCtrl := &controllers.NotificationController{}
+	devCtrl := &controllers.DeveloperController{}
 
 	// トップページ
 	r.Get("/", homeCtrl.Index)
@@ -169,6 +170,18 @@ func RegisterRoutes(r chi.Router) {
 			r.Get("/owned-cards", deckCtrl.GetOwnedCardsApi)
 			r.Post("/owned-cards", deckCtrl.SaveOwnedCardsApi)
 		})
+		// ★ 追加: デッキ作成画面用 テンプレート呼出API
+		r.Get("/deck-templates", devCtrl.GetTemplatesApi)
+		r.Get("/deck-templates/cards", devCtrl.TemplateCardsApi)
+
+		// ★ 追加: 開発者専用API
+		r.Route("/developer", func(r chi.Router) {
+			r.Get("/templates", devCtrl.GetTemplatesApi)
+			r.Post("/templates", devCtrl.SaveTemplateApi)
+			r.Post("/templates/delete", devCtrl.DeleteTemplateApi)
+			r.Get("/master", devCtrl.GetMasterDataApi)
+			r.Post("/master/save", devCtrl.SaveMasterDataApi)
+		})
 		// API関連内（r.Route("/api", ...) の中）
 		r.Post("/bot/chat", ruleBotCtrl.ChatApi)
 	})
@@ -196,6 +209,11 @@ func RegisterRoutes(r chi.Router) {
 	// ★ 管理者専用ページ
 	r.Get("/admin", adminCtrl.Index)
 
+	// ★ 開発者専用画面
+	r.Get("/developer", devCtrl.Index)
+	r.Get("/developer/templates/new", devCtrl.TemplateCreate)
+	r.Get("/developer/templates/edit", devCtrl.TemplateEdit)
+	
 	// ★ 管理者専用API
 	r.Route("/api/admin", func(r chi.Router) {
 		r.Get("/user-decks", adminCtrl.UserDecksApi)

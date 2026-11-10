@@ -1,0 +1,217 @@
+{{/* デッキ作成画面のテンプレートを取り込み */}}
+{{ template "deck/create.html" . }}
+
+<div id="officialGoodsSelectModal" class="sub-modal">
+    <div class="sub-modal-content">
+        <div class="sub-modal-header">
+            <span>公式商品を選択 (goodstype: 3)</span>
+            <span onclick="closeOfficialGoodsModal()" style="cursor:pointer; font-size: 20px;">&times;</span>
+        </div>
+        <div style="padding:10px;">
+            <input type="text" id="official-goods-search" placeholder="商品を検索..." style="width:100%; padding:8px; margin-bottom:5px;">
+        </div>
+        <div id="official-goods-list-container" class="sub-modal-body"></div>
+        <div style="padding:15px; border-top:1px solid #eee; background:#fff;">
+            <button type="button" onclick="closeOfficialGoodsModal()" style="width:100%; padding:10px; background:#6c757d; color:#fff; border:none; border-radius:8px; font-weight:bold; cursor:pointer;">閉じる</button>
+        </div>
+    </div>
+</div>
+
+<!-- ★ JSON定義用タグを配置（エディタの構文エラーを回避） -->
+<script id="template-edit-init-data" type="application/json">
+{
+    "initialDesc": {{ .initialDescJSON }},
+    "selectedIsOfficial": {{ .selectedIsOfficialJSON }},
+    "selectedGoodsId": {{ .selectedGoodsIdJSON }},
+    "officialGoods": {{ .officialGoodsJSON }}
+}
+</script>
+
+<script>
+(function() {
+    // ★ JSONから安全に値を取り出す
+    const _tmplData = JSON.parse(document.getElementById('template-edit-init-data').textContent);
+    const initialDesc = _tmplData.initialDesc || '';
+    let selectedIsOfficial = Number(_tmplData.selectedIsOfficial || 0);
+    let selectedGoodsId = _tmplData.selectedGoodsId;
+    const officialGoods = _tmplData.officialGoods || [];
+
+    function escapeHTML(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>'"]/g, tag => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+        }[tag] || tag));
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+        const saveModal = document.getElementById('deckSaveModal');
+        if (!saveModal) return;
+
+        const titleEl = saveModal.querySelector('.sub-modal-header span');
+        if (titleEl) titleEl.innerText = "テンプレート保存設定";
+        const nameInput = document.getElementById('save-deck-name');
+        if (nameInput) {
+            nameInput.placeholder = "テンプレート名を入力してください";
+            if (nameInput.previousElementSibling) nameInput.previousElementSibling.innerText = "テンプレート名";
+        }
+
+        const formatSelect = document.getElementById('save-deck-format');
+        if (formatSelect && !document.getElementById('save-template-desc')) {
+            const formatGroup = formatSelect.closest('div');
+            
+            const officialGroup = document.createElement('div');
+            officialGroup.style.margin = '12px 0';
+            officialGroup.innerHTML = `
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">種別</label>
+                <div style="display: flex; gap: 20px; margin-bottom: 8px;">
+                    <label style="font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <input type="radio" name="template-official-radio" value="0" ${selectedIsOfficial === 0 ? 'checked' : ''} onchange="toggleOfficialType(0)"> 非公式
+                    </label>
+                    <label style="font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                        <input type="radio" name="template-official-radio" value="1" ${selectedIsOfficial === 1 ? 'checked' : ''} onchange="toggleOfficialType(1)"> 公式
+                    </label>
+                </div>
+                <div id="official-goods-select-row" style="display: ${selectedIsOfficial === 1 ? 'block' : 'none'};">
+                    <label style="font-weight: bold; font-size: 12px; color: #666; margin-bottom: 4px; display: block;">対象商品 (goods_id順)</label>
+                    <div id="official-goods-trigger" class="select-trigger" onclick="openOfficialGoodsModal()">商品を選択</div>
+                </div>
+            `;
+            formatGroup.parentNode.insertBefore(officialGroup, formatGroup.nextSibling);
+
+            const descGroup = document.createElement('div');
+            descGroup.style.marginTop = '10px';
+            descGroup.innerHTML = `
+                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">テンプレート説明</label>
+                <textarea id="save-template-desc" placeholder="デッキの特徴や使い方などを記入" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #d1d1d6; border-radius: 8px; box-sizing: border-box; font-size: 13px;">${escapeHTML(initialDesc)}</textarea>
+            `;
+            officialGroup.parentNode.insertBefore(descGroup, officialGroup.nextSibling);
+        }
+
+        const publicToggle = document.getElementById('save-deck-public');
+        if (publicToggle) {
+            const row = publicToggle.closest('div[style*="justify-content: space-between"]') || publicToggle.parentElement.parentElement;
+            if (row) row.style.display = 'none';
+        }
+
+        renderOfficialGoodsModalList();
+        updateOfficialGoodsTriggerText();
+    });
+
+    window.toggleOfficialType = function(val) {
+        selectedIsOfficial = val;
+        const row = document.getElementById('official-goods-select-row');
+        if (row) row.style.display = val === 1 ? 'block' : 'none';
+        if (val === 0) selectedGoodsId = null;
+        updateOfficialGoodsTriggerText();
+    };
+
+    window.openOfficialGoodsModal = function() {
+        document.getElementById('officialGoodsSelectModal').style.display = 'block';
+    };
+    window.closeOfficialGoodsModal = function() {
+        document.getElementById('officialGoodsSelectModal').style.display = 'none';
+    };
+
+    function renderOfficialGoodsModalList() {
+        const container = document.getElementById('official-goods-list-container');
+        if (!container) return;
+        container.innerHTML = '';
+        officialGoods.forEach(g => {
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.dataset.search = (g.goods_name || '').toLowerCase();
+            div.innerHTML = `
+                <span>${escapeHTML(g.goods_name)} (ID: ${g.goods_id})</span>
+                <button type="button" style="padding: 4px 10px; background:#007bff; color:#fff; border:none; border-radius:4px; cursor:pointer;">選択</button>
+            `;
+            div.onclick = () => {
+                selectedGoodsId = g.goods_id;
+                updateOfficialGoodsTriggerText();
+                closeOfficialGoodsModal();
+            };
+            container.appendChild(div);
+        });
+
+        const sInput = document.getElementById('official-goods-search');
+        if (sInput) {
+            sInput.oninput = function() {
+                const q = this.value.toLowerCase();
+                container.querySelectorAll('.list-item').forEach(el => {
+                    el.style.display = (el.dataset.search || '').includes(q) ? 'flex' : 'none';
+                });
+            };
+        }
+    }
+
+    function updateOfficialGoodsTriggerText() {
+        const trigger = document.getElementById('official-goods-trigger');
+        if (!trigger) return;
+        if (!selectedGoodsId) {
+            trigger.innerText = '商品を選択';
+            trigger.style.color = '#666';
+            return;
+        }
+        const item = officialGoods.find(g => String(g.goods_id) === String(selectedGoodsId));
+        trigger.innerText = item ? `${item.goods_name} (ID: ${item.goods_id})` : `商品ID: ${selectedGoodsId}`;
+        trigger.style.color = '#333';
+    }
+
+    window.submitDeckSave = function() {
+        if (typeof isSubmittingDeck !== 'undefined' && isSubmittingDeck) return;
+        const name = document.getElementById('save-deck-name').value.trim();
+        const formatId = document.getElementById('save-deck-format').value;
+        const thumbnailCardId = document.getElementById('save-deck-thumbnail-id').value;
+        const desc = (document.getElementById('save-template-desc') || {}).value || '';
+
+        if (!name) return alert("テンプレート名を入力してください。");
+        if (!formatId) return alert("フォーマットを選択してください。");
+        if (selectedIsOfficial === 1 && !selectedGoodsId) {
+            return alert("公式テンプレートの場合は商品を選択してください。");
+        }
+
+        const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'main' }));
+        const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'super_dimensional' }));
+        const grCards = Array.from(grList.querySelectorAll('img')).map(img => ({ id: img.dataset.cardId, type: 'gr' }));
+        const specialCards = Array.from(document.querySelectorAll('.special-box.active img')).map(img => ({ id: img.dataset.cardId, type: 'special' }));
+        const allCards = [...mainCards, ...superDimCards, ...grCards, ...specialCards];
+        if (!allCards.length) return alert("カードを1枚以上入れてください。");
+
+        const submitBtn = document.querySelector('#deckSaveModal button[onclick="submitDeckSave()"]');
+        if (typeof isSubmittingDeck !== 'undefined') isSubmittingDeck = true;
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = '保存中...'; }
+
+        fetch('/api/developer/templates', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                deck_id: typeof deckId !== 'undefined' ? deckId : null,
+                deck_name: name,
+                description: desc,
+                format_id: parseInt(formatId, 10),
+                thumbnail_card_id: thumbnailCardId ? parseInt(thumbnailCardId, 10) : null,
+                is_official: selectedIsOfficial,
+                goods_id: selectedGoodsId,
+                cards: allCards
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data && data.success) {
+                if (typeof isDeckSaved !== 'undefined') isDeckSaved = true;
+                localStorage.removeItem('unsaved_deck_draft');
+                alert("テンプレートを保存しました！");
+                window.location.href = '/developer';
+            } else {
+                alert("保存に失敗しました: " + (data ? data.error : '不明なエラー'));
+                if (typeof isSubmittingDeck !== 'undefined') isSubmittingDeck = false;
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = '保存する'; }
+            }
+        })
+        .catch(err => {
+            alert("保存中にエラーが発生しました: " + err.message);
+            if (typeof isSubmittingDeck !== 'undefined') isSubmittingDeck = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = '保存する'; }
+        });
+    };
+})();
+</script>

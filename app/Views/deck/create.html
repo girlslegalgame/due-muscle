@@ -1214,7 +1214,11 @@
         </div>
         <div id="deck-header">
             <h3>デッキ内容</h3>
-            <div style="display: flex; align-items: center; gap: 8px;">
+             <div style="display: flex; align-items: center; gap: 8px;">
+                <!-- ★ 追加: テンプレート作成画面以外で「テンプレ呼出」ボタンを表示 -->
+                {{ if not .isTemplate }}
+                <button type="button" class="btn-filter" onclick="openTemplateModal()" style="background: #6f42c1; padding: 8px 12px; font-size: 13px;">テンプレ</button>
+                {{ end }}
                 <!-- ★追加：未実装カード追加ボタン -->
                 <button type="button" class="btn-settings" style="background: #fd7e14; padding: 8px 12px; font-size: 13px;" onclick="openDummyCardModal()">+ダミー追加</button>
                 <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
@@ -1799,11 +1803,34 @@
 
 {{template "dummy_cards_partial" .}}
 
+<!-- ★ 追加: テンプレート呼出モーダル -->
+<div id="templateSelectModal" class="sub-modal">
+    <div class="sub-modal-content" style="max-width: 600px; height: 80vh;">
+        <div class="sub-modal-header">
+            <span>デッキテンプレート呼出</span>
+            <span onclick="closeTemplateModal()" style="cursor:pointer; font-size: 24px;">&times;</span>
+        </div>
+        <div style="padding: 12px 15px; border-bottom: 1px solid #eee; background: #fafafa;">
+            <!-- 公式 / 非公式 タブ -->
+            <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                <button type="button" id="tab-tmpl-official" onclick="switchTemplateTab(1)" style="flex:1; padding: 8px; font-weight:bold; border:none; border-radius:4px; background:#007bff; color:white; cursor:pointer;">公式テンプレート</button>
+                <button type="button" id="tab-tmpl-unofficial" onclick="switchTemplateTab(0)" style="flex:1; padding: 8px; font-weight:bold; border:none; border-radius:4px; background:#eee; color:#333; cursor:pointer;">非公式テンプレート</button>
+            </div>
+            <!-- デッキ名インクリメンタル検索 -->
+            <input type="text" id="template-search-input" placeholder="デッキ名で検索..." oninput="filterTemplateList()" style="width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px;">
+        </div>
+        <div id="template-modal-list" class="sub-modal-body" style="padding: 12px; display: flex; flex-direction: column; gap: 10px;">
+            <!-- JSで動的にリスト生成 -->
+        </div>
+    </div>
+</div>
+
 {{template "analysis_modal"}}
 
 <script id="deck-init-data" type="application/json">
 {
     "isEdit": {{.isEditJSON}},
+    "isTemplate": {{ if .isTemplate }}true{{ else }}false{{ end }},
     "deckId": {{.deckIDJSON}},
     "deckConfig": {{.deckConfigJSON}},
     "initialDeckName": {{.initialDeckNameJSON}},
@@ -1818,6 +1845,7 @@ const _initData = JSON.parse(document.getElementById('deck-init-data').textConte
 let isInitializing = true; 
 let isDeckSaved = false;    
 const isEdit = _initData.isEdit;
+const isTemplate = _initData.isTemplate || false; // ★ 追加
 const deckId = _initData.deckId;
 const deckConfig = _initData.deckConfig;
 const initialDeckName = _initData.initialDeckName;
@@ -3897,7 +3925,10 @@ function getSerializedCards() {
  * ローカルストレージに下書きを保存
  */
 function saveDraftToLocalStorage() {
-    // ★追加: 初期化中または保存完了後は自動保存しない
+    // ★ 追加: テンプレート編集時は下書きを保存しない
+    if (isTemplate) return;
+
+    // 初期化中または保存完了後は自動保存しない
     if (isInitializing || isDeckSaved) return;
 
     const cards = getSerializedCards();
@@ -4026,5 +4057,139 @@ function bulkSelectVisible(type) {
 
     // バッジおよびトリガー表示を最新状態に更新
     updateTriggerText(type);
+}
+// ============================================================================
+// デッキテンプレート呼出・反映ロジック
+// ============================================================================
+let allTemplates = [];
+let currentTemplateTab = 1; // 1: 公式, 0: 非公式
+
+function openTemplateModal() {
+    document.getElementById('templateSelectModal').style.display = 'block';
+    fetch('/api/deck-templates')
+        .then(res => res.json())
+        .then(data => {
+            allTemplates = Array.isArray(data) ? data : [];
+            const hasOfficial = allTemplates.some(t => Number(t.is_official) === 1);
+            if (!hasOfficial && allTemplates.length > 0) {
+                switchTemplateTab(0);
+            } else {
+                renderTemplateList();
+            }
+        })
+        .catch(err => {
+            console.error("テンプレート取得失敗:", err);
+            document.getElementById('template-modal-list').innerHTML = '<div style="text-align:center; color:red; padding:30px;">データの取得に失敗しました。</div>';
+        });
+}
+
+function closeTemplateModal() {
+    document.getElementById('templateSelectModal').style.display = 'none';
+}
+
+function switchTemplateTab(isOfficial) {
+    currentTemplateTab = isOfficial;
+    document.getElementById('tab-tmpl-official').style.background = isOfficial ? '#007bff' : '#eee';
+    document.getElementById('tab-tmpl-official').style.color = isOfficial ? '#fff' : '#333';
+    document.getElementById('tab-tmpl-unofficial').style.background = !isOfficial ? '#007bff' : '#eee';
+    document.getElementById('tab-tmpl-unofficial').style.color = !isOfficial ? '#fff' : '#333';
+    renderTemplateList();
+}
+
+function filterTemplateList() {
+    renderTemplateList();
+}
+
+function renderTemplateList() {
+    const container = document.getElementById('template-modal-list');
+    container.innerHTML = '';
+    const q = (document.getElementById('template-search-input').value || '').trim().toLowerCase();
+
+    const filtered = allTemplates.filter(t => {
+        const isOfficialVal = Number(t.is_official || 0);
+        const matchesTab = (isOfficialVal === currentTemplateTab);
+        const matchesQuery = !q || (t.template_name && t.template_name.toLowerCase().includes(q));
+        return matchesTab && matchesQuery;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color:#888; padding:30px;">該当するテンプレートが見つかりません。</div>';
+        return;
+    }
+
+    filtered.forEach(t => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; align-items:center; gap:12px; padding:10px; border:1px solid #eee; border-radius:8px; background:#fff;';
+        const thumbSrc = getCardImagePath({ imagepath: t.thumbnail_imagepath });
+
+        item.innerHTML = `
+            <img src="${thumbSrc}" onerror="handleImageError(this)" style="width:50px; height:70px; object-fit:contain; border-radius:4px; flex-shrink:0;">
+            <div style="flex:1; min-width:0;">
+                <div style="font-weight:bold; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.template_name || '')}</div>
+                <div style="font-size:12px; color:#666; margin-top:2px;">
+                    <span class="format-badge">${escapeHTML(t.format_name || '')}</span>
+                    ${t.goods_name ? `<span style="color:#0056b3; margin-left:6px;">${escapeHTML(t.goods_name)}</span>` : ''}
+                </div>
+                ${t.description ? `<div style="font-size:11px; color:#888; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.description)}</div>` : ''}
+            </div>
+            <button type="button" onclick="applyTemplate(${t.template_id})" style="padding:8px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; flex-shrink:0;">読込</button>
+        `;
+        container.appendChild(item);
+    });
+}
+
+function applyTemplate(templateId) {
+    const totalCards = mainList.querySelectorAll('img').length + 
+                       superDimList.querySelectorAll('img').length + 
+                       grList.querySelectorAll('img').length + 
+                       document.querySelectorAll('.special-box.active img').length;
+
+    if (totalCards > 0) {
+        if (!confirm("現在のデッキ内のカードはすべて削除され、テンプレートの内容で上書きされます。\nよろしいですか？")) {
+            return;
+        }
+    }
+
+    fetch(`/api/deck-templates/cards?template_id=${templateId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data || !data.cards) return alert("テンプレートの読み込みに失敗しました。");
+
+            mainList.innerHTML = '';
+            superDimList.innerHTML = '';
+            grList.innerHTML = '';
+            document.querySelectorAll('.special-box').forEach(slot => {
+                slot.innerHTML = '';
+                slot.classList.remove('active');
+                slot.classList.add('empty');
+                updateSaveButton(slot.id, false);
+            });
+
+            data.cards.forEach(card => {
+                cardCache[card.card_id] = card;
+                addCardToDeck(card, card.card_type_in_deck);
+            });
+
+            if (data.template) {
+                const nameInput = document.getElementById('save-deck-name');
+                if (nameInput) nameInput.value = data.template.template_name;
+
+                const formatSelect = document.getElementById('save-deck-format');
+                if (formatSelect && data.template.format_id) formatSelect.value = data.template.format_id;
+
+                if (data.template.thumbnail_card_id) {
+                    const thumbCard = data.cards.find(c => c.card_id == data.template.thumbnail_card_id);
+                    if (thumbCard) setThumbnail(thumbCard.card_id, thumbCard.imagepath);
+                }
+            }
+
+            updateDeckDisplay();
+            closeTemplateModal();
+            alert(`テンプレート「${data.template.template_name}」を読み込みました。`);
+        })
+        .catch(err => {
+            console.error(err);
+            alert("テンプレートの読み込み中にエラーが発生しました。");
+        });
 }
 </script>

@@ -10,19 +10,147 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="/js/ccfolia_exporter.js"></script>
+
+    <style>
+        /* --- ヘッダー黒背景・文字色統一 --- */
+        header {
+            background-color: #000 !important;
+            color: #fff !important;
+            border-bottom: 1px solid #333 !important;
+        }
+
+        header h1 a {
+            color: #fff !important;
+            display: flex;
+            align-items: center;
+        }
+
+        /* ロゴ画像調整 */
+        .header-logo {
+            height: 35px;
+            width: auto;
+            object-fit: contain;
+        }
+
+        header a,
+        header a:link,
+        header a:visited {
+            color: #fff !important;
+        }
+
+        /* --- ハンバーガーメニュー用設定 --- */
+        .menu-toggle {
+            display: none;
+        }
+
+        /* --- スマートフォン環境（レスポンシブ） --- */
+        @media (max-width: 768px) {
+            .menu-toggle {
+                display: flex;
+                flex-direction: column;
+                justify-content: space-between;
+                width: 24px;
+                height: 18px;
+                background: transparent;
+                border: none;
+                cursor: pointer;
+                padding: 0;
+                z-index: 2100;
+            }
+            .menu-toggle span {
+                width: 100%;
+                height: 2px;
+                background-color: #fff;
+                transition: all 0.3s ease;
+            }
+
+            .menu-toggle.active span:nth-child(1) {
+                transform: translateY(8px) rotate(45deg);
+            }
+            .menu-toggle.active span:nth-child(2) {
+                opacity: 0;
+            }
+            .menu-toggle.active span:nth-child(3) {
+                transform: translateY(-8px) rotate(-45deg);
+            }
+
+            .header-right {
+                display: none !important;
+                position: fixed;
+                top: 60px;
+                left: 0;
+                width: 100%;
+                background-color: #000;
+                border-bottom: 1px solid #333;
+                flex-direction: column;
+                align-items: center;
+                gap: 0 !important;
+                padding: 0;
+                box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+                z-index: 1999;
+            }
+
+            .header-right.active {
+                display: flex !important;
+            }
+
+            .header-right a {
+                display: block;
+                width: 100%;
+                text-align: center;
+                padding: 16px 0;
+                border-bottom: 1px solid #222;
+                box-sizing: border-box;
+                color: #fff !important;
+            }
+            .header-right a:last-child {
+                border-bottom: none;
+            }
+        }
+    </style>
 </head>
 <body>
     <header>
-        <h1><a href="/">デュエ筋</a></h1>
+        <div class="header-left">
+            <h1>
+                <a href="/">
+                    <img src="/images/logo.webp" alt="デュエ筋" class="header-logo">
+                </a>
+            </h1>
+        </div>
+
+        <!-- スマホ用ハンバーガーメニューボタン -->
+        <button class="menu-toggle" onclick="toggleMobileMenu()" aria-label="メニューを開閉する">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
+
         <div class="header-right">
-            <a href="/search">デッキ検索</a>
             <a href="/mydecks">マイデッキ</a>
-            <!-- ★追加：デッキ作成リンク（クリック時にモーダル制御などを挟む場合は必要に応じて調整） -->
+            <a href="/search">デッキ検索</a>
             <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
-            {{ if .IsLoggedIn }}
+            <a href="/help">ヘルプ</a>
+
+            <!-- お知らせ（未読バッジ付き） -->
+            <a href="/notifications" style="position: relative; display: inline-flex; align-items: center;">
+                お知らせ
+                {{ if gt .UnreadCnt 0 }}
+                    <span style="background-color: #ef4444; color: #fff; font-size: 0.7rem; font-weight: bold; border-radius: 10px; padding: 1px 6px; margin-left: 4px; line-height: 1.2;">
+                        {{ if gt .UnreadCnt 9 }}9+{{ else }}{{ .UnreadCnt }}{{ end }}
+                    </span>
+                {{ end }}
+            </a>
+
+            <!-- 開発者画面（Role: admin または developer） -->
+            {{ if and .Session (or (eq .Session.Role "admin") (eq .Session.Role "developer")) }}
+                <a href="/developer" style="color: #20c997 !important; font-weight: bold;">開発者画面</a>
+            {{ end }}
+
+            <!-- ログイン状態による分岐 -->
+            {{ if and .Session .Session.UserID }}
                 <a href="/account">アカウント</a>
-                {{/* ★ 追加: ロールが admin の場合に表示 */}}
-                {{ if and .Session (eq .Session.Role "admin") }}
+                {{ if eq .Session.Role "admin" }}
                     <a href="/admin" style="color: #ffc107 !important; font-weight: bold;">管理者画面</a>
                 {{ end }}
                 <form action="/logout" method="POST" style="display:inline;">
@@ -36,9 +164,11 @@
     </header>
 
     <main>
-        {{ template "content" . }}
+        {{ .Content }}
     </main>
 
+    <!-- hideFooter が false の場合のみ表示 -->
+    {{ if not .HideFooter }}
     <footer>
         <ul>
             <li><a href="/terms">利用規約</a></li>
@@ -47,7 +177,7 @@
         </ul>
         <p style="margin-top:10px;font-size:0.8rem;color:#aaa;">&copy; デュエ筋 All Rights Reserved.</p>
     </footer>
-    <!-- app/Views/layouts/app.html の </body> 直前に追加・統合するHTMLおよびスクリプト -->
+    {{ end }}
 
     <!-- デッキ作成先 選択モーダル -->
     <div id="deck-type-select-modal" class="sub-modal" style="display: none; z-index: 3500;">
@@ -70,7 +200,7 @@
                 </div>
                 
                 <div style="border-top: 1px solid #eee; padding-top: 15px; text-align: left;">
-                    {{ if .IsLoggedIn }}
+                    {{ if and .Session .Session.UserID }}
                         <label style="display: flex; align-items: center; gap: 6px; font-size: 0.85rem; color: #555; cursor: pointer;">
                             <input type="checkbox" id="deck-type-remember" style="width: 16px; height: 16px;">
                             次回からこの画面を表示しない
@@ -88,33 +218,90 @@
         </div>
     </div>
 
-<script>
-// デッキ作成クリック時の振り分け
-function handleDeckCreateClick(e) {
-    e.preventDefault();
-    const savedTarget = localStorage.getItem('default_deck_builder');
-    if (savedTarget === 'dm') {
-        window.location.href = '/decks/new';
-        return;
-    } else if (savedTarget === 'other') {
-        window.location.href = '/tools/ccfolia';
-        return;
-    }
-    document.getElementById('deck-type-select-modal').style.display = 'flex';
-}
+    <script src="/js/main.js"></script>
 
-function closeDeckTypeSelectModal() {
-    document.getElementById('deck-type-select-modal').style.display = 'none';
-}
+    <script>
+        // デッキ作成クリック時の振り分け
+        function handleDeckCreateClick(e) {
+            e.preventDefault();
+            const savedTarget = localStorage.getItem('default_deck_builder');
+            if (savedTarget === 'dm') {
+                window.location.href = '/decks/new';
+                return;
+            } else if (savedTarget === 'other') {
+                window.location.href = '/tools/ccfolia';
+                return;
+            }
+            document.getElementById('deck-type-select-modal').style.display = 'flex';
+        }
 
-function selectDeckType(url) {
-    const rememberCheckbox = document.getElementById('deck-type-remember');
-    const remember = rememberCheckbox ? rememberCheckbox.checked : false;
-    if (remember) {
-        localStorage.setItem('default_deck_builder', url === '/decks/new' ? 'dm' : 'other');
-    }
-    window.location.href = url;
-}
-</script>
+        function closeDeckTypeSelectModal() {
+            document.getElementById('deck-type-select-modal').style.display = 'none';
+        }
+
+        function selectDeckType(url) {
+            const rememberCheckbox = document.getElementById('deck-type-remember');
+            const remember = rememberCheckbox ? rememberCheckbox.checked : false;
+            if (remember) {
+                localStorage.setItem('default_deck_builder', url === '/decks/new' ? 'dm' : 'other');
+            }
+            window.location.href = url;
+        }
+
+        // ハンバーガーメニュー開閉
+        function toggleMobileMenu() {
+            const menuToggle = document.querySelector('.menu-toggle');
+            const headerRight = document.querySelector('.header-right');
+            if (menuToggle && headerRight) {
+                menuToggle.classList.toggle('active');
+                headerRight.classList.toggle('active');
+            }
+        }
+
+        // ログイン完了直後の自動保存スクリプト（完全二重実行防止ロック付き）
+        (function() {
+            if (window._deckAutoSaveExecuted) return;
+            window._deckAutoSaveExecuted = true;
+
+            window.addEventListener('DOMContentLoaded', () => {
+                const currentPath = window.location.pathname;
+                const authPaths = ['/login', '/register', '/login/verify', '/register/verify', '/logout'];
+                if (authPaths.includes(currentPath)) return;
+
+                if (localStorage.getItem('pending_deck_save') === 'true') {
+                    const savedPayloadStr = localStorage.getItem('pending_deck_payload');
+                    localStorage.removeItem('pending_deck_save');
+                    localStorage.removeItem('pending_deck_payload');
+                    localStorage.removeItem('unsaved_deck_draft');
+
+                    if (savedPayloadStr) {
+                        try {
+                            const payload = JSON.parse(savedPayloadStr);
+                            fetch('/api/decks', {
+                                method: payload.deck_id ? 'PUT' : 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data && data.success) {
+                                    alert("ログインが完了し、作成していたデッキの自動保存に成功しました！");
+                                    window.location.replace('/mydecks');
+                                } else {
+                                    alert("ログインは完了しましたが、デッキの自動保存に失敗しました: " + (data ? data.error : '不明なエラー'));
+                                }
+                            })
+                            .catch(err => {
+                                console.error(err);
+                                alert("自動保存中に通信エラーが発生しました。");
+                            });
+                        } catch (e) {
+                            console.error(e);
+                        }
+                    }
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

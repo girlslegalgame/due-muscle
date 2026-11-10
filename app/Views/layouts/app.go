@@ -253,6 +253,10 @@ const appHTML = `<!DOCTYPE html>
             {{ if and .Session (eq .Session.Role "admin") }}
                 <a href="/admin" style="color: #ffc107 !important; font-weight: bold;">管理者画面</a>
             {{ end }}
+            <!-- ★ 追加: ロールが admin または developer の場合に開発者画面へのリンクを表示 -->
+            {{ if and .Session (or (eq .Session.Role "admin") (eq .Session.Role "developer")) }}
+                <a href="/developer" style="color: #17a2b8 !important; font-weight: bold;">開発者画面</a>
+            {{ end }}
         </div>
     </header>
 
