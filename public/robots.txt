@@ -1,6 +1,7 @@
 User-agent: *
 Disallow: /admin
 Disallow: /api/
+Disallow: /developer
 Allow: /
 
 User-agent: Mediapartners-Google
