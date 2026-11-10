@@ -116,9 +116,22 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 	tpl := tList[0]
 
 	cRows, _ := db.Query(`
-		SELECT dtc.*, c.card_name, c.reading, c.cost, cd.imagepath, cd.`+"`limit`"+` as card_limit,
+		SELECT dtc.*, c.card_name, c.reading, c.cost, c.pow,
+		       COALESCE(
+		           cd.imagepath,
+		           (SELECT cd2.imagepath FROM card_detail cd2 WHERE cd2.card_id = c.card_id AND cd2.imagepath IS NOT NULL AND cd2.imagepath != '' LIMIT 1),
+		           (SELECT cd3.imagepath FROM card_combination cc1 JOIN card_combination cc2 ON cc1.combination_id = cc2.combination_id JOIN card_detail cd3 ON cc2.card_id = cd3.card_id WHERE cc1.card_id = c.card_id AND cd3.imagepath IS NOT NULL AND cd3.imagepath != '' LIMIT 1),
+		           ''
+		       ) as imagepath,
+		       COALESCE(cd.`+"`limit`"+`, 4) as card_limit,
+		       COALESCE(cd.twinpact, 0) as twinpact,
 		       (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
-		       (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids
+		       (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
+		       (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
+		        FROM card_combination cc_ref 
+		        JOIN card_combination cc_all ON cc_ref.combination_id = cc_all.combination_id 
+		        JOIN card c_all ON cc_all.card_id = c_all.card_id 
+		        WHERE cc_ref.card_id = c.card_id) as combo_names
 		FROM deck_template_cards dtc
 		JOIN card c ON dtc.card_id = c.card_id
 		LEFT JOIN card_detail cd ON c.card_id = cd.card_id AND cd.is_primary_version = 1
@@ -413,8 +426,14 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 			c.reading,
 			c.cost,
 			c.pow,
-			cd.imagepath,
-			cd.`+"`limit`"+` as card_limit,
+			COALESCE(
+				cd.imagepath,
+				(SELECT cd2.imagepath FROM card_detail cd2 WHERE cd2.card_id = c.card_id AND cd2.imagepath IS NOT NULL AND cd2.imagepath != '' LIMIT 1),
+				(SELECT cd3.imagepath FROM card_combination cc1 JOIN card_combination cc2 ON cc1.combination_id = cc2.combination_id JOIN card_detail cd3 ON cc2.card_id = cd3.card_id WHERE cc1.card_id = c.card_id AND cd3.imagepath IS NOT NULL AND cd3.imagepath != '' LIMIT 1),
+				''
+			) as imagepath,
+			COALESCE(cd.`+"`limit`"+`, 4) as card_limit,
+			COALESCE(cd.twinpact, 0) as twinpact,
 			(SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
 			(SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
 			(SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 

@@ -139,13 +139,14 @@ func RenderView(w http.ResponseWriter, r *http.Request, viewPath string, data ma
 	// パース対象のHTMLファイル一覧
 	files := []string{
 		viewFullPath,
+		filepath.Join("app", "Views", "deck", "create.html"), // ★ 追加
 		filepath.Join("app", "Views", "deck", "deck_item.html"),
 		filepath.Join("app", "Views", "deck", "deck_detail_modal.html"),
 		filepath.Join("app", "Views", "deck", "card_detail_modal.html"),
 		filepath.Join("app", "Views", "deck", "analysis_modal.html"),
 		filepath.Join("app", "Views", "deck", "dummy_cards_partial.html"),
 		filepath.Join("app", "Views", "deck", "search_form_partial.html"),
-		filepath.Join("app", "Views", "deck", "playtest_modal.html"), // ★ 追加
+		filepath.Join("app", "Views", "deck", "playtest_modal.html"),
 	}
 
 	tmpl, err := template.New(filepath.Base(viewFullPath)).Funcs(template.FuncMap{
