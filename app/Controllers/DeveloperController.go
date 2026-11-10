@@ -491,10 +491,15 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 		SELECT 
 			dtc.card_type_in_deck,
 			dtc.sort_order,
-			c.card_id,
-			c.card_name,
+			COALESCE(c.card_id, CONCAT('dummy_', dtc.sort_order)) as card_id,
+			CASE 
+				WHEN dtc.dummy_card_type = 'twinpact' AND dtc.dummy_partner_name IS NOT NULL AND dtc.dummy_partner_name <> '' THEN 
+					CONCAT(dtc.dummy_name, ' / ', dtc.dummy_partner_name)
+				ELSE 
+					COALESCE(c.card_name, dtc.dummy_name)
+			END as card_name,
 			c.reading,
-			c.cost,
+			COALESCE(c.cost, dtc.dummy_cost) as cost,
 			c.pow,
 			COALESCE(
 				cd.imagepath,
@@ -503,16 +508,21 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 				''
 			) as imagepath,
 			COALESCE(cd.`+"`limit`"+`, 4) as card_limit,
-			COALESCE(cd.twinpact, 0) as twinpact,
-			(SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
+			COALESCE(cd.twinpact, CASE WHEN dtc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
+			CASE WHEN dtc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
+			COALESCE(dtc.dummy_card_type, 'normal') as dummy_card_type,
+			dtc.dummy_partner_name,
+			dtc.dummy_partner_cost,
+			dtc.dummy_partner_civ_ids,
 			(SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+			COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id), dtc.dummy_civ_ids) as civ_ids,
 			(SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
 			 FROM card_combination cc_ref 
 			 JOIN card_combination cc_all ON cc_ref.combination_id = cc_all.combination_id 
 			 JOIN card c_all ON cc_all.card_id = c_all.card_id 
 			 WHERE cc_ref.card_id = c.card_id) as combo_names
 		FROM deck_template_cards dtc
-		JOIN card c ON dtc.card_id = c.card_id
+		LEFT JOIN card c ON dtc.card_id = c.card_id
 		LEFT JOIN card_detail cd ON c.card_id = cd.card_id AND cd.is_primary_version = 1
 		WHERE dtc.template_id = ?
 		ORDER BY dtc.sort_order ASC
