@@ -462,22 +462,14 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 	}
 
 	db := getDB()
+
+	// 1. テンプレート情報の取得（tRows を正しく使用）
 	var tpl map[string]interface{}
 	tRows, err := db.Query("SELECT * FROM deck_templates WHERE template_id = ?", templateId)
-	rowsD, err := db.Query("SHOW COLUMNS FROM deck_template_cards LIKE 'dummy_name'")
 	if err == nil {
-		hasDummy := rowsD.Next()
-		rowsD.Close()
-		if !hasDummy {
-			db.Exec("ALTER TABLE deck_template_cards MODIFY card_id INT NULL;")
-			db.Exec(`ALTER TABLE deck_template_cards 
-                ADD COLUMN dummy_name VARCHAR(255) NULL AFTER card_id,
-                ADD COLUMN dummy_cost INT NULL AFTER dummy_name,
-                ADD COLUMN dummy_civ_ids VARCHAR(50) NULL AFTER dummy_cost,
-                ADD COLUMN dummy_card_type VARCHAR(20) DEFAULT 'normal' AFTER dummy_civ_ids,
-                ADD COLUMN dummy_partner_name VARCHAR(255) NULL AFTER dummy_card_type,
-                ADD COLUMN dummy_partner_cost INT NULL AFTER dummy_partner_name,
-                ADD COLUMN dummy_partner_civ_ids VARCHAR(50) NULL AFTER dummy_partner_cost;`)
+		tList, _ := rowsToMapSlice(tRows)
+		if len(tList) > 0 {
+			tpl = tList[0]
 		}
 	}
 
@@ -487,6 +479,7 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// 2. カード構成一覧の取得
 	cRows, err := db.Query(`
 		SELECT 
 			dtc.card_type_in_deck,
