@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log" // ★ 追加
 	"net/http"
 	"strconv"
 	"strings"
@@ -34,6 +35,7 @@ func (c *DeveloperController) checkAuth(w http.ResponseWriter, r *http.Request) 
 	}
 
 	db := getDB()
+	c.ensureTemplateColumnsExist(db)
 	var role string
 	err := db.QueryRow("SELECT role FROM users WHERE user_id = ? LIMIT 1", uid).Scan(&role)
 	if err != nil || (role != "admin" && role != "developer") {
@@ -157,7 +159,13 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 		WHERE dtc.template_id = ?
 		ORDER BY dtc.sort_order ASC
 	`, templateId)
-	cards, _ := rowsToMapSlice(cRows)
+
+	var cards []map[string]interface{}
+	if err == nil && cRows != nil {
+		cards, _ = rowsToMapSlice(cRows)
+	} else if err != nil {
+		log.Printf("[TemplateEdit cRows Error]: %v", err)
+	}
 
 	fRows, _ := db.Query("SELECT format_id, format_name FROM formats ORDER BY format_id ASC")
 	formats, _ := rowsToMapSlice(fRows)
@@ -527,4 +535,52 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 		"template": tpl,
 		"cards":    cards,
 	})
+}
+// app/Controllers/DeveloperController.go の一番下に追加
+
+var checkedTemplateColumns = false
+
+func (c *DeveloperController) ensureTemplateColumnsExist(db *sql.DB) {
+	if checkedTemplateColumns {
+		return
+	}
+	defer func() { checkedTemplateColumns = true }()
+
+	// is_official 列の確認・追加
+	rows, err := db.Query("SHOW COLUMNS FROM deck_templates LIKE 'is_official'")
+	if err == nil {
+		hasCol := rows.Next()
+		rows.Close()
+		if !hasCol {
+			db.Exec("ALTER TABLE deck_templates ADD COLUMN is_official TINYINT(1) NOT NULL DEFAULT 0 AFTER thumbnail_card_id;")
+		}
+	}
+
+	// goods_id 列の確認・追加
+	rowsG, err := db.Query("SHOW COLUMNS FROM deck_templates LIKE 'goods_id'")
+	if err == nil {
+		hasGoods := rowsG.Next()
+		rowsG.Close()
+		if !hasGoods {
+			db.Exec("ALTER TABLE deck_templates ADD COLUMN goods_id INT NULL AFTER is_official;")
+		}
+	}
+
+	// deck_template_cards のダミー用列の確認・追加
+	rowsD, err := db.Query("SHOW COLUMNS FROM deck_template_cards LIKE 'dummy_name'")
+	if err == nil {
+		hasDummy := rowsD.Next()
+		rowsD.Close()
+		if !hasDummy {
+			db.Exec("ALTER TABLE deck_template_cards MODIFY card_id INT NULL;")
+			db.Exec(`ALTER TABLE deck_template_cards 
+                ADD COLUMN dummy_name VARCHAR(255) NULL AFTER card_id,
+                ADD COLUMN dummy_cost INT NULL AFTER dummy_name,
+                ADD COLUMN dummy_civ_ids VARCHAR(50) NULL AFTER dummy_cost,
+                ADD COLUMN dummy_card_type VARCHAR(20) DEFAULT 'normal' AFTER dummy_civ_ids,
+                ADD COLUMN dummy_partner_name VARCHAR(255) NULL AFTER dummy_card_type,
+                ADD COLUMN dummy_partner_cost INT NULL AFTER dummy_partner_name,
+                ADD COLUMN dummy_partner_civ_ids VARCHAR(50) NULL AFTER dummy_partner_cost;`)
+		}
+	}
 }
