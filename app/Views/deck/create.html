@@ -2053,7 +2053,19 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     img.dataset.imagepath = img.src; // Data URLまたは正規画像パス
     img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : '';
     img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
-    img.dataset.cost = card.cost !== undefined ? card.cost : '';
+    img.dataset.cost = card.cost !== undefined && card.cost !== null ? card.cost : '';
+
+    // ★ 追加: ツインパクトの下面コストを img タグに付与
+    const pCost = card.partner_cost !== undefined ? card.partner_cost : card.dummy_partner_cost;
+    if (pCost !== undefined && pCost !== null && pCost !== '') {
+        img.dataset.partnerCost = pCost;
+    }
+
+    // ★ 追加: パートナーカード（統率者）フラグを保持させる
+    if (card.card_type_in_deck === 'partner' || card.is_partner === 1 || card.is_partner === true) {
+        img.dataset.isPartner = "1";
+    }
+
     // addCardToDeck 内のデータ属性設定部分
     if (card.is_dummy || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_'))) {
         img.dataset.isDummy = "1";

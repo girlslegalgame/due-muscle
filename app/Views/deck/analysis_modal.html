@@ -876,15 +876,49 @@ function openAnalysisModal() {
 // 計算ロジック
 function calculateCreateKiyonagaHitRate() {
     const mainImgs = Array.from(mainList.querySelectorAll('img'));
+
+    // パートナー（GR・超次元・特殊）に清永がいるか判定
+    const partnerContainers = [
+        document.getElementById('super-dim-list'),
+        document.getElementById('gr-list'),
+        document.getElementById('special-deck-list')
+    ];
+    let isPartnerKiyonaga = false;
+    for (const container of partnerContainers) {
+        if (!container) continue;
+        const imgs = container.querySelectorAll('img');
+        for (const img of imgs) {
+            const name = (img.dataset.cardName || '').trim();
+            if (name.includes('五輪の求道者 清永') || name.includes('清永')) {
+                isPartnerKiyonaga = true;
+                break;
+            }
+        }
+        if (isPartnerKiyonaga) break;
+    }
+
+    let kiyonagaExcluded = false; // 清永1枚除外フラグ（バトルゾーンにいる清永自身）
+
     const deckCardCosts = [];
 
     mainImgs.forEach(img => {
+        const name = (img.dataset.cardName || '').trim();
+        const isKiyonagaCard = name.includes('五輪の求道者 清永') || name === '清永';
+
+        // パートナーでない場合、効果発動元となる清永自身を山札から1枚除外（枚数 -1）
+        if (!isPartnerKiyonaga && !kiyonagaExcluded && isKiyonagaCard) {
+            kiyonagaExcluded = true;
+            return; // この1枚を計算対象からスキップ
+        }
+
         const costs = [];
         const cost1 = parseInt(img.dataset.cost);
         if (!isNaN(cost1)) costs.push(cost1);
 
-        // ツインパクト等でデータ属性に partnerCost があれば取得
-        const cost2 = parseInt(img.dataset.partnerCost);
+        // ツインパクト等の下面コスト取得（dataset または cardCache から補完）
+        const cached = (typeof cardCache !== 'undefined' && cardCache[img.dataset.cardId]) ? cardCache[img.dataset.cardId] : {};
+        const pCostRaw = img.dataset.partnerCost || cached.partner_cost || cached.dummy_partner_cost;
+        const cost2 = parseInt(pCostRaw);
         if (!isNaN(cost2) && !costs.includes(cost2)) {
             costs.push(cost2);
         }
@@ -906,24 +940,27 @@ function calculateCreateKiyonagaHitRate() {
     let totalCombos = 0;
     let hitCombos = 0;
 
+    function canFormDistinctCosts(costsA, costsB, costsC) {
+        for (let a of costsA) {
+            for (let b of costsB) {
+                if (a === b) continue;
+                for (let c of costsC) {
+                    if (a !== c && b !== c) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     for (let i = 0; i < N - 2; i++) {
         for (let j = i + 1; j < N - 1; j++) {
             for (let k = j + 1; k < N; k++) {
                 totalCombos++;
-                const cA = deckCardCosts[i], cB = deckCardCosts[j], cC = deckCardCosts[k];
-                let hit = false;
-                outer: for (let a of cA) {
-                    for (let b of cB) {
-                        if (a === b) continue;
-                        for (let c of cC) {
-                            if (a !== c && b !== c) {
-                                hit = true;
-                                break outer;
-                            }
-                        }
-                    }
+                if (canFormDistinctCosts(deckCardCosts[i], deckCardCosts[j], deckCardCosts[k])) {
+                    hitCombos++;
                 }
-                if (hit) hitCombos++;
             }
         }
     }
