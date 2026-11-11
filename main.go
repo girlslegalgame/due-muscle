@@ -45,7 +45,13 @@ func main() {
 	// 4. 静的ファイル配信 (public/css, public/js, public/images)
 	r.Handle("/css/*", http.StripPrefix("/css/", http.FileServer(http.Dir("./public/css"))))
 	r.Handle("/js/*", http.StripPrefix("/js/", http.FileServer(http.Dir("./public/js"))))
-	r.Handle("/images/*", http.StripPrefix("/images/", http.FileServer(http.Dir("./public/images"))))
+
+	imageHandler := http.StripPrefix("/images/", http.FileServer(http.Dir("./public/images")))
+	r.Get("/images/*", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "public, max-age=2592000, immutable") // 30日間キャッシュ
+		imageHandler.ServeHTTP(w, r)
+	})
+
 	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "./public/favicon.ico")
 	})

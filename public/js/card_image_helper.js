@@ -156,3 +156,50 @@ function getCardImageUrl(card) {
     const path = card.imagepath.startsWith('/') ? card.imagepath : '/' + card.imagepath;
     return '/images/card' + path;
 }
+// ============================================================================
+// カード画像の遅延読み込み（lazy）＆非同期デコード（async）共通制御
+// ============================================================================
+(function() {
+    function applyLazyLoading(img) {
+        if (!img || img.tagName !== 'IMG') return;
+        const src = img.getAttribute('src') || '';
+        // カード画像（/images/ または data:image）を対象とする
+        if (src.includes('/images/') || src.startsWith('data:image')) {
+            if (!img.hasAttribute('loading')) {
+                img.loading = 'lazy';
+            }
+            if (!img.hasAttribute('decoding')) {
+                img.decoding = 'async';
+            }
+        }
+    }
+
+    // 1. ページ読み込み完了時に既存の img タグへ適用
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('img').forEach(applyLazyLoading);
+        });
+    } else {
+        document.querySelectorAll('img').forEach(applyLazyLoading);
+    }
+
+    // 2. JSで後から動的に追加された img タグ（検索結果・デッキリスト等）にも自動適用
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType === 1) { // ELEMENT_NODE
+                    if (node.tagName === 'IMG') {
+                        applyLazyLoading(node);
+                    } else if (node.querySelectorAll) {
+                        node.querySelectorAll('img').forEach(applyLazyLoading);
+                    }
+                }
+            }
+        }
+    });
+
+    observer.observe(document.documentElement, {
+        childList: true,
+        subtree: true
+    });
+})();
