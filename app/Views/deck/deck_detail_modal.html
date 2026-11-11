@@ -1,5 +1,11 @@
 <!-- app/Views/deck/deck_detail_modal.html -->
-<script src="/js/card_image_helper.js"></script>
+<script>
+if (typeof CARD_CIV_COLORS === 'undefined') {
+    const s = document.createElement('script');
+    s.src = '/js/card_image_helper.js';
+    document.head.appendChild(s);
+}
+</script>
 <!-- 共通デッキ詳細モーダルのスタイル -->
 <style>
     /* --- モーダル設定 --- */
@@ -1063,6 +1069,20 @@
 </div>
 <!-- 共通デッキ詳細モーダルの制御スクリプト -->
 <script>
+function isSpecialCardName(name) {
+    if (!name) return false;
+    const n = name.trim();
+    return n === '終焉の禁断 ドルマゲドンX' || 
+           n === 'FORBIDDEN STAR ～世界最後の日～' || 
+           n === '零龍' || 
+           n === '滅亡の起源 零無';
+}
+function getMainDeckCards(cards = currentDeckCards) {
+    return cards.filter(c => {
+        if (c.card_type_in_deck === 'special' || isSpecialCardName(c.card_name)) return false;
+        return c.card_type_in_deck === 'main' || !c.card_type_in_deck;
+    });
+}
 let colorChart = null;
 let manaChart = null;
 let currentDeckId = null; // ★現在開いているデッキID保存用に追加
@@ -1545,7 +1565,7 @@ function renderImages(cards) {
     const fragSpecial = document.createDocumentFragment();
 
     cards.forEach(card => {
-        const isSpecial = card.card_type_in_deck === 'special' || (card.card_name && (card.card_name.includes('ドルマゲドン') || card.card_name.includes('零龍')));
+        const isSpecial = card.card_type_in_deck === 'special' || isSpecialCardName(card.card_name);
         const src = getModalCardImagePath(card);
 
         for (let i = 0; i < card.quantity; i++) {
@@ -1585,11 +1605,7 @@ function renderImages(cards) {
 }
 
 function initCharts(cards) {
-    const mainCards = cards.filter(c => {
-        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-        if (isSpecial) return false;
-        return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
-    });
+    const mainCards = getMainDeckCards(cards); // ★ 1行に短縮
 
     let singleTotalCount = 0, multiTotalCount = 0;
     let mana = Array(10).fill(0);
@@ -1989,12 +2005,7 @@ function switchModalAnalysisMode() {
    分析：初手ドローシミュレータ
    ========================================== */
 function initModalFirstDraw() {
-    // メインデッキ（特殊カード・超次元・GRを除く）を絞り込む
-    const mainCards = currentDeckCards.filter(c => {
-        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-        if (isSpecial) return false;
-        return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
-    });
+    const mainCards = getMainDeckCards(); // ★ 1行に短縮
 
     // 採用枚数分配列に展開する
     modalDrawDeck = [];
@@ -2099,12 +2110,7 @@ function resetModalFirstAction() {
 }
 
 function openModalFaSetupModal() {
-    // 特殊ゾーンを除外したメインデッキのカードのみ抽出
-    const mainCards = currentDeckCards.filter(c => {
-        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-        if (isSpecial) return false;
-        return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
-    });
+    const mainCards = getMainDeckCards(); // ★ 1行に短縮
 
     if (mainCards.length === 0) {
         alert("メインデッキにカードが入っていません。");
@@ -2188,13 +2194,9 @@ function confirmModalFaSetup() {
         document.getElementById('modal-fa-setup-prompt').style.display = 'none';
         container.style.display = 'grid';
         
-        const mainCards = currentDeckCards.filter(c => {
-            const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-            if (isSpecial) return false;
-            return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
-        });
+        const mainCards = getMainDeckCards(); // ★ 1行に短縮
 
-        const seen = new Set(); // ★ 描画済みのカードIDを追跡するSetを追加します
+        const seen = new Set();        
         mainCards.forEach(card => {
             if (modalFaSelectedCardIds.has(card.card_id) && !seen.has(card.card_id)) {
                 seen.add(card.card_id);
@@ -2212,11 +2214,7 @@ function confirmModalFaSetup() {
 }
 
 function adjustModalFaHand(diff) {
-    const mainCards = currentDeckCards.filter(c => {
-        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-        if (isSpecial) return false;
-        return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
-    });
+    const mainCards = getMainDeckCards(); // ★ 1行に短縮
     
     let totalN = 0;
     mainCards.forEach(c => totalN += parseInt(c.quantity) || 0);
@@ -2232,11 +2230,7 @@ function adjustModalFaHand(diff) {
 }
 
 function calculateModalFirstAction() {
-    const mainCards = currentDeckCards.filter(c => {
-        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-        if (isSpecial) return false;
-        return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
-    });
+    const mainCards = getMainDeckCards(); // ★ 1行に短縮
 
     let N = 0;
     mainCards.forEach(c => N += parseInt(c.quantity) || 0);
@@ -2282,11 +2276,7 @@ function combination(n, r) {
     return num / den;
 }
 function calculateKiyonagaHitRate() {
-    const mainCards = currentDeckCards.filter(c => {
-        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-        if (isSpecial) return false;
-        return c.card_type_in_deck === 'main' || c.card_type_in_deck === null || c.card_type_in_deck === '';
-    });
+    const mainCards = getMainDeckCards();
 
     // フォーマットIDおよびサムネイル（パートナー）カードIDの判定
     const firstCard = currentDeckCards[0] || {};
@@ -2508,11 +2498,7 @@ function renderModalAbilityCards() {
 
     const displayMode = document.querySelector('input[name="modal_ability_display_mode"]:checked')?.value || 'combined';
 
-    const mainCards = currentDeckCards.filter(c => {
-        const isSpecial = c.card_type_in_deck === 'special' || (c.card_name && (c.card_name.includes('ドルマゲドン') || c.card_name.includes('零龍')));
-        if (isSpecial) return false;
-        return c.card_type_in_deck === 'main' || !c.card_type_in_deck;
-    });
+    const mainCards = getMainDeckCards();
 
     // ★ カードが持つ能力IDを確実に文字列配列として抽出
     const getCardAbilityIds = (c) => {
