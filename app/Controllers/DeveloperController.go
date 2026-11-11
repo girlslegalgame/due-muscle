@@ -492,6 +492,7 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 		SELECT 
 			dtc.card_type_in_deck,
 			dtc.sort_order,
+			COALESCE(dtc.quantity, 1) as quantity, -- ★ この行を追加
 			COALESCE(c.card_id, CONCAT('dummy_', dtc.sort_order)) as card_id,
 			CASE 
 				WHEN dtc.dummy_card_type = 'twinpact' AND dtc.dummy_partner_name IS NOT NULL AND dtc.dummy_partner_name <> '' THEN 

@@ -72,8 +72,14 @@
         </div>
     </div>
 </div>
-
+{{ template "deck_detail_modal.html" . }}
 <script>
+function escapeHTML(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>'"]/g, tag => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+    }[tag] || tag));
+}
 function switchDevTab(tab) {
     const isTemp = tab === 'templates';
     const pTemplates = document.getElementById('dev-panel-templates');
@@ -171,8 +177,9 @@ function renderTemplateList() {
             ${t.goods_name ? `<div style="font-size:0.75rem; color:#0056b3; font-weight:bold; margin-top:2px;">商品: ${t.goods_name}</div>` : ''}
             <div style="font-size:0.8rem; color:#666; max-height:40px; overflow:hidden;">${t.description || ''}</div>
             <div style="display:flex; gap:6px; margin-top:8px;">
-                <a href="/developer/templates/edit?template_id=${t.template_id}" class="btn-edit" style="flex:1;">編集</a>
-                <button onclick="deleteTemplate(${t.template_id})" class="btn-delete" style="width:42px;">✕</button>
+                <button type="button" onclick="openTemplateDeckModal(${t.template_id}, '${escapeHTML(t.template_name)}')" style="flex:1; padding:6px; background:#17a2b8; color:white; border:none; border-radius:4px; font-weight:bold; cursor:pointer; font-size:12px;">確認</button>
+                <a href="/developer/templates/edit?template_id=${t.template_id}" class="btn-edit" style="flex:1; text-align:center;">編集</a>
+                <button onclick="deleteTemplate(${t.template_id})" class="btn-delete" style="width:36px;">✕</button>
             </div>
         `;
         list.appendChild(item);

@@ -6,7 +6,7 @@
     #deckModal {
         display: none;
         position: fixed;
-        z-index: 9999;
+        z-index: 10050; /* ★ 9999 から 10050 に変更 */
         left: 0; top: 0;
         width: 100%; height: 100%;
         background-color: rgba(0,0,0,0.8);
@@ -1891,10 +1891,50 @@ function runPriceEstimate(shopCode = null, refresh = false) {
             btn.style.opacity = '1';
         });
 }
+/**
+ * テンプレートデッキ確認用オープン関数（メイン・GR/次元/特殊のみ表示）
+ */
+function openTemplateDeckModal(templateId, templateName) {
+    document.getElementById('modal-deck-title').innerText = templateName || 'テンプレート内容';
+
+    // 「分析」「価格査定」タブを非表示にする
+    const tabAnalysis = document.getElementById('tab-analysis');
+    const tabPrice = document.getElementById('tab-price');
+    if (tabAnalysis) tabAnalysis.style.display = 'none';
+    if (tabPrice) tabPrice.style.display = 'none';
+
+    const mainList = document.getElementById('modal-main-list');
+    mainList.innerHTML = '読み込み中...';
+    document.getElementById('modal-dim-list').innerHTML = '';
+    document.getElementById('modal-gr-list').innerHTML = '';
+    document.getElementById('modal-special-list').innerHTML = '';
+
+    document.getElementById('deckModal').style.display = 'block';
+    document.body.style.overflow = 'hidden';
+    switchTab('main');
+
+    fetch('/api/deck-templates/cards?template_id=' + templateId)
+        .then(res => res.json())
+        .then(data => {
+            const cards = data.cards || [];
+            currentDeckCards = cards;
+            renderImages(cards);
+        })
+        .catch(err => {
+            mainList.innerHTML = 'データの読み込みに失敗しました。';
+            console.error(err);
+        });
+}
 function closeModal() {
     document.getElementById('deckModal').style.display = 'none';
     document.body.style.overflow = 'auto';
-    // モードを初期（デッキ分析）に戻す
+
+    // 隠したタブを再表示できるように復元
+    const tabAnalysis = document.getElementById('tab-analysis');
+    const tabPrice = document.getElementById('tab-price');
+    if (tabAnalysis) tabAnalysis.style.display = '';
+    if (tabPrice) tabPrice.style.display = '';
+
     const select = document.getElementById('modal-analysis-mode-select');
     if (select) select.value = 'analysis';
 }

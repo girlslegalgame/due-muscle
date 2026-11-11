@@ -1824,7 +1824,7 @@
         </div>
     </div>
 </div>
-
+{{template "deck_detail_modal.html" .}}
 {{template "analysis_modal"}}
 
 <script id="deck-init-data" type="application/json">
@@ -4132,7 +4132,10 @@ function renderTemplateList() {
                 </div>
                 ${t.description ? `<div style="font-size:11px; color:#888; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.description)}</div>` : ''}
             </div>
-            <button type="button" onclick="applyTemplate(${t.template_id})" style="padding:8px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; flex-shrink:0;">読込</button>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+                <button type="button" onclick="openTemplateDeckModal(${t.template_id}, '${escapeHTML(t.template_name || '')}')" style="padding:8px 12px; background:#17a2b8; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px;">確認</button>
+                <button type="button" onclick="applyTemplate(${t.template_id})" style="padding:8px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px;">読込</button>
+            </div>
         `;
         container.appendChild(item);
     });
