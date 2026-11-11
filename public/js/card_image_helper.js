@@ -162,8 +162,14 @@ function getCardImageUrl(card) {
 (function() {
     function applyLazyLoading(img) {
         if (!img || img.tagName !== 'IMG') return;
+        
+        // ★ 追加: デッキエリア内の画像はファーストビューのため lazy にしない
+        if (img.closest('#deck-area')) {
+            img.loading = 'eager';
+            return;
+        }
+
         const src = img.getAttribute('src') || '';
-        // カード画像（/images/ または data:image）を対象とする
         if (src.includes('/images/') || src.startsWith('data:image')) {
             if (!img.hasAttribute('loading')) {
                 img.loading = 'lazy';

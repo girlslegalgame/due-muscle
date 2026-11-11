@@ -2001,11 +2001,15 @@ window.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
-const deckArea = document.getElementById('deck-area');
+    const deckArea = document.getElementById('deck-area');
     if (deckArea) resizeObserver.observe(deckArea);
 
     // ★ 追記：画面を開いた直後に自動で発売日が新しいカードを表示する
-    searchCards();
+    if (isEdit) {
+        setTimeout(searchCards, 350);
+    } else {
+        searchCards();
+    }
     const nameInput = document.getElementById('save-deck-name');
     const formatSelect = document.getElementById('save-deck-format');
     if (nameInput) nameInput.addEventListener('input', saveDraftToLocalStorage);
@@ -2038,6 +2042,8 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     cardCache[card.card_id] = card;
     const img = document.createElement('img');
     img.src = getCardImagePath(card);
+    img.loading = "eager"; // ★ 追加: デッキ内のカードは最優先で即時読み込み
+    img.decoding = "async";
     img.draggable = false;
     img.dataset.cardId = card.card_id;
     img.dataset.cardName = card.card_name;
