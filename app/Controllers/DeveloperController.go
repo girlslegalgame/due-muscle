@@ -178,6 +178,7 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 	initialCardsJSON, _ := json.Marshal(cards)
 	descJSON, _ := json.Marshal(tpl["description"])
 	deckNameJSON, _ := json.Marshal(tpl["template_name"])
+	deckConfigJSON, _ := json.Marshal(tpl)
 
 	isOfficial := 0
 	if fmt.Sprintf("%v", tpl["is_official"]) == "1" {
@@ -199,6 +200,7 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 		"officialGoodsJSON":     template.JS(officialGoodsJSON),
 		"isEditJSON":            template.JS("true"),
 		"deckIDJSON":            template.JS(strconv.Itoa(templateId)),
+		"deckConfigJSON":        template.JS(deckConfigJSON), // ★ この行を追加
 		"initialDeckNameJSON":   template.JS(deckNameJSON),
 		"initialCardsJSON":      template.JS(initialCardsJSON),
 		"initialDescJSON":       template.JS(descJSON),

@@ -64,37 +64,54 @@ func toHiraganaReading(text string) string {
 	return cleanSearchString(sb.String())
 }
 
-// DBから全カード名を取得して形態素解析読みをロード（遅延初期化）
+var isCacheLoading = false
+
+// DBから全カード名を取得して形態素解析読みをロード（非同期バックグラウンド実行）
 func ensureKanjiReadCache(db *sql.DB) {
 	initTokenizer()
 	cacheLock.RLock()
-	if len(kanjiReadCache) > 0 {
+	if len(kanjiReadCache) > 0 || isCacheLoading {
 		cacheLock.RUnlock()
 		return
 	}
 	cacheLock.RUnlock()
 
 	cacheLock.Lock()
-	defer cacheLock.Unlock()
-
-	if len(kanjiReadCache) > 0 {
+	if len(kanjiReadCache) > 0 || isCacheLoading {
+		cacheLock.Unlock()
 		return
 	}
+	isCacheLoading = true
+	cacheLock.Unlock()
 
-	rows, err := db.Query("SELECT card_id, card_name FROM card")
-	if err != nil {
-		log.Printf("[Kagome Cache Load Error]: %v", err)
-		return
-	}
-	defer rows.Close()
+	// ★ バックグラウンドで非同期にロードし、APIレスポンスを待たせない
+	go func() {
+		defer func() {
+			cacheLock.Lock()
+			isCacheLoading = false
+			cacheLock.Unlock()
+		}()
 
-	for rows.Next() {
-		var id int
-		var name string
-		if err := rows.Scan(&id, &name); err == nil {
-			kanjiReadCache[id] = toHiraganaReading(name)
+		rows, err := db.Query("SELECT card_id, card_name FROM card")
+		if err != nil {
+			log.Printf("[Kagome Cache Load Error]: %v", err)
+			return
 		}
-	}
+		defer rows.Close()
+
+		tempCache := make(map[int]string)
+		for rows.Next() {
+			var id int
+			var name string
+			if err := rows.Scan(&id, &name); err == nil {
+				tempCache[id] = toHiraganaReading(name)
+			}
+		}
+
+		cacheLock.Lock()
+		kanjiReadCache = tempCache
+		cacheLock.Unlock()
+	}()
 }
 
 // クエリに合致する漢字読みを持つカードIDを検索
@@ -104,6 +121,10 @@ func findCardIDsByKanjiReading(db *sql.DB, queryHiraClean string) []int {
 	cacheLock.RLock()
 	defer cacheLock.RUnlock()
 
+	if len(kanjiReadCache) == 0 {
+		return nil // ロード中はスキップし、即座に応答を返す
+	}
+
 	var matchedIDs []int
 	for cardID, reading := range kanjiReadCache {
 		if strings.Contains(reading, queryHiraClean) {
@@ -112,8 +133,6 @@ func findCardIDsByKanjiReading(db *sql.DB, queryHiraClean string) []int {
 	}
 	return matchedIDs
 }
-
-
 // mb_convert_kana の簡易互換関数 ("C": ひらがな->カタカナ, "c": カタカナ->ひらがな)
 func convertKana(s string, mode string) string {
 	var sb strings.Builder
