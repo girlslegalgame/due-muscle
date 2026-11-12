@@ -1172,7 +1172,7 @@
             </div>
 
             <div class="fixed-zones-container">
-                <div class="fixed-zone" id="pt-zone-deck" onclick="ptDrawCard()" oncontextmenu="openPtDeckMenu(event)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 'deck')">
+                <div class="fixed-zone" id="pt-zone-deck" draggable="true" ondragstart="ptDragDeck(event)" onclick="ptDrawCard()" oncontextmenu="openPtDeckMenu(event)" ondragover="allowDrop(event)" ondrop="handleDrop(event, 'deck')">
                     <div class="playtest-zone-title">山札</div>
                     <img src="/images/card/backimage.webp" style="width:100%; height:100%; object-fit:fill;">
                     <div class="playtest-zone-center-text" id="pt-deck-count">0</div>
@@ -1214,7 +1214,19 @@
 
 <!-- コンテキストメニュー -->
 <ul id="ptContextMenu" class="context-menu"></ul>
-
+<!-- 拡大表示専用モーダル（前面にポップアップ） -->
+<div id="ptDetailModal" class="pt-modal" style="z-index: 35000;" onclick="closePtDetailModal()">
+    <div class="pt-modal-content" style="max-width: 400px;" onclick="event.stopPropagation()">
+        <div class="pt-modal-header">
+            <h3>カード拡大表示</h3>
+            <button class="pt-modal-close" onclick="closePtDetailModal()">&times;</button>
+        </div>
+        <div class="pt-modal-body" id="ptDetailModalBody" style="text-align: center; padding: 16px;"></div>
+        <div class="pt-modal-footer">
+            <button class="btn-pt-primary" onclick="closePtDetailModal()" style="width: 100px; font-weight: bold;">閉じる</button>
+        </div>
+    </div>
+</div>
 {{template "playtest_modal.html" .}}
 <script id="initial-cards-data" type="application/json">{{if .cardsJSON}}{{.cardsJSON}}{{else}}[]{{end}}</script>
 <script>
@@ -1479,58 +1491,74 @@ window.onload = function() {
 
     let justRestoredHand = false; // タップ復帰直後の再退避誤作動防止フラグ
 
-    // 手札ゾーンをタップ・クリックした時の復帰処理(バブリングを防止)
+    // スマホ用：山札のタッチドラッグ対応
     const deckZoneEl = document.getElementById('pt-zone-deck');
     if (deckZoneEl) {
         let deckTouchTimer = null;
-        let deckTouchMoved = false;
+        let deckMoved = false;
+        let isDeckDragging = false;
         let startX = 0, startY = 0;
 
         deckZoneEl.addEventListener('touchstart', (e) => {
             if (e.touches.length > 1) return;
-            deckTouchMoved = false;
+            deckMoved = false;
+            isDeckDragging = false;
             const touch = e.touches[0];
             startX = touch.clientX;
             startY = touch.clientY;
 
             deckTouchTimer = setTimeout(() => {
-                if (!deckTouchMoved) {
-                    if (navigator.vibrate) navigator.vibrate(40);
-                    const mockEvent = {
-                        clientX: startX,
-                        clientY: startY,
-                        preventDefault: () => {},
-                        stopPropagation: () => {}
-                    };
-                    openPtDeckMenu(mockEvent);
-                    deckTouchTimer = null;
-                }
+                if (!deckMoved && navigator.vibrate) navigator.vibrate(40);
+                openPtDeckMenu({ clientX: startX, clientY: startY, preventDefault: ()=>{}, stopPropagation: ()=>{} });
+                deckTouchTimer = null;
             }, 500);
-        }, { passive: false });
+        }, { passive: true });
 
         deckZoneEl.addEventListener('touchmove', (e) => {
             const touch = e.touches[0];
-            if (Math.hypot(touch.clientX - startX, touch.clientY - startY) > 8) {
-                deckTouchMoved = true;
-                if (deckTouchTimer) {
-                    clearTimeout(deckTouchTimer);
-                    deckTouchTimer = null;
-                }
-            }
-        }, { passive: true });
+            const dx = touch.clientX - startX;
+            const dy = touch.clientY - startY;
 
-        deckZoneEl.addEventListener('touchend', () => {
-            if (deckTouchTimer) {
-                clearTimeout(deckTouchTimer);
-                deckTouchTimer = null;
+            if (!deckMoved && Math.hypot(dx, dy) > 8) {
+                deckMoved = true;
+                if (deckTouchTimer) { clearTimeout(deckTouchTimer); deckTouchTimer = null; }
+                if (ptState.deck.length > 0) isDeckDragging = true;
             }
+
+            if (isDeckDragging) {
+                if (e.cancelable) e.preventDefault();
+                const ghost = document.getElementById('touchDragGhost');
+                ghost.src = '/images/card/backimage.webp';
+                ghost.style.width = '70px';
+                ghost.style.height = '98px';
+                ghost.style.left = touch.clientX + 'px';
+                ghost.style.top = touch.clientY + 'px';
+                ghost.style.display = 'block';
+
+                ghost.style.display = 'none';
+                const elemBelow = document.elementFromPoint(touch.clientX, touch.clientY);
+                ghost.style.display = 'block';
+                currentHoverZone = elemBelow ? elemBelow.closest('.playtest-zone, .fixed-zone') : null;
+            }
+        }, { passive: false });
+
+        deckZoneEl.addEventListener('touchend', (e) => {
+            if (deckTouchTimer) { clearTimeout(deckTouchTimer); deckTouchTimer = null; }
+            document.getElementById('touchDragGhost').style.display = 'none';
+
+            if (isDeckDragging && currentHoverZone) {
+                const targetZoneId = currentHoverZone.id.replace('pt-zone-', '');
+                ptExecuteDeckTopDropToZone(targetZoneId);
+            }
+            isDeckDragging = false;
+            deckMoved = false;
         });
 
         deckZoneEl.addEventListener('touchcancel', () => {
-            if (deckTouchTimer) {
-                clearTimeout(deckTouchTimer);
-                deckTouchTimer = null;
-            }
+            if (deckTouchTimer) { clearTimeout(deckTouchTimer); deckTouchTimer = null; }
+            document.getElementById('touchDragGhost').style.display = 'none';
+            isDeckDragging = false;
+            deckMoved = false;
         });
     }
 
@@ -2203,7 +2231,7 @@ function renderZone(zoneId, arr, name) {
                 const leftVisited = new Set([leftmost.id]);
                 while (leftmost.link_neighbors && leftmost.link_neighbors.left) {
                     const leftId = leftmost.link_neighbors.left;
-                    if (leftVisited.has(leftId)) break; // 環状になってもループを遮断
+                    if (leftVisited.has(leftId)) break;
                     leftVisited.add(leftId);
                     const leftCard = nonGears.find(nc => nc.id === leftId);
                     if (!leftCard) break;
@@ -2226,6 +2254,14 @@ function renderZone(zoneId, arr, name) {
                 visited.add(c.id);
                 renderCards.push(c);
                 equippedGears.filter(g => g.equipped_to_id === c.id).forEach(g => renderCards.push(g));
+            }
+        });
+
+        // ★ 追加セーフティネット: リンクが外れたり孤立して未描画になったカードをすべて確実に救出
+        nonGears.forEach(c => {
+            if (!visited.has(c.id)) {
+                visited.add(c.id);
+                renderCards.push(c);
             }
         });
         equippedGears.filter(g => !renderCards.includes(g)).forEach(g => renderCards.push(g));
@@ -2465,6 +2501,13 @@ function handleDrop(e, targetZone) {
     }
 
     if (!id) return;
+
+    // ★ 追加: 山札をドラッグ＆ドロップした時の処理へ分岐
+    if (id === 'deck_top') {
+        ptDraggedCardId = null;
+        ptExecuteDeckTopDropToZone(targetZone);
+        return;
+    }
 
     let fromZone = findCardZone(id);
     if (!fromZone || fromZone === targetZone) {
@@ -2805,42 +2848,50 @@ function openCardMenu(e, card, zone) {
 
     // 零龍カード専用メニュー分岐
     if (zone === 'battle' && card.is_zeron) {
-        let menuHtml = `
+        let zeronMenuHtml = `
             <li onclick="ptShowCardDetailModalById('${card.id}', '${zone}')">🔎 拡大表示</li>
             <hr>
         `;
         if (!card.flipped) {
             if (!card.zeron_links.includes('hand')) {
-                menuHtml += `<li onclick="ptLinkZeron('${card.id}', 'hand')">《手札の儀》とリンク</li>`;
+                zeronMenuHtml += `<li onclick="ptLinkZeron('${card.id}', 'hand')">《手札の儀》とリンク</li>`;
             }
             if (!card.zeron_links.includes('grave')) {
-                menuHtml += `<li onclick="ptLinkZeron('${card.id}', 'grave')">《墓地の儀》とリンク</li>`;
+                zeronMenuHtml += `<li onclick="ptLinkZeron('${card.id}', 'grave')">《墓地の儀》とリンク</li>`;
             }
             if (!card.zeron_links.includes('destroy')) {
-                menuHtml += `<li onclick="ptLinkZeron('${card.id}', 'destroy')">《破壊の儀》とリンク</li>`;
+                zeronMenuHtml += `<li onclick="ptLinkZeron('${card.id}', 'destroy')">《破壊の儀》とリンク</li>`;
             }
             if (!card.zeron_links.includes('revive')) {
-                menuHtml += `<li onclick="ptLinkZeron('${card.id}', 'revive')">《復活の儀》とリンク</li>`;
+                zeronMenuHtml += `<li onclick="ptLinkZeron('${card.id}', 'revive')">《復活の儀》とリンク</li>`;
             }
-            menuHtml += `
+            zeronMenuHtml += `
                 <hr>
                 <li onclick="ptFlipZeron('${card.id}')">裏返す (零龍へ)</li>
             `;
         } else {
-            menuHtml += `
+            zeronMenuHtml += `
                 <li onclick="ptFlipZeron('${card.id}')">裏返す (滅亡の起源 零無へ)</li>
             `;
         }
-        menu.innerHTML = menuHtml;
+        menu.innerHTML = zeronMenuHtml;
         menu.style.display = 'block';
         adjustMenuPosition(e, menu);
         return;
     }
 
+    // ★ 基本メニュー項目（menuHtml の宣言はここ1箇所のみにします）
     let menuHtml = `
-        <li onclick="ptShowCardDetailModalById('${card.id}', '${zone}')">拡大表示</li>
-        <hr>
+        <li onclick="ptShowCardDetailModalById('${card.id}', '${zone}')">🔎 拡大表示</li>
     `;
+
+    // 複数枚重ねられているカードの場合のみ「構成カード一覧を確認」を追加
+    if (card.underCards && card.underCards.length > 0) {
+        menuHtml += `
+            <li onclick="ptOpenUnderCardsViewerModal('${card.id}', '${zone}')">📚 構成カード一覧を確認 (${card.underCards.length + 1}枚)</li>
+        `;
+    }
+    menuHtml += `<hr>`;
 
     // ★ パートナーゾーン
     if (zone === 'partner') {
@@ -5686,7 +5737,6 @@ function ptHideContextMenu() {
 
 // 墓地・超次元ゾーン閲覧モーダル用 右クリックメニュー
 function openGroupedViewerContextMenu(e, itemEl, groupIds, fromZone) {
-
     const items = document.querySelectorAll('#ptViewerGrid .pt-grid-item.selected');
     let allSelectedIds = [];
     items.forEach(item => {
@@ -5694,7 +5744,6 @@ function openGroupedViewerContextMenu(e, itemEl, groupIds, fromZone) {
         allSelectedIds = allSelectedIds.concat(ids);
     });
 
-    // 何も選択されていない場合は、右クリックされた枠から1枚選択
     if (allSelectedIds.length === 0) {
         handleGroupItemClick(itemEl, groupIds);
         allSelectedIds = JSON.parse(itemEl.getAttribute('data-selected-ids') || '[]');
@@ -5703,8 +5752,13 @@ function openGroupedViewerContextMenu(e, itemEl, groupIds, fromZone) {
     const count = allSelectedIds.length;
     if (count === 0) return;
 
+    // ★ 選択中の先頭カードを特定
+    const targetCardId = allSelectedIds[0];
+
     const menu = document.getElementById('ptContextMenu');
     menu.innerHTML = `
+        <li onclick="ptShowCardDetailModalById('${targetCardId}', '${fromZone}')">🔎 拡大表示</li>
+        <hr>
         <li onclick="ptMoveGroupedViewerBatch('${fromZone}', 'hand')">選択した ${count} 枚を手札に加える</li>
         <li onclick="ptMoveGroupedViewerBatch('${fromZone}', 'mana')">選択した ${count} 枚をマナに置く</li>
         <li onclick="ptMoveGroupedViewerBatch('${fromZone}', 'battle')">選択した ${count} 枚をバトルゾーンに置く</li>
@@ -6286,35 +6340,27 @@ function ptCardMatchesGLinkTarget(actualCardName, specifiedTarget) {
     return actualCardName.includes(specifiedTarget.trim());
 }
 
-// sourceText の中で、指定された相手カードに対応するリンク方向を抽出（「または」複合指定対応版）
 function ptGetSpecificLinkDirection(sourceText, actualCardName) {
     if (!sourceText || !actualCardName) return null;
 
     // 注釈文（...）を除去
     const cleanText = sourceText.replace(/（[\s\S]*?）/g, '').replace(/\([\s\S]*?\)/g, '');
 
-    // 読点「、」や改行、スラッシュで区切られた指定フレーズごとに走査
-    const clauses = cleanText.split(/[、\n/]/);
+    // 《カード名》と、その直後（または「または」等の後）に続く方角を正確に抽出
+    // 例: 《龍神ヘヴィ》の右横 または 《龍神メタル》の左横
+    const regex = /《([^》]+)》[^《》\n]*?(右|左|上|下)[側横]/g;
+    let match;
 
-    for (const clause of clauses) {
-        // フレーズ内の方角（右/左/上/下）を取得
-        const dirMatch = clause.match(/(右|左|上|下)[側横]/);
-        if (!dirMatch) continue;
+    while ((match = regex.exec(cleanText)) !== null) {
+        const targetName = match[1].trim();
+        const dirChar = match[2];
 
-        const dirChar = dirMatch[1];
-
-        // フレーズ内に含まれるすべての《カード名》を取得（「《A》または《B》の上側」等に対応）
-        const nameMatches = clause.match(/《([^》]+)》/g) || [];
-        for (const m of nameMatches) {
-            const targetName = m.replace(/[《》]/g, '').trim();
-
-            // 実際のカード名が《》内の文字列を含んでいるか判定
-            if (ptCardMatchesGLinkTarget(actualCardName, targetName)) {
-                if (dirChar === '右') return 'left';   // 相手の右横にリンク → 相手は自分の「左」
-                if (dirChar === '左') return 'right';  // 相手の左横にリンク → 相手は自分の「右」
-                if (dirChar === '上') return 'bottom'; // 相手の上側にリンク → 相手は自分の「下」
-                if (dirChar === '下') return 'top';    // 相手の下側にリンク → 相手は自分の「上」
-            }
+        // 実際のカード名が《》内の文字列を含んでいる場合、直後の方角を採用
+        if (ptCardMatchesGLinkTarget(actualCardName, targetName)) {
+            if (dirChar === '右') return 'left';   // 相手の右横にリンク → 相手は自分の「左」
+            if (dirChar === '左') return 'right';  // 相手の左横にリンク → 相手は自分の「右」
+            if (dirChar === '上') return 'bottom'; // 相手の上側にリンク → 相手は自分の「下」
+            if (dirChar === '下') return 'top';    // 相手の下側にリンク → 相手は自分の「上」
         }
     }
 
@@ -6561,36 +6607,43 @@ function ptCalculateGroupCoordinates(group) {
     return coords;
 }
 
-// 特定カードのリンク可能な相手候補をすべてリストアップ（グリッド空間重複完全防止版）
+// 特定カードのリンク可能な相手候補をすべてリストアップ（中央割り込み判定修正版）
 function ptFindGLinkCandidatesForCard(cardA, battleCards) {
     const abA = cardA.ability_ids || [];
-    if (!abA.some(id => PT_GLINK_ALL_IDS.includes(id))) return [];
+    if (!abA.some(id => PT_GLINK_ALL_IDS.includes(Number(id)))) return [];
 
     const candidates = [];
     const groupA = ptGetLinkedGroup(cardA);
     const groupAIds = new Set(groupA.map(c => c.id));
 
-    // 中央G・リンクが既存の「左G」と「右G」の中央に割り込む特殊チェック
-    if (abA.includes(173)) {
-        const isLeftG = (ab) => ab.includes(307) || ab.includes(308) || ab.includes(364);
-        const isRightG = (ab) => ab.includes(293) || ab.includes(294) || ab.includes(365);
+    // ★ 中央G・リンク(173) または トライ・G・リンク(197) の中央割り込み判定
+    // 既存ペア（cardL - cardR）がリンクしている状態で、その間に割り込めるかを直接判定
+    if (abA.some(id => Number(id) === 173 || Number(id) === 197)) {
         for (let j = 0; j < battleCards.length; j++) {
             const cardL = battleCards[j];
-            if (!isLeftG(cardL.ability_ids || [])) continue;
             const rId = cardL.link_neighbors ? cardL.link_neighbors.right : null;
             if (!rId) continue;
             const cardR = battleCards.find(c => c.id === rId);
-            if (cardR && isRightG(cardR.ability_ids || []) && !groupAIds.has(cardL.id) && !groupAIds.has(cardR.id)) {
-                candidates.push({
-                    targetCard: cardL,
-                    partnerRightCard: cardR,
-                    direction: 'between',
-                    displayLabel: `《${cardL.name}》と《${cardR.name}》の中央にリンク`
-                });
+
+            if (cardR && !groupAIds.has(cardL.id) && !groupAIds.has(cardR.id)) {
+                // スロット空きに関わらず、テキストの方角指定が合致するか直接チェック
+                const dirToL = ptGetSpecificLinkDirection(cardA.text, cardL.name);
+                const dirToR = ptGetSpecificLinkDirection(cardA.text, cardR.name);
+
+                // cardAから見てLが左（＝Lの右横）、かつRが右（＝Rの左横）であれば割り込み成立
+                if (dirToL === 'left' && dirToR === 'right') {
+                    candidates.push({
+                        targetCard: cardL,
+                        partnerRightCard: cardR,
+                        direction: 'between',
+                        displayLabel: `《${cardL.name}》と《${cardR.name}》の中央にリンク`
+                    });
+                }
             }
         }
     }
 
+    // 通常の単体リンク候補の走査
     for (let j = 0; j < battleCards.length; j++) {
         const cardB = battleCards[j];
         if (cardA.id === cardB.id || groupAIds.has(cardB.id)) continue;
@@ -6598,23 +6651,20 @@ function ptFindGLinkCandidatesForCard(cardA, battleCards) {
         const dir = ptCheckGLinkCompatibility(cardA, cardB);
         if (!dir) continue;
 
-        // ★ 幾何学的グリッド空間チェック:
-        // cardBの属するグループの全座標を算出し、cardAが配置される予定のマスにすでにカードが存在しないか検証
+        // 幾何学的グリッド重複チェック
         const groupB = ptGetLinkedGroup(cardB);
         const coordsB = ptCalculateGroupCoordinates(groupB);
         const bPos = coordsB[cardB.id] || { x: 0, y: 0 };
 
-        // dirは「cardAから見たcardBの方向」なので、cardBから見たcardAの相対変位(dx, dy)を求める
         let dx = 0, dy = 0;
-        if (dir === 'left') dx = 1;        // cardAの左がcardB → cardBの右(+1)にcardA
-        else if (dir === 'right') dx = -1; // cardAの右がcardB → cardBの左(-1)にcardA
-        else if (dir === 'top') dy = 1;    // cardAの上がcardB → cardBの下(+1)にcardA
-        else if (dir === 'bottom') dy = -1;// cardAの下がcardB → cardBの上(-1)にcardA
+        if (dir === 'left') dx = 1;
+        else if (dir === 'right') dx = -1;
+        else if (dir === 'top') dy = 1;
+        else if (dir === 'bottom') dy = -1;
 
         const targetX = bPos.x + dx;
         const targetY = bPos.y + dy;
 
-        // 予定座標(targetX, targetY)にすでにgroupBのカードが存在している場合は絶対にリンク不可
         const isSlotOccupied = groupB.some(member => {
             const mPos = coordsB[member.id] || { x: 0, y: 0 };
             return mPos.x === targetX && mPos.y === targetY;
@@ -6626,8 +6676,6 @@ function ptFindGLinkCandidatesForCard(cardA, battleCards) {
     }
     return candidates;
 }
-
-
 // 中央G・リンクが左Gと右Gの間に割り込む結合処理
 function ptApplyGLinkBetween(centerCard, leftCard, rightCard) {
     if (leftCard.linked_ids) leftCard.linked_ids = leftCard.linked_ids.filter(id => id !== rightCard.id);
@@ -7148,16 +7196,23 @@ function ptOpenCenterGLinkSelectModal(centerCard) {
 
     const battleGods = ptState.battle.filter(c => !c.faceDown && c.id !== centerCard.id);
 
+    // ★ 修正: 該当側のスロットが空いているカードのみを候補とする
     const isLeftCompatible = (c) => {
+        // すでに右側に別のカードがリンクしている場合は候補外（空いていない）
+        if (c.link_neighbors && c.link_neighbors.right && c.link_neighbors.right !== centerCard.id) return false;
+
         const ab = c.ability_ids || [];
-        if (ab.includes(307) || ab.includes(308) || ab.includes(364)) return true;
+        if (ab.some(id => [307, 308, 364].includes(Number(id)))) return true;
         const dir = ptGetSpecificLinkDirection(c.text, centerCard.name);
         return dir === 'right'; // cから見て中央Gが右＝cは左に配置
     };
 
     const isRightCompatible = (c) => {
+        // すでに左側に別のカードがリンクしている場合は候補外（空いていない）
+        if (c.link_neighbors && c.link_neighbors.left && c.link_neighbors.left !== centerCard.id) return false;
+
         const ab = c.ability_ids || [];
-        if (ab.includes(293) || ab.includes(294) || ab.includes(365)) return true;
+        if (ab.some(id => [293, 294, 365].includes(Number(id)))) return true;
         const dir = ptGetSpecificLinkDirection(c.text, centerCard.name);
         return dir === 'left'; // cから見て中央Gが左＝cは右に配置
     };
@@ -7480,6 +7535,140 @@ function ptConfirmCenter360Link() {
     ptCloseGroupLoopLinks(centerCard);
     // ★ 処理完了として削除し次へ
     ptRemoveHubActionAndReturn(ptCurrentRunningActionId);
+}
+// ========================================================
+// 構成カード一覧確認モーダル ＆ 直接拡大表示
+// ========================================================
+
+// カードオブジェクトから直接拡大表示（構成カード一覧等用）
+function ptShowCardDetailModalDirect(card) {
+    ptHideContextMenu();
+    if (!card) return;
+
+    const modal = document.getElementById('ptDetailModal');
+    const body = document.getElementById('ptDetailModalBody');
+
+    const isGR = card.characteristics_ids && card.characteristics_ids.includes(10);
+    const backPath = isGR ? '/images/card/gr_backimage.webp' : '/images/card/backimage.webp';
+    const displaySrc = card.faceDown ? backPath : card.src;
+    const displayName = card.faceDown ? '（裏向きのカード）' : card.name;
+
+    body.innerHTML = `
+        <img src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+        <div style="font-weight:bold; font-size:16px; color:#fff; margin-bottom:6px;">${displayName}</div>
+    `;
+    modal.style.display = 'flex';
+}
+
+// 構成カード一覧モーダル（クリックで各カードを拡大表示）
+function ptOpenUnderCardsViewerModal(cardId, fromZone) {
+    const parentCard = ptState[fromZone] ? ptState[fromZone].find(c => c.id === cardId) : findCardById(cardId);
+    if (!parentCard) return;
+
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = `構成カード一覧 (${(parentCard.underCards || []).length + 1}枚)`;
+    body.innerHTML = `
+        <p style="margin-bottom:12px; font-size:13px; color:#aaa; text-align:center;">
+            カードをクリックすると拡大表示できます。
+        </p>
+        <div class="pt-grid" id="ptUnderCardsViewerGrid" style="max-height:55vh; overflow-y:auto;"></div>
+    `;
+
+    const allComponents = [parentCard, ...(parentCard.underCards || [])];
+    const grid = document.getElementById('ptUnderCardsViewerGrid');
+
+    allComponents.forEach((c, idx) => {
+        const itemEl = document.createElement('div');
+        itemEl.className = 'pt-grid-item';
+        const isGR = c.characteristics_ids && c.characteristics_ids.includes(10);
+        const backPath = isGR ? '/images/card/gr_backimage.webp' : '/images/card/backimage.webp';
+        const displaySrc = c.faceDown ? backPath : c.src;
+        const displayName = c.faceDown ? '（裏向きのカード）' : c.name;
+        const label = (idx === 0) ? '【一番上】' : `【下敷き ${idx}】`;
+
+        itemEl.innerHTML = `
+            <img src="${displaySrc}">
+            <div class="card-qty" style="font-weight:bold; margin-top:4px;">${displayName}</div>
+            <div style="font-size:10px; color:#17a2b8; margin-top:2px;">${label}</div>
+        `;
+        // クリックで拡大表示へ、閉じた時にこの構成一覧画面に戻る
+        itemEl.onclick = () => {
+            ptShowCardDetailModalDirect(c, () => ptOpenUnderCardsViewerModal(cardId, fromZone));
+        };
+        grid.appendChild(itemEl);
+    });
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="closePtModal()">閉じる</button>
+    `;
+    modal.style.display = 'flex';
+}
+// ========================================================
+// 山札ドラッグ＆ドロップ処理
+// ========================================================
+
+// PCドラッグ開始
+function ptDragDeck(e) {
+    if (ptState.deck.length === 0) {
+        e.preventDefault();
+        return;
+    }
+    ptDraggedCardId = 'deck_top';
+    if (e.dataTransfer) {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', 'deck_top');
+    }
+}
+
+// ドロップ先ゾーン別の処理
+function ptExecuteDeckTopDropToZone(targetZone) {
+    if (ptState.deck.length === 0) {
+        alert("山札にカードがありません。");
+        return;
+    }
+    if (targetZone === 'deck') return;
+
+    const topCard = ptState.deck[ptState.deck.length - 1];
+
+    if (targetZone === 'battle') {
+        // バトルゾーン: 登場設定モーダルを流用
+        topCard.faceDown = false;
+        ptOpenBattlePlacementSelectModal(topCard.id, 'deck');
+    } else if (targetZone === 'shield') {
+        // シールド: 配置設定モーダルを流用
+        ptOpenShieldDropSelectModal(topCard.id, 'deck');
+    } else if (targetZone === 'mana') {
+        // マナゾーン: 表向きで配置（多色はタップ）
+        const card = ptState.deck.pop();
+        card.faceDown = false;
+        card.inverted = true;
+        card.tapped = card.is_multicolor;
+        ptState.mana.push(card);
+        renderPtBoard();
+    } else if (targetZone === 'hand') {
+        // 手札: ドロー
+        ptDrawCard();
+    } else if (targetZone === 'graveyard') {
+        // 墓地: 表向きで配置
+        const card = ptState.deck.pop();
+        card.faceDown = false;
+        card.tapped = false;
+        card.inverted = false;
+        ptState.graveyard.push(card);
+        renderPtBoard();
+    } else if (targetZone === 'psychic') {
+        // 超次元: 表向きで配置
+        const card = ptState.deck.pop();
+        card.faceDown = false;
+        card.tapped = false;
+        card.inverted = false;
+        ptState.psychic.push(card);
+        renderPtBoard();
+    }
 }
 </script>
 </body>

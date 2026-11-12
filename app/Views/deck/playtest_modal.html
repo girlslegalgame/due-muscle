@@ -180,27 +180,31 @@ function ptReturnToPreviousModal() {
     }
 }
 
-// ==========================================
-// カード詳細・拡大モーダル
-// ==========================================
+// 拡大専用モーダルを閉じる
+function closePtDetailModal() {
+    const modal = document.getElementById('ptDetailModal');
+    if (modal) modal.style.display = 'none';
+}
+
+// IDから拡大表示（専用モーダル #ptDetailModal を使用）
 function ptShowCardDetailModalById(id, zone) {
+    ptHideContextMenu();
     const card = findCardById(id);
     if (!card) return;
 
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
+    const modal = document.getElementById('ptDetailModal');
+    const body = document.getElementById('ptDetailModalBody');
 
-    title.innerText = "カード拡大表示";
+    const isGR = card.characteristics_ids && card.characteristics_ids.includes(10);
+    const backPath = isGR ? '/images/card/gr_backimage.webp' : '/images/card/backimage.webp';
+    const displaySrc = card.faceDown ? backPath : card.src;
+    const displayName = card.faceDown ? '（裏向きのカード）' : card.name;
+
     body.innerHTML = `
-        <div style="text-align:center; padding: 10px 0;">
-            <img src="${card.src}" style="width:100%; max-width:360px; height:auto; aspect-ratio:5/7; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
-            <div style="font-weight:bold; font-size:18px; color:#fff; margin-bottom:6px;">${card.name}</div>
-            <div style="font-size:13px; color:#aaa;">(現在地: ${zoneJapaneseName(zone)})</div>
-        </div>
+        <img src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+        <div style="font-weight:bold; font-size:16px; color:#fff; margin-bottom:6px;">${displayName}</div>
+        <div style="font-size:12px; color:#aaa;">(現在地: ${zoneJapaneseName(zone)})</div>
     `;
-    footer.innerHTML = `<button class="btn-pt-primary" onclick="closePtModal();" style="width:120px; font-weight:bold; padding:8px 0;">閉じる</button>`;
     modal.style.display = 'flex';
 }
 
@@ -1939,7 +1943,6 @@ function openDeckViewContextMenu(e, itemEl, groupIds) {
         allSelectedIds = allSelectedIds.concat(ids);
     });
 
-    // 何も選択されていない場合は、右クリックされた枠から「1枚のみ」選択する
     if (allSelectedIds.length === 0) {
         handleGroupItemClick(itemEl, groupIds);
         allSelectedIds = JSON.parse(itemEl.getAttribute('data-selected-ids') || '[]');
@@ -1948,8 +1951,13 @@ function openDeckViewContextMenu(e, itemEl, groupIds) {
     const count = allSelectedIds.length;
     if (count === 0) return;
 
+    // ★ 選択中の先頭カードを特定
+    const targetCardId = allSelectedIds[0];
+
     const menu = document.getElementById('ptContextMenu');
     menu.innerHTML = `
+        <li onclick="ptShowCardDetailModalById('${targetCardId}', 'deck')">🔎 拡大表示</li>
+        <hr>
         <li onclick="ptMoveDeckViewBatch('hand')">選択した ${count} 枚を手札に加える</li>
         <li onclick="ptMoveDeckViewBatch('mana')">選択した ${count} 枚をマナに置く</li>
         <li onclick="ptMoveDeckViewBatch('graveyard')">選択した ${count} 枚を墓地に置く</li>
