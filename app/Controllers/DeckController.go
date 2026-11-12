@@ -1229,6 +1229,7 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
             dc.*, 
             c.card_name, 
             c.cost, 
+            c.text, 
             cd.imagepath, 
             cd.twinpact,
             cd_partner.imagepath as combination_imagepath, 
