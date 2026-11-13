@@ -1865,9 +1865,8 @@ const isTemplate = _initData.isTemplate || false; // ★ 追加
 const deckId = _initData.deckId;
 const deckConfig = _initData.deckConfig;
 const initialDeckName = _initData.initialDeckName;
-const initialCards = _initData.initialCards;
+const initialCards = _initData.initialCards || []; // ★ null の場合に空配列を代入して安全化
 const currentSort = { key: null, order: 'asc' };
-
 const cardCache = {};
 
 // Controllerから渡されたフォーマット情報を取得

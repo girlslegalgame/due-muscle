@@ -161,7 +161,7 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 		ORDER BY dtc.sort_order ASC
 	`, templateId)
 
-	var cards []map[string]interface{}
+	cards := make([]map[string]interface{}, 0) // ★ nil ではなく空スライスで初期化
 	if err == nil && cRows != nil {
 		cards, _ = rowsToMapSlice(cRows)
 	} else if err != nil {
