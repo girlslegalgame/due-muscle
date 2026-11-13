@@ -878,18 +878,33 @@
         /* スマホ時も分析・保存ボタンを右寄せに維持 */
         #deck-header {
             height: auto !important;
-            margin: 8px 0 !important;
+            margin: 6px 0 !important;
             display: flex !important;
-            justify-content: flex-end !important; /* 右寄せにする */
+            justify-content: flex-end !important;
         }
         #deck-header h3 {
-            display: none !important; /* ボタンとの衝突を防ぐため非表示 */
+            display: none !important;
         }
         #deck-header > div {
-            justify-content: flex-end !important; /* 右寄せを維持 */
-            gap: 8px !important;
+            width: 100% !important;
+            justify-content: flex-end !important;
+            gap: 4px !important; /* ★ ボタン間隔を 8px から 4px に縮小 */
+            overflow-x: auto !important; /* ★ 極小画面でもはみ出さず収まるよう設定 */
+            -webkit-overflow-scrolling: touch !important;
         }
-        
+        #deck-header > div::-webkit-scrollbar {
+            display: none; /* スクロールバーは非表示 */
+        }
+        /* ★ ヘッダー内全ボタンのパディングと文字サイズをコンパクトに統一 */
+        #deck-header button {
+            flex: none !important;
+            font-size: 11px !important;
+            padding: 5px 7px !important;
+            white-space: nowrap !important;
+        }
+        #save-deck-btn {
+            padding: 5px 10px !important;
+        }
         /* ボタンを横に引き伸ばさず、コンパクトに右端へ配置 */
         .btn-analysis, #save-deck-btn {
             flex: none !important; /* 引き伸ばさない */
@@ -4149,13 +4164,39 @@ function renderTemplateList() {
         item.style.cssText = 'display:flex; align-items:center; gap:12px; padding:10px; border:1px solid #eee; border-radius:8px; background:#fff;';
         const thumbSrc = getCardImagePath({ imagepath: t.thumbnail_imagepath });
 
+        // ★ 文明ID（1〜5）の集約
+        const civSet = new Set();
+        const allCivStrs = (String(t.civ_ids || '') + ',' + String(t.dummy_civ_ids || '')).split(',');
+        allCivStrs.forEach(id => {
+            const num = parseInt(id.trim(), 10);
+            if (num >= 1 && num <= 5) civSet.add(num);
+        });
+
+        // ★ style.css のクラス定義（.civ-badge, .civ-bg-xxx）を使用
+        const civMeta = {
+            1: { name: '光', cls: 'civ-bg-light' },
+            2: { name: '水', cls: 'civ-bg-water' },
+            3: { name: '闇', cls: 'civ-bg-dark' },
+            4: { name: '火', cls: 'civ-bg-fire' },
+            5: { name: '自然', cls: 'civ-bg-nature' }
+        };
+
+        let civBadgesHtml = '';
+        [1, 2, 3, 4, 5].forEach(id => {
+            if (civSet.has(id)) {
+                const c = civMeta[id];
+                civBadgesHtml += `<span class="civ-badge ${c.cls}">${c.name}</span>`;
+            }
+        });
+
         item.innerHTML = `
             <img src="${thumbSrc}" onerror="handleImageError(this)" style="width:50px; height:70px; object-fit:contain; border-radius:4px; flex-shrink:0;">
             <div style="flex:1; min-width:0;">
                 <div style="font-weight:bold; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.template_name || '')}</div>
-                <div style="font-size:12px; color:#666; margin-top:2px;">
+                <div style="font-size:12px; color:#666; margin-top:3px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
                     <span class="format-badge">${escapeHTML(t.format_name || '')}</span>
-                    ${t.goods_name ? `<span style="color:#0056b3; margin-left:6px;">${escapeHTML(t.goods_name)}</span>` : ''}
+                    ${civBadgesHtml ? `<div class="deck-civ-badges" style="margin-top:0;">${civBadgesHtml}</div>` : ''}
+                    ${t.goods_name ? `<span style="color:#0056b3;">${escapeHTML(t.goods_name)}</span>` : ''}
                 </div>
                 ${t.description ? `<div style="font-size:11px; color:#888; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.description)}</div>` : ''}
             </div>

@@ -298,7 +298,22 @@ func (c *DeveloperController) GetTemplatesApi(w http.ResponseWriter, r *http.Req
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	db := getDB()
-	sqlStr := `SELECT dt.*, f.format_name, g.goods_name, cd.imagepath as thumbnail_imagepath 
+	sqlStr := `SELECT dt.*, f.format_name, g.goods_name, cd.imagepath as thumbnail_imagepath,
+               (
+                   SELECT GROUP_CONCAT(DISTINCT cc.civilization_id)
+                   FROM deck_template_cards dtc
+                   LEFT JOIN card_civilization cc ON dtc.card_id = cc.card_id
+                   WHERE dtc.template_id = dt.template_id 
+                     AND (dtc.card_type_in_deck IS NULL OR dtc.card_type_in_deck = 'main')
+                     AND cc.civilization_id != 6
+               ) as civ_ids,
+               (
+                   SELECT GROUP_CONCAT(dtc.dummy_civ_ids SEPARATOR ',')
+                   FROM deck_template_cards dtc
+                   WHERE dtc.template_id = dt.template_id
+                     AND (dtc.card_type_in_deck IS NULL OR dtc.card_type_in_deck = 'main')
+                     AND dtc.dummy_civ_ids IS NOT NULL AND dtc.dummy_civ_ids != ''
+               ) as dummy_civ_ids
                FROM deck_templates dt
                JOIN formats f ON dt.format_id = f.format_id
                LEFT JOIN goods g ON dt.goods_id = g.goods_id
