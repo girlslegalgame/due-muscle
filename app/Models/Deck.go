@@ -199,6 +199,7 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                 ) as text,
                 cd.modelnum, 
                 cd.imagepath,
+                cd.regulation,
                 COALESCE(cd.twinpact, CASE WHEN dc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
                 cd.hypermode,
                 dc.quantity,

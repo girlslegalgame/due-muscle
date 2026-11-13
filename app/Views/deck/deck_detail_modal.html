@@ -5,6 +5,12 @@ if (typeof CARD_CIV_COLORS === 'undefined') {
     s.src = '/js/card_image_helper.js';
     document.head.appendChild(s);
 }
+// ★ 追加: regulation_badge.js を読み込む
+if (typeof applyRegulationBadge === 'undefined') {
+    const sBadge = document.createElement('script');
+    sBadge.src = '/js/regulation_badge.js';
+    document.head.appendChild(sBadge);
+}
 </script>
 <!-- 共通デッキ詳細モーダルのスタイル -->
 <style>
@@ -1572,8 +1578,12 @@ function renderImages(cards) {
             const img = document.createElement('img');
             img.src = src;
             img.dataset.cardId = card.card_id;
+            img.dataset.regulation = card.regulation || ''; // 追加
             img.style.cursor = 'pointer';
-            img.loading = 'eager'; // ★ 最優先で読み込む
+            img.loading = 'eager';
+
+            // ★ 殿堂・P殿バッジを適用
+            applyRegulationBadge(img, card.regulation);
             
             if (card.is_dummy != 1 && !String(card.card_id).startsWith('dummy_')) {
                 img.onclick = () => openCardDetail(card.card_id);

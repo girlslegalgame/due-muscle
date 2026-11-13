@@ -1201,6 +1201,7 @@
 </style>
 <!-- 外部ライブラリ読み込み -->
 <script src="/js/card_image_helper.js"></script>
+<script src="/js/regulation_badge.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="/js/ccfolia_exporter.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -2075,7 +2076,10 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
         img.dataset.dummyPartnerCivIds = card.dummy_partner_civ_ids || card.partner_civ_ids || '';
     }
     img.alt = card.card_name;
+    img.dataset.regulation = card.regulation || ''; // 追加
     img.onerror = () => handleImageError(img);
+
+    applyRegulationBadge(img, card.regulation);
 
     const name = card.card_name;
     const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
@@ -2905,7 +2909,12 @@ function fetchAndRender() {
                     img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : ''; 
                     img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
                     img.dataset.cost = card.cost !== undefined ? card.cost : '';
+                    img.dataset.regulation = card.regulation || ''; // 追加
                     img.onerror = () => handleImageError(img);
+
+                    // ★ 殿堂・P殿バッジを適用
+                    applyRegulationBadge(img, card.regulation);
+
                     resultsDiv.appendChild(img);
                 });
             }

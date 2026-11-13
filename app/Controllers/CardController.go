@@ -703,7 +703,7 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 	if !isFiltered {
 		sqlQuery = fmt.Sprintf(`
             SELECT 
-                c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact,
+    			c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.regulation,
                 CASE 
                     WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (
                         SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
@@ -731,8 +731,8 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 	} else {
 		sqlQuery = fmt.Sprintf(`
             SELECT 
-                c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact,
-                CASE 
+                c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.regulation,
+                CASE
                     WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (
                         SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
                         FROM card_combination cc_sub
