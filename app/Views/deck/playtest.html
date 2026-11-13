@@ -2642,8 +2642,11 @@ function ptMoveCard(cardId, from, to, opts = {}) {
         card.equipped_to_id = null;
     }
 
-    // ★ 追加: バトルゾーンからカードが離れた時、このカードに装備されていた cardtype_id: 5 のカードを超次元へ送る
+    // バトルゾーンからカードが離れた時、このカードに装備されていた cardtype_id: 5 のカードを超次元へ送る
     if (from === 'battle') {
+        // ★ 追加: バトルゾーンを離れるカード（および下敷き）のEXライフシールド紐付けを解除
+        ptClearExLifeLinksForCard(card);
+
         const attachedCards = ptState.battle.filter(c => c.equipped_to_id === card.id);
         attachedCards.forEach(item => {
             const itemTypeIds = item.cardtype_ids || [];
@@ -2800,6 +2803,9 @@ function ptExecuteUnderCardSelectMove(parentId, toZone, opts = {}) {
     // 選択されたカードをそれぞれ目的のゾーンへ移動
     moveCards.forEach(card => {
         if (!card) return;
+
+        // ★ 追加: 離れる構成カードの紐付けを解除
+        ptClearExLifeLinksForCard(card);
 
         card.underCards = [];
         card.is_under_stacked = false;
@@ -7693,6 +7699,20 @@ function ptExecuteDeckTopDropToZone(targetZone) {
         ptState.psychic.push(card);
         renderPtBoard();
     }
+}
+// バトルゾーンを離れたカードに紐付いていたシールドの繋がりを完全に解除
+function ptClearExLifeLinksForCard(card) {
+    if (!card) return;
+    const leavingIds = [card.id, ...(card.underCards || []).map(c => c.id)];
+
+    ptState.shield.forEach(parentShield => {
+        const comps = [parentShield, ...(parentShield.underCards || [])];
+        comps.forEach(s => {
+            if (s.linked_source_id && leavingIds.includes(s.linked_source_id)) {
+                s.linked_source_id = null;
+            }
+        });
+    });
 }
 // バトルゾーンのカードに紐付くシールドを探索
 function findLinkedShieldsForBattleCard(battleCard) {
