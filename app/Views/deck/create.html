@@ -1934,9 +1934,16 @@ function getCardImagePath(card) {
     return getCardImageUrl(card);
 }
 
+// app/Views/deck/create.html (700行目付近)
+
 function handleImageError(img) {
+    // 1回目は noimage.webp を設定
+    img.onerror = () => {
+        // 万が一 noimage.webp 自体も読み込めない場合はインラインSVGで確実に「NO IMAGE」を表示
+        img.onerror = null;
+        img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="110" height="154" viewBox="0 0 110 154"><rect width="110" height="154" fill="%23e2e8f0"/><text x="55" y="77" font-size="12" font-family="sans-serif" font-weight="bold" fill="%2394a3b8" text-anchor="middle" dominant-baseline="middle">NO IMAGE</text></svg>';
+    };
     img.src = '/images/card/noimage.webp';
-    img.onerror = null;
 }
 
 // --- B. 初期化 ---
@@ -2552,6 +2559,9 @@ function renderDetailModal() {
 
     const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
     const isZero = (name === '零龍' || name === '滅亡の起源 零無');
+    const mainDetailImg = document.getElementById('detail-main-img');
+    mainDetailImg.onerror = () => handleImageError(mainDetailImg);
+    mainDetailImg.src = getCardImagePath(selectedCardData);
 
     if (isDoru || isZero) {
         const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';
@@ -2585,7 +2595,10 @@ function renderDetailModal() {
     versionList.innerHTML = '';
     allVersions.forEach(v => {
         const vImg = document.createElement('img');
+        // ★ 必ず src 代入の「前」に onerror を登録してイベント取りこぼしを防止
+        vImg.onerror = () => handleImageError(vImg);
         vImg.src = getCardImagePath(v);
+
         if (v.card_id == selectedCardData.card_id) vImg.className = 'selected';
         vImg.onclick = () => {
             selectedCardData = v;
@@ -2594,7 +2607,6 @@ function renderDetailModal() {
                 activeClickedElement.dataset.cardId = v.card_id;
             }
             renderDetailModal();
-            // ★ バージョン切り替え時にも、そのバージョンの別面情報を再取得して更新
             loadCombinationSides(v.card_id);
         };
         versionList.appendChild(vImg);
@@ -3215,17 +3227,14 @@ function setThumbnail(cardId, imagepath) {
     const imgEl = document.getElementById('thumbnail-preview-img');
     const placeholder = document.getElementById('thumbnail-placeholder');
     
-    if (typeof imagepath === 'string' && imagepath !== '') {
-        if (imagepath.startsWith('http://') || imagepath.startsWith('https://') || imagepath.startsWith('/') || imagepath.startsWith('data:')) {
-            imgEl.src = imagepath;
-        } else {
-            const resolved = getCardImagePath({ imagepath: imagepath });
-            if (resolved.startsWith('http://') || resolved.startsWith('https://') || resolved.startsWith('/') || resolved.startsWith('data:')) {
-                imgEl.src = resolved;
-            } else {
-                imgEl.src = '/images/card/' + resolved;
-            }
-        }
+    // ★ src 設定の前にエラーハンドラを登録
+    imgEl.onerror = () => handleImageError(imgEl);
+
+    // ★ パス判定を getCardImagePath に統一して正しく解決
+    if (typeof imagepath === 'string' && imagepath !== '' && imagepath !== '<nil>') {
+        imgEl.src = getCardImagePath({ imagepath: imagepath });
+    } else {
+        imgEl.src = '/images/card/noimage.webp';
     }
     
     imgEl.style.display = 'block';
