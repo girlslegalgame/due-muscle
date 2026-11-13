@@ -1000,10 +1000,12 @@ function openEvoTargetSelector(cardId, fromZone, mode) {
             closePtModal();
             setTimeout(() => {
                 ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true});
+                const bCard = ptState.battle.find(c => c.id === '${cardId}');
+                if (bCard) ptTriggerBattleEnter(bCard);
             }, 60);
         ">重ねずに単体で出す</button>`;
     }
-    footerHtml += `<button class="btn-pt-primary" onclick="ptExecuteEvolutionPlay('${cardId}', '${fromZone}')">決定してバトルゾーンに出す</button>`;    footer.innerHTML = footerHtml;
+    footerHtml += `<button class="btn-pt-primary" onclick="ptExecuteEvolutionPlay('${cardId}', '${fromZone}')">決定してバトルゾーンに出す</button>`;
     modal.style.display = 'flex';
     updateEvoSelectUI();
 }
@@ -1929,7 +1931,12 @@ function openEvolutionChoiceModal(cardId, fromZone, mode) {
     title.innerText = "バトルゾーンへの出し方選択";
     body.innerHTML = `
         <p style="margin-bottom:15px; font-size:13px; color:#aaa;">出し方を選択してください。</p>
-        <button class="btn-pt-primary" onclick="ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true}); closePtModal();" style="width:100%; margin-bottom:10px; padding: 10px; font-weight:bold;">単体でバトルゾーンに置く</button>
+        <button class="btn-pt-primary" onclick="
+            ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true});
+            const bCard = ptState.battle.find(c => c.id === '${cardId}');
+            if (bCard) ptTriggerBattleEnter(bCard);
+            closePtModal();
+        " style="width:100%; margin-bottom:10px; padding: 10px; font-weight:bold;">単体でバトルゾーンに置く</button>
         <button class="btn-pt-secondary" onclick="openEvoTargetSelector('${cardId}', '${fromZone}', '${mode}')" style="width:100%; padding: 10px; font-weight:bold;">他カードの上に重ねて置く</button>
     `;
     footer.innerHTML = `<button class="btn-pt-secondary" onclick="closePtModal()">閉じる</button>`;
