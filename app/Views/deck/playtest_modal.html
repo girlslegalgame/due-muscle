@@ -953,9 +953,23 @@ function openEvoTargetSelector(cardId, fromZone, mode) {
 
     const grid = document.getElementById('ptEvoGrid');
     let list = [];
-    const targetCard = ptState[fromZone].find(c => c.id === cardId);
+
+    // ★ 修正: ptState[fromZone] で見つからない場合も findCardById で確実にカードを取得
+    const targetCard = (ptState[fromZone] && ptState[fromZone].find(c => c.id === cardId)) || findCardById(cardId);
     let targetCardTypes = targetCard ? (targetCard.cardtype_ids || []).map(Number) : [];
-    const targetCharIds = targetCard ? (targetCard.characteristics_ids || []).map(Number) : [];
+    
+    // ★ 修正: 配列・文字列・別名プロパティ（char_ids等）いずれの形式でも確実に数値配列化
+    let rawChars = [];
+    if (targetCard) {
+        rawChars = targetCard.characteristics_ids || targetCard.char_ids || targetCard.characteristic_ids || [];
+    }
+    if (typeof rawChars === 'string') {
+        rawChars = rawChars.replace(/[\[\]]/g, '').split(',');
+    } else if (!Array.isArray(rawChars)) {
+        rawChars = [rawChars];
+    }
+    const targetCharIds = rawChars.map(id => parseInt(id, 10)).filter(n => !isNaN(n));
+
     if (targetCardTypes.length === 0) targetCardTypes.push(1);
 
     function isValidBattleEvoTarget(c) {
@@ -993,10 +1007,16 @@ function openEvoTargetSelector(cardId, fromZone, mode) {
         grid.appendChild(itemEl);
     });
 
-    const canPlayWithoutStack = targetCharIds.some(id => [9, 16].includes(id));
+    // ★ 修正: 型に依存せず数値 9 または 16 を確実に判定
+    const canPlayWithoutStack = targetCharIds.some(id => Number(id) === 9 || Number(id) === 16);
+    
+    // ★ 修正: ボタンがはみ出さないよう footer に flex-wrap とスタイルを適用
+    footer.style.flexWrap = 'wrap';
+    footer.style.gap = '8px';
+
     let footerHtml = `<button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>`;
     if (canPlayWithoutStack) {
-        footerHtml += `<button class="btn-pt-secondary" style="background:#fd7e14; color:white; border:none;" onclick="
+        footerHtml += `<button class="btn-pt-secondary" style="background:#fd7e14; color:white; border:none; font-weight:bold;" onclick="
             closePtModal();
             setTimeout(() => {
                 ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true});
@@ -1006,6 +1026,7 @@ function openEvoTargetSelector(cardId, fromZone, mode) {
         ">重ねずに単体で出す</button>`;
     }
     footerHtml += `<button class="btn-pt-primary" onclick="ptExecuteEvolutionPlay('${cardId}', '${fromZone}')">決定してバトルゾーンに出す</button>`;
+    footer.innerHTML = footerHtml;
     modal.style.display = 'flex';
     updateEvoSelectUI();
 }
