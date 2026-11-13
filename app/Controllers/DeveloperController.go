@@ -529,7 +529,12 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 			) as imagepath,
 			COALESCE(cd.`+"`limit`"+`, 4) as card_limit,
 			COALESCE(cd.twinpact, CASE WHEN dtc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
-			cd.regulation,
+			-- ★ どのバージョンのカードであっても同名カードから確実に殿堂情報を取得する
+			COALESCE(
+				cd.regulation,
+				(SELECT cd2.regulation FROM card_detail cd2 WHERE cd2.card_id = c.card_id AND cd2.regulation IS NOT NULL AND cd2.regulation != '' LIMIT 1),
+				(SELECT cd3.regulation FROM card c3 JOIN card_detail cd3 ON c3.card_id = cd3.card_id WHERE c3.card_name = c.card_name AND cd3.regulation IS NOT NULL AND cd3.regulation != '' LIMIT 1)
+			) as regulation,
 			CASE WHEN dtc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
 			COALESCE(dtc.dummy_card_type, 'normal') as dummy_card_type,
 			dtc.dummy_partner_name,
@@ -544,7 +549,7 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 			 WHERE cc_ref.card_id = c.card_id) as combo_names
 		FROM deck_template_cards dtc
 		LEFT JOIN card c ON dtc.card_id = c.card_id
-		LEFT JOIN card_detail cd ON c.card_id = cd.card_id AND cd.is_primary_version = 1
+		LEFT JOIN card_detail cd ON c.card_id = cd.card_id
 		WHERE dtc.template_id = ?
 		ORDER BY dtc.sort_order ASC
 	`, templateId)

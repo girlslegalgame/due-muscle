@@ -2124,7 +2124,21 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
         let targetList = mainList;
         if (type === 'super_dimensional') targetList = superDimList;
         else if (type === 'gr') targetList = grList;
-        targetList.appendChild(img);
+
+        // ★ 既に同じカードが存在する場合、その最後尾のカードの直後（右隣）に挿入
+        const comboNames = card.combo_names || img.dataset.comboNames || '';
+        const selector = getCardSelector(name, comboNames);
+        let existingCards = targetList.querySelectorAll(selector);
+        if (existingCards.length === 0) {
+            existingCards = targetList.querySelectorAll('img[data-card-name="' + escapeSelectorValue(name) + '"]');
+        }
+
+        if (existingCards.length > 0) {
+            const lastCard = existingCards[existingCards.length - 1];
+            lastCard.after(img);
+        } else {
+            targetList.appendChild(img);
+        }
     }
     updateDeckDisplay();
 }
