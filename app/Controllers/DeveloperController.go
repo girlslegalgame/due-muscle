@@ -489,7 +489,7 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 
 	db := getDB()
 
-	// 1. テンプレート情報の取得（tRows を正しく使用）
+	// 1. テンプレート情報の取得
 	var tpl map[string]interface{}
 	tRows, err := db.Query("SELECT * FROM deck_templates WHERE template_id = ?", templateId)
 	if err == nil {
@@ -505,12 +505,12 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// 2. カード構成一覧の取得
+	// 2. カード構成一覧の取得（cd.regulation を取得）
 	cRows, err := db.Query(`
 		SELECT 
 			dtc.card_type_in_deck,
 			dtc.sort_order,
-			COALESCE(dtc.quantity, 1) as quantity, -- ★ この行を追加
+			COALESCE(dtc.quantity, 1) as quantity,
 			COALESCE(c.card_id, CONCAT('dummy_', dtc.sort_order)) as card_id,
 			CASE 
 				WHEN dtc.dummy_card_type = 'twinpact' AND dtc.dummy_partner_name IS NOT NULL AND dtc.dummy_partner_name <> '' THEN 
@@ -529,7 +529,7 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 			) as imagepath,
 			COALESCE(cd.`+"`limit`"+`, 4) as card_limit,
 			COALESCE(cd.twinpact, CASE WHEN dtc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
-			cd.regulation, // ★ この行を追加
+			cd.regulation,
 			CASE WHEN dtc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
 			COALESCE(dtc.dummy_card_type, 'normal') as dummy_card_type,
 			dtc.dummy_partner_name,
@@ -549,14 +549,26 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 		ORDER BY dtc.sort_order ASC
 	`, templateId)
 
-	cards, _ := rowsToMapSlice(cRows)
+	if err != nil {
+		log.Printf("[TemplateCardsApi Error]: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	cards, err := rowsToMapSlice(cRows)
+	if err != nil {
+		log.Printf("[TemplateCardsApi Scan Error]: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"template": tpl,
 		"cards":    cards,
 	})
 }
-// app/Controllers/DeveloperController.go の一番下に追加
 
 var checkedTemplateColumns = false
 
