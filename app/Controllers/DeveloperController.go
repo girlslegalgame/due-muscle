@@ -141,6 +141,7 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 			) as imagepath,
 			COALESCE(cd.`+"`limit`"+`, 4) as card_limit,
 			COALESCE(cd.twinpact, CASE WHEN dtc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
+			cd.regulation, // ★ この行を追加
 			CASE WHEN dtc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
 			COALESCE(dtc.dummy_card_type, 'normal') as dummy_card_type,
 			dtc.dummy_partner_name,
@@ -528,6 +529,7 @@ func (c *DeveloperController) TemplateCardsApi(w http.ResponseWriter, r *http.Re
 			) as imagepath,
 			COALESCE(cd.`+"`limit`"+`, 4) as card_limit,
 			COALESCE(cd.twinpact, CASE WHEN dtc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
+			cd.regulation, // ★ この行を追加
 			CASE WHEN dtc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
 			COALESCE(dtc.dummy_card_type, 'normal') as dummy_card_type,
 			dtc.dummy_partner_name,
