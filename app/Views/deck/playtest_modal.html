@@ -929,8 +929,8 @@ function ptOpenShieldAddChoiceModal(card, count) {
         </div>
     `;
     footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="closePtModal()">置かない</button>
-        <button class="btn-pt-primary" onclick="ptExecuteShieldAdd('${card.id}', ${count}); closePtModal();" style="background: #28a745;">シールドに置く</button>
+        <button class="btn-pt-secondary" onclick="closePtModal(); ptReturnToPreviousModal();">置かない</button>
+        <button class="btn-pt-primary" onclick="ptExecuteShieldAdd('${card.id}', ${count}); closePtModal(); ptReturnToPreviousModal();" style="background: #28a745;">シールドに置く</button>
     `;
     modal.style.display = 'flex';
 }

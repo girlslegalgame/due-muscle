@@ -2336,7 +2336,16 @@ function renderZone(zoneId, arr, name) {
             b.innerText = regularUnders.length;
             el.appendChild(b);
         }
-
+        if (zoneId === 'pt-zone-shield') {
+            const linkedName = getLinkedShieldDisplayName(card);
+            if (linkedName) {
+                const nameBadge = document.createElement('div');
+                nameBadge.className = 'playtest-shield-linked-name';
+                nameBadge.innerText = linkedName;
+                nameBadge.title = linkedName;
+                el.appendChild(nameBadge);
+            }
+        }
         el.ondragstart = (e) => {
             ptDraggedCardId = card.id;
             el.classList.add('dragging');
@@ -2565,6 +2574,18 @@ function ptMoveCard(cardId, from, to, opts = {}) {
     
     let card = ptState[from][index];
 
+    if (from === 'battle' && to !== 'battle' && !opts.skipExLifeCheck) {
+        const topAbIds = (card.ability_ids || []).map(Number);
+        const hasExLife = topAbIds.includes(10) || topAbIds.includes(68);
+
+        if (hasExLife) {
+            const linkedShields = findLinkedShieldsForBattleCard(card);
+            if (linkedShields.length > 0) {
+                ptOpenExLifeSubstituteModal(card, from, to, opts, linkedShields);
+                return false; // モーダルで選択するまで移動を中断
+            }
+        }
+    }
     if (from === 'battle' && card.linked_ids && card.linked_ids.length > 0) {
         card.linked_ids.forEach(lid => {
             const partner = ptState.battle.find(b => b.id === lid);
@@ -3762,23 +3783,12 @@ function getLinkedShieldDisplayName(shieldCard) {
 
     // バトルゾーンにあるすべてのカード束を走査
     for (let bCard of ptState.battle) {
-        const allComps = [bCard, (bCard.underCards || [])];
+        const allComps = [bCard, ...(bCard.underCards || [])];
         const hasSource = allComps.some(c => c.id === shieldCard.linked_source_id);
         
         if (hasSource) {
-            // 一番上のカードを取得
-            const topCard = bCard;
-            const topAbIds = topCard.ability_ids || [];
-            
-            // 一番上のカードが 10 または 68 を持っているか判定
-            const hasAbility = topAbIds.includes(10) || topAbIds.includes(68);
-            if (hasAbility) {
-                // 持っていれば、一番上のカードの名前を表示
-                return topCard.name;
-            } else {
-                // 10や68を持たないカードが上に重なっている時は非表示
-                return null;
-            }
+            // ★ 修正: 上にカードが重なっている場合も含め、常に現在一番上にあるカード名を表示
+            return bCard.name;
         }
     }
     // バトルゾーンから離れている場合は非表示
@@ -3787,7 +3797,7 @@ function getLinkedShieldDisplayName(shieldCard) {
 
 // 出すときの ability_id (10 または 68) チェック
 function ptCheckShieldAddAbility(card) {
-    if (!card || !card.ability_ids) return;
+    if (!card || !card.ability_ids) return false;
     const abIds = card.ability_ids.map(Number);
     let count = 0;
     if (abIds.includes(68)) {
@@ -3798,7 +3808,9 @@ function ptCheckShieldAddAbility(card) {
 
     if (count > 0) {
         ptOpenShieldAddChoiceModal(card, count);
+        return true;
     }
+    return false;
 }
 
 // 実際に山札から裏向きでシールドに置き、発動元のカードと紐付ける
@@ -5314,10 +5326,22 @@ function ptExecuteBattlePlacement(cardId, fromZone, placementType) {
     }
 
     ptSelectedDropBattleTargetId = null;
-    closePtModal();
     renderPtBoard();
 
-    ptReturnToPreviousModal();
+    // ★ 追加: 新しく配置されたカードのEXライフ能力をチェック
+    let openedModal = false;
+    if (placementType === 'new' || placementType === 'stack_over_faceup') {
+        const targetPlacedCard = ptState.battle.find(c => c.id === card.id);
+        if (targetPlacedCard) {
+            openedModal = ptCheckShieldAddAbility(targetPlacedCard);
+        }
+    }
+
+    // シールド追加モーダルが開かれなかった場合のみ、前のモーダルに戻る／閉じる
+    if (!openedModal) {
+        closePtModal();
+        ptReturnToPreviousModal();
+    }
 }
 
 // キャンセル・モーダル差し戻し処理
@@ -7669,6 +7693,116 @@ function ptExecuteDeckTopDropToZone(targetZone) {
         ptState.psychic.push(card);
         renderPtBoard();
     }
+}
+// バトルゾーンのカードに紐付くシールドを探索
+function findLinkedShieldsForBattleCard(battleCard) {
+    const allBattleIds = [battleCard.id, ...(battleCard.underCards || []).map(c => c.id)];
+    const results = [];
+
+    ptState.shield.forEach(parentShield => {
+        const comps = [parentShield, ...(parentShield.underCards || [])];
+        comps.forEach(s => {
+            if (s.linked_source_id && allBattleIds.includes(s.linked_source_id)) {
+                results.push({ parent: parentShield, card: s });
+            }
+        });
+    });
+    return results;
+}
+
+let ptSelectedExLifeShieldCardId = null;
+
+// EXライフ身代わり確認モーダルを開く
+function ptOpenExLifeSubstituteModal(card, from, to, opts, linkedShields) {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "EXライフ：身代わり確認";
+    ptSelectedExLifeShieldCardId = linkedShields[0].card.id; // デフォルトで最初のシールドを選択
+
+    let html = `
+        <div style="text-align:center; padding:10px 0;">
+            <img src="${card.src}" style="width:120px; height:168px; border-radius:6px; margin-bottom:12px; box-shadow:0 4px 10px rgba(0,0,0,0.5);">
+            <p style="font-size:15px; font-weight:bold; margin-bottom:8px;">「${card.name}」</p>
+            <p style="font-size:13px; color:#ddd; margin:0 0 15px 0;">
+                このクリーチャーがバトルゾーンを離れようとしています。<br>
+                かわりに自身のEXライフシールドを1枚墓地に置き、<strong>バトルゾーンに留まりますか？</strong>
+            </p>
+    `;
+
+    if (linkedShields.length > 1) {
+        html += `<p style="font-size:12px; color:#aaa; margin-bottom:6px;">墓地に置くシールドを選択してください：</p>`;
+    }
+
+    html += `<div class="pt-grid" id="ptExLifeShieldGrid" style="justify-content:center; max-height:160px; overflow-y:auto; margin-bottom:15px;">`;
+    linkedShields.forEach((item, idx) => {
+        const isSelected = (idx === 0) ? ' selected' : '';
+        html += `
+            <div class="pt-grid-item${isSelected}" data-card-id="${item.card.id}" onclick="
+                document.querySelectorAll('#ptExLifeShieldGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
+                this.classList.add('selected');
+                ptSelectedExLifeShieldCardId = '${item.card.id}';
+            ">
+                <img src="/images/card/backimage.webp">
+                <div class="card-qty">${card.name}のシールド</div>
+            </div>
+        `;
+    });
+    html += `</div></div>`;
+    body.innerHTML = html;
+
+    footer.innerHTML = `
+        <button class="btn-pt-secondary" onclick="
+            closePtModal();
+            // 身代わりにせず離れる
+            ptMoveCard('${card.id}', '${from}', '${to}', { ...${JSON.stringify(opts)}, skipExLifeCheck: true });
+        ">身代わりにせず離れる</button>
+        <button class="btn-pt-primary" style="background:#28a745;" onclick="
+            ptExecuteExLifeSubstitute('${card.id}');
+        ">シールドを墓地に置いて留まる</button>
+    `;
+    modal.style.display = 'flex';
+}
+
+// EXライフを身代わりにしてシールドを墓地に送る処理
+function ptExecuteExLifeSubstitute(cardId) {
+    if (!ptSelectedExLifeShieldCardId) return;
+
+    // 該当シールドをシールドゾーンから抽出して墓地へ送る
+    for (let i = 0; i < ptState.shield.length; i++) {
+        let parentShield = ptState.shield[i];
+        if (parentShield.id === ptSelectedExLifeShieldCardId) {
+            // 親カード自身が該当
+            ptState.shield.splice(i, 1);
+            if (parentShield.underCards && parentShield.underCards.length > 0) {
+                let newParent = parentShield.underCards[0];
+                newParent.underCards = parentShield.underCards.slice(1);
+                ptState.shield.splice(i, 0, newParent);
+            }
+            parentShield.underCards = [];
+            parentShield.faceDown = false;
+            parentShield.linked_source_id = null;
+            ptState.graveyard.push(parentShield);
+            break;
+        } else if (parentShield.underCards && parentShield.underCards.length > 0) {
+            // 下敷きの中に該当
+            let uIdx = parentShield.underCards.findIndex(u => u.id === ptSelectedExLifeShieldCardId);
+            if (uIdx !== -1) {
+                let removed = parentShield.underCards.splice(uIdx, 1)[0];
+                removed.underCards = [];
+                removed.faceDown = false;
+                removed.linked_source_id = null;
+                ptState.graveyard.push(removed);
+                break;
+            }
+        }
+    }
+
+    ptSelectedExLifeShieldCardId = null;
+    closePtModal();
+    renderPtBoard();
 }
 </script>
 </body>
