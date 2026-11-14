@@ -941,7 +941,12 @@
             .zone-battle .playtest-card,
             .zone-mana .playtest-card,
             .zone-shield .playtest-card {
-                flex: 0 0 auto !important;               /* ★ カードが縮まずに横に伸び、スクロール可能にする */
+                flex: 0 0 auto !important;
+                touch-action: none !important; /* ★ 追加: カード上のドラッグが横スクロールに奪われるのを防止 */
+            }
+            /* ★ 追加: モバイル時は画像要素のイベントを透過させ、親カードで確実にタッチを捕捉 */
+            .playtest-card img {
+                pointer-events: none !important;
             }
             .playtest-zone-title {
                 font-size: 8px !important;
@@ -1013,6 +1018,7 @@
                 flex: 1 1 0% !important;
                 width: 100% !important;
                 height: 100% !important;
+                padding: 10px 4px 6px 4px !important; /* ★ 画面下端OSスワイプとの干渉を軽減 */
             }
 
             /* 盤面カード */
@@ -1048,17 +1054,18 @@
                 background: transparent !important;
                 border: none !important;
                 position: fixed !important;
-                bottom: 2px !important;
+                bottom: 0px !important;
                 left: 50% !important;
                 transform: translateX(-50%) !important;
                 width: auto !important;
-                height: 80px !important;
+                height: 60px !important;          /* ★ 80px -> 60px に抑えてマナゾーンの視認・操作領域を確保 */
                 min-height: 0 !important;
                 overflow: visible !important;
                 z-index: 500 !important;
             }
             .zone-hand .playtest-card {
-                height: 110px !important;            /* ★ PC比率に合わせて110px */
+                height: 82px !important;          /* ★ 110px -> 82px に縮小しマナカードの上部を触れるようにする */
+                touch-action: none !important;    /* ★ 追加 */
                 aspect-ratio: 5 / 7 !important;
                 border: none !important;
                 background: transparent !important;
@@ -1285,6 +1292,7 @@ function dismissFocusedHandCard(immediate = false) {
 
 function setupTouchEvents(el, card, zoneName) {
     let startX = 0, startY = 0;
+    let lastX = 0;
     let isHorizontalScroll = false; // ★ 横スクロール中フラグ
     let isDragging = false;         // ★ カードドラッグ中フラグ
 
@@ -1303,6 +1311,7 @@ function setupTouchEvents(el, card, zoneName) {
         const touch = e.touches[0];
         startX = touch.clientX;
         startY = touch.clientY;
+        lastX = touch.clientX;
 
         // 長押し(500ms)でメニュー表示
         touchTimer = setTimeout(() => {
@@ -1340,8 +1349,16 @@ function setupTouchEvents(el, card, zoneName) {
         const absX = Math.abs(dx);
         const absY = Math.abs(dy);
 
-        // 一度横スクロールと判定されたらドラッグには移行しない
-        if (isHorizontalScroll) return;
+        // 横スクロールと判定された場合は親ゾーンを手動で横スクロール
+        if (isHorizontalScroll) {
+            const parentZone = el.closest('.playtest-zone');
+            if (parentZone) {
+                if (e.cancelable) e.preventDefault();
+                parentZone.scrollLeft -= (touch.clientX - lastX);
+            }
+            lastX = touch.clientX;
+            return;
+        }
 
         // 移動開始の判定閾値 (8px)
         if (!touchMoved && Math.hypot(dx, dy) > 8) {
@@ -1351,14 +1368,21 @@ function setupTouchEvents(el, card, zoneName) {
                 touchTimer = null;
             }
 
-            // ★ 手札以外のゾーンで、横移動が縦移動より大きい場合は「ゾーンの横スクロール」と判定
-            if (zoneName !== 'hand' && absX > absY * 0.8) {
+            // ★ 修正: 横移動が縦移動の1.6倍以上かつ横スクロール余白がある場合のみ横スクロールと判定（斜め上ドラッグを許可）
+            const parentZone = el.closest('.playtest-zone');
+            const canScrollX = parentZone && (parentZone.scrollWidth > parentZone.clientWidth + 2);
+            if (zoneName !== 'hand' && canScrollX && absX > absY * 1.6) {
                 isHorizontalScroll = true;
-                return; // ドラッグを開始せず、通常の横スクロールを許可
+                lastX = touch.clientX;
+                return;
             }
 
-            // それ以外（上下方向へのスワイプ、または手札からのスワイプ）はドラッグと判定
             isDragging = true;
+
+            // ★ 追加: 手札以外のカードをドラッグ開始したら手札を右下へ退避させる
+            if (zoneName !== 'hand') {
+                minimizeHandZone();
+            }
         }
 
         // ドラッグ中の動作
