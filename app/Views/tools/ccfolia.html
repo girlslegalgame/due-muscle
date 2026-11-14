@@ -192,6 +192,29 @@
     </div>
 </div>
 
+<!-- 使い方・解説セクション（ツール下部） -->
+    <div style="margin-top: 40px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; line-height: 1.8; color: #333;">
+        <h3 style="margin-top: 0; font-size: 1.25rem; border-bottom: 2px solid #333; padding-bottom: 8px;">汎用ココフォリア出力ツールの使い方</h3>
+        <p>
+            本ツールは、オンラインセッションプラットフォーム「ココフォリア（ccfolia）」のルーム盤面に直接インポートできるデッキ用ZIPファイルを、ブラウザ上だけで簡単に生成できる無料ツールです。デュエル・マスターズ以外のTCG（ポケモンカード、遊戯王、MTG、ワンピースカード等）や、自作のオリジナルカードゲーム・ボードゲームのテストプレイに幅広く活用できます。
+        </p>
+
+        <h4 style="font-size: 1.05rem; margin: 20px 0 8px; color: #111;">作成・出力の基本ステップ</h4>
+        <ol style="padding-left: 20px; margin: 0;">
+            <li style="margin-bottom: 8px;"><strong>デッキ名とカードサイズを設定：</strong>出力時のファイル名となるデッキ名と、盤面での基本サイズ（横×縦、初期値は4×6）を指定します。</li>
+            <li style="margin-bottom: 8px;"><strong>カード画像をアップロード：</strong>点線枠内にカード画像をドラッグ＆ドロップ（複数枚同時選択可）して登録します。JPG、PNG、WebPなどの画像形式に対応しています。</li>
+            <li style="margin-bottom: 8px;"><strong>枚数とサブデッキを調整：</strong>各カード下の「＋」「－」ボタンで採用枚数を調整します。超次元やエクストラデッキ、トークンなどを分けたい場合は、「＋」タブでサブデッキを追加するか、「デッキ外カード」タブをご利用ください。</li>
+            <li><strong>ZIPを出力してココフォリアへ導入：</strong>「ZIPを出力する」ボタンでファイルをダウンロードし、ココフォリアのルーム画面へそのままドラッグ＆ドロップするだけで山札とカードが自動展開されます。</li>
+        </ol>
+
+        <h4 style="font-size: 1.05rem; margin: 20px 0 8px; color: #111;">便利な機能・よくある質問</h4>
+        <ul style="padding-left: 20px; margin: 0;">
+            <li style="margin-bottom: 8px;"><strong>既存ZIPのインポート再編集：</strong>過去に出力したココフォリア用ZIPファイルを「ZIPをインポートして編集」から読み込むと、現在の画像・枚数・サイズを復元して手軽にカードを入れ替えられます。</li>
+            <li style="margin-bottom: 8px;"><strong>デッキ外カードの個別サイズ設定：</strong>トークンやプレイマット、カウンターなどは「デッキ外カード」タブに登録すると、カード1枚ごとに個別の縦横サイズ（W×H）を指定できます。</li>
+            <li><strong>データの安全性について：</strong>画像の読み込みとZIP生成処理はすべてお使いのブラウザ内（クライアントサイド）で完結するため、自作ゲームの未公開画像などが外部サーバーへアップロードされることはありません。</li>
+        </ul>
+    </div>
+
 <script>
 const state = {
     activeTab: 'main',

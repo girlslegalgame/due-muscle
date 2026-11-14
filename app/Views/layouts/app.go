@@ -240,6 +240,7 @@ const appHTML = `<!DOCTYPE html>
             <a href="/search">デッキ検索</a>
             <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
             <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">AIジャッジ</a>
+            <a href="/guide">攻略ガイド</a>
             <a href="/help">ヘルプ</a>           
             <a href="/notifications">
                 お知らせ
@@ -263,18 +264,7 @@ const appHTML = `<!DOCTYPE html>
     <!-- 左右両端の追従広告（PC専用） -->
     <div class="side-ad-wrapper">
         <aside class="side-ad side-ad-left">
-            <ins class="adsbygoogle"
-                 style="display:inline-block; width:160px; height:600px;"
-                 data-ad-client="ca-pub-1782055298829063"
-                 data-ad-slot="LEFT_AD_SLOT_ID"></ins>
-            <script>
-                (function() {
-                    var el = document.currentScript.previousElementSibling;
-                    if (el && el.parentElement && el.parentElement.offsetWidth > 0) {
-                        (adsbygoogle = window.adsbygoogle || []).push({});
-                    }
-                })();
-            </script>
+            {{/* AdSense審査通過後に本物の広告スロットIDを設定 */}}
         </aside>
 
         <main>
@@ -282,25 +272,15 @@ const appHTML = `<!DOCTYPE html>
         </main>
 
         <aside class="side-ad side-ad-right">
-            <ins class="adsbygoogle"
-                 style="display:inline-block; width:160px; height:600px;"
-                 data-ad-client="ca-pub-1782055298829063"
-                 data-ad-slot="LEFT_AD_SLOT_ID"></ins>
-            <script>
-                (function() {
-                    var el = document.currentScript.previousElementSibling;
-                    if (el && el.parentElement && el.parentElement.offsetWidth > 0) {
-                        (adsbygoogle = window.adsbygoogle || []).push({});
-                    }
-                })();
-            </script>
+            {{/* AdSense審査通過後に本物の広告スロットIDを設定 */}}
         </aside>
     </div>
 
     {{ if not .HideFooter }}
     <footer>
         <ul>
-            <li><a href="/terms">利用規約</a></li>
+            <li><a href="/terms">利用規約・プライバシーポリシー</a></li>
+            <li><a href="/guide">攻略ガイド</a></li>
             <li><a href="/profile">運営者情報</a></li>
             <li><a href="/contact">お問い合わせ</a></li>
         </ul>
@@ -440,9 +420,6 @@ const appHTML = `<!DOCTYPE html>
                     </button>
                 </div>
             </div>
-        </div>
-    </div>
-</div>
 
 <script>
 // デッキ作成クリック時の振り分け

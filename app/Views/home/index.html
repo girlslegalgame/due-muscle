@@ -4,55 +4,10 @@
         background-color: #000000 !important;
         color: #f0f0f0 !important;
     }
-    header {
-        display: none !important;
-    }
     main {
         padding-top: 0 !important;
         padding-bottom: 50px !important;
         background-color: #000000 !important;
-    }
-
-    /* --- オープニング演出 --- */
-    .intro-overlay {
-        position: fixed;
-        inset: 0;
-        background: #000000;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 99999;
-        pointer-events: none;
-        animation: fadeOutIntro 0.4s ease-out 1.6s forwards;
-    }
-    .intro-logo {
-        max-width: 300px;
-        width: 80%;
-        animation: logoBang 0.4s cubic-bezier(0.1, 0.9, 0.2, 1) forwards;
-    }
-    .intro-catch {
-        color: #ffc107;
-        font-weight: 900;
-        font-size: 1.4rem;
-        letter-spacing: 2px;
-        margin-top: 20px;
-        opacity: 0;
-        animation: textPop 0.3s ease-out 0.4s forwards;
-        text-shadow: 0 0 10px rgba(255, 193, 7, 0.6);
-    }
-
-    @keyframes logoBang {
-        0% { transform: scale(2.8); opacity: 0; filter: blur(6px); }
-        100% { transform: scale(1); opacity: 1; filter: blur(0); }
-    }
-    @keyframes textPop {
-        0% { transform: translateY(12px); opacity: 0; }
-        100% { transform: translateY(0); opacity: 1; }
-    }
-    @keyframes fadeOutIntro {
-        0% { opacity: 1; }
-        100% { opacity: 0; visibility: hidden; }
     }
 
     /* --- ページ本体スタイル --- */
@@ -210,10 +165,6 @@
         margin-top: 20px;
     }
 </style><!-- 画面ロード時のロゴ演出オーバーレイ -->
-<div class="intro-overlay">
-    <img src="/images/logo.webp" alt="デュエ筋" class="intro-logo">
-    <div class="intro-catch">強い奴は、鍛え方が違う</div>
-</div>
 
 <div class="landing-wrapper">
     <!-- ヒーローセクション -->
@@ -256,10 +207,10 @@
             <!-- ▼ 画像エリア（不要な画像行は削除、増やしたい場合はコピーして増やせます） ▼ -->
             <div class="feature-img-gallery">
                 <div class="feature-img-item">
-                    <img src="/images/playtest_image.webp" alt="一人回し機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【一人回し画面 (/images/feature_playtest_1.webp)】';">
+                    <img src="/images/playtest_image.webp" alt="一人回し機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【一人回し画面 (/images/playtest_image.webp)】';">
                 </div>
                 <div class="feature-img-item">
-                    <img src="/images/analysis_image.webp" alt="デッキ分析機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【デッキ分析画面 (/images/feature_playtest_2.webp)】';">
+                    <img src="/images/analysis_image.webp" alt="デッキ分析機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【デッキ分析画面 (/images/analysis_image.webp)】';">
                 </div>
             </div>
             <!-- ▲ 画像エリアここまで ▲ -->
@@ -276,7 +227,7 @@
             <!-- ▼ 画像エリア ▼ -->
             <div class="feature-img-gallery">
                 <div class="feature-img-item">
-                    <img src="/images/ccfolia_image.webp" alt="オンライン対戦の様子" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【対戦画面 (/images/feature_ccfolia_2.webp)】';">
+                    <img src="/images/ccfolia_image.webp" alt="オンライン対戦の様子" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【対戦画面 (/images/ccfolia_image.webp)】';">
                 </div>
             </div>
             <!-- ▲ 画像エリアここまで ▲ -->
@@ -346,10 +297,24 @@
             <!-- ▼ 画像エリア ▼ -->
             <div class="feature-img-gallery">
                 <div class="feature-img-item">
-                    <img src="/images/price_estimate_image.webp" alt="デッキ価格査定機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【デッキ価格査定画面のスクリーンショット (/images/feature_price_estimate.webp)】';">
+                    <img src="/images/price_estimate_image.webp" alt="デッキ価格査定機能" onerror="this.parentElement.style.padding='30px 10px'; this.parentElement.innerText='【デッキ価格査定画面 (/images/price_estimate_image.webp)】';">
                 </div>
             </div>
             <!-- ▲ 画像エリアここまで ▲ -->
+        </div>
+    </div>
+    <!-- よくある質問・攻略ガイド導線 -->
+    <div class="content-box">
+        <h2 style="text-align: center; border-left: none; padding-left: 0;">よくある質問（FAQ）</h2>
+        <div style="margin-top: 20px;">
+            <h3 style="color: #fff; font-size: 1.05rem; margin-bottom: 6px;">Q. 利用料金はかかりますか？</h3>
+            <p style="margin-top: 0; color: #ccc;">すべてのデッキ作成・分析・一人回し・ココフォリア出力・価格査定・AIジャッジ機能は完全無料でご利用いただけます。ゲストのままでもデッキ作成や公開デッキの検索・一人回しが可能です。</p>
+
+            <h3 style="color: #fff; font-size: 1.05rem; margin: 18px 0 6px;">Q. どのようなデッキ構築のコツがありますか？</h3>
+            <p style="margin-top: 0; color: #ccc;">安定した40枚デッキを組むためのマナカーブ設計、初動札・S・トリガー枚数の目安、一人回しでの調整方法については<a href="/guide">デッキ構築・攻略ガイド</a>にて詳しく解説しています。</p>
+
+            <h3 style="color: #fff; font-size: 1.05rem; margin: 18px 0 6px;">Q. スマートフォンからでも使えますか？</h3>
+            <p style="margin-top: 0; color: #ccc;">はい。PC・スマートフォン・タブレットのブラウザから追加アプリ不要でご利用いただけます。</p>
         </div>
     </div>
     <!-- 結び・ガイド -->

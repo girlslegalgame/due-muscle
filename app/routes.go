@@ -48,6 +48,53 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/terms", func(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "legal/terms.html", map[string]interface{}{})
 	})
+	r.Get("/guide", func(w http.ResponseWriter, r *http.Request) {
+		views.RenderView(w, r, "guide/index.html", map[string]interface{}{})
+	})
+	r.Get("/guide/deck-building", func(w http.ResponseWriter, r *http.Request) {
+		views.RenderView(w, r, "guide/deck_building.html", map[string]interface{}{})
+	})
+	r.Get("/guide/playtest", func(w http.ResponseWriter, r *http.Request) {
+		views.RenderView(w, r, "guide/playtest.html", map[string]interface{}{})
+	})
+	r.Get("/guide/ccfolia-online", func(w http.ResponseWriter, r *http.Request) {
+		views.RenderView(w, r, "guide/ccfolia_online.html", map[string]interface{}{})
+	})
+	r.Get("/guide/ai-judge-rules", func(w http.ResponseWriter, r *http.Request) {
+		views.RenderView(w, r, "guide/ai_judge_rules.html", map[string]interface{}{})
+	})
+	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		_, _ = w.Write([]byte("User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nDisallow: /developer\nDisallow: /mydecks\nDisallow: /account\nDisallow: /login\nDisallow: /register\nSitemap: https://due-muscle.com/sitemap.xml\n"))
+	})
+	r.Get("/sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
+		base := "https://due-muscle.com"
+		urls := []string{
+			"/",
+			"/search",
+			"/decks/new",
+			"/tools/ccfolia",
+			"/rule-bot",
+			"/guide",
+			"/guide/deck-building",
+			"/guide/playtest",
+			"/guide/ccfolia-online",
+			"/guide/ai-judge-rules",
+			"/help",
+			"/terms",
+			"/profile",
+			"/contact",
+		}
+		var sb strings.Builder
+		sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
+		sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
+		for _, u := range urls {
+			sb.WriteString(fmt.Sprintf("  <url><loc>%s%s</loc></url>\n", base, u))
+		}
+		sb.WriteString(`</urlset>`)
+		_, _ = w.Write([]byte(sb.String()))
+	})
 
 	// マイデッキ一覧などの既存ルート
 	r.Get("/mydecks", deckCtrl.MyDecks)

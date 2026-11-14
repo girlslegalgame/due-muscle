@@ -1,0 +1,39 @@
+<div class="container" style="max-width: 820px; margin: 20px auto; padding: 20px; line-height: 1.9; color: #333;">
+    <div style="margin-bottom: 14px; font-size: 0.9rem;">
+        <a href="/guide" style="color: #007bff;">攻略ガイド一覧</a> ＞ AIジャッジ活用＆ルール解説
+    </div>
+    <article style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px;">
+        <h1 style="font-size: 1.6rem; margin-top: 0; border-bottom: 3px solid #4f46e5; padding-bottom: 10px;">AIジャッジの活用法と実戦で間違えやすい基本ルール解説</h1>
+        <p>
+            デュエル・マスターズはカードの種類や能力の組み合わせが膨大なため、新しいデッキを試している最中やリモート対戦中に「この効果の処理順はどうなるのか？」と迷う場面がよく起こります。ここでは、よく質問される基本ルールと、当サイトの「AIジャッジ」から正確な回答を引き出すコツを解説します。
+        </p>
+
+        <h2 style="font-size: 1.25rem; border-left: 4px solid #4f46e5; padding-left: 10px; margin-top: 28px;">1. 実戦で特に間違えやすい3つの基本ルール</h2>
+        <h3 style="font-size: 1.05rem; color: #1e293b; margin-top: 16px;">① 同時誘発と処理順（アクティブプレイヤー優先の原則）</h3>
+        <p>
+            1つのイベントによって自分と相手のトリガー能力が同時に待機状態になった場合、<strong>まずは現在のターンプレイヤー（アクティブプレイヤー）が自分の待機している能力を好きな順番ですべて解決</strong>します。その処理が終わった後に、非ターンプレイヤーの待機能力を解決します。ただし、自分の解決中に相手の能力が新たに誘発した場合も、待機している自分の残りの能力が先に処理されます。
+        </p>
+
+        <h3 style="font-size: 1.05rem; color: #1e293b; margin-top: 16px;">② 置換効果は連鎖しない</h3>
+        <p>
+            「〜する時、かわりに〜する」と書かれた能力が置換効果です。1つのイベントに対して置換効果が適用されて別の結果に置き換わった後、その結果に対して<strong>さらに別の置換効果を重ねて適用することはできません</strong>（1つの事象につき置換効果は1回まで）。
+        </p>
+
+        <h3 style="font-size: 1.05rem; color: #1e293b; margin-top: 16px;">③ 状況起因処理のチェックタイミング</h3>
+        <p>
+            パワーが0以下のクリーチャーが破壊される処理や、進化元を失った進化クリーチャーの再構築チェックなどは、1つの効果の処理が完全に終わった後や、プレイヤーが何か行動を起こす直前に自動で行われます。効果の解決途中に即座に盤面チェックが入るわけではない点に注意が必要です。
+        </p>
+
+        <h2 style="font-size: 1.25rem; border-left: 4px solid #4f46e5; padding-left: 10px; margin-top: 28px;">2. AIジャッジで精度の高い回答を得る質問のコツ</h2>
+        <ul style="padding-left: 20px;">
+            <li style="margin-bottom: 8px;"><strong>カード名は《》で囲む：</strong>チャット入力欄で「《」を入力するとデータベースからカード名が候補表示されます。正確なカード名を指定することで、能力テキストを踏まえた回答が可能になります。</li>
+            <li style="margin-bottom: 8px;"><strong>どちらのターンかを明記する：</strong>「自分のターン中に」「相手の攻撃時に」など、ターンプレイヤーが誰かを書くと処理順の回答がブレにくくなります。</li>
+            <li><strong>盤面の状況を簡潔に書く：</strong>「バトルゾーンにAがある状態で、Bを召喚しました」のように時系列を添えて質問するのが最も確実です。</li>
+        </ul>
+
+        <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <a href="/rule-bot" style="background: #4f46e5; color: #fff !important; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: bold;">AIジャッジを開いて質問する</a>
+            <a href="/guide" style="color: #007bff; font-weight: bold; align-self: center;">攻略ガイド一覧へ戻る</a>
+        </div>
+    </article>
+</div>
