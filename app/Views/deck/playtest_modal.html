@@ -108,6 +108,13 @@ function ptCloseModalManual() {
 
     closePtModal();
     ptActiveRevealContext = null;
+    ptGLinkHubActions = [];
+    ptCurrentRunningActionId = null;
+    ptBatchMoveQueue = [];
+    ptBatchMoveTargetZone = null;
+    if (typeof ptExitGLinkBoardSelectMode === 'function') {
+        ptExitGLinkBoardSelectMode();
+    }
 
     if (needRender) {
         ptShuffle(ptState.deck);
@@ -929,12 +936,21 @@ function ptOpenShieldAddChoiceModal(card, count) {
         </div>
     `;
     footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="closePtModal(); ptReturnToPreviousModal();">置かない</button>
-        <button class="btn-pt-primary" onclick="ptExecuteShieldAdd('${card.id}', ${count}); closePtModal(); ptReturnToPreviousModal();" style="background: #28a745;">シールドに置く</button>
+        <button class="btn-pt-secondary" onclick="ptFinishShieldAddChoice()">置かない</button>
+        <button class="btn-pt-primary" onclick="ptExecuteShieldAdd('${card.id}', ${count}); ptFinishShieldAddChoice()" style="background: #28a745;">シールドに置く</button>
     `;
     modal.style.display = 'flex';
 }
-
+function ptFinishShieldAddChoice() {
+    closePtModal();
+    if (typeof ptGLinkHubActions !== 'undefined' && ptGLinkHubActions.length === 1) {
+        ptDispatchGLinkAction(ptGLinkHubActions[0]);
+    } else if (typeof ptGLinkHubActions !== 'undefined' && ptGLinkHubActions.length > 1) {
+        ptOpenGLinkHubModal();
+    } else {
+        ptReturnToPreviousModal();
+    }
+}
 function openEvoTargetSelector(cardId, fromZone, mode) {
     ptEvoSelectedIds = [];
     if (mode === 'deck_top') { openEvoDeckTopModal(cardId, fromZone); return; }
@@ -1021,7 +1037,8 @@ function openEvoTargetSelector(cardId, fromZone, mode) {
             setTimeout(() => {
                 ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true});
                 const bCard = ptState.battle.find(c => c.id === '${cardId}');
-                if (bCard) ptTriggerBattleEnter(bCard);
+                const opened = bCard ? ptTriggerBattleEnter(bCard) : false;
+                if (!opened) ptReturnToPreviousModal();
             }, 60);
         ">重ねずに単体で出す</button>`;
     }
