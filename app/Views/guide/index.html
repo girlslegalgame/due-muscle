@@ -1,46 +1,446 @@
-<div class="container" style="max-width: 880px; margin: 20px auto; padding: 20px; line-height: 1.8; color: #333;">
-    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 28px; margin-bottom: 24px;">
-        <h1 style="font-size: 1.65rem; margin-top: 0; border-bottom: 3px solid #007bff; padding-bottom: 10px;">デュエ筋 機能ガイド</h1>
+<style>
+    html {
+        scroll-behavior: smooth;
+    }
+    .guide-container {
+        max-width: 860px;
+        margin: 20px auto;
+        padding: 20px;
+        line-height: 1.85;
+        color: #333;
+    }
+    .guide-card {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 28px;
+        margin-bottom: 28px;
+    }
+    .guide-h1 {
+        font-size: 1.65rem;
+        margin-top: 0;
+        border-bottom: 3px solid #007bff;
+        padding-bottom: 10px;
+    }
+    .guide-toc {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 20px 24px;
+        margin-top: 22px;
+        scroll-margin-top: 80px;
+    }
+    .guide-toc-title {
+        font-size: 1.05rem;
+        font-weight: bold;
+        margin: 0 0 12px;
+        color: #1e293b;
+    }
+    .guide-toc-list {
+        margin: 0;
+        padding-left: 20px;
+    }
+    .guide-toc-list > li {
+        margin-bottom: 8px;
+        font-weight: bold;
+    }
+    .guide-toc-list ul {
+        margin-top: 4px;
+        padding-left: 18px;
+        font-weight: normal;
+        font-size: 0.92rem;
+    }
+    .guide-toc a {
+        color: #0369a1;
+        text-decoration: none;
+    }
+    .guide-toc a:hover {
+        text-decoration: underline;
+    }
+    .guide-section {
+        scroll-margin-top: 80px;
+    }
+    .guide-h2 {
+        font-size: 1.45rem;
+        margin-top: 0;
+        padding-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+    .guide-badge {
+        font-size: 0.75rem;
+        color: #fff;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-weight: bold;
+    }
+    .guide-h3 {
+        font-size: 1.18rem;
+        padding-left: 10px;
+        margin-top: 26px;
+        scroll-margin-top: 80px;
+    }
+    .guide-img-wrap {
+        margin: 20px 0;
+        text-align: center;
+    }
+    .guide-img-wrap img {
+        max-width: 100%;
+        height: auto;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    .guide-list {
+        padding-left: 20px;
+    }
+    .guide-list li {
+        margin-bottom: 8px;
+    }
+    .guide-footer-row {
+        margin-top: 26px;
+        padding-top: 18px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
+    }
+    .guide-cta {
+        color: #fff !important;
+        padding: 10px 18px;
+        border-radius: 6px;
+        text-decoration: none;
+        font-weight: bold;
+        font-size: 0.92rem;
+    }
+    .guide-back-toc {
+        color: #64748b;
+        font-size: 0.88rem;
+        text-decoration: none;
+        font-weight: bold;
+    }
+    .guide-back-toc:hover {
+        color: #007bff;
+        text-decoration: underline;
+    }
+    .txt-highlight {
+        background: #fff3cd;
+        padding: 2px 4px;
+        border-radius: 4px;
+        font-weight: bold;
+    }
+    .example-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin-top: 12px;
+    }
+    .example-card {
+        background: #f8f9fa;
+        border: 1px solid #e5e5ea;
+        border-radius: 8px;
+        padding: 12px;
+        text-align: center;
+    }
+    .example-card-title {
+        font-weight: bold;
+        font-size: 0.9rem;
+        color: #222;
+        margin-bottom: 4px;
+    }
+    .example-card-ruby {
+        font-size: 0.8rem;
+        color: #007bff;
+        font-weight: bold;
+        margin-bottom: 8px;
+    }
+    .example-img-holder {
+        width: 100%;
+        max-width: 150px;
+        aspect-ratio: 110/154;
+        margin: 0 auto;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        overflow: hidden;
+        background: #e9ecef;
+    }
+    .example-img-holder img {
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+    }
+</style>
+
+<div class="guide-container">
+    <!-- 導入・目次 -->
+    <div class="guide-card">
+        <h1 class="guide-h1">デュエ筋 攻略・活用ガイド（ヘルプ）</h1>
         <p style="color: #555; margin-bottom: 0;">
-            デュエ筋の各機能の解説記事一覧です。目的に合わせて各記事をご覧ください。
+            デュエ筋の各機能（デッキ作成・検索仕様・一人回し・ココフォリア連携・AIジャッジ・マイデッキ管理）を実戦で使いこなすための総合ガイドです。
         </p>
+
+        <nav id="toc" class="guide-toc" aria-label="目次">
+            <div class="guide-toc-title">目次</div>
+            <ol class="guide-toc-list">
+                <li>
+                    <a href="#deck-creation">デッキ作成画面の使い方・便利機能</a>
+                    <ul>
+                        <li><a href="#dc-zone">各デッキの枚数・追加削除・自動振り分け・並び替え</a></li>
+                        <li><a href="#dc-search">検索機能・ルビ登録仕様と絞り込み</a></li>
+                        <li><a href="#dc-dummy">ダミーカード機能（未実装カード対応）</a></li>
+                        <li><a href="#dc-template">デッキテンプレート呼び出し機能</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#playtest">一人回し画面の使い方・操作ガイド</a>
+                    <ul>
+                        <li><a href="#pt-move">各ゾーンへのカード移動・進化・リンク・装備</a></li>
+                        <li><a href="#pt-deck">山札に対する操作（上下からのめくり・検索）</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#ccfolia">ココフォリアを使ったオンライン対戦手順</a>
+                    <ul>
+                        <li><a href="#cc-export">デッキデータのエクスポート</a></li>
+                        <li><a href="#cc-import">ココフォリアのルームへ導入する手順</a></li>
+                        <li><a href="#cc-controls">対戦開始時の操作のポイント・ショートカット</a></li>
+                        <li><a href="#cc-other">他TCG・オリジナルカードゲームでの活用</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#ai-judge">AIジャッジを使用する際の注意と活用法</a>
+                    <ul>
+                        <li><a href="#ai-caution">AIジャッジを使用する際の注意</a></li>
+                        <li><a href="#ai-tips">精度の高い回答を得る質問のコツ</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#deck-management">マイデッキ管理・公開デッキ検索・価格査定</a>
+                </li>
+            </ol>
+        </nav>
     </div>
 
-    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 20px;">
-        <article style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-                <span style="display: inline-block; background: #007bff; color: #fff; font-size: 0.75rem; font-weight: bold; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;">デッキ作成</span>
-                <h2 style="font-size: 1.2rem; margin: 0 0 10px; color: #111;">デッキ作成画面の使い方・便利機能ガイド</h2>
-                <p style="font-size: 0.92rem; color: #555; margin-bottom: 16px;">各ゾーンの枚数ルールや並び替え、高度な検索・絞り込み、未実装カードが使えるダミーカード機能やテンプレ呼び出し機能を解説します。</p>
-            </div>
-            <a href="/guide/deck-creation" style="display: inline-block; text-align: center; background: #1a202c; color: #fff !important; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">記事を読む →</a>
-        </article>
+    <!-- 1. デッキ作成 -->
+    <article id="deck-creation" class="guide-card guide-section">
+        <h2 class="guide-h2" style="border-bottom: 3px solid #007bff;">
+            <span class="guide-badge" style="background: #007bff;">デッキ作成</span>
+            1. デッキ作成画面の使い方・便利機能
+        </h2>
 
-        <article style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-                <span style="display: inline-block; background: #28a745; color: #fff; font-size: 0.75rem; font-weight: bold; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;">一人回し</span>
-                <h2 style="font-size: 1.2rem; margin: 0 0 10px; color: #111;">一人回し画面の使い方・操作ガイド</h2>
-                <p style="font-size: 0.92rem; color: #555; margin-bottom: 16px;">各ゾーンへのカード移動、進化・G・リンク・ウエポンの処理、山札の上下からのめくりや検索・シャッフル操作を解説します。</p>
-            </div>
-            <a href="/guide/playtest" style="display: inline-block; text-align: center; background: #1a202c; color: #fff !important; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">記事を読む →</a>
-        </article>
+        <div class="guide-img-wrap">
+            <img src="/images/deck_creation.webp" alt="デッキ作成画面のスクリーンショット" loading="lazy">
+        </div>
 
-        <article style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-                <span style="display: inline-block; background: #d97706; color: #fff; font-size: 0.75rem; font-weight: bold; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;">オンライン対戦</span>
-                <h2 style="font-size: 1.2rem; margin: 0 0 10px; color: #111;">ココフォリアを使ったオンライン対戦の手順</h2>
-                <p style="font-size: 0.92rem; color: #555; margin-bottom: 16px;">ZIPデータの出力からココフォリアのルームへの読み込み、カードや山札への操作の解説をします。</p>
-            </div>
-            <a href="/guide/ccfolia-online" style="display: inline-block; text-align: center; background: #1a202c; color: #fff !important; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">記事を読む →</a>
-        </article>
+        <h3 id="dc-zone" class="guide-h3" style="border-left: 4px solid #007bff;">1-1. 各デッキについて</h3>
+        <ul class="guide-list">
+            <li>メインデッキには最大60枚、超次元ゾーンおよび超GRゾーンにはそれぞれ最大12枚入れることができます。《零龍》や《終焉の禁断 ドルマゲドンX》は両方入れることもできますが、その状態では一人回しができなくなるためご注意ください。</li>
+            <li>カードは検索結果から<strong>ドラッグ＆ドロップ</strong>するか、カードをクリックして詳細モーダルを開き<strong>プラス（+）ボタン</strong>を押すことで追加できます。削除したい場合は<strong>ゴミ箱アイコンへドラッグ＆ドロップ</strong>するか、詳細モーダルの<strong>マイナス（-）ボタン</strong>を押してください。</li>
+            <li>サイキック、ドラグハート、GRクリーチャー、デュエルメイト、《終焉の禁断 ドルマゲドンX》、《零龍》をメインデッキにドラッグ＆ドロップした場合、それぞれの適正なリストへ自動的に振り分けられます（通常カードを超次元ゾーンへ入れた場合も同様です）。</li>
+            <li>《終焉の禁断 ドルマゲドンX》と《零龍》は特殊タブ内の<strong>「追加する」ボタン</strong>からも追加でき、詳細モーダルのマイナスボタンまたは特殊タブ内の<strong>「削除する」ボタン</strong>で削除できます。</li>
+            <li>デフォルトではカードの順番は「自由に並び替える（自由ソート）」になっています。「並び替え」から「文明順」「コスト順」「カード名順」「採用枚数順」へ切り替えられ、降順・昇順も変更できます。</li>
+        </ul>
 
-        <article style="background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 22px; display: flex; flex-direction: column; justify-content: space-between;">
-            <div>
-                <span style="display: inline-block; background: #4f46e5; color: #fff; font-size: 0.75rem; font-weight: bold; padding: 3px 10px; border-radius: 20px; margin-bottom: 10px;">ルール・裁定</span>
-                <h2 style="font-size: 1.2rem; margin: 0 0 10px; color: #111;">AIジャッジの活用法</h2>
-                <p style="font-size: 0.92rem; color: #555; margin-bottom: 16px;">AIジャッジを使用する際の注意とAIジャッジへの正確な質問テクニックをまとめました。</p>
+        <h3 id="dc-search" class="guide-h3" style="border-left: 4px solid #007bff;">1-2. 検索機能・ルビ登録仕様について</h3>
+        <ul class="guide-list">
+            <li>カード画像は、データベースに登録されている中で<strong>「発売日が最も古いバージョン」</strong>が検索結果に優先表示され、デフォルトでは初版の発売日順に並んでいます（「設定」から表示位置や並び順を変更可能です）。</li>
+            <li>検索設定で「カード名」にチェックが入っている場合は<strong>ルビでの検索</strong>も可能です。ひらがな・カタカナや読みで入力しても内部で自動変換され、対象カードが検索結果に表示されます（例：「もると」で「モルト」を含むカードも表示）。</li>
+            <li>データベース内のカード名・ルビ・テキストの英数字および記号は、<span class="txt-highlight">「・」</span>と<span class="txt-highlight">「～」</span>を除き<strong>すべて半角</strong>で統一されています。</li>
+            <li>カード名のルビは、ルビに明記されている場合を除き、原則として<strong>「ひらがな」「カタカナ」「英数字」のみ</strong>で構成され、「・」などの記号は省いて登録されています（ルビ表記のない英数字はそのまま登録）。</li>
+            <li>「絞り込み」では、公式のカード検索で絞り込める内容に加え、発売年・主人公別・殿堂区分での絞り込みも可能です。</li>
+        </ul>
+
+        <div style="margin: 18px 0 10px; background: #fafafa; border: 1px dashed #ccc; padding: 15px; border-radius: 8px;">
+            <div style="font-weight: bold; font-size: 0.9rem; color: #444;">【ルビ登録と検索の具体例】</div>
+            <div class="example-grid">
+                <div class="example-card">
+                    <div class="example-card-title">《否男》</div>
+                    <div class="example-card-ruby">ルビ：いなおとこ</div>
+                    <div class="example-img-holder"><img src="/images/card/dm37/dm37-046.webp" onerror="this.src='/images/card/noimage.webp'" alt="否男" loading="lazy"></div>
+                </div>
+                <div class="example-card">
+                    <div class="example-card-title">《凶戦士ブレイズ・クロー》</div>
+                    <div class="example-card-ruby">ルビ：きょうせんしブレイズクロー</div>
+                    <div class="example-img-holder"><img src="/images/card/dm01/dm01-100.webp" onerror="this.src='/images/card/noimage.webp'" alt="凶戦士ブレイズ・クロー" loading="lazy"></div>
+                </div>
+                <div class="example-card">
+                    <div class="example-card-title">《その子供、凶暴につき》</div>
+                    <div class="example-card-ruby">ルビ：そのこどもきょうぼうにつき</div>
+                    <div class="example-img-holder"><img src="/images/card/promoy11/promoy11-066.webp" onerror="this.src='/images/card/noimage.webp'" alt="その子供、凶暴につき" loading="lazy"></div>
+                </div>
+                <div class="example-card">
+                    <div class="example-card-title">《青銅の鎧》</div>
+                    <div class="example-card-ruby">ルビ：ブロンズ・アーム・トライブ</div>
+                    <div class="example-img-holder"><img src="/images/card/dm01/dm01-106.webp" onerror="this.src='/images/card/noimage.webp'" alt="青銅の鎧" loading="lazy"></div>
+                </div>
+                <div class="example-card">
+                    <div class="example-card-title">《凶鬼03号 ガシャゴズラ》</div>
+                    <div class="example-card-ruby">ルビ：きょうき03ごう ガシャゴズラ</div>
+                    <div class="example-img-holder"><img src="/images/card/dmrp02/dmrp02-s07.webp" onerror="this.src='/images/card/noimage.webp'" alt="凶鬼03号 ガシャゴズラ" loading="lazy"></div>
+                </div>
+                <div class="example-card">
+                    <div class="example-card-title">《サイレンス トパーズ》</div>
+                    <div class="example-card-ruby">ルビ：呪文たちの沈黙 トパーズ</div>
+                    <div class="example-img-holder"><img src="/images/card/dmr09/dmr09-013.webp" onerror="this.src='/images/card/noimage.webp'" alt="サイレンス トパーズ" loading="lazy"></div>
+                </div>
             </div>
-            <a href="/guide/ai-judge-rules" style="display: inline-block; text-align: center; background: #1a202c; color: #fff !important; padding: 10px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem;">記事を読む →</a>
-        </article>
-    </div>
+        </div>
+
+        <h3 id="dc-dummy" class="guide-h3" style="border-left: 4px solid #007bff;">1-3. ダミーカード機能について</h3>
+        <ul class="guide-list">
+            <li>基本的に当サイトでは発売日前にカードデータを入力していますが、カードが発表された瞬間にデッキを組みたい場合は、ダミーカード機能を使って未実装カードを使用できます。</li>
+            <li>メインデッキ、超次元、超GRのそれぞれにカードを追加でき、文明やカードタイプなどのデータを付与できます。</li>
+            <li>ダミーカードと同名のカードが後からデータベースに追加された場合、自動でその正式カードに置き換わります。</li>
+            <li>ダミーカードをクリックして開けるメニューから、手動で他のカードへ置き換えることも可能です。</li>
+        </ul>
+
+        <h3 id="dc-template" class="guide-h3" style="border-left: 4px solid #007bff;">1-4. デッキテンプレート呼び出し機能について</h3>
+        <ul class="guide-list">
+            <li>「テンプレ」から、構築済みデッキや環境デッキなどの有名デッキのテンプレートリストを呼び出せます。</li>
+            <li>呼び出しを実行すると、すでに入っているカードはすべて削除されて置き換わるためご注意ください。</li>
+        </ul>
+
+        <div class="guide-footer-row">
+            <a href="/decks/new" class="guide-cta" style="background: #007bff;">実際にデッキを作成する</a>
+            <a href="#toc" class="guide-back-toc">↑ 目次へ戻る</a>
+        </div>
+    </article>
+
+    <!-- 2. 一人回し -->
+    <article id="playtest" class="guide-card guide-section">
+        <h2 class="guide-h2" style="border-bottom: 3px solid #28a745;">
+            <span class="guide-badge" style="background: #28a745;">一人回し</span>
+            2. 一人回し画面の使い方・操作ガイド
+        </h2>
+
+        <div class="guide-img-wrap">
+            <img src="/images/playtest_image.webp" alt="一人回し画面のスクリーンショット" loading="lazy">
+        </div>
+
+        <h3 id="pt-move" class="guide-h3" style="border-left: 4px solid #28a745;">2-1. 各ゾーンへのカードの移動</h3>
+        <ul class="guide-list">
+            <li>各ゾーンにカードを置く場合、ドラッグ＆ドロップで置いたり、カードを右クリック（スマホの場合は長押し）して表示されるメニューから移動させることができます。</li>
+            <li>山札からドラッグ＆ドロップすることで、山札の上から1枚目を各ゾーンに直接置くことができます。</li>
+            <li>バトルゾーンに置くカードが進化クリーチャーの場合、その進化方法に合ったゾーンから進化元のカードを選び、下に重ねて出すことができます。</li>
+            <li>カードが各種「G・リンク」を持つ場合、対象のクリーチャーにリンクしたり、リンクを外したりできます。</li>
+            <li>カードがウエポンの場合、装備するカードを決めてバトルゾーンに出すことができます。</li>
+        </ul>
+
+        <h3 id="pt-deck" class="guide-h3" style="border-left: 4px solid #28a745;">2-2. 山札に対する操作</h3>
+        <ul class="guide-list">
+            <li>山札を右クリックすることで、1枚目を各ゾーンに置いたり、表向きにしたり、枚数を指定して表向きにしたり、条件を指定してその条件に合うカードがヒットするまで表向きにしたりできます。</li>
+            <li>山札の下からも同様にこれらの操作を行うことができます。</li>
+            <li>山札を見て直接カードを各ゾーンに置いたり、シャッフルしたりすることもできます。</li>
+        </ul>
+
+        <div class="guide-footer-row">
+            <a href="/search" class="guide-cta" style="background: #28a745;">公開デッキで一人回しを試す</a>
+            <a href="#toc" class="guide-back-toc">↑ 目次へ戻る</a>
+        </div>
+    </article>
+
+    <!-- 3. ココフォリア -->
+    <article id="ccfolia" class="guide-card guide-section">
+        <h2 class="guide-h2" style="border-bottom: 3px solid #d97706;">
+            <span class="guide-badge" style="background: #d97706;">オンライン対戦</span>
+            3. ココフォリアを使ったオンライン対戦手順
+        </h2>
+        <p>
+            「デュエ筋」で組み上げたデッキは、ブラウザ上で動くオンラインセッションツール「ココフォリア（ccfolia）」用のZIPファイルとして一発で出力できます。物理カードやWebカメラがなくても、遠方の友人やSNS上の対戦相手と快適なリモート対戦を楽しめます。
+        </p>
+
+        <h3 id="cc-export" class="guide-h3" style="border-left: 4px solid #d97706;">3-1. デッキデータのエクスポート</h3>
+        <p>
+            マイデッキまたは公開デッキ詳細モーダルを開き、「ココフォリア出力」ボタンをクリックします。メインデッキの40枚だけでなく、超次元ゾーン（サイキック・ドラグハート）や超GRゾーン、特殊カード（ドルマゲドンXや零龍など）も含めて自動的にZIPファイルへとパッケージ化されます。
+        </p>
+
+        <h3 id="cc-import" class="guide-h3" style="border-left: 4px solid #d97706;">3-2. ココフォリアのルームへ導入する手順</h3>
+        <ol class="guide-list">
+            <li>ココフォリアにアクセスし、対戦用のマイルームを作成（または相手のルームURLへ参加）します。</li>
+            <li>ダウンロードしたZIPファイルを解凍せず、<strong>そのままココフォリアの盤面へドラッグ＆ドロップ</strong>します。</li>
+            <li>数秒待つと、カード画像が読み込まれた状態の山札が盤面に出現します。</li>
+            <li>対戦相手も同じ手順で自分のデッキZIPを盤面へドロップすれば、両者のデッキセットアップが完了します。</li>
+        </ol>
+
+        <h3 id="cc-controls" class="guide-h3" style="border-left: 4px solid #d97706;">3-3. 対戦開始時の操作のポイント</h3>
+        <ul class="guide-list">
+            <li><strong>シャッフル：</strong>新しくカードが山札に加わった際に自動でシャッフルされます。</li>
+            <li>
+                <strong>カードに対する操作：</strong>
+                <ul class="guide-list" style="margin-top: 6px;">
+                    <li>山札をダブルクリックすることでカードを引けます。カードに自分の名前が表示されている状態では、自分以外のプレイヤーにカードは見えていません。</li>
+                    <li>山札を右クリックすることで、複数枚同時に引いたり、裏向きのまま引いたり、引いたカードをすべて集めたりできます。</li>
+                    <li>背面画像と同じ画像を持つ山札にカードを重ねた場合、山札に加えられてシャッフルされます。</li>
+                    <li>カードを右クリックして「全体に公開する」をクリックするか、カードをクリックして<strong>Oキー</strong>を押すとカードを全体公開できます。</li>
+                    <li>カードを右クリックして「非公開にする」をクリックするか、カードをクリックして<strong>Tキー</strong>を押すとカードを裏向きにできます。</li>
+                    <li>裏向きのカードをダブルクリックすると自分だけカードを見られます。</li>
+                    <li>カードを右クリックして「回転する」をクリックするか、カードをクリックして<strong>Rキー</strong>を押すとカードが右回転します。</li>
+                    <li>カードをクリックして、<strong>Shift+R</strong>を押すとカードが左回転します。</li>
+                    <li>カードを右クリックし、「編集」を選択し、そのメニューの「画像選択」からカード画像を変更できます。</li>
+                    <li>山札を右クリックし、「編集」を選択し、そのメニューの「背面画像選択」から背面画像を選択できます。</li>
+                    <li>「山札の下に置く」という操作はできないため、適当な場所を山札の下として置くなどして対応してください。</li>
+                    <li>シャッフルして山札の下に置く操作をしたい場合、下に置くカードを重ねて右クリックし、「山札を作る」を選択し、山札の下とした場所に置いておきます。</li>
+                    <li>山札同士を重ねて右クリックし「山札を合わせる」で、2つの山札を混ぜることができます。</li>
+                </ul>
+            </li>
+            <li><strong>両面カードの裏返し：</strong>サイキック・クリーチャーや覚醒・龍解するカードも、盤面上で右クリックから裏表を切り替えて運用できます。</li>
+        </ul>
+
+        <h3 id="cc-other" class="guide-h3" style="border-left: 4px solid #d97706;">3-4. 他TCG・オリジナルカードゲームでの活用</h3>
+        <p>
+            デュエル・マスターズ以外のカードゲームや自作カードゲームをココフォリアで遊びたい場合は、当サイトの<a href="/tools/ccfolia" style="color: #007bff;">汎用ココフォリア出力ツール</a>をご利用ください。手持ちの画像ファイルを読み込むだけで同じように対戦用ZIPを生成できます。
+        </p>
+
+        <div class="guide-footer-row">
+            <a href="/tools/ccfolia" class="guide-cta" style="background: #d97706;">汎用ココフォリア出力ツールへ</a>
+            <a href="#toc" class="guide-back-toc">↑ 目次へ戻る</a>
+        </div>
+    </article>
+
+    <!-- 4. AIジャッジ -->
+    <article id="ai-judge" class="guide-card guide-section">
+        <h2 class="guide-h2" style="border-bottom: 3px solid #4f46e5;">
+            <span class="guide-badge" style="background: #4f46e5;">ルール・裁定</span>
+            4. AIジャッジを使用する際の注意と活用法
+        </h2>
+
+        <h3 id="ai-caution" class="guide-h3" style="border-left: 4px solid #4f46e5;">4-1. AIジャッジを使用する際の注意</h3>
+        <ul class="guide-list">
+            <li><strong>あくまで参考程度に使用する：</strong>AIジャッジの回答は必ずしも正確とは限らないため、あくまで参考程度にご使用ください。</li>
+            <li><strong>使用する場面について：</strong>公式大会での使用は推奨しません。友人間やフリー対戦、非公式大会において、難しい処理が発生した場合のみ使用することをおすすめします。</li>
+            <li><strong>誤った回答をした場合：</strong>もし誤った回答をした場合は、<a href="/contact" style="color: #007bff;">お問い合わせ</a>から教えていただけるとありがたいです。</li>
+        </ul>
+
+        <h3 id="ai-tips" class="guide-h3" style="border-left: 4px solid #4f46e5;">4-2. AIジャッジで精度の高い回答を得る質問のコツ</h3>
+        <ul class="guide-list">
+            <li><strong>カード名は《》で囲む：</strong>チャット入力欄で「《」を入力するとデータベースからカード名が候補表示されます。正確なカード名を指定することで、能力テキストを踏まえた回答が可能になります。</li>
+            <li><strong>どちらのターンかを明記する：</strong>「自分のターン中に」「相手の攻撃時に」など、ターンプレイヤーが誰かを書くと処理順の回答がブレにくくなります。</li>
+            <li><strong>盤面の状況を簡潔に書く：</strong>「バトルゾーンにAがある状態で、Bを召喚しました」のように時系列を添えて質問するのが最も確実です。</li>
+        </ul>
+
+        <div class="guide-footer-row">
+            <a href="/rule-bot" class="guide-cta" style="background: #4f46e5;">AIジャッジを開いて質問する</a>
+            <a href="#toc" class="guide-back-toc">↑ 目次へ戻る</a>
+        </div>
+    </article>
+    <!-- 5. マイデッキ管理・公開検索・価格査定 -->
+    <article id="deck-management" class="guide-card guide-section" style="margin-bottom: 0;">
+        <h2 class="guide-h2" style="border-bottom: 3px solid #0f766e;">
+            <span class="guide-badge" style="background: #0f766e;">管理・分析・検索</span>
+            5. マイデッキ管理・公開デッキ検索・価格査定
+        </h2>
+        <ul class="guide-list">
+            <li><strong>マイデッキ管理：</strong>作成したデッキは「最終更新日時が新しい順」に表示され、公開／非公開の切り替えがいつでも可能です。</li>
+            <li><strong>詳細確認・分析：</strong>登録カードリストに加え、文明配分・コスト帯マナカーブ・S・トリガー枚数・初動確率などの統計グラフを自動算出して確認できます。</li>
+            <li><strong>価格査定・購入管理：</strong>楽天市場およびYahoo!ショッピングの販売相場を参照し、デッキ総額の概算を自動計算します。ショップ絞り込みやバージョン指定／不問、追加キーワードでの再検索、購入済みカードの所持枚数管理も行えます。</li>
+            <li><strong>公開デッキ検索・複製：</strong>他のユーザーが公開しているデッキを、デッキ名・フォーマット・文明・採用カード名で絞り込み検索できます。「デッキを複製」から自分のマイデッキへコピーして編集したり、共有URLコピーや一人回しをすぐに行えます。</li>
+        </ul>
+        <div class="guide-footer-row">
+            <a href="/search" class="guide-cta" style="background: #0f766e;">公開デッキ検索を見る</a>
+            <a href="#toc" class="guide-back-toc">↑ 目次へ戻る</a>
+        </div>
+    </article>
 </div>

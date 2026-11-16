@@ -303,6 +303,8 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	views.RenderView(w, r, "deck/index.html", map[string]interface{}{
+		"title":         "マイデッキ一覧",
+		"description":   "作成したデュエル・マスターズのデッキを一覧で管理・編集・公開設定・価格査定できます。",
 		"Decks":         myDecks,
 		"CurrentPage":   currentPage,
 		"TotalPages":    totalPages,
@@ -545,6 +547,8 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 	userID, ok := getSessionUserID(r)
 
 	views.RenderView(w, r, "deck/search.html", map[string]interface{}{
+		"title":         "公開デッキ検索",
+		"description":   "他のプレイヤーが公開しているデュエル・マスターズのデッキレシピを検索・閲覧・複製・一人回しできます。",
 		"decks":         decks,
 		"Decks":         decks,
 		"formats":       formats,
@@ -684,6 +688,8 @@ func (c *DeckController) Create(w http.ResponseWriter, r *http.Request) {
 	formatsJSON, _ := json.Marshal(formats)
 
 	views.RenderView(w, r, "deck/create.html", map[string]interface{}{
+		"title":               "デッキ作成",
+		"description":         "デュエル・マスターズのメインデッキ・超次元・超GR・ダミーカードを使ったデッキ作成ツールです。",
 		"hideFooter":          true,
 		"formats":             formats,
 		"formatsJSON":         template.JS(formatsJSON),
@@ -878,6 +884,8 @@ func (c *DeckController) Edit(w http.ResponseWriter, r *http.Request) {
 	deckIDJSON := fmt.Sprintf("%v", deckId)
 
 	views.RenderView(w, r, "deck/create.html", map[string]interface{}{
+		"title":               fmt.Sprintf("%v の編集", deck["deck_name"]),
+		"description":         fmt.Sprintf("デュエル・マスターズのデッキ「%v」の編集画面です。", deck["deck_name"]),
 		"hideFooter":          true,
 		"isEdit":              true,
 		"deck":                deck,
@@ -1412,6 +1420,8 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
 	cardsJSON, _ := json.Marshal(cards)
 
 	views.RenderView(w, r, "deck/playtest.html", map[string]interface{}{
+		"title":           fmt.Sprintf("%s の一人回し", deckName),
+		"description":     fmt.Sprintf("デッキ「%s」のブラウザ一人回し画面です。", deckName),
 		"hideHeader":      true,
 		"hideFooter":      true,
 		"deck":            deck,
@@ -1626,6 +1636,8 @@ func (c *DeckController) UserPublicDecks(w http.ResponseWriter, r *http.Request)
 	currentUserID, isLoggedIn := getSessionUserID(r) // ★ ログイン状態を取得
 
 	views.RenderView(w, r, "deck/user_decks.html", map[string]interface{}{
+		"title":       fmt.Sprintf("%s さんの公開デッキ一覧", uname),
+		"description": fmt.Sprintf("%s さんが公開しているデュエル・マスターズのデッキレシピ一覧です。", uname),
 		"targetUser": targetUser,
 		"decks":      decks,
 		"IsLoggedIn": isLoggedIn,    // ★ 追加
@@ -2776,13 +2788,18 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if deck == nil || (!isPublic && deckOwnerID != currentUserID) {
-		views.RenderView(w, r, "deck/share_not_found.html", nil)
+		views.RenderView(w, r, "deck/share_not_found.html", map[string]interface{}{
+			"title":       "デッキが見つかりません",
+			"description": "指定されたデッキは非公開または削除されたため表示できません。",
+		})
 		return
 	}
 
 	views.RenderView(w, r, "deck/share.html", map[string]interface{}{
-		"deck":   deck,
-		"pdo_db": db,
+		"title":       fmt.Sprintf("%v", deck["deck_name"]),
+		"description": fmt.Sprintf("デュエ筋で公開されたデッキ「%v」のレシピ・分析詳細ページです。", deck["deck_name"]),
+		"deck":        deck,
+		"pdo_db":      db,
 	})
 }
 

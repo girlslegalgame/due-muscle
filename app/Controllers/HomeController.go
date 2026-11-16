@@ -49,8 +49,9 @@ func (c *HomeController) Contact(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := map[string]interface{}{
-		"success": contactSuccess,
-		"error":   contactError,
+		"description": "デュエ筋は、デュエル・マスターズのデッキ作成・マナカーブ分析・一人回し・ココフォリア出力・価格査定・AIジャッジを無料で使えるデッキ制作ウェブアプリです。",
+		"success":     contactSuccess,
+		"error":       contactError,
 	}
 
 	// unset($_SESSION['contact_success'], $_SESSION['contact_error']);

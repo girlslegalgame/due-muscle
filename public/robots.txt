@@ -1,8 +1,14 @@
 User-agent: *
-Disallow: /admin
-Disallow: /api/
-Disallow: /developer
 Allow: /
+Disallow: /api/
+Disallow: /admin
+Disallow: /developer
+Disallow: /mydecks
+Disallow: /account
+Disallow: /login
+Disallow: /register
 
 User-agent: Mediapartners-Google
 Allow: /
+
+Sitemap: https://due-muscle.com/sitemap.xml

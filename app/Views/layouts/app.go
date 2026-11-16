@@ -10,8 +10,10 @@ import (
 
 // View引数用データ構造体
 type AppLayoutData struct {
-	Content    template.HTML
-	HideFooter bool
+	Content     template.HTML
+	HideFooter  bool
+	Title       string
+	Description string
 }
 
 // セッション情報などのコンテキスト（プロジェクトの実装に合わせて調整可能）
@@ -67,7 +69,8 @@ const appHTML = `<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="google-adsense-account" content="ca-pub-1782055298829063">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>デュエ筋</title>
+    <title>{{ if .Title }}{{ .Title }} | デュエ筋{{ else }}デュエ筋 - デュエル・マスターズ デッキ制作ツール{{ end }}</title>
+    {{ if .Description }}<meta name="description" content="{{ .Description }}">{{ end }}
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="/css/style.css?v={{ time }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
@@ -240,8 +243,7 @@ const appHTML = `<!DOCTYPE html>
             <a href="/search">デッキ検索</a>
             <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
             <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">AIジャッジ</a>
-            <a href="/guide">使い方</a>
-            <a href="/help">ヘルプ</a>           
+            <a href="/guide">使い方・ヘルプ</a>
             <a href="/notifications">
                 お知らせ
                 {{ if gt .UnreadCnt 0 }}
@@ -280,7 +282,7 @@ const appHTML = `<!DOCTYPE html>
     <footer>
         <ul>
             <li><a href="/terms">利用規約・プライバシーポリシー</a></li>
-            <li><a href="/guide">使い方</a></li>
+            <li><a href="/guide">使い方・ヘルプ</a></li>
             <li><a href="/profile">運営者情報</a></li>
             <li><a href="/contact">お問い合わせ</a></li>
         </ul>
@@ -463,7 +465,7 @@ function selectDeckType(url) {
         
         <!-- ★ ここを追加: メッセージ表示コンテナ -->
         <div class="rule-bot-messages" id="ruleBotMessages">
-            <div class="rule-bot-msg bot">こんにちは！公式総合ルール全条文を記憶したAIジャッジです。<br>効果の処理順やルールの疑問があれば質問してください。カード名は《》で囲むと自動補完されます。<br><span style="font-size:0.75rem; color:#888;">※5回の質問ごとに広告の視聴が必要です。</span></div>
+            <div class="rule-bot-msg bot">こんにちは！公式総合ルール全条文を記憶したAIジャッジです。<br>効果の処理順やルールの疑問があれば質問してください。カード名は《》で囲むと自動補完されます。</div>
         </div>
 
         <!-- サジェストリスト付き入力エリア -->

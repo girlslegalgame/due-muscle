@@ -807,6 +807,8 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 // index: 専用画面を表示
 func (c *RuleBotController) Index(w http.ResponseWriter, r *http.Request) {
 	views.RenderView(w, r, "rule_bot/index.html", map[string]interface{}{
-		"PageTitle": "デュエマ ルール相談AI",
+		"PageTitle":   "デュエマ ルール相談AI",
+		"title":       "AIジャッジ（デュエマ ルール相談AI）",
+		"description": "公式総合ルールを元にデュエル・マスターズのカード効果や処理順、裁定の疑問を質問できるAIチャットです。",
 	})
 }

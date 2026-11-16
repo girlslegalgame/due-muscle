@@ -216,10 +216,14 @@ func RenderView(w http.ResponseWriter, r *http.Request, viewPath string, data ma
 
 	content, _ := data["content"].(template.HTML)
 	hideFooter, _ := data["hideFooter"].(bool)
+	title, _ := data["title"].(string)
+	description, _ := data["description"].(string)
 
 	layouts.RenderApp(w, r, sessionData, layouts.AppLayoutData{
-		Content:    content,
-		HideFooter: hideFooter,
+		Content:     content,
+		HideFooter:  hideFooter,
+		Title:       title,
+		Description: description,
 	})
 }
 

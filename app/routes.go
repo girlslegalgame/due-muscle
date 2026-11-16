@@ -39,33 +39,41 @@ func RegisterRoutes(r chi.Router) {
 	})
 	// ★ 追加: ヘルプページ
 	r.Get("/help", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "help/index.html", map[string]interface{}{})
+		http.Redirect(w, r, "/guide#dc-search", http.StatusMovedPermanently)
 	})
 	r.Get("/help/search", deckViews.HelpSearchHandler)
 	r.Get("/tools/ccfolia", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "tools/ccfolia.html", map[string]interface{}{})
+		views.RenderView(w, r, "tools/ccfolia.html", map[string]interface{}{
+			"title":       "汎用ココフォリア出力ツール",
+			"description": "デュエマ以外のTCGやオリジナルカードゲームの画像から、ココフォリア用の対戦デッキZIPファイルを無料で作成できるツールです。",
+		})
 	})
 	r.Get("/terms", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "legal/terms.html", map[string]interface{}{})
+		views.RenderView(w, r, "legal/terms.html", map[string]interface{}{
+			"title":       "利用規約・プライバシーポリシー",
+			"description": "デュエ筋の利用規約、権利表記、アフィリエイト・Google AdSenseによる広告配信、個人情報の取り扱いおよび免責事項について記載しています。",
+		})
 	})
 	r.Get("/guide", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "guide/index.html", map[string]interface{}{})
+		views.RenderView(w, r, "guide/index.html", map[string]interface{}{
+			"title":       "攻略・活用ガイド",
+			"description": "デュエ筋のデッキ作成、一人回しシミュレーション、ココフォリアでのオンライン対戦、AIジャッジの活用法をまとめた総合ガイドです。",
+		})
 	})
 	r.Get("/guide/deck-creation", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "guide/deck_creation.html", map[string]interface{}{})
+		http.Redirect(w, r, "/guide#deck-creation", http.StatusMovedPermanently)
 	})
 	r.Get("/guide/playtest", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "guide/playtest.html", map[string]interface{}{})
+		http.Redirect(w, r, "/guide#playtest", http.StatusMovedPermanently)
 	})
 	r.Get("/guide/ccfolia-online", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "guide/ccfolia_online.html", map[string]interface{}{})
+		http.Redirect(w, r, "/guide#ccfolia", http.StatusMovedPermanently)
 	})
 	r.Get("/guide/ai-judge-rules", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "guide/ai_judge_rules.html", map[string]interface{}{})
+		http.Redirect(w, r, "/guide#ai-judge", http.StatusMovedPermanently)
 	})
 	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		_, _ = w.Write([]byte("User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\nDisallow: /developer\nDisallow: /mydecks\nDisallow: /account\nDisallow: /login\nDisallow: /register\nSitemap: https://due-muscle.com/sitemap.xml\n"))
+		http.ServeFile(w, r, "public/robots.txt")
 	})
 	r.Get("/sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
@@ -77,10 +85,6 @@ func RegisterRoutes(r chi.Router) {
 			"/tools/ccfolia",
 			"/rule-bot",
 			"/guide",
-			"/guide/deck-creation",
-			"/guide/playtest",
-			"/guide/ccfolia-online",
-			"/guide/ai-judge-rules",
 			"/help",
 			"/terms",
 			"/profile",
