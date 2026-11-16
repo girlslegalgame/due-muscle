@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings" // ★ 追加
 
 	"deck-maker/app"
 	models "deck-maker/app/Models"
@@ -34,6 +35,18 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RedirectSlashes)
+
+	// ★ 追加: Railway初期URLやwww付きURLを正規ドメインへ301リダイレクト
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			host := strings.ToLower(r.Host)
+			if host == "due-muscle.up.railway.app" || host == "www.due-muscle.com" {
+				http.Redirect(w, r, "https://due-muscle.com"+r.URL.RequestURI(), http.StatusMovedPermanently)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
 
 	// app/routes.go のルーティングを登録
 	app.RegisterRoutes(r)

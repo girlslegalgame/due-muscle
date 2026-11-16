@@ -50,14 +50,21 @@ var appTemplate = template.Must(template.New("app.html").Funcs(tmplFuncs).Parse(
 func RenderApp(w io.Writer, r *http.Request, session *SessionData, data AppLayoutData) error {
 	unreadCnt := GetUnreadNotificationCount(r)
 
+	canonicalURL := "https://due-muscle.com" + r.URL.Path
+	if r.URL.RawQuery != "" && (r.URL.Path == "/decks/share" || r.URL.Path == "/decks/playtest" || r.URL.Path == "/users/decks") {
+		canonicalURL += "?" + r.URL.RawQuery
+	}
+
 	viewData := struct {
 		AppLayoutData
-		Session   *SessionData
-		UnreadCnt int
+		Session      *SessionData
+		UnreadCnt    int
+		CanonicalURL string
 	}{
 		AppLayoutData: data,
 		Session:       session,
 		UnreadCnt:     unreadCnt,
+		CanonicalURL:  canonicalURL,
 	}
 
 	return appTemplate.Execute(w, viewData)
@@ -71,6 +78,7 @@ const appHTML = `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ if .Title }}{{ .Title }} | デュエ筋{{ else }}デュエ筋 - デュエル・マスターズ デッキ制作ツール{{ end }}</title>
     {{ if .Description }}<meta name="description" content="{{ .Description }}">{{ end }}
+    <link rel="canonical" href="{{ .CanonicalURL }}">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="/css/style.css?v={{ time }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
