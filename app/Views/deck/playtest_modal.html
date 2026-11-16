@@ -610,6 +610,27 @@ function openBattleToShieldMenu(id) {
 // 両面カード・3D龍解モーダル
 // ==========================================
 function ptOpenDoubleSidedSelectModal(card, fromZone) {
+    if (card.is_dummy && card.dummy_card_type === 'double') {
+        const sides = [
+            {
+                card_name: card.original_name || card.name,
+                imagepath: card.original_src,
+                cardtype_ids: (card.original_cardtype_ids || [1]).join(','),
+                characteristics_ids: (card.original_characteristics_ids || []).join(','),
+                ability_ids: (card.original_ability_ids || []).join(',')
+            },
+            {
+                card_name: card.partner_name || '裏面',
+                imagepath: card.creature_src,
+                cardtype_ids: (card.partner_cardtype_ids || [1]).join(','),
+                characteristics_ids: (card.partner_characteristics_ids || card.original_characteristics_ids || []).join(','),
+                ability_ids: (card.partner_ability_ids || []).join(',')
+            }
+        ];
+        renderDoubleSidedSelectModal(card, fromZone, sides);
+        return;
+    }
+
     const url = `/api/cards/combination?card_id=${card.card_id}`;
     fetch(url)
         .then(res => { if (!res.ok) throw new Error(); return res.json(); })
@@ -645,7 +666,7 @@ function renderDoubleSidedSelectModal(card, fromZone, combinationCards) {
             <div class="card-qty" style="font-weight:bold; color:#fff; margin-top:8px;">${cData.card_name}</div>
         `;
         itemEl.onclick = () => {
-            ptExecuteDoubleSidedMoveWithData(card.id, fromZone, imgPath, cData.card_name, cData.cardtype_ids);
+            ptExecuteDoubleSidedMoveWithData(card.id, fromZone, imgPath, cData.card_name, cData.cardtype_ids, cData.characteristics_ids, cData.ability_ids);
         };
         grid.appendChild(itemEl);
     });

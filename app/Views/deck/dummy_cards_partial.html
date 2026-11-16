@@ -45,6 +45,10 @@
                         <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
                         <input type="number" id="dummy-input-cost" placeholder="例: 5" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
                     </div>
+                    <div style="flex: 2;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">カードタイプ</label>
+                        <select id="dummy-input-subtype" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; background:#fff;"></select>
+                    </div>
                 </div>
                 <div>
                     <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
@@ -70,6 +74,10 @@
                     <div style="flex: 1;">
                         <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
                         <input type="number" id="dummy-input-partner-cost" placeholder="例: 3" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                    </div>
+                    <div style="flex: 2;">
+                        <label style="font-size: 12px; display: block; margin-bottom: 2px;">カードタイプ</label>
+                        <select id="dummy-input-partner-subtype" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; background:#fff;"></select>
                     </div>
                 </div>
                 <div>
@@ -129,6 +137,10 @@
                     <label style="font-size: 12px; display: block; margin-bottom: 2px;">コスト</label>
                     <input type="number" id="dummy-edit-normal-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
                 </div>
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">カードタイプ</label>
+                    <select id="dummy-edit-normal-subtype" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; background:#fff;"></select>
+                </div>
                 <div>
                     <label style="font-size: 12px; display: block; margin-bottom: 4px;">文明</label>
                     <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
@@ -152,6 +164,8 @@
         </div>
     </div>
 </div>
+
+
 
 <!-- ツインパクトダミーカード編集モーダル -->
 <div id="dummyEditModal-twinpact" class="sub-modal">
@@ -180,6 +194,11 @@
                     <label style="font-size: 12px; display: block; margin-bottom: 2px;">上面 コスト</label>
                     <input type="number" id="dummy-edit-twinpact-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
                 </div>
+                <!-- 上面コスト直後 -->
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">上面 カードタイプ</label>
+                    <select id="dummy-edit-twinpact-subtype" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; background:#fff;"></select>
+                </div>
                 <div>
                     <label style="font-size: 12px; display: block; margin-bottom: 4px;">上面 文明</label>
                     <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
@@ -202,6 +221,11 @@
                 <div style="margin-bottom: 8px;">
                     <label style="font-size: 12px; display: block; margin-bottom: 2px;">下面 コスト</label>
                     <input type="number" id="dummy-edit-twinpact-partner-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <!-- 下面コスト直後 -->
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">下面 カードタイプ</label>
+                    <select id="dummy-edit-twinpact-partner-subtype" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; background:#fff;"></select>
                 </div>
                 <div>
                     <label style="font-size: 12px; display: block; margin-bottom: 4px;">下面 文明</label>
@@ -254,6 +278,11 @@
                     <label style="font-size: 12px; display: block; margin-bottom: 2px;">表面 コスト</label>
                     <input type="number" id="dummy-edit-double-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
                 </div>
+                <!-- 表面コスト直後 -->
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">表面 カードタイプ</label>
+                    <select id="dummy-edit-double-subtype" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; background:#fff;"></select>
+                </div>
                 <div>
                     <label style="font-size: 12px; display: block; margin-bottom: 4px;">表面 文明</label>
                     <div class="civ-checkboxes" style="grid-template-columns: repeat(6, 1fr); gap: 4px;">
@@ -276,6 +305,11 @@
                 <div style="margin-bottom: 8px;">
                     <label style="font-size: 12px; display: block; margin-bottom: 2px;">裏面 コスト</label>
                     <input type="number" id="dummy-edit-double-partner-cost" placeholder="コスト" min="0" max="99" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box;">
+                </div>
+                <!-- 裏面コスト直後 -->
+                <div style="margin-bottom: 8px;">
+                    <label style="font-size: 12px; display: block; margin-bottom: 2px;">裏面 カードタイプ</label>
+                    <select id="dummy-edit-double-partner-subtype" style="width:100%; padding:6px; border:1px solid #ccc; border-radius:4px; box-sizing:border-box; background:#fff;"></select>
                 </div>
                 <div>
                     <label style="font-size: 12px; display: block; margin-bottom: 4px;">裏面 文明</label>
@@ -325,9 +359,119 @@
 </div>
 
 <script>
+// --- ダミーカード タイプマスタ定義 ---
+const DUMMY_CARD_SUBTYPES = {
+    main: [
+        { key: 'main_creature', label: 'クリーチャー', cardtype_ids: '1', characteristics_ids: '1', ability_ids: '' },
+        { key: 'main_evo_battle', label: '進化クリーチャー (進化/進化V/進化GV/超無限/究極/究極MAX)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '142' },
+        { key: 'main_evo_grave', label: '進化クリーチャー (墓地進化/墓地進化V/GV/超無限墓地/超無限墓地呪文)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '245' },
+        { key: 'main_evo_mana', label: '進化クリーチャー (マナ進化/マナ進化V/マナ進化GV)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '269' },
+        { key: 'main_evo_hand', label: '進化クリーチャー (手札進化/手札進化V/手札進化GV)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '190' },
+        { key: 'main_evo_shield', label: '進化クリーチャー (シールド進化/シールド進化GV)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '126' },
+        { key: 'main_evo_deck', label: '進化クリーチャー (デッキ進化/デッキ進化GV)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '193' },
+        { key: 'main_evo_mdeck', label: '進化クリーチャー (Mデッキ進化)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '319' },
+        { key: 'main_evo_omgdeck', label: '進化クリーチャー (OMGデッキ進化)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '333' },
+        { key: 'main_evo_omega', label: '進化クリーチャー (進化GV・Ω/超無限進化・Ω)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '144' },
+        { key: 'main_evo_gr', label: '進化クリーチャー (超無限GR進化)', cardtype_ids: '1', characteristics_ids: '2', ability_ids: '184' },
+        { key: 'main_neo', label: 'NEOクリーチャー', cardtype_ids: '1', characteristics_ids: '9', ability_ids: '27' },
+        { key: 'main_sneo_grave', label: 'NEOクリーチャー (S-NEO進化(墓地))', cardtype_ids: '1', characteristics_ids: '9', ability_ids: '361' },
+        { key: 'main_gneo', label: 'G-NEOクリーチャー', cardtype_ids: '1', characteristics_ids: '16', ability_ids: '18' },
+        { key: 'main_gneo_inf', label: 'G-NEOクリーチャー (超無限G-NEO進化)', cardtype_ids: '1', characteristics_ids: '16', ability_ids: '362' },
+        { key: 'main_spell', label: '呪文', cardtype_ids: '2', characteristics_ids: '1', ability_ids: '' },
+        { key: 'main_crossgear', label: 'クロスギア', cardtype_ids: '3', characteristics_ids: '1', ability_ids: '' },
+        { key: 'main_castle', label: '城', cardtype_ids: '4', characteristics_ids: '1', ability_ids: '' },
+        { key: 'main_d2field', label: 'D2フィールド', cardtype_ids: '7', characteristics_ids: '8', ability_ids: '' },
+        { key: 'main_otherfield', label: 'その他のフィールド', cardtype_ids: '7', characteristics_ids: '999', ability_ids: '' },
+        { key: 'main_tamaseed', label: 'タマシード', cardtype_ids: '9', characteristics_ids: '1', ability_ids: '' },
+        { key: 'main_tamaseed_creature', label: 'タマシード/クリーチャー', cardtype_ids: '10', characteristics_ids: '1', ability_ids: '' },
+        { key: 'main_duelist', label: 'デュエリスト', cardtype_ids: '11', characteristics_ids: '1', ability_ids: '' }
+    ],
+    super_dimensional: [
+        { key: 'dim_psychic', label: 'サイキック・クリーチャー', cardtype_ids: '1', characteristics_ids: '3', ability_ids: '' },
+        { key: 'dim_evo_psychic', label: '進化サイキック・クリーチャー', cardtype_ids: '1', characteristics_ids: '3,2', ability_ids: '' },
+        { key: 'dim_psychic_gear', label: 'サイキック・クロスギア', cardtype_ids: '3', characteristics_ids: '3', ability_ids: '' },
+        { key: 'dim_dragheart_weapon', label: 'ドラグハート・ウエポン', cardtype_ids: '5', characteristics_ids: '6', ability_ids: '' },
+        { key: 'dim_dragheart_fortress', label: 'ドラグハート・フォートレス', cardtype_ids: '6', characteristics_ids: '6', ability_ids: '' },
+        { key: 'dim_dragheart_creature', label: 'ドラグハート・クリーチャー', cardtype_ids: '1', characteristics_ids: '6', ability_ids: '' },
+        { key: 'dim_star_dragheart', label: 'スター進化ドラグハート・スーパー・クリーチャー', cardtype_ids: '1', characteristics_ids: '6,13', ability_ids: '' },
+        { key: 'dim_dragheart_tamaseed', label: 'ドラグハート・タマシード', cardtype_ids: '9', characteristics_ids: '6', ability_ids: '' },
+        { key: 'dim_duelmate_creature', label: 'デュエルメイト・クリーチャー', cardtype_ids: '1', characteristics_ids: '17', ability_ids: '' },
+        { key: 'dim_duelmate_spell', label: 'デュエルメイト呪文', cardtype_ids: '2', characteristics_ids: '17', ability_ids: '' }
+    ],
+    gr: [
+        { key: 'gr_creature', label: 'GRクリーチャー', cardtype_ids: '1', characteristics_ids: '10', ability_ids: '' },
+        { key: 'gr_neo_creature', label: 'NEO GRクリーチャー', cardtype_ids: '1', characteristics_ids: '10,9', ability_ids: '' }
+    ]
+};
+
+function populateDummySubtypeSelect(selectId, zone, selectedKey = null) {
+    const sel = document.getElementById(selectId);
+    if (!sel) return;
+    const list = DUMMY_CARD_SUBTYPES[zone] || DUMMY_CARD_SUBTYPES.main;
+    sel.innerHTML = '';
+    list.forEach(opt => {
+        const option = document.createElement('option');
+        option.value = opt.key;
+        option.textContent = opt.label;
+        sel.appendChild(option);
+    });
+    if (selectedKey && list.some(o => o.key === selectedKey)) {
+        sel.value = selectedKey;
+    }
+}
+
+function getDummySubtypeOption(zone, key) {
+    const list = DUMMY_CARD_SUBTYPES[zone] || DUMMY_CARD_SUBTYPES.main;
+    return list.find(o => o.key === key) || list[0];
+}
+
+function findDummySubtypeKeyByIds(zone, cardtypeIds, charIds, abilityIds, fallbackKey = null) {
+    const norm = (str) => String(str || '').split(',').map(s => s.trim()).filter(Boolean).sort().join(',');
+    const tStr = norm(cardtypeIds);
+    const cStr = norm(charIds);
+    const aStr = norm(abilityIds);
+    const list = DUMMY_CARD_SUBTYPES[zone] || DUMMY_CARD_SUBTYPES.main;
+
+    const exact = list.find(o => norm(o.cardtype_ids) === tStr && norm(o.characteristics_ids) === cStr && norm(o.ability_ids) === aStr);
+    if (exact) return exact.key;
+    if (fallbackKey && list.some(o => o.key === fallbackKey)) return fallbackKey;
+    return list[0].key;
+}
+
+function syncCreateDummySubtypeSelects() {
+    const checkedTypeRadio = document.querySelector('input[name="dummy-type"]:checked');
+    const type = checkedTypeRadio ? checkedTypeRadio.value : 'normal';
+    const zoneSelect = document.getElementById('dummy-input-zone');
+    const zoneHint = document.getElementById('dummy-zone-hint');
+
+    let zone = zoneSelect ? zoneSelect.value : 'main';
+    if (type === 'double') {
+        zone = 'super_dimensional';
+        if (zoneSelect) { zoneSelect.value = 'super_dimensional'; zoneSelect.disabled = true; }
+        if (zoneHint) zoneHint.style.display = 'block';
+        populateDummySubtypeSelect('dummy-input-subtype', 'super_dimensional', 'dim_dragheart_weapon');
+        populateDummySubtypeSelect('dummy-input-partner-subtype', 'super_dimensional', 'dim_dragheart_creature');
+    } else if (type === 'twinpact') {
+        zone = 'main';
+        if (zoneSelect) { zoneSelect.value = 'main'; zoneSelect.disabled = true; }
+        if (zoneHint) zoneHint.style.display = 'none';
+        populateDummySubtypeSelect('dummy-input-subtype', 'main', 'main_creature');
+        populateDummySubtypeSelect('dummy-input-partner-subtype', 'main', 'main_spell');
+    } else {
+        if (zoneSelect) zoneSelect.disabled = false;
+        if (zoneHint) zoneHint.style.display = 'none';
+        populateDummySubtypeSelect('dummy-input-subtype', zone);
+    }
+}
+
+document.getElementById('dummy-input-zone').addEventListener('change', () => {
+    const zone = document.getElementById('dummy-input-zone').value;
+    populateDummySubtypeSelect('dummy-input-subtype', zone);
+});
 // --- ダミーカード生成 & モーダル関連処理 ---
 function openDummyCardModal() {
     document.getElementById('dummyCardModal').style.display = 'block';
+    syncCreateDummySubtypeSelects();
     updateDummyPreview();
 }
 
@@ -365,6 +509,10 @@ function toggleDummyCardType(mode = 'create') {
         if (partnerSection) partnerSection.style.display = 'block';
         if (face1Title) face1Title.innerText = '表面';
         if (face2Title) face2Title.innerText = '裏面（覚醒後など）';
+    }
+
+    if (!isEditMode) {
+        syncCreateDummySubtypeSelects();
     }
 
     if (isEditMode) {
@@ -447,7 +595,12 @@ function createAndAddDummyCard() {
     const dummyId = 'dummy_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
     const dataUrl = generateDummyCardImage(name, cost, civs.join(','), type, pName, pCost, pCivs.join(','));
 
-    let charIds = (zone === 'super_dimensional') ? '3' : (zone === 'gr' ? '10' : '');
+    const subOpt1 = getDummySubtypeOption(zone, document.getElementById('dummy-input-subtype')?.value);
+    const subOpt2 = (type === 'twinpact' || type === 'double')
+        ? getDummySubtypeOption(zone, document.getElementById('dummy-input-partner-subtype')?.value)
+        : null;
+
+    const charIds = subOpt1.characteristics_ids || ((zone === 'super_dimensional') ? '3' : (zone === 'gr' ? '10' : '1'));
 
     const cardObj = {
         card_id: dummyId,
@@ -456,14 +609,22 @@ function createAndAddDummyCard() {
         civ_ids: civs.join(','),
         civilization: civs.join(','),
         char_ids: charIds,
+        cardtype_ids: subOpt1.cardtype_ids,
+        ability_ids: subOpt1.ability_ids,
         image_data_url: dataUrl,
         imagepath: dataUrl,
         card_limit: 99,
         is_dummy: true,
         dummy_card_type: type,
+        dummy_cardtype_ids: subOpt1.cardtype_ids,
+        dummy_characteristics_ids: charIds,
+        dummy_ability_ids: subOpt1.ability_ids,
         dummy_partner_name: pName,
         dummy_partner_cost: pCost !== '' ? parseInt(pCost, 10) : null,
         dummy_partner_civ_ids: pCivs.join(','),
+        dummy_partner_cardtype_ids: subOpt2 ? subOpt2.cardtype_ids : '',
+        dummy_partner_characteristics_ids: subOpt2 ? subOpt2.characteristics_ids : '',
+        dummy_partner_ability_ids: subOpt2 ? subOpt2.ability_ids : '',
         text: type === 'twinpact' 
             ? '【上面】' + name + ' (コスト:' + (cost || '?') + ')\n【下面】' + pName + ' (コスト:' + (pCost || '?') + ')'
             : (type === 'double' ? '【表面】' + name + '\n【裏面】' + pName : 'カード名: ' + name + '\nコスト: ' + (cost || '?'))
@@ -514,6 +675,27 @@ function openDummyEditModal(el) {
         document.querySelectorAll('.dummy-edit-' + cardType + '-partner-civ-check').forEach(cb => {
             cb.checked = pCivs.includes(cb.value);
         });
+    }
+
+    let editZone = 'main';
+    if (cardType === 'double' || parent.id === 'super-dim-list') editZone = 'super_dimensional';
+    else if (parent.id === 'gr-list') editZone = 'gr';
+
+    const cached = (typeof cardCache !== 'undefined' && cardCache[el.dataset.cardId]) ? cardCache[el.dataset.cardId] : {};
+    const cTypeIds = el.dataset.dummyCardtypeIds || cached.dummy_cardtype_ids || cached.cardtype_ids || '';
+    const cCharIds = el.dataset.dummyCharacteristicsIds || el.dataset.charIds || cached.dummy_characteristics_ids || cached.char_ids || '';
+    const cAbIds = el.dataset.dummyAbilityIds || cached.dummy_ability_ids || cached.ability_ids || '';
+
+    const key1 = findDummySubtypeKeyByIds(editZone, cTypeIds, cCharIds, cAbIds);
+    populateDummySubtypeSelect('dummy-edit-' + cardType + '-subtype', editZone, key1);
+
+    if (cardType === 'twinpact' || cardType === 'double') {
+        const pTypeIds = el.dataset.dummyPartnerCardtypeIds || cached.dummy_partner_cardtype_ids || cached.partner_cardtype_ids || '';
+        const pCharIds = el.dataset.dummyPartnerCharacteristicsIds || cached.dummy_partner_characteristics_ids || cached.partner_characteristics_ids || '';
+        const pAbIds = el.dataset.dummyPartnerAbilityIds || cached.dummy_partner_ability_ids || cached.partner_ability_ids || '';
+        const fallbackKey2 = (cardType === 'twinpact') ? 'main_spell' : 'dim_dragheart_creature';
+        const key2 = findDummySubtypeKeyByIds(editZone, pTypeIds, pCharIds, pAbIds, fallbackKey2);
+        populateDummySubtypeSelect('dummy-edit-' + cardType + '-partner-subtype', editZone, key2);
     }
 
     updateDummySpecificEditPreview(cardType);
@@ -650,6 +832,15 @@ function saveDummyCardEdit(type) {
         pCivStr = pCivs.join(',');
     }
 
+    let editZone = 'main';
+    if (type === 'double' || parent.id === 'super-dim-list') editZone = 'super_dimensional';
+    else if (parent.id === 'gr-list') editZone = 'gr';
+
+    const subOpt1 = getDummySubtypeOption(editZone, document.getElementById('dummy-edit-' + type + '-subtype')?.value);
+    const subOpt2 = (type === 'twinpact' || type === 'double')
+        ? getDummySubtypeOption(editZone, document.getElementById('dummy-edit-' + type + '-partner-subtype')?.value)
+        : null;
+
     const newImage = generateDummyCardImage(newName, newCost, civStr, type, pName, pCost, pCivStr);
 
     sameCards.forEach(img => {
@@ -657,12 +848,40 @@ function saveDummyCardEdit(type) {
         img.dataset.cost = newCost !== '' ? newCost : '';
         img.dataset.civ = civStr;
         img.dataset.dummyCardType = type;
+        img.dataset.dummyCardtypeIds = subOpt1.cardtype_ids;
+        img.dataset.dummyCharacteristicsIds = subOpt1.characteristics_ids;
+        img.dataset.dummyAbilityIds = subOpt1.ability_ids;
+        img.dataset.charIds = subOpt1.characteristics_ids;
         img.dataset.dummyPartnerName = pName;
         img.dataset.dummyPartnerCost = pCost !== '' ? pCost : '';
         img.dataset.dummyPartnerCivIds = pCivStr;
+        img.dataset.dummyPartnerCardtypeIds = subOpt2 ? subOpt2.cardtype_ids : '';
+        img.dataset.dummyPartnerCharacteristicsIds = subOpt2 ? subOpt2.characteristics_ids : '';
+        img.dataset.dummyPartnerAbilityIds = subOpt2 ? subOpt2.ability_ids : '';
         img.dataset.imagepath = newImage;
         img.src = newImage;
         img.alt = newName;
+
+        if (typeof cardCache !== 'undefined' && cardCache[img.dataset.cardId]) {
+            Object.assign(cardCache[img.dataset.cardId], {
+                card_name: newName,
+                cost: newCost !== '' ? parseInt(newCost, 10) : null,
+                civ_ids: civStr,
+                char_ids: subOpt1.characteristics_ids,
+                cardtype_ids: subOpt1.cardtype_ids,
+                ability_ids: subOpt1.ability_ids,
+                dummy_card_type: type,
+                dummy_cardtype_ids: subOpt1.cardtype_ids,
+                dummy_characteristics_ids: subOpt1.characteristics_ids,
+                dummy_ability_ids: subOpt1.ability_ids,
+                dummy_partner_name: pName,
+                dummy_partner_cost: pCost !== '' ? parseInt(pCost, 10) : null,
+                dummy_partner_civ_ids: pCivStr,
+                dummy_partner_cardtype_ids: subOpt2 ? subOpt2.cardtype_ids : '',
+                dummy_partner_characteristics_ids: subOpt2 ? subOpt2.characteristics_ids : '',
+                dummy_partner_ability_ids: subOpt2 ? subOpt2.ability_ids : ''
+            });
+        }
     });
 
     currentEditingDummyName = newName;
@@ -802,6 +1021,12 @@ function executeReplaceDummyWithRealCard(realCard) {
         delete img.dataset.dummyPartnerName;
         delete img.dataset.dummyPartnerCost;
         delete img.dataset.dummyPartnerCivIds;
+        delete img.dataset.dummyCardtypeIds;
+        delete img.dataset.dummyCharacteristicsIds;
+        delete img.dataset.dummyAbilityIds;
+        delete img.dataset.dummyPartnerCardtypeIds;
+        delete img.dataset.dummyPartnerCharacteristicsIds;
+        delete img.dataset.dummyPartnerAbilityIds;
 
         img.src = getCardImagePath(realCard);
         img.alt = realCard.card_name;

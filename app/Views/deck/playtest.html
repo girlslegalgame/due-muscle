@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>1人回し - {{if .deckName}}{{.deckName}}{{else}}デッキ{{end}}</title>
+    <script src="/js/card_image_helper.js"></script>
     <style>
         /* --- 基本・全体設定 --- */
         html, body {
@@ -1220,6 +1221,7 @@
             white-space: nowrap;
         }
     </style>
+    <script src="/js/card_image_helper.js?v=2"></script>
 </head>
 <body>
 <!-- スマホ縦向き警告オーバーレイ -->
@@ -1809,8 +1811,37 @@ function initPlaytestGame() {
     initialCards.forEach((card, idx) => {
         if (!card) return;
         const qty = parseInt(card.quantity || 1);
-        const src = getCardImageUrl(card.imagepath);
-        const cardName = card.card_name || 'カード';
+        const isDummyCard = (card.is_dummy == 1 || card.is_dummy === true || String(card.card_id).startsWith('dummy_'));
+        const dummyType = card.dummy_card_type || 'normal';
+        let src = '';
+        let creatureSrc = '';
+        let cardName = card.card_name || 'カード';
+        let originalName = cardName;
+        let partnerName = card.dummy_partner_name || '';
+
+        if (isDummyCard) {
+            if (dummyType === 'double') {
+                src = generateDummyCardImage(card.dummy_name || cardName, card.cost, card.civ_ids || '', 'double');
+                creatureSrc = generateDummyCardImage(partnerName || '裏面', card.dummy_partner_cost, card.partner_civ_ids || card.dummy_partner_civ_ids || '', 'double');
+                originalName = card.dummy_name || cardName;
+            } else if (dummyType === 'twinpact') {
+                originalName = card.dummy_name || cardName;
+                if (partnerName) {
+                    const suffix = ' / ' + partnerName;
+                    while (originalName.endsWith(suffix)) {
+                        originalName = originalName.slice(0, -suffix.length);
+                    }
+                }
+                src = generateDummyCardImage(originalName, card.cost, card.civ_ids || '', 'twinpact', partnerName, card.dummy_partner_cost, card.partner_civ_ids || card.dummy_partner_civ_ids || '');
+                creatureSrc = src;
+            } else {
+                src = generateDummyCardImage(cardName, card.cost, card.civ_ids || '', 'normal');
+                creatureSrc = src;
+            }
+        } else {
+            src = getCardImageUrl(card.imagepath);
+            creatureSrc = card.combination_imagepath ? getCardImageUrl(card.combination_imagepath) : src;
+        }
 
         // 零龍関連のカード(儀式含む)は通常の山札や超次元などから除外
         if (checkZeron(cardName)) {
@@ -1821,9 +1852,25 @@ function initPlaytestGame() {
         const characteristicsIdsRaw = card.characteristics_ids || card.char_ids || card.characteristic_ids || card.characteristics_id || '';
         const abilityIdsRaw = card.ability_ids || card.ability_id || card.ability_ids_list || '';
 
-        const cardtypeIds = ptNormalizeIds(cardtypeIdsRaw);
+        let cardtypeIds = ptNormalizeIds(cardtypeIdsRaw);
         const characteristicsIds = ptNormalizeIds(characteristicsIdsRaw);
         const abilityIds = ptNormalizeIds(abilityIdsRaw);
+        if (isDummyCard && cardtypeIds.length === 0) {
+            cardtypeIds = [1]; // 未設定ダミーのデフォルト
+        }
+
+        const partnerCardtypeIds = ptNormalizeIds(card.dummy_partner_cardtype_ids || '');
+        const partnerCharacteristicsIds = ptNormalizeIds(card.dummy_partner_characteristics_ids || '');
+        const partnerAbilityIds = ptNormalizeIds(card.dummy_partner_ability_ids || '');
+
+        let isMulticolor = parseInt(card.civ_count || 1) >= 2;
+        if (isDummyCard) {
+            const civSet = new Set(
+                (String(card.civ_ids || '') + ',' + String(card.partner_civ_ids || card.dummy_partner_civ_ids || ''))
+                    .split(',').map(s => s.trim()).filter(Boolean)
+            );
+            isMulticolor = civSet.size >= 2;
+        }
 
         // 種族IDのパース処理
         let raceIds = [];
@@ -1840,22 +1887,32 @@ function initPlaytestGame() {
             let instance = {
                 id: 'pt_' + Date.now() + '_' + Math.floor(Math.random() * 100000) + '_' + idx + '_' + i,
                 card_id: card.card_id || '0',
+                is_dummy: isDummyCard,
+                dummy_card_type: dummyType,
                 name: cardName,
-                text: card.text || '', // ★ 追加: テキストを保持
+                original_name: originalName,
+                partner_name: partnerName || '裏面',
+                text: card.text || '',
                 src: src,
                 original_src: src,
-                creature_src: card.combination_imagepath ? getCardImageUrl(card.combination_imagepath) : src,
+                creature_src: creatureSrc,
                 type: card.card_type_in_deck || 'main',
                 twinpact: card.twinpact || '0',
                 combination_id: card.combination_id || null, 
-                is_multicolor: parseInt(card.civ_count || 1) >= 2, 
-                cardtype_ids: cardtypeIds,               
-                characteristics_ids: characteristicsIds, 
-                ability_ids: abilityIds,
+                is_multicolor: isMulticolor, 
+                cardtype_ids: [...cardtypeIds],               
+                characteristics_ids: [...characteristicsIds], 
+                ability_ids: [...abilityIds],
+                original_cardtype_ids: [...cardtypeIds],
+                original_characteristics_ids: [...characteristicsIds],
+                original_ability_ids: [...abilityIds],
+                partner_cardtype_ids: partnerCardtypeIds.length > 0 ? partnerCardtypeIds : [1],
+                partner_characteristics_ids: partnerCharacteristicsIds.length > 0 ? partnerCharacteristicsIds : [...characteristicsIds],
+                partner_ability_ids: partnerAbilityIds,
                 underCards: [], tapped: false, inverted: false, faceDown: false, flipped: false,
                 cost: card.cost !== null && card.cost !== undefined ? parseInt(card.cost, 10) : null,
                 race_ids: raceIds,
-                linked_ids: [] // ★ 追加: G・リンク中のカードID群
+                linked_ids: []
             };
 
             if (instance.name === '終焉の禁断 ドルマゲドンX') {
@@ -2109,7 +2166,7 @@ function getCardImageUrl(imagepath) {
     if (!imagepath) {
         return '/images/card/backimage.webp';
     }
-    if (imagepath.startsWith('http://') || imagepath.startsWith('https://')) {
+    if (imagepath.startsWith('http://') || imagepath.startsWith('https://') || imagepath.startsWith('data:')) {
         return imagepath;
     }
     let cleanPath = imagepath.replace(/\\/g, '/');
@@ -2459,6 +2516,26 @@ function renderZone(zoneId, arr, name) {
             gBadge.className = 'g-link-action-badge';
             gBadge.innerText = '選択';
             el.appendChild(gBadge);
+        }
+
+        const auraCards = (!card.faceDown && card.underCards) ? card.underCards.filter(uc =>
+            uc.cardtype_ids && uc.cardtype_ids.includes(8) && !uc.faceDown
+        ) : [];
+        if (auraCards.length > 0) {
+            el.classList.add('has-aura');
+            const isMobileZone = (window.innerHeight <= 500 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
+            const baseCardH = isMobileZone ? Math.max(50, zone.clientHeight - 12) : 189;
+            const overhangPx = Math.ceil(baseCardH * (0.30 + (auraCards.length - 1) * 0.17));
+            el.style.marginTop = `${overhangPx}px`;
+
+            auraCards.forEach((aura, aIdx) => {
+                const auraImg = document.createElement('img');
+                auraImg.src = aura.src;
+                auraImg.className = 'playtest-aura-card';
+                auraImg.style.top = `${-44 - aIdx * 17}%`;
+                auraImg.style.zIndex = `${3 + aIdx}`;
+                el.appendChild(auraImg);
+            });
         }
 
         const regularUnders = card.underCards ? card.underCards.filter(uc => 
@@ -2824,6 +2901,12 @@ function ptMoveCard(cardId, from, to, opts = {}) {
         card.flipped = false;
         if (card.original_src) {
             card.src = card.original_src;
+        }
+        if (card.is_dummy && card.dummy_card_type === 'double') {
+            if (card.original_name) card.name = card.original_name;
+            if (card.original_cardtype_ids) card.cardtype_ids = [...card.original_cardtype_ids];
+            if (card.original_characteristics_ids) card.characteristics_ids = [...card.original_characteristics_ids];
+            if (card.original_ability_ids) card.ability_ids = [...card.original_ability_ids];
         }
     }
 
@@ -3616,34 +3699,38 @@ function ptPassTurnAndStart() {
 function isDoubleSidedCard(card) {
     const hasCombination = card.combination_id !== null && card.combination_id !== undefined && card.combination_id !== '';
     const isTwin = card.twinpact === '1' || card.twinpact === 1 || card.twinpact === true || card.twinpact === 'true';
-    return hasCombination && !isTwin;
+    const isDummyDouble = (card.is_dummy && card.dummy_card_type === 'double');
+    return (hasCombination && !isTwin) || isDummyDouble;
 }
 
 /**
  * 選択した特定の面の情報でバトルゾーンへカードを配置する
  */
-function ptExecuteDoubleSidedMoveWithData(cardId, fromZone, imgPath, cardName, rawCardtypeIds) {
+function ptExecuteDoubleSidedMoveWithData(cardId, fromZone, imgPath, cardName, rawCardtypeIds, rawCharacteristicsIds, rawAbilityIds) {
     const idx = ptState[fromZone].findIndex(c => c.id === cardId);
     if (idx === -1) { closePtModal(); return; }
     
     const card = ptState[fromZone][idx];
     card.src = imgPath;
-    card.name = cardName; // カード名を選択した面の名称に更新
+    card.name = cardName;
 
-    // 選択された面のカードタイプ情報を反映
     const cardtypeIds = ptNormalizeIds(rawCardtypeIds);
     card.cardtype_ids = cardtypeIds;
+    if (rawCharacteristicsIds !== undefined && rawCharacteristicsIds !== null) {
+        card.characteristics_ids = ptNormalizeIds(rawCharacteristicsIds);
+    }
+    if (rawAbilityIds !== undefined && rawAbilityIds !== null) {
+        card.ability_ids = ptNormalizeIds(rawAbilityIds);
+    }
     
-    // クリーチャー面(cardtype_id: 1)であるかの裏返し判定(タップ制御に連動)
     const isCreatureSide = cardtypeIds.includes(1);
     if (isCreatureSide) {
         card.flipped = true;
     } else {
         card.flipped = false;
-        card.tapped = false; // クリーチャー以外(ウエポン等)になった場合はアンタップ状態に戻す
+        card.tapped = false;
     }
 
-    // 重複チェックをバイパスして移動を実行
     ptMoveCard(cardId, fromZone, 'battle', { skipDoubleSidedCheck: true });
     closePtModal();
 }
@@ -3711,7 +3798,6 @@ function ptFlipCardFace(id) {
 }
 
 function executeNormalFlip(card) {
-    // ★ 追加: 裏返ったら装備を解除
     if (card.equipped_to_id) {
         card.equipped_to_id = null;
     }
@@ -3719,10 +3805,22 @@ function executeNormalFlip(card) {
     if (!card.flipped) {
         card.src = card.creature_src;
         card.flipped = true;
+        if (card.is_dummy && card.dummy_card_type === 'double') {
+            if (card.partner_name) card.name = card.partner_name;
+            card.cardtype_ids = [...(card.partner_cardtype_ids || [1])];
+            card.characteristics_ids = [...(card.partner_characteristics_ids || card.original_characteristics_ids || [])];
+            card.ability_ids = [...(card.partner_ability_ids || [])];
+        }
     } else {
         card.src = card.original_src;
         card.flipped = false;
         card.tapped = false;
+        if (card.is_dummy && card.dummy_card_type === 'double') {
+            if (card.original_name) card.name = card.original_name;
+            card.cardtype_ids = [...(card.original_cardtype_ids || [1])];
+            card.characteristics_ids = [...(card.original_characteristics_ids || [])];
+            card.ability_ids = [...(card.original_ability_ids || [])];
+        }
     }
     renderPtBoard();
 }
@@ -4989,20 +5087,36 @@ if (!document.getElementById('ptAuraStyle')) {
     const style = document.createElement('style');
     style.id = 'ptAuraStyle';
     style.innerHTML = `
+        .zone-battle {
+            overflow-y: auto !important;
+            touch-action: pan-x pan-y !important;
+        }
         .playtest-card.has-aura {
             overflow: visible !important;
+            align-self: flex-start !important;
+            margin-left: 28px !important;
+            margin-right: 28px !important;
         }
-        .playtest-aura-card {
-            position: absolute;
-            width: 90px;
-            height: 126px;
-            left: 0;
-            transform: rotate(-90deg);
-            transform-origin: center center;
-            pointer-events: none;
-            z-index: 10;
-            box-shadow: 0 -2px 6px rgba(0,0,0,0.5);
-            border-radius: 4px;
+        @media screen and (orientation: landscape) and (max-height: 900px), screen and (max-height: 600px) {
+            .playtest-card.has-aura {
+                margin-left: 14px !important;
+                margin-right: 14px !important;
+            }
+        }
+        .playtest-card.has-aura .playtest-under-count {
+            z-index: 20;
+        }
+        .playtest-card img.playtest-aura-card {
+            position: absolute !important;
+            width: 100% !important;
+            height: 100% !important;
+            left: 0 !important;
+            transform: rotate(-90deg) !important;
+            transform-origin: center center !important;
+            object-fit: contain !important;
+            pointer-events: none !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.7) !important;
+            border-radius: 4px !important;
         }
         /* 【追加】最初から横長画像アスペクト比のカードは自動的に回転(傾け)を無効化する */
         .playtest-card.is-landscape {
@@ -5019,6 +5133,9 @@ function ptExecuteAuraExistingPlay(auraId, fromZone, targetGrId, mode) {
     let auraIdx = ptState[fromZone].findIndex(c => c.id === auraId);
     if (auraIdx === -1) return;
     let aura = ptState[fromZone].splice(auraIdx, 1)[0];
+    aura.faceDown = false;
+    aura.tapped = false;
+    aura.inverted = false;
 
     let targetGr = ptState.battle.find(c => c.id === targetGrId);
     if (targetGr) {
@@ -5040,6 +5157,7 @@ function ptExecuteAuraExistingPlay(auraId, fromZone, targetGrId, mode) {
 
     closePtModal();
     renderPtBoard();
+    ptReturnToPreviousModal();
 }
 
 /**
@@ -5054,6 +5172,9 @@ function ptExecuteSingleGRAuraPlay(auraId, fromZone) {
     let auraIdx = ptState[fromZone].findIndex(c => c.id === auraId);
     if (auraIdx === -1) return;
     let aura = ptState[fromZone].splice(auraIdx, 1)[0];
+    aura.faceDown = false;
+    aura.tapped = false;
+    aura.inverted = false;
 
     // GR召喚
     let grCard = ptState.gr.pop();
@@ -5066,8 +5187,8 @@ function ptExecuteSingleGRAuraPlay(auraId, fromZone) {
 
     closePtModal();
     renderPtBoard();
+    ptReturnToPreviousModal();
 }
-
 /**
  * 特性12 (ギガ・オレガ・オーラ) で超GRの上から2枚を出す処理
  */
@@ -5080,6 +5201,9 @@ function ptExecuteDoubleGRAuraPlay(auraId, fromZone) {
     let auraIdx = ptState[fromZone].findIndex(c => c.id === auraId);
     if (auraIdx === -1) return;
     let aura = ptState[fromZone].splice(auraIdx, 1)[0];
+    aura.faceDown = false;
+    aura.tapped = false;
+    aura.inverted = false;
 
     // 2枚ポップしてバトルゾーンに格納
     let grCard1 = ptState.gr.pop();
@@ -5137,6 +5261,7 @@ function ptAttachAuraToSpecific(auraId, targetGrId) {
 
     delete window.ptTempAura;
     renderPtBoard();
+    ptReturnToPreviousModal();
 }
 
 function ptCheckAndReturnSpecialCard(card, toZone, opts = {}) {

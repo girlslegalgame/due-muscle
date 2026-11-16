@@ -586,6 +586,7 @@ func (c *DeckController) CopyDeckApi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := getDB()
+	c.ensureDummyColumnsExist(db)
 	tx, err := db.Begin()
 	if err != nil {
 		w.WriteHeader(500)
@@ -612,7 +613,9 @@ func (c *DeckController) CopyDeckApi(w http.ResponseWriter, r *http.Request) {
 	}
 	newDeckId, _ := res.LastInsertId()
 
-	rows, err := tx.Query("SELECT card_id, quantity, card_type_in_deck, sort_order FROM deck_cards WHERE deck_id = ? ORDER BY sort_order ASC", sourceDeckId)
+	rows, err := tx.Query(`SELECT card_id, dummy_name, dummy_cost, dummy_civ_ids, dummy_cardtype_ids, dummy_characteristics_ids, dummy_ability_ids,
+		dummy_card_type, dummy_partner_name, dummy_partner_cost, dummy_partner_civ_ids, dummy_partner_cardtype_ids, dummy_partner_characteristics_ids, dummy_partner_ability_ids,
+		quantity, card_type_in_deck, sort_order FROM deck_cards WHERE deck_id = ? ORDER BY sort_order ASC`, sourceDeckId)
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 		return
@@ -620,27 +623,47 @@ func (c *DeckController) CopyDeckApi(w http.ResponseWriter, r *http.Request) {
 	defer rows.Close()
 
 	type CardRow struct {
-		CardID         sql.NullInt64
-		Quantity       int
-		CardTypeInDeck string
-		SortOrder      int
+		CardID                   sql.NullInt64
+		DummyName                sql.NullString
+		DummyCost                sql.NullInt64
+		DummyCivIDs              sql.NullString
+		DummyCardtypeIDs         sql.NullString
+		DummyCharacteristicsIDs  sql.NullString
+		DummyAbilityIDs          sql.NullString
+		DummyCardType            sql.NullString
+		DummyPartnerName         sql.NullString
+		DummyPartnerCost         sql.NullInt64
+		DummyPartnerCivIDs       sql.NullString
+		DummyPartnerCardtypeIDs  sql.NullString
+		DummyPartnerCharIDs      sql.NullString
+		DummyPartnerAbilityIDs   sql.NullString
+		Quantity                 int
+		CardTypeInDeck           string
+		SortOrder                int
 	}
 	var cards []CardRow
 	for rows.Next() {
 		var cr CardRow
-		rows.Scan(&cr.CardID, &cr.Quantity, &cr.CardTypeInDeck, &cr.SortOrder)
+		rows.Scan(&cr.CardID, &cr.DummyName, &cr.DummyCost, &cr.DummyCivIDs, &cr.DummyCardtypeIDs, &cr.DummyCharacteristicsIDs, &cr.DummyAbilityIDs,
+			&cr.DummyCardType, &cr.DummyPartnerName, &cr.DummyPartnerCost, &cr.DummyPartnerCivIDs, &cr.DummyPartnerCardtypeIDs, &cr.DummyPartnerCharIDs, &cr.DummyPartnerAbilityIDs,
+			&cr.Quantity, &cr.CardTypeInDeck, &cr.SortOrder)
 		cards = append(cards, cr)
 	}
 
 	for _, cr := range cards {
-		_, err = tx.Exec("INSERT INTO deck_cards (deck_id, card_id, quantity, card_type_in_deck, sort_order) VALUES (?, ?, ?, ?, ?)",
-			newDeckId, cr.CardID, cr.Quantity, cr.CardTypeInDeck, cr.SortOrder)
+		_, err = tx.Exec(`INSERT INTO deck_cards (
+			deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, dummy_cardtype_ids, dummy_characteristics_ids, dummy_ability_ids,
+			dummy_card_type, dummy_partner_name, dummy_partner_cost, dummy_partner_civ_ids, dummy_partner_cardtype_ids, dummy_partner_characteristics_ids, dummy_partner_ability_ids,
+			quantity, card_type_in_deck, sort_order
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			newDeckId, cr.CardID, cr.DummyName, cr.DummyCost, cr.DummyCivIDs, cr.DummyCardtypeIDs, cr.DummyCharacteristicsIDs, cr.DummyAbilityIDs,
+			cr.DummyCardType, cr.DummyPartnerName, cr.DummyPartnerCost, cr.DummyPartnerCivIDs, cr.DummyPartnerCardtypeIDs, cr.DummyPartnerCharIDs, cr.DummyPartnerAbilityIDs,
+			cr.Quantity, cr.CardTypeInDeck, cr.SortOrder)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 			return
 		}
 	}
-
 	tx.Commit()
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
@@ -983,6 +1006,20 @@ func (c *DeckController) ensureDummyColumnsExist(db *sql.DB) {
                 ADD COLUMN dummy_partner_civ_ids VARCHAR(50) NULL AFTER dummy_partner_cost;`)
 		}
 	}
+	rowsType, err := db.Query("SHOW COLUMNS FROM deck_cards LIKE 'dummy_cardtype_ids'")
+	if err == nil {
+		hasType := rowsType.Next()
+		rowsType.Close()
+		if !hasType {
+			db.Exec(`ALTER TABLE deck_cards 
+                ADD COLUMN dummy_cardtype_ids VARCHAR(50) NULL AFTER dummy_civ_ids,
+                ADD COLUMN dummy_characteristics_ids VARCHAR(50) NULL AFTER dummy_cardtype_ids,
+                ADD COLUMN dummy_ability_ids VARCHAR(50) NULL AFTER dummy_characteristics_ids,
+                ADD COLUMN dummy_partner_cardtype_ids VARCHAR(50) NULL AFTER dummy_partner_civ_ids,
+                ADD COLUMN dummy_partner_characteristics_ids VARCHAR(50) NULL AFTER dummy_partner_cardtype_ids,
+                ADD COLUMN dummy_partner_ability_ids VARCHAR(50) NULL AFTER dummy_partner_characteristics_ids;`)
+		}
+	}
 }
 
 func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interface{}) map[string]int {
@@ -1019,10 +1056,44 @@ func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interfa
 		var dummyName *string = nil
 		var dummyCost *int = nil
 		var dummyCivIds *string = nil
+		var dummyCardtypeIds *string = nil
+		var dummyCharacteristicsIds *string = nil
+		var dummyAbilityIds *string = nil
 		dummyCardType := "normal"
 		var dummyPartnerName *string = nil
 		var dummyPartnerCost *int = nil
 		var dummyPartnerCivIds *string = nil
+		var dummyPartnerCardtypeIds *string = nil
+		var dummyPartnerCharacteristicsIds *string = nil
+		var dummyPartnerAbilityIds *string = nil
+
+		toStrPtr := func(key string) *string {
+			val, exists := cMap[key]
+			if !exists || val == nil {
+				return nil
+			}
+			switch v := val.(type) {
+			case []interface{}:
+				var strs []string
+				for _, item := range v {
+					s := strings.TrimSpace(fmt.Sprintf("%v", item))
+					if s != "" {
+						strs = append(strs, s)
+					}
+				}
+				if len(strs) == 0 {
+					return nil
+				}
+				joined := strings.Join(strs, ",")
+				return &joined
+			default:
+				s := strings.TrimSpace(fmt.Sprintf("%v", v))
+				if s == "" || s == "<nil>" {
+					return nil
+				}
+				return &s
+			}
+		}
 
 		isDummy := false
 		if idm, ok := cMap["is_dummy"].(bool); ok && idm {
@@ -1095,6 +1166,13 @@ func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interfa
 				}
 			}
 
+			dummyCardtypeIds = toStrPtr("dummy_cardtype_ids")
+			dummyCharacteristicsIds = toStrPtr("dummy_characteristics_ids")
+			dummyAbilityIds = toStrPtr("dummy_ability_ids")
+			dummyPartnerCardtypeIds = toStrPtr("dummy_partner_cardtype_ids")
+			dummyPartnerCharacteristicsIds = toStrPtr("dummy_partner_characteristics_ids")
+			dummyPartnerAbilityIds = toStrPtr("dummy_partner_ability_ids")
+
 			normDName := normalizeName(dName)
 			normDPName := ""
 			if dummyPartnerName != nil {
@@ -1145,10 +1223,16 @@ func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interfa
 				dummyName = nil
 				dummyCost = nil
 				dummyCivIds = nil
+				dummyCardtypeIds = nil
+				dummyCharacteristicsIds = nil
+				dummyAbilityIds = nil
 				dummyCardType = "normal"
 				dummyPartnerName = nil
 				dummyPartnerCost = nil
 				dummyPartnerCivIds = nil
+				dummyPartnerCardtypeIds = nil
+				dummyPartnerCharacteristicsIds = nil
+				dummyPartnerAbilityIds = nil
 			} else {
 				cardId = nil
 				dummyName = &dName
@@ -1160,10 +1244,16 @@ func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interfa
 			cardTypeInDeck = t
 		}
 
-		tx.Exec(`INSERT INTO deck_cards (deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, dummy_card_type, dummy_partner_name, dummy_partner_cost, dummy_partner_civ_ids, quantity, card_type_in_deck, sort_order) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-			deckId, cardId, dummyName, dummyCost, dummyCivIds, dummyCardType, dummyPartnerName, dummyPartnerCost, dummyPartnerCivIds, cardTypeInDeck, order)
-		order++
+		tx.Exec(`INSERT INTO deck_cards (
+                    deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, dummy_cardtype_ids, dummy_characteristics_ids, dummy_ability_ids,
+                    dummy_card_type, dummy_partner_name, dummy_partner_cost, dummy_partner_civ_ids, dummy_partner_cardtype_ids, dummy_partner_characteristics_ids, dummy_partner_ability_ids,
+                    quantity, card_type_in_deck, sort_order
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+			deckId, cardId, dummyName, dummyCost, dummyCivIds, dummyCardtypeIds, dummyCharacteristicsIds, dummyAbilityIds,
+			dummyCardType, dummyPartnerName, dummyPartnerCost, dummyPartnerCivIds, dummyPartnerCardtypeIds, dummyPartnerCharacteristicsIds, dummyPartnerAbilityIds,
+			cardTypeInDeck, order)
+			
+			order++
 	}
 
 	return replacedDummyMap
@@ -1224,20 +1314,39 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
 	formatId, _ := strconv.Atoi(fmt.Sprintf("%v", deck["format_id"]))
 	thumbnailCardId, _ := strconv.Atoi(fmt.Sprintf("%v", deck["thumbnail_card_id"]))
 
+	c.ensureDummyColumnsExist(db)
+
 	cardSql := `
         SELECT 
             dc.*, 
-            c.card_name, 
-            c.cost, 
-            c.text, 
+            COALESCE(c.card_id, CONCAT('dummy_', dc.sort_order)) as card_id,
+            CASE 
+                WHEN dc.dummy_card_type = 'twinpact' AND dc.dummy_partner_name IS NOT NULL AND dc.dummy_partner_name <> '' THEN 
+                    CONCAT(dc.dummy_name, ' / ', dc.dummy_partner_name)
+                ELSE 
+                    COALESCE(c.card_name, dc.dummy_name)
+            END as card_name,
+            COALESCE(c.cost, dc.dummy_cost) as cost, 
+            COALESCE(c.text,
+                CASE 
+                    WHEN dc.dummy_card_type = 'twinpact' THEN CONCAT('【上面】', dc.dummy_name, ' (コスト:', COALESCE(dc.dummy_cost, '?'), ')\n【下面】', COALESCE(dc.dummy_partner_name, ''), ' (コスト:', COALESCE(dc.dummy_partner_cost, '?'), ')')
+                    WHEN dc.dummy_card_type = 'double' THEN CONCAT('【表面】', dc.dummy_name, '\n【裏面】', COALESCE(dc.dummy_partner_name, ''))
+                    WHEN dc.dummy_name IS NOT NULL THEN CONCAT('カード名: ', dc.dummy_name, '\nコスト: ', COALESCE(dc.dummy_cost, '?'))
+                    ELSE NULL
+                END
+            ) as text, 
             cd.imagepath, 
-            cd.twinpact,
+            COALESCE(cd.twinpact, CASE WHEN dc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
+            CASE WHEN dc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
+            COALESCE(dc.dummy_card_type, 'normal') as dummy_card_type,
             cd_partner.imagepath as combination_imagepath, 
             cc_self.combination_id,
-            (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = dc.card_id) as cardtype_ids,
+            COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = dc.card_id), dc.dummy_civ_ids) as civ_ids,
+            dc.dummy_partner_civ_ids as partner_civ_ids,
+            COALESCE((SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = dc.card_id), dc.dummy_cardtype_ids) as cardtype_ids,
             (SELECT GROUP_CONCAT(CONCAT(ct.cardtype_id, ':', ct.cardtype_name)) FROM card_cardtype cct JOIN cardtype ct ON cct.cardtype_id = ct.cardtype_id WHERE cct.card_id = dc.card_id) as cardtype_data,
-            (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = dc.card_id) as characteristics_ids,
-            (SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = dc.card_id) as ability_ids,
+            COALESCE((SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = dc.card_id), dc.dummy_characteristics_ids) as characteristics_ids,
+            COALESCE(NULLIF((SELECT GROUP_CONCAT(ability_id) FROM card_ability WHERE card_id = dc.card_id), ''), dc.dummy_ability_ids) as ability_ids,
             (SELECT GROUP_CONCAT(CONCAT(r.race_id, ':', r.race_name)) FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = dc.card_id) as race_data,
             (
                 SELECT COUNT(DISTINCT cc_civ.civilization_id)
@@ -1251,7 +1360,7 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
                 WHERE cc_self_civ.card_id = dc.card_id
             ) as self_civ_count
         FROM deck_cards dc
-        JOIN card c ON dc.card_id = c.card_id
+        LEFT JOIN card c ON dc.card_id = c.card_id
         LEFT JOIN card_detail cd ON dc.card_id = cd.card_id
         LEFT JOIN card_combination cc_self ON dc.card_id = cc_self.card_id
         LEFT JOIN card_combination cc_partner ON cc_self.combination_id = cc_partner.combination_id 

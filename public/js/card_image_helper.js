@@ -13,7 +13,11 @@ const CARD_CIV_COLORS = {
 /**
  * ダミーカードのCanvas画像を生成してDataURLを返す
  */
+const _dummyImageMemo = new Map();
 function generateDummyCardImage(name, cost, civIdsStr, cardType = 'normal', pName = '', pCost = '', pCivIdsStr = '') {
+    const memoKey = [name, cost, civIdsStr, cardType, pName, pCost, pCivIdsStr].join('|');
+    if (_dummyImageMemo.has(memoKey)) return _dummyImageMemo.get(memoKey);
+
     const canvas = document.createElement('canvas');
     canvas.width = 220; canvas.height = 308;
     const ctx = canvas.getContext('2d');
@@ -80,7 +84,10 @@ function generateDummyCardImage(name, cost, civIdsStr, cardType = 'normal', pNam
         ctx.beginPath(); ctx.moveTo(4, splitLeftY); ctx.lineTo(216, splitRightY); ctx.stroke();
         ctx.lineWidth = 8; ctx.strokeRect(4, 4, 212, 300);
 
-        return canvas.toDataURL('image/png');
+        const dataUrl = canvas.toDataURL('image/png');
+        if (_dummyImageMemo.size > 500) _dummyImageMemo.clear();
+        _dummyImageMemo.set(memoKey, dataUrl);
+        return dataUrl;
     }
 
     // --- B. 通常カード & 両面カード ---
@@ -113,9 +120,11 @@ function generateDummyCardImage(name, cost, civIdsStr, cardType = 'normal', pNam
     ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     _dummyCardWrapText(ctx, name || 'カード名未設定', 110, 82, 160, 22);
 
-    return canvas.toDataURL('image/png');
+    const dataUrl = canvas.toDataURL('image/png');
+    if (_dummyImageMemo.size > 500) _dummyImageMemo.clear();
+    _dummyImageMemo.set(memoKey, dataUrl);
+    return dataUrl;
 }
-
 function _dummyCardWrapText(ctx, text, x, y, maxWidth, lineHeight) {
     const words = (text || '').split('');
     let line = '';
@@ -141,12 +150,21 @@ function getCardImageUrl(card) {
     const isDummy = card.is_dummy == 1 || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_')) || !card.imagepath;
     if (isDummy) {
         const type = card.dummy_card_type || (card.twinpact == 1 ? 'twinpact' : 'normal');
+        const pName = (card.partner_card_name || card.dummy_partner_name || '').trim();
+        let topName = (card.dummy_name || card.card_name || '').trim();
+        if (type === 'twinpact' && pName) {
+            const escapedP = pName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const re = new RegExp('\\s*/\\s*' + escapedP + '\\s*$');
+            while (re.test(topName)) {
+                topName = topName.replace(re, '').trim();
+            }
+        }
         return generateDummyCardImage(
-            card.card_name,
+            topName,
             card.cost,
             card.civ_ids || card.civilization || '',
             type,
-            card.partner_card_name || card.dummy_partner_name || '',
+            pName,
             card.partner_cost || card.dummy_partner_cost || '',
             card.partner_civ_ids || card.dummy_partner_civ_ids || ''
         );

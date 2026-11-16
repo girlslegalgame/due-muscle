@@ -1215,7 +1215,7 @@
     }
 </style>
 <!-- 外部ライブラリ読み込み -->
-<script src="/js/card_image_helper.js"></script>
+<script src="/js/card_image_helper.js?v=2"></script>
 <script src="/js/regulation_badge.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="/js/ccfolia_exporter.js"></script>
@@ -2062,13 +2062,26 @@ function renderFormatSelect(formats) {
  */
 function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     cardCache[card.card_id] = card;
+
+    const isDummyCard = !!(card.is_dummy || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_')));
+    const pNameForClean = (card.dummy_partner_name || card.partner_card_name || '').trim();
+    let resolvedCardName = ((isDummyCard && card.dummy_name) ? card.dummy_name : (card.card_name || '')).trim();
+    if (isDummyCard && pNameForClean) {
+        const escapedP = pNameForClean.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp('\\s*/\\s*' + escapedP + '\\s*$');
+        while (re.test(resolvedCardName)) {
+            resolvedCardName = resolvedCardName.replace(re, '').trim();
+        }
+    }
+
+    const cardForImg = isDummyCard ? { ...card, card_name: resolvedCardName, dummy_name: resolvedCardName } : card;
     const img = document.createElement('img');
-    img.src = getCardImagePath(card);
+    img.src = getCardImagePath(cardForImg);
     img.loading = "eager"; // ★ 追加: デッキ内のカードは最優先で即時読み込み
     img.decoding = "async";
     img.draggable = false;
     img.dataset.cardId = card.card_id;
-    img.dataset.cardName = card.card_name;
+    img.dataset.cardName = resolvedCardName;
     img.dataset.reading = card.reading || '';
     img.dataset.comboNames = card.combo_names || '';
     img.dataset.charIds = card.char_ids;
@@ -2092,17 +2105,24 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     if (card.is_dummy || (typeof card.card_id === 'string' && card.card_id.startsWith('dummy_'))) {
         img.dataset.isDummy = "1";
         img.dataset.dummyCardType = card.dummy_card_type || (card.twinpact == 1 ? 'twinpact' : 'normal');
+        img.dataset.dummyCardtypeIds = card.dummy_cardtype_ids || card.cardtype_ids || '';
+        img.dataset.dummyCharacteristicsIds = card.dummy_characteristics_ids || card.char_ids || card.characteristics_ids || '';
+        img.dataset.dummyAbilityIds = card.dummy_ability_ids || card.ability_ids || '';
         img.dataset.dummyPartnerName = card.dummy_partner_name || card.partner_card_name || '';
         img.dataset.dummyPartnerCost = card.dummy_partner_cost || card.partner_cost || '';
         img.dataset.dummyPartnerCivIds = card.dummy_partner_civ_ids || card.partner_civ_ids || '';
+        img.dataset.dummyPartnerCardtypeIds = card.dummy_partner_cardtype_ids || card.partner_cardtype_ids || '';
+        img.dataset.dummyPartnerCharacteristicsIds = card.dummy_partner_characteristics_ids || card.partner_characteristics_ids || '';
+        img.dataset.dummyPartnerAbilityIds = card.dummy_partner_ability_ids || card.partner_ability_ids || '';
     }
     img.alt = card.card_name;
+    img.alt = resolvedCardName;
     img.dataset.regulation = card.regulation || ''; // 追加
     img.onerror = () => handleImageError(img);
 
     applyRegulationBadge(img, card.regulation);
 
-    const name = card.card_name;
+    const name = resolvedCardName;
     const isDoru = (name === '終焉の禁断 ドルマゲドンX' || name === 'FORBIDDEN STAR ～世界最後の日～');
     const isZero = (name === '零龍' || name === '滅亡の起源 零無');
     const isSpecial = isDoru || isZero;
@@ -3333,16 +3353,21 @@ function submitDeckSave() {
             dummy_name: isDummy ? img.dataset.cardName : null,
             dummy_cost: isDummy ? (parseInt(img.dataset.cost, 10) || null) : null,
             dummy_civ_ids: isDummy ? (img.dataset.civ || null) : null,
-            dummy_card_type: cached.dummy_card_type || 'normal',
-            dummy_partner_name: cached.dummy_partner_name || null,
-            dummy_partner_cost: cached.dummy_partner_cost || null,
-            dummy_partner_civ_ids: cached.dummy_partner_civ_ids || null,
+            dummy_cardtype_ids: isDummy ? (img.dataset.dummyCardtypeIds || cached.dummy_cardtype_ids || null) : null,
+            dummy_characteristics_ids: isDummy ? (img.dataset.dummyCharacteristicsIds || cached.dummy_characteristics_ids || img.dataset.charIds || null) : null,
+            dummy_ability_ids: isDummy ? (img.dataset.dummyAbilityIds || cached.dummy_ability_ids || null) : null,
+            dummy_card_type: img.dataset.dummyCardType || cached.dummy_card_type || 'normal',
+            dummy_partner_name: isDummy ? (img.dataset.dummyPartnerName || cached.dummy_partner_name || null) : null,
+            dummy_partner_cost: isDummy ? (img.dataset.dummyPartnerCost || cached.dummy_partner_cost || null) : null,
+            dummy_partner_civ_ids: isDummy ? (img.dataset.dummyPartnerCivIds || cached.dummy_partner_civ_ids || null) : null,
+            dummy_partner_cardtype_ids: isDummy ? (img.dataset.dummyPartnerCardtypeIds || cached.dummy_partner_cardtype_ids || null) : null,
+            dummy_partner_characteristics_ids: isDummy ? (img.dataset.dummyPartnerCharacteristicsIds || cached.dummy_partner_characteristics_ids || null) : null,
+            dummy_partner_ability_ids: isDummy ? (img.dataset.dummyPartnerAbilityIds || cached.dummy_partner_ability_ids || null) : null,
             card_name: img.dataset.cardName,
             cost: img.dataset.cost,
             civ_ids: img.dataset.civ
         };
     };
-
     const mainCards = Array.from(mainList.querySelectorAll('img')).map(img => extractCardData(img, 'main'));
     const superDimCards = Array.from(superDimList.querySelectorAll('img')).map(img => extractCardData(img, 'super_dimensional'));
     const grCards = Array.from(grList.querySelectorAll('img')).map(img => extractCardData(img, 'gr'));
@@ -3969,7 +3994,13 @@ function getSerializedCards() {
             dummy_card_type: img.dataset.dummyCardType || cached.dummy_card_type || 'normal',
             dummy_partner_name: img.dataset.dummyPartnerName || cached.dummy_partner_name || '',
             dummy_partner_cost: img.dataset.dummyPartnerCost || cached.dummy_partner_cost || '',
-            dummy_partner_civ_ids: img.dataset.dummyPartnerCivIds || cached.dummy_partner_civ_ids || ''
+            dummy_partner_civ_ids: img.dataset.dummyPartnerCivIds || cached.dummy_partner_civ_ids || '',
+            dummy_cardtype_ids: img.dataset.dummyCardtypeIds || cached.dummy_cardtype_ids || '',
+            dummy_characteristics_ids: img.dataset.dummyCharacteristicsIds || cached.dummy_characteristics_ids || '',
+            dummy_ability_ids: img.dataset.dummyAbilityIds || cached.dummy_ability_ids || '',
+            dummy_partner_cardtype_ids: img.dataset.dummyPartnerCardtypeIds || cached.dummy_partner_cardtype_ids || '',
+            dummy_partner_characteristics_ids: img.dataset.dummyPartnerCharacteristicsIds || cached.dummy_partner_characteristics_ids || '',
+            dummy_partner_ability_ids: img.dataset.dummyPartnerAbilityIds || cached.dummy_partner_ability_ids || ''
         };
     };
 
@@ -4074,7 +4105,13 @@ function restoreDraft(draft) {
             dummy_card_type: card.dummy_card_type || 'normal',
             dummy_partner_name: card.dummy_partner_name || '',
             dummy_partner_cost: card.dummy_partner_cost || '',
-            dummy_partner_civ_ids: card.dummy_partner_civ_ids || ''
+            dummy_partner_civ_ids: card.dummy_partner_civ_ids || '',
+            dummy_cardtype_ids: card.dummy_cardtype_ids || '',
+            dummy_characteristics_ids: card.dummy_characteristics_ids || '',
+            dummy_ability_ids: card.dummy_ability_ids || '',
+            dummy_partner_cardtype_ids: card.dummy_partner_cardtype_ids || '',
+            dummy_partner_characteristics_ids: card.dummy_partner_characteristics_ids || '',
+            dummy_partner_ability_ids: card.dummy_partner_ability_ids || ''
         };
         
         cardCache[card.card_id] = reconstructedCard;

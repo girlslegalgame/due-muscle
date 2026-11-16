@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 )
 
 type Deck struct {
@@ -34,82 +36,42 @@ func (d *Deck) GetByUserId(userId int) ([]map[string]interface{}, error) {
 
 // 特定のデッキに含まれるカードリストを取得する（モーダル表示用・ZIP出力用）
 func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
-	// ★ 1. 後から追加された同名カードの自動置換 ＆ limit 超過分の自動カット調整（表記ゆれ対応）
+	// ★ 1. 後から追加された同名カードの自動置換 ＆ limit 超過分の自動カット調整（高速キャッシュ照合版）
 	func() {
 		defer func() {
 			_ = recover()
 		}()
 
-		// ★ ここを追加: ダミーカードが存在しない場合は重いクエリを実行せず即座にスキップ
-		var dummyExists int
-		errCheck := d.db.QueryRow("SELECT 1 FROM deck_cards WHERE deck_id = ? AND dummy_name IS NOT NULL LIMIT 1", deckId).Scan(&dummyExists)
-		if errCheck != nil || dummyExists == 0 {
+		rowsDummy, errCheck := d.db.Query(`
+			SELECT sort_order, dummy_name, COALESCE(dummy_card_type, 'normal'), COALESCE(dummy_partner_name, '')
+			FROM deck_cards
+			WHERE deck_id = ? AND dummy_name IS NOT NULL
+			ORDER BY sort_order ASC
+		`, deckId)
+		if errCheck != nil {
+			return
+		}
+		type dummyRow struct {
+			sortOrder   int
+			name        string
+			cardType    string
+			partnerName string
+		}
+		var dummies []dummyRow
+		for rowsDummy.Next() {
+			var dr dummyRow
+			if err := rowsDummy.Scan(&dr.sortOrder, &dr.name, &dr.cardType, &dr.partnerName); err == nil {
+				dummies = append(dummies, dr)
+			}
+		}
+		rowsDummy.Close()
+
+		if len(dummies) == 0 {
 			return
 		}
 
-		sqlDummies := `
-            SELECT 
-                dc.sort_order,
-                dc.dummy_name, 
-                dc.dummy_card_type, 
-                dc.dummy_partner_name,
-                COALESCE(c_twin.card_id, c_double.card_id, c_norm.card_id) as card_id, 
-                COALESCE(cd.limit, 4) as card_limit
-            FROM deck_cards dc
-            -- ツインパクト: 上面・下面名が一致し、twinpact=1
-            LEFT JOIN card c_top ON (
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_top.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
-                AND dc.dummy_card_type = 'twinpact'
-            )
-            LEFT JOIN card_combination cc_top ON c_top.card_id = cc_top.card_id AND cc_top.is_main_side = 1
-            LEFT JOIN card_combination cc_btm ON cc_top.combination_id = cc_btm.combination_id AND cc_top.card_id <> cc_btm.card_id
-            LEFT JOIN card c_btm ON (
-                cc_btm.card_id = c_btm.card_id AND
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_partner_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_btm.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
-            )
-            LEFT JOIN card_detail cd_twin ON c_top.card_id = cd_twin.card_id AND cd_twin.twinpact = 1
-            LEFT JOIN card c_twin ON (c_top.card_id = c_twin.card_id AND c_btm.card_id IS NOT NULL AND cd_twin.card_id IS NOT NULL)
-
-            -- 両面カード: 表面・裏面名が一致し、twinpact=0 または NULL
-            LEFT JOIN card c_front ON (
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_front.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
-                AND dc.dummy_card_type = 'double'
-            )
-            LEFT JOIN card_combination cc_front ON c_front.card_id = cc_front.card_id AND cc_front.is_main_side = 1
-            LEFT JOIN card_combination cc_back ON cc_front.combination_id = cc_back.combination_id AND cc_front.card_id <> cc_back.card_id
-            LEFT JOIN card c_back ON (
-                cc_back.card_id = c_back.card_id AND
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_partner_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_back.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
-            )
-            LEFT JOIN card_detail cd_double ON c_front.card_id = cd_double.card_id AND (cd_double.twinpact = 0 OR cd_double.twinpact IS NULL)
-            LEFT JOIN card c_double ON (c_front.card_id = c_double.card_id AND c_back.card_id IS NOT NULL AND cd_double.card_id IS NOT NULL)
-
-            -- 通常カード: 単面（cc_norm.combination_id IS NULL）
-            LEFT JOIN card c_norm ON (
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(dc.dummy_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', '')) =
-                LOWER(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(c_norm.card_name, ' ', ''), '　', ''), '・', ''), '～', ''), '〜', ''), 'ー', ''))
-                AND (dc.dummy_card_type = 'normal' OR dc.dummy_card_type IS NULL)
-            )
-            LEFT JOIN card_combination cc_norm ON c_norm.card_id = cc_norm.card_id AND cc_norm.combination_id IS NULL
-
-            LEFT JOIN card_detail cd ON COALESCE(c_twin.card_id, c_double.card_id, c_norm.card_id) = cd.card_id
-            WHERE dc.deck_id = ? 
-              AND dc.dummy_name IS NOT NULL
-              AND COALESCE(c_twin.card_id, c_double.card_id, c_norm.card_id) IS NOT NULL
-            ORDER BY dc.sort_order ASC
-        `
-
-		stmtRows, err := d.db.Query(sqlDummies, deckId)
-		if err != nil {
-			return
-		}
-		matchedRows, err := fetchAllAssoc(stmtRows)
-		stmtRows.Close()
-		if err != nil {
+		cache := getOrBuildDummyMatchCache(d.db)
+		if cache == nil {
 			return
 		}
 
@@ -121,19 +83,37 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
 		groupedByCard := make(map[int]*CardGroup)
 		var groupedKeys []int
 
-		for _, row := range matchedRows {
-			cid := toInt(row["card_id"])
-			limit := toInt(row["card_limit"])
-			sortOrder := toInt(row["sort_order"])
+		dummyMatchCacheMu.RLock()
+		for _, dr := range dummies {
+			normMain := normalizeDummyMatchName(dr.name)
+			normPartner := normalizeDummyMatchName(dr.partnerName)
+			var matched dummyMatchTarget
+			var ok bool
 
-			if _, exists := groupedByCard[cid]; !exists {
-				groupedByCard[cid] = &CardGroup{
-					limit:  limit,
+			if dr.cardType == "twinpact" && normPartner != "" {
+				matched, ok = cache.comboTwinMap[normMain+"|||"+normPartner]
+			} else if dr.cardType == "double" && normPartner != "" {
+				matched, ok = cache.comboDoubleMap[normMain+"|||"+normPartner]
+			} else if dr.cardType == "normal" {
+				matched, ok = cache.normalMap[normMain]
+			}
+			if !ok || matched.cardID == 0 {
+				continue
+			}
+
+			if _, exists := groupedByCard[matched.cardID]; !exists {
+				groupedByCard[matched.cardID] = &CardGroup{
+					limit:  matched.cardLimit,
 					orders: []int{},
 				}
-				groupedKeys = append(groupedKeys, cid)
+				groupedKeys = append(groupedKeys, matched.cardID)
 			}
-			groupedByCard[cid].orders = append(groupedByCard[cid].orders, sortOrder)
+			groupedByCard[matched.cardID].orders = append(groupedByCard[matched.cardID].orders, dr.sortOrder)
+		}
+		dummyMatchCacheMu.RUnlock()
+
+		if len(groupedKeys) == 0 {
+			return
 		}
 
 		for _, cid := range groupedKeys {
@@ -160,10 +140,16 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                         dummy_name = NULL, 
                         dummy_cost = NULL, 
                         dummy_civ_ids = NULL,
+                        dummy_cardtype_ids = NULL,
+                        dummy_characteristics_ids = NULL,
+                        dummy_ability_ids = NULL,
                         dummy_card_type = 'normal',
                         dummy_partner_name = NULL,
                         dummy_partner_cost = NULL,
-                        dummy_partner_civ_ids = NULL
+                        dummy_partner_civ_ids = NULL,
+                        dummy_partner_cardtype_ids = NULL,
+                        dummy_partner_characteristics_ids = NULL,
+                        dummy_partner_ability_ids = NULL
                     WHERE deck_id = %d AND sort_order IN (%s)
                 `, cid, deckId, validOrders))
 			}
@@ -171,7 +157,7 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
 
 		// ★追加: デッキのサムネイルが空の場合、置き換わった本物カードの先頭をサムネイルに自動設定
 		var thumbnailCardId sql.NullInt64
-		err = d.db.QueryRow("SELECT thumbnail_card_id FROM decks WHERE deck_id = ?", deckId).Scan(&thumbnailCardId)
+		err := d.db.QueryRow("SELECT thumbnail_card_id FROM decks WHERE deck_id = ?", deckId).Scan(&thumbnailCardId)
 		if err == nil && (!thumbnailCardId.Valid || thumbnailCardId.Int64 == 0) && len(groupedKeys) > 0 {
 			firstReplacedCardId := groupedKeys[0]
 			d.db.Exec("UPDATE decks SET thumbnail_card_id = ? WHERE deck_id = ?", firstReplacedCardId, deckId)
@@ -206,11 +192,18 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                 dc.card_type_in_deck,
                 CASE WHEN dc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
                 COALESCE(dc.dummy_card_type, 'normal') as dummy_card_type,
+                dc.dummy_name,
+                dc.dummy_cardtype_ids,
+                dc.dummy_characteristics_ids,
+                dc.dummy_ability_ids,
                 dc.dummy_partner_name,
                 dc.dummy_partner_cost,
                 dc.dummy_partner_civ_ids,
+                dc.dummy_partner_cardtype_ids,
+                dc.dummy_partner_characteristics_ids,
+                dc.dummy_partner_ability_ids,
                 cc.combination_id,
-                (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                COALESCE((SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id), dc.dummy_characteristics_ids) as char_ids,
                 -- ★ 追加: 超次元・両面カードの面構成名を確実に取得
                 (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                  FROM card_combination cc_ref 
@@ -219,13 +212,13 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                  WHERE cc_ref.card_id = c.card_id) as combo_names,
                 
                 -- ★ OR を排除してインデックスを完全適用（フルスキャン防止）
-                TRIM(BOTH ',' FROM CONCAT_WS(',', 
+                COALESCE(NULLIF(TRIM(BOTH ',' FROM CONCAT_WS(',', 
                     (SELECT GROUP_CONCAT(DISTINCT ability_id) FROM card_ability WHERE card_id = c.card_id),
                     (SELECT GROUP_CONCAT(DISTINCT ca2.ability_id) FROM card_combination cc2 JOIN card_ability ca2 ON cc2.card_id = ca2.card_id WHERE cc2.combination_id = cc.combination_id AND cc2.card_id <> c.card_id)
-                )) as ability_ids,
+                )), ''), dc.dummy_ability_ids) as ability_ids,
 
                 COALESCE((SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id), dc.dummy_civ_ids) as civ_ids,
-                (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
+                COALESCE((SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id), dc.dummy_cardtype_ids) as cardtype_ids,
                 (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c.card_id) as typename,
                 (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = c.card_id) as race_ids,
                 (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c.card_id) as race_names,
@@ -247,7 +240,10 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                     (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = cc_p.partner_card_id),
                     dc.dummy_partner_civ_ids
                 ) as partner_civ_ids,
-                (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = cc_p.partner_card_id) as partner_cardtype_ids,
+                COALESCE(
+                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = cc_p.partner_card_id),
+                    dc.dummy_partner_cardtype_ids
+                ) as partner_cardtype_ids,
                 (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = cc_p.partner_card_id) as partner_typename,
                 (SELECT GROUP_CONCAT(race_id) FROM card_race WHERE card_id = cc_p.partner_card_id) as partner_race_ids,
                 (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = cc_p.partner_card_id) as partner_race_names
@@ -356,4 +352,142 @@ func intSliceJoin(elems []int, sep string) string {
 		strs[i] = fmt.Sprintf("%d", v)
 	}
 	return strings.Join(strs, sep)
+}
+type dummyMatchTarget struct {
+	cardID    int
+	cardLimit int
+}
+
+type dummyMatchCache struct {
+	cardCount      int
+	maxCardID      int
+	loadedAt       time.Time
+	normalMap      map[string]dummyMatchTarget
+	comboTwinMap   map[string]dummyMatchTarget
+	comboDoubleMap map[string]dummyMatchTarget
+}
+
+var (
+	dummyMatchCacheMu   sync.RWMutex
+	globalDummyMatchCache *dummyMatchCache
+)
+
+func normalizeDummyMatchName(s string) string {
+	s = strings.ToLower(s)
+	replacer := strings.NewReplacer(" ", "", "　", "", "・", "", "～", "", "〜", "", "ー", "")
+	return replacer.Replace(s)
+}
+
+func getOrBuildDummyMatchCache(db *sql.DB) *dummyMatchCache {
+	var cnt, maxID int
+	if err := db.QueryRow("SELECT COUNT(*), COALESCE(MAX(card_id), 0) FROM card").Scan(&cnt, &maxID); err != nil {
+		return nil
+	}
+
+	dummyMatchCacheMu.RLock()
+	if globalDummyMatchCache != nil &&
+		globalDummyMatchCache.cardCount == cnt &&
+		globalDummyMatchCache.maxCardID == maxID &&
+		time.Since(globalDummyMatchCache.loadedAt) < 5*time.Minute {
+		c := globalDummyMatchCache
+		dummyMatchCacheMu.RUnlock()
+		return c
+	}
+	dummyMatchCacheMu.RUnlock()
+
+	dummyMatchCacheMu.Lock()
+	defer dummyMatchCacheMu.Unlock()
+
+	if globalDummyMatchCache != nil &&
+		globalDummyMatchCache.cardCount == cnt &&
+		globalDummyMatchCache.maxCardID == maxID &&
+		time.Since(globalDummyMatchCache.loadedAt) < 5*time.Minute {
+		return globalDummyMatchCache
+	}
+
+	rows, err := db.Query(`
+		SELECT 
+			c.card_id,
+			c.card_name,
+			COALESCE(cd.limit, 4) as card_limit,
+			COALESCE(cd.twinpact, 0) as twinpact,
+			cc.combination_id,
+			COALESCE(cc.is_main_side, 0) as is_main_side
+		FROM card c
+		LEFT JOIN card_detail cd ON c.card_id = cd.card_id
+		LEFT JOIN card_combination cc ON c.card_id = cc.card_id
+		ORDER BY COALESCE(cd.is_primary_version, 0) DESC, c.card_id ASC
+	`)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+
+	type comboMember struct {
+		cardID     int
+		normName   string
+		cardLimit  int
+		twinpact   int
+		isMainSide int
+	}
+
+	newCache := &dummyMatchCache{
+		cardCount:      cnt,
+		maxCardID:      maxID,
+		loadedAt:       time.Now(),
+		normalMap:      make(map[string]dummyMatchTarget),
+		comboTwinMap:   make(map[string]dummyMatchTarget),
+		comboDoubleMap: make(map[string]dummyMatchTarget),
+	}
+	combos := make(map[int][]comboMember)
+
+	for rows.Next() {
+		var cid, limit, twinpact, isMain int
+		var name string
+		var combID sql.NullInt64
+		if err := rows.Scan(&cid, &name, &limit, &twinpact, &combID, &isMain); err != nil {
+			continue
+		}
+		norm := normalizeDummyMatchName(name)
+		if !combID.Valid {
+			if _, exists := newCache.normalMap[norm]; !exists {
+				newCache.normalMap[norm] = dummyMatchTarget{cardID: cid, cardLimit: limit}
+			}
+		} else {
+			cidInt := int(combID.Int64)
+			combos[cidInt] = append(combos[cidInt], comboMember{
+				cardID:     cid,
+				normName:   norm,
+				cardLimit:  limit,
+				twinpact:   twinpact,
+				isMainSide: isMain,
+			})
+		}
+	}
+
+	for _, members := range combos {
+		for _, m := range members {
+			if m.isMainSide != 1 {
+				continue
+			}
+			for _, p := range members {
+				if p.cardID == m.cardID {
+					continue
+				}
+				key := m.normName + "|||" + p.normName
+				if m.twinpact == 1 {
+					if _, exists := newCache.comboTwinMap[key]; !exists {
+						newCache.comboTwinMap[key] = dummyMatchTarget{cardID: m.cardID, cardLimit: m.cardLimit}
+					}
+				} else {
+					if _, exists := newCache.comboDoubleMap[key]; !exists {
+						newCache.comboDoubleMap[key] = dummyMatchTarget{cardID: m.cardID, cardLimit: m.cardLimit}
+					}
+				}
+			}
+		}
+	}
+
+	globalDummyMatchCache = newCache
+	return newCache
 }
