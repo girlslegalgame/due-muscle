@@ -51,8 +51,8 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/guide", func(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "guide/index.html", map[string]interface{}{})
 	})
-	r.Get("/guide/deck-building", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "guide/deck_building.html", map[string]interface{}{})
+	r.Get("/guide/deck-creation", func(w http.ResponseWriter, r *http.Request) {
+		views.RenderView(w, r, "guide/deck_creation.html", map[string]interface{}{})
 	})
 	r.Get("/guide/playtest", func(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "guide/playtest.html", map[string]interface{}{})
@@ -77,7 +77,7 @@ func RegisterRoutes(r chi.Router) {
 			"/tools/ccfolia",
 			"/rule-bot",
 			"/guide",
-			"/guide/deck-building",
+			"/guide/deck-creation",
 			"/guide/playtest",
 			"/guide/ccfolia-online",
 			"/guide/ai-judge-rules",

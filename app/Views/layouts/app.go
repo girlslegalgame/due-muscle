@@ -240,7 +240,7 @@ const appHTML = `<!DOCTYPE html>
             <a href="/search">デッキ検索</a>
             <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
             <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">AIジャッジ</a>
-            <a href="/guide">攻略ガイド</a>
+            <a href="/guide">使い方</a>
             <a href="/help">ヘルプ</a>           
             <a href="/notifications">
                 お知らせ
@@ -280,7 +280,7 @@ const appHTML = `<!DOCTYPE html>
     <footer>
         <ul>
             <li><a href="/terms">利用規約・プライバシーポリシー</a></li>
-            <li><a href="/guide">攻略ガイド</a></li>
+            <li><a href="/guide">使い方</a></li>
             <li><a href="/profile">運営者情報</a></li>
             <li><a href="/contact">お問い合わせ</a></li>
         </ul>
