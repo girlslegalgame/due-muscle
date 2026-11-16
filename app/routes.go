@@ -85,7 +85,6 @@ func RegisterRoutes(r chi.Router) {
 			"/tools/ccfolia",
 			"/rule-bot",
 			"/guide",
-			"/help",
 			"/terms",
 			"/profile",
 			"/contact",
@@ -112,20 +111,31 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/rule-bot", ruleBotCtrl.Index)
 	r.Get("/notifications", notifCtrl.Index)
 	r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
-		views.RenderView(w, r, "home/profile.html", map[string]interface{}{})
+		views.RenderView(w, r, "home/profile.html", map[string]interface{}{
+			"title":       "運営者情報・サイトについて",
+			"description": "デュエル・マスターズのデッキ制作・分析ツール「デュエ筋」の目的、運営者プロフィール、主なアップデート履歴をご紹介します。",
+		})
 	})
 	// お問い合わせ画面（GET）
 	r.Get("/contact", func(w http.ResponseWriter, r *http.Request) {
 		sess := views.GetSession(r)
 		views.RenderView(w, r, "home/contact.html", map[string]interface{}{
-			"IsLoggedIn": sess["user_id"] != nil,
+			"title":       "お問い合わせ",
+			"description": "デュエ筋へのご要望、不具合報告、AIジャッジの誤回答報告などを受け付けているお問い合わせページです。",
+			"IsLoggedIn":  sess["user_id"] != nil,
 		})
 	})
 
 	// ★ 追加: サイト内お問い合わせ送信処理（POST /contact/site）
 	r.Post("/contact/site", func(w http.ResponseWriter, r *http.Request) {
+		contactMeta := func(extra map[string]interface{}) map[string]interface{} {
+			extra["title"] = "お問い合わせ"
+			extra["description"] = "デュエ筋へのご要望、不具合報告、AIジャッジの誤回答報告などを受け付けているお問い合わせページです。"
+			return extra
+		}
+
 		if err := r.ParseForm(); err != nil {
-			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "データ解析失敗"})
+			views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{"error": "データ解析失敗"}))
 			return
 		}
 		subject := strings.TrimSpace(r.FormValue("subject"))
@@ -133,7 +143,7 @@ func RegisterRoutes(r chi.Router) {
 		guestName := strings.TrimSpace(r.FormValue("guest_name"))
 
 		if subject == "" || message == "" {
-			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "件名と内容は必須です。"})
+			views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{"error": "件名と内容は必須です。"}))
 			return
 		}
 
@@ -147,27 +157,33 @@ func RegisterRoutes(r chi.Router) {
 
 		db, err := models.DatabaseConnect()
 		if err != nil {
-			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "DB接続エラー"})
+			views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{"error": "DB接続エラー"}))
 			return
 		}
 
 		_, err = db.Exec("INSERT INTO inquiries (user_id, guest_name, subject, message) VALUES (?, ?, ?, ?)", userId, guestName, subject, message)
 		if err != nil {
-			views.RenderView(w, r, "home/contact.html", map[string]interface{}{"error": "送信に失敗しました。"})
+			views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{"error": "送信に失敗しました。"}))
 			return
 		}
 
-		views.RenderView(w, r, "home/contact.html", map[string]interface{}{
+		views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{
 			"success":    "お問い合わせをサイト内送信で受け付けました。返信はお知らせ通知またはサイト内にて行われます。",
 			"IsLoggedIn": sess["user_id"] != nil,
-		})
+		}))
 	})
 	// お問い合わせ送信処理
 	r.Post("/contact", func(w http.ResponseWriter, r *http.Request) {
+		contactMeta := func(extra map[string]interface{}) map[string]interface{} {
+			extra["title"] = "お問い合わせ"
+			extra["description"] = "デュエ筋へのご要望、不具合報告、AIジャッジの誤回答報告などを受け付けているお問い合わせページです。"
+			return extra
+		}
+
 		if err := r.ParseForm(); err != nil {
-			views.RenderView(w, r, "home/contact.html", map[string]interface{}{
+			views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{
 				"error": "送信データの解析に失敗しました。",
-			})
+			}))
 			return
 		}
 
@@ -176,24 +192,24 @@ func RegisterRoutes(r chi.Router) {
 		message := strings.TrimSpace(r.FormValue("message"))
 
 		if email == "" || subject == "" || message == "" {
-			views.RenderView(w, r, "home/contact.html", map[string]interface{}{
+			views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{
 				"error": "すべての項目を入力してください。",
-			})
+			}))
 			return
 		}
 
 		// 管理者宛てにメール送信
 		if err := sendContactEmail(email, subject, message); err != nil {
 			log.Printf("[Contact Error] メール送信失敗: %v", err)
-			views.RenderView(w, r, "home/contact.html", map[string]interface{}{
+			views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{
 				"error": "メール送信中にエラーが発生しました。時間をおいて再送信してください。",
-			})
+			}))
 			return
 		}
 
-		views.RenderView(w, r, "home/contact.html", map[string]interface{}{
+		views.RenderView(w, r, "home/contact.html", contactMeta(map[string]interface{}{
 			"success": "お問い合わせを受け付けました。ご入力いただいた内容を確認の上、必要に応じて返信いたします。",
-		})
+		}))
 	})
 	// API関連
 	r.Route("/api", func(r chi.Router) {

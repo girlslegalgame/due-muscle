@@ -94,6 +94,8 @@ func (c *NotificationController) Index(w http.ResponseWriter, r *http.Request) {
 	isLoggedIn := (userId != nil && fmt.Sprintf("%v", userId) != "" && fmt.Sprintf("%v", userId) != "0")
 
 	views.RenderView(w, r, "notification/index.html", map[string]interface{}{
+		"title":               "お知らせ",
+		"description":         "デュエ筋からの最新アップデート情報、メンテナンス、運営からのお知らせ一覧です。",
 		"globalNotifications": globalNotifications,
 		"userNotifications":   userNotifications,
 		"IsLoggedIn":          isLoggedIn,
