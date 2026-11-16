@@ -60,7 +60,7 @@ func RegisterRoutes(r chi.Router) {
 			"description": "デュエ筋のデッキ作成、一人回しシミュレーション、ココフォリアでのオンライン対戦、AIジャッジの活用法をまとめた総合ガイドです。",
 		})
 	})
-	r.Get("/guide/deck-creation", func(w http.ResponseWriter, r *http.Request) {
+	r.Get("/guide/deck-building", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/guide#deck-creation", http.StatusMovedPermanently)
 	})
 	r.Get("/guide/playtest", func(w http.ResponseWriter, r *http.Request) {
