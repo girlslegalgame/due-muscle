@@ -742,9 +742,9 @@
         }
         .g-link-cluster-grid {
             display: inline-grid !important;
-            grid-template-rows: repeat(var(--glink-rows, 2), minmax(0, 1fr)) !important;
-            grid-auto-columns: max-content !important;
-            height: 189px !important;
+            grid-template-rows: repeat(var(--glink-rows, 2), var(--glink-row-h, minmax(0, 1fr))) !important;
+            grid-template-columns: repeat(var(--glink-cols, 1), var(--glink-col-w, max-content)) !important;
+            height: auto !important;
             max-height: 189px !important;
             flex: 0 0 auto !important;
             gap: 0 !important;
@@ -752,15 +752,17 @@
             padding: 0 !important;
             box-sizing: border-box !important;
             align-items: stretch !important;
+            position: relative !important;
+            z-index: 2 !important;
         }
 
-        /* 各カードはセルの高さ（94.5px）いっぱいに表示 */
+        /* 各カードは計算されたセル枠いっぱいに表示 */
         .g-link-cluster-grid .playtest-card {
-            height: 100% !important;
+            height: var(--glink-row-h, 100%) !important;
             max-height: 100% !important;
             min-height: 0 !important;
             min-width: 0 !important;
-            width: auto !important;
+            width: var(--glink-col-w, auto) !important;
             aspect-ratio: 5 / 7 !important;
             flex: 0 0 auto !important;
             margin: 0 !important;
@@ -768,15 +770,14 @@
             justify-self: center !important;
         }
         .g-link-cluster-grid .playtest-card img {
-            position: absolute;
-            top: 0;
-            left: 0;
+            position: static !important;
+            display: block !important;
             width: 100% !important;
             height: 100% !important;
+            object-fit: contain !important;
         }
 
-        /* ★ style="grid-area: 1 / ..."（上段カード）を確実に下端へ密着 */
-        .g-link-cluster-grid .playtest-card[style*="grid-area: 1"],
+        /* ★ style="grid-area: 1 / ..."（上段カード）を確実に下端へ密着 */        .g-link-cluster-grid .playtest-card[style*="grid-area: 1"],
         .g-link-cluster-grid .playtest-card.g-link-has-bottom {
             align-self: end !important;
             margin-bottom: 0 !important;
@@ -796,7 +797,7 @@
         }
 
         .g-link-cluster-grid .playtest-card.g-link-has-left {
-            margin-left: -2px !important;
+            margin-left: 0 !important;
             border-top-left-radius: 0 !important;
             border-bottom-left-radius: 0 !important;
             border-left: 2px solid #ffc107 !important;
@@ -876,6 +877,13 @@
                 overflow: hidden !important;
                 box-sizing: border-box !important;
             }
+            body {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+            }
 
             .playtest-container {
                 width: 100% !important;
@@ -916,23 +924,28 @@
                 flex: 1 1 0% !important;
                 height: calc(100dvh - 28px) !important;
                 max-height: calc(100dvh - 28px) !important;
-                gap: 2px !important;
-                display: flex !important;
-                flex-direction: column !important;
+                display: block !important;
                 overflow: hidden !important;
                 box-sizing: border-box !important;
                 width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
             }
 
             .playtest-row {
-                flex: 1 1 0% !important;
+                display: block !important;
                 min-height: 0 !important;
-                height: calc((100% - 6px) / 3) !important;
-                max-height: calc((100% - 6px) / 3) !important;
-                gap: 4px !important;
+                height: calc((100% - 4px) / 3) !important;
+                max-height: calc((100% - 4px) / 3) !important;
+                margin-bottom: 2px !important;
                 box-sizing: border-box !important;
                 overflow: hidden !important;
                 width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+            }
+            .playtest-row:nth-child(3) {
+                margin-bottom: 0 !important;
             }
 
             .playtest-zone {
@@ -966,23 +979,28 @@
             }
 
             .zone-battle {
-                flex: 1 1 0% !important;
+                display: flex !important;
                 width: 100% !important;
+                max-width: 100% !important;
+                height: 100% !important;
             }
 
             /* 2段目 */
             .playtest-row:nth-child(2) {
-                display: flex !important;
-                flex-direction: row !important;
+                display: grid !important;
+                grid-template-columns: minmax(0, 1fr) auto !important;
                 align-items: stretch !important;
                 width: 100% !important;
+                max-width: 100% !important;
                 gap: 4px !important;
             }
 
-            /* ★修正点1：シールドゾーンの極細を根絶。flex縮小を無効化し、固定ゾーン以外の横幅を全て奪い取る */
+            /* ★修正点1：シールドゾーンを左列(minmax(0, 1fr))に完全閉じ込めし、山札を押し出さない */
             .zone-shield {
-                flex: 1 1 0% !important;
-                min-width: 45vw !important;  /* ★ 画面の45%以上を強制確保 */
+                flex: none !important;
+                width: 100% !important;
+                min-width: 0 !important;
+                max-width: 100% !important;
                 height: 100% !important;
                 padding: 10px 6px 2px 6px !important;
                 box-sizing: border-box !important;
@@ -1006,9 +1024,9 @@
             }
 
             .fixed-zone {
-                width: auto !important;
-                height: 85% !important; /* ★ 高さを少し抑えることで、アスペクト比連動で横幅がスリムになりシールドが広がります */
-                aspect-ratio: 5 / 7 !important;
+                width: var(--pt-fixed-w, 56px) !important;
+                height: var(--pt-fixed-h, 85%) !important;
+                aspect-ratio: auto !important;
                 flex: 0 0 auto !important;
                 min-width: 0 !important;
                 box-sizing: border-box !important;
@@ -1025,31 +1043,31 @@
 
             /* 3段目 */
             .zone-mana {
-                flex: 1 1 0% !important;
+                display: flex !important;
                 width: 100% !important;
+                max-width: 100% !important;
                 height: 100% !important;
                 padding: 10px 4px 6px 4px !important; /* ★ 画面下端OSスワイプとの干渉を軽減 */
             }
 
-            /* 盤面カード */
+            /* 盤面カード（aspect-ratioによるiOS幅暴走を防止） */
             .zone-battle .playtest-card,
             .zone-shield .playtest-card,
-            .zone-mana .playtest-card,
-            .playtest-card {
-                height: 100% !important;
+            .zone-mana .playtest-card {
+                height: var(--pt-card-h, 100%) !important;
                 max-height: 100% !important;
-                width: auto !important;
-                aspect-ratio: 5 / 7 !important;
+                width: var(--pt-card-w, auto) !important;
+                aspect-ratio: auto !important;
                 min-height: 0 !important;
                 min-width: 0 !important;
                 flex: 0 0 auto !important;
                 box-sizing: border-box !important;
             }
             .zone-shield .playtest-card {
-                height: calc(100% - 6px) !important;
+                height: calc(var(--pt-card-h, 100%) - 4px) !important;
                 max-height: 100% !important;
-                width: auto !important;
-                aspect-ratio: 5 / 7 !important;
+                width: var(--pt-card-w, auto) !important;
+                aspect-ratio: auto !important;
                 flex: 0 0 auto !important;
                 box-sizing: border-box !important;
             }
@@ -1075,6 +1093,7 @@
             }
             .zone-hand .playtest-card {
                 height: 82px !important;          /* ★ 110px -> 82px に縮小しマナカードの上部を触れるようにする */
+                width: auto !important;
                 touch-action: none !important;    /* ★ 追加 */
                 aspect-ratio: 5 / 7 !important;
                 border: none !important;
@@ -1121,40 +1140,70 @@
                 aspect-ratio: 5 / 7 !important;
             }
             .g-link-cluster-grid {
-                grid-template-rows: repeat(var(--glink-rows, 2), minmax(0, 1fr)) !important;
-                grid-auto-columns: max-content !important;
-                height: 100% !important;
+                grid-template-rows: repeat(var(--glink-rows, 2), var(--glink-row-h, minmax(0, 1fr))) !important;
+                grid-template-columns: repeat(var(--glink-cols, 1), var(--glink-col-w, max-content)) !important;
+                height: auto !important;
                 max-height: 100% !important;
             }
             .g-link-cluster-grid .playtest-card {
-                height: 100% !important;
+                height: var(--glink-row-h, 100%) !important;
                 max-height: 100% !important;
                 min-height: 0 !important;
                 min-width: 0 !important;
-                width: auto !important;
+                width: var(--glink-col-w, auto) !important;
                 aspect-ratio: 5 / 7 !important;
+            }
+            .pt-bs-badge,
+            .g-link-action-badge {
+                font-size: 8px !important;
+                padding: 1px 3px !important;
+                bottom: 2px !important;
+                max-width: calc(100% - 4px) !important;
+                white-space: normal !important;
+                word-break: keep-all !important;
+                overflow-wrap: anywhere !important;
+                text-align: center !important;
+                line-height: 1.15 !important;
+            }
+            .zone-hand .pt-bs-badge {
+                top: 2px !important;
+                bottom: auto !important;
+            }
+            .g-link-cluster-grid .pt-bs-badge,
+            .g-link-cluster-grid .g-link-action-badge {
+                font-size: 7px !important;
+                padding: 1px 2px !important;
+                bottom: 1px !important;
+                max-width: calc(100% - 2px) !important;
+                line-height: 1.05 !important;
             }
         }
         /* G・リンク盤面直接選択モード */
         .pt-glink-select-banner {
             position: fixed;
             top: 6px;
-            left: 50%;
-            transform: translateX(-50%);
+            left: 8px;
+            right: 8px;
+            width: fit-content;
+            max-width: calc(100vw - 16px);
+            margin: 0 auto;
             background: rgba(20, 20, 20, 0.96);
             border: 2px solid #ffc107;
             border-radius: 8px;
             padding: 8px 14px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
             z-index: 21000;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.85);
             color: #fff;
             font-size: 13px;
             font-weight: bold;
-            white-space: nowrap;
-            max-width: 95vw;
+            white-space: normal;
+            text-align: center;
+            box-sizing: border-box;
         }
         .pt-glink-select-banner button {
             padding: 5px 12px;
@@ -1197,11 +1246,12 @@
             opacity: 0.45;
             filter: grayscale(35%);
             cursor: default !important;
+            z-index: 1 !important;
         }
         body.pt-glink-select-active .zone-battle .playtest-card.g-link-action-target {
             outline: 3px solid #ffc107 !important;
             cursor: pointer !important;
-            z-index: 30;
+            z-index: 30 !important;
             animation: ptGLinkPulse 1.3s infinite ease-in-out;
         }
         .g-link-action-badge {
@@ -1219,6 +1269,72 @@
             pointer-events: none;
             z-index: 25;
             white-space: nowrap;
+        }
+        /* 汎用盤面直接選択モード */
+        .pt-board-select-banner {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+            white-space: normal !important;
+        }
+        body.pt-board-select-active:not(.pt-bs-allow-battle) .zone-battle,
+        body.pt-board-select-active:not(.pt-bs-allow-shield) .zone-shield,
+        body.pt-board-select-active:not(.pt-bs-allow-mana) .zone-mana,
+        body.pt-board-select-active:not(.pt-bs-allow-hand) .zone-hand,
+        body.pt-board-select-active .fixed-zones-container,
+        body.pt-board-select-active .header-bar {
+            opacity: 0.35;
+            pointer-events: none !important;
+        }
+        body.pt-board-select-active.pt-bs-allow-battle .zone-battle,
+        body.pt-board-select-active.pt-bs-allow-shield .zone-shield,
+        body.pt-board-select-active.pt-bs-allow-mana .zone-mana {
+            border-color: #ffc107 !important;
+            background: rgba(255, 193, 7, 0.08) !important;
+        }
+        body.pt-board-select-active .playtest-card:not(.pt-bs-target) {
+            opacity: 0.4;
+            filter: grayscale(35%);
+            cursor: default !important;
+            z-index: 1 !important;
+        }
+        body.pt-board-select-active .playtest-card.pt-bs-target {
+            outline: 3px solid #ffc107 !important;
+            cursor: pointer !important;
+            z-index: 30 !important;
+            animation: ptGLinkPulse 1.3s infinite ease-in-out;
+        }
+        body.pt-board-select-active .playtest-card.pt-bs-selected {
+            outline: 3px solid #28a745 !important;
+            box-shadow: 0 0 18px rgba(40, 167, 69, 0.95) !important;
+            z-index: 40 !important;
+            animation: none !important;
+        }
+        .pt-bs-badge {
+            position: absolute;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ffc107;
+            color: #000;
+            font-size: 11px;
+            font-weight: bold;
+            padding: 2px 6px;
+            border-radius: 4px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.8);
+            pointer-events: none;
+            z-index: 50;
+            white-space: nowrap;
+            max-width: calc(100% - 4px);
+            box-sizing: border-box;
+        }
+        .playtest-card.pt-bs-selected .pt-bs-badge {
+            background: #28a745;
+            color: #fff;
+        }
+        .zone-hand .pt-bs-badge {
+            bottom: auto;
+            top: 4px;
         }
     </style>
     <script src="/js/card_image_helper.js?v=2"></script>
@@ -1320,6 +1436,8 @@
     <span>カードを選択してG・リンクを処理</span>
     <button class="btn-pt-primary" onclick="ptCompleteGLinkBoardSelect()">リンク処理を完了</button>
 </div>
+<!-- 汎用盤面直接選択モード用フローティングバナー -->
+<div id="ptBoardSelectBanner" class="pt-glink-select-banner pt-board-select-banner" style="display: none;"></div>
 <!-- コンテキストメニュー -->
 <ul id="ptContextMenu" class="context-menu"></ul>
 <!-- 拡大表示専用モーダル（前面にポップアップ） -->
@@ -1415,8 +1533,10 @@ function setupTouchEvents(el, card, zoneName) {
         lastX = touch.clientX;
 
         // 長押し(500ms)でメニュー表示
+        // 長押し(500ms)でメニュー表示
         touchTimer = setTimeout(() => {
             if (typeof ptIsGLinkBoardSelectMode !== 'undefined' && ptIsGLinkBoardSelectMode) return;
+            if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) return;
             if (!touchMoved && !isHorizontalScroll) {
                 if (handZone && handZone.classList.contains('minimized') && el.closest('#pt-zone-hand')) {
                     return;
@@ -1481,8 +1601,10 @@ function setupTouchEvents(el, card, zoneName) {
             if (typeof ptIsGLinkBoardSelectMode !== 'undefined' && ptIsGLinkBoardSelectMode) {
                 return;
             }
+            if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
+                return;
+            }
             isDragging = true;
-
             // ★ 追加: 手札以外のカードをドラッグ開始したら手札を右下へ退避させる
             if (zoneName !== 'hand') {
                 minimizeHandZone();
@@ -1698,6 +1820,8 @@ window.onload = function() {
         // コンテキストメニューを非表示
         const contextMenu = document.getElementById('ptContextMenu');
         if (contextMenu) contextMenu.style.display = 'none';
+
+        if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) return;
 
         // 手札を復帰させた直後のクリックイベントなら何もしない
         if (justRestoredHand) return;
@@ -2179,7 +2303,47 @@ function getCardImageUrl(imagepath) {
     return '/images/card/' + cleanPath;
 }
 
+function ptUpdateMobileLayoutVars() {
+    const isMobile = (window.innerHeight <= 600 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
+    const root = document.documentElement;
+    if (!isMobile) {
+        root.style.removeProperty('--pt-card-h');
+        root.style.removeProperty('--pt-card-w');
+        root.style.removeProperty('--pt-fixed-h');
+        root.style.removeProperty('--pt-fixed-w');
+        return;
+    }
+
+    const board = document.getElementById('playtestBoard');
+    const rowH = (board && board.clientHeight > 60)
+        ? Math.floor((board.clientHeight - 4) / 3)
+        : Math.floor((window.innerHeight - 34) / 3);
+    const cardH = Math.max(44, rowH - 12);
+    const cardW = Math.floor(cardH * 5 / 7);
+
+    const fixedContainer = document.querySelector('.fixed-zones-container');
+    let visibleFixedCount = 3;
+    if (fixedContainer) {
+        visibleFixedCount = Array.from(fixedContainer.children).filter(el => el.style.display !== 'none').length || 3;
+    }
+    const containerW = (board && board.clientWidth > 100) ? board.clientWidth : window.innerWidth;
+
+    let fixedH = Math.max(44, Math.floor(rowH * 0.85));
+    let fixedW = Math.floor(fixedH * 5 / 7);
+    const maxFixedAreaW = Math.floor(containerW * 0.58);
+    if (fixedW * visibleFixedCount + (visibleFixedCount - 1) * 3 > maxFixedAreaW) {
+        fixedW = Math.floor((maxFixedAreaW - (visibleFixedCount - 1) * 3) / visibleFixedCount);
+        fixedH = Math.floor(fixedW * 7 / 5);
+    }
+
+    root.style.setProperty('--pt-card-h', `${cardH}px`);
+    root.style.setProperty('--pt-card-w', `${cardW}px`);
+    root.style.setProperty('--pt-fixed-h', `${fixedH}px`);
+    root.style.setProperty('--pt-fixed-w', `${fixedW}px`);
+}
+
 function renderPtBoard() {
+    ptUpdateMobileLayoutVars();
     dismissFocusedHandCard(true);
     // ★ 修正: 毎描画時の自動リンク実行を削除（手動解除・付け替え状態を維持するため）
     try {
@@ -2272,6 +2436,25 @@ function renderZone(zoneId, arr, name) {
             el.id = card.id;
             el.draggable = true;
 
+            let isHandBsTarget = false;
+            if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
+                el.draggable = false;
+                if (ptBoardSelect.allowedZones.includes('hand') && (!ptBoardSelect.isEligible || ptBoardSelect.isEligible(card, 'hand'))) {
+                    isHandBsTarget = true;
+                    el.classList.add('pt-bs-target');
+                    const selIdx = ptBoardSelect.selectedItems.findIndex(item => item.id === card.id);
+                    const badge = document.createElement('div');
+                    badge.className = 'pt-bs-badge';
+                    if (selIdx !== -1) {
+                        el.classList.add('pt-bs-selected');
+                        badge.innerText = ptBoardSelect.ordered ? `${selIdx + 1}番目` : '選択中';
+                    } else {
+                        badge.innerText = '選択';
+                    }
+                    el.appendChild(badge);
+                }
+            }
+
             if (selectedCards.has(card.id)) el.classList.add('selected');
 
             // 綺麗な扇状のアーチ位置を計算
@@ -2313,6 +2496,11 @@ function renderZone(zoneId, arr, name) {
             // タップ(クリック)時の拡大フォーカス制御
             el.onclick = (e) => {
                 e.stopPropagation();
+
+                if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
+                    if (isHandBsTarget) ptHandleBoardSelectClick(card, 'hand');
+                    return;
+                }
 
                 // ★ 追加: 手札が右下に退避(minimized)している時は、拡大を行わず手札を中央へ復帰させるだけにする
                 const handZone = document.getElementById('pt-zone-hand');
@@ -2356,6 +2544,9 @@ function renderZone(zoneId, arr, name) {
             el.oncontextmenu = (e) => {
                 e.preventDefault(); e.stopPropagation();
                 if (typeof ptIsGLinkBoardSelectMode !== 'undefined' && ptIsGLinkBoardSelectMode) {
+                    return;
+                }
+                if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
                     return;
                 }
                 if (el.classList.contains('focused')) {
@@ -2461,6 +2652,30 @@ function renderZone(zoneId, arr, name) {
             }
         }
 
+        const zoneKeyForBs = zoneId.replace('pt-zone-', '');
+        let isBsTarget = false;
+        let bsSelectionCount = 0;
+        let bsFirstSelIdx = -1;
+        if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
+            el.draggable = false;
+            if (ptBoardSelect.allowedZones.includes(zoneKeyForBs) && (!ptBoardSelect.isEligible || ptBoardSelect.isEligible(card, zoneKeyForBs))) {
+                isBsTarget = true;
+                el.classList.add('pt-bs-target');
+                if (ptBoardSelect.isSelected) {
+                    if (ptBoardSelect.isSelected(card, zoneKeyForBs)) bsSelectionCount = 1;
+                } else if (ptBoardSelect.allowStackComponents && zoneKeyForBs === 'battle' && card.underCards && card.underCards.length > 0) {
+                    const matched = ptBoardSelect.selectedItems.filter(item => item.parentId === card.id || item.id === card.id);
+                    bsSelectionCount = matched.length;
+                } else {
+                    bsFirstSelIdx = ptBoardSelect.selectedItems.findIndex(item => item.id === card.id);
+                    if (bsFirstSelIdx !== -1) bsSelectionCount = 1;
+                }
+                if (bsSelectionCount > 0) {
+                    el.classList.add('pt-bs-selected');
+                }
+            }
+        }
+
         // playtest.html: renderZone 内の createCardElement 関数
         if (zoneId === 'pt-zone-battle') {
             if (card.equipped_to_id) {
@@ -2517,6 +2732,24 @@ function renderZone(zoneId, arr, name) {
             gBadge.innerText = '選択';
             el.appendChild(gBadge);
         }
+        if (isBsTarget) {
+            const bsBadge = document.createElement('div');
+            bsBadge.className = 'pt-bs-badge';
+            if (ptBoardSelect.getBadgeText) {
+                bsBadge.innerText = ptBoardSelect.getBadgeText(card, zoneKeyForBs) || '選択';
+            } else if (bsSelectionCount > 0) {
+                if (ptBoardSelect.allowStackComponents && bsSelectionCount > 1) {
+                    bsBadge.innerText = `${bsSelectionCount}枚選択`;
+                } else if (ptBoardSelect.ordered && bsFirstSelIdx !== -1) {
+                    bsBadge.innerText = `${bsFirstSelIdx + 1}番目`;
+                } else {
+                    bsBadge.innerText = '選択中';
+                }
+            } else {
+                bsBadge.innerText = '選択';
+            }
+            el.appendChild(bsBadge);
+        }
 
         const auraCards = (!card.faceDown && card.underCards) ? card.underCards.filter(uc =>
             uc.cardtype_ids && uc.cardtype_ids.includes(8) && !uc.faceDown
@@ -2571,6 +2804,10 @@ function renderZone(zoneId, arr, name) {
 
         el.onclick = (e) => {
             e.stopPropagation();
+            if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
+                if (isBsTarget) ptHandleBoardSelectClick(card, zoneKeyForBs);
+                return;
+            }
             if (zoneId === 'pt-zone-battle' && typeof ptIsGLinkBoardSelectMode !== 'undefined' && ptIsGLinkBoardSelectMode) {
                 if (ptGLinkHubAction) {
                     ptExitGLinkBoardSelectMode();
@@ -2600,6 +2837,9 @@ function renderZone(zoneId, arr, name) {
         el.oncontextmenu = (e) => {
             e.preventDefault(); e.stopPropagation();
             if (typeof ptIsGLinkBoardSelectMode !== 'undefined' && ptIsGLinkBoardSelectMode) {
+                return;
+            }
+            if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
                 return;
             }
             if (isSelectMode || selectedCards.size > 0) {
@@ -2666,6 +2906,7 @@ function renderZone(zoneId, arr, name) {
             clusterGrid.className = 'g-link-cluster-grid';
 
             let maxRow = 1;
+            let maxCol = 1;
             group.forEach(member => {
                 renderedCardIds.add(member.id);
                 const el = createCardElement(member);
@@ -2673,14 +2914,26 @@ function renderZone(zoneId, arr, name) {
                 const col = pos.x - minX + 1;
                 const row = pos.y - minY + 1; // row 1: 上段, row 2: 中段, row 3: 下段 ...
                 if (row > maxRow) maxRow = row;
+                if (col > maxCol) maxCol = col;
 
                 el.style.gridColumn = `${col}`;
                 el.style.gridRow = `${row}`;
                 clusterGrid.appendChild(el);
             });
 
-            // 縦の段数に応じて行数を動的に設定
+            // スマホ・PCそれぞれのバトルゾーン有効高さから1枚分の正確な幅・高さを算出
+            const isMobileZone = (window.innerHeight <= 600 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
+            const availH = isMobileZone
+                ? Math.max(52, (zone.clientHeight > 20 ? zone.clientHeight - 14 : Math.floor((window.innerHeight - 28) / 3) - 16))
+                : 189;
+            const cellH = Math.floor(availH / maxRow);
+            const cellW = Math.floor(cellH * 5 / 7);
+
+            // 縦の段数・列数およびセル寸法をCSS変数でロック
             clusterGrid.style.setProperty('--glink-rows', maxRow);
+            clusterGrid.style.setProperty('--glink-cols', maxCol);
+            clusterGrid.style.setProperty('--glink-row-h', `${cellH}px`);
+            clusterGrid.style.setProperty('--glink-col-w', `${cellW}px`);
 
             zone.appendChild(clusterGrid);
         } else {
@@ -3389,22 +3642,23 @@ function openHandToBattleMenu(id) {
 }
 
 function ptExecuteStackFromHand(handCardId) {
-    const items = document.querySelectorAll('#ptStackGrid .pt-grid-item.selected');
+    const items = (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.selectedItems) ? [...ptBoardSelect.selectedItems] : [];
     let handCard = ptState.hand.find(c => c.id === handCardId);
     if (!handCard) return;
 
+    ptExitBoardSelectMode();
     ptMoveCard(handCardId, 'hand', 'battle', {skipUnderCheck: true});
     
-    items.forEach(el => {
-        const cid = el.dataset.cardId;
-        const fromZone = el.dataset.zone;
+    items.forEach(item => {
+        const cid = item.id;
+        const fromZone = item.zone;
         const index = ptState[fromZone].findIndex(c => c.id === cid);
         if (index !== -1) {
             let underC = ptState[fromZone].splice(index, 1)[0];
             if (fromZone === 'shield') {
                 underC.faceDown = true;
             } else {
-                underC.faceDown = underC.faceDown;
+                underC.faceDown = false;
             }
             underC.is_under_stacked = true; // 【追加】下敷きフラグを付与
             handCard.underCards.push(underC);
@@ -3436,11 +3690,9 @@ function openManaToBattleMenu(id) {
     ptCheckEvolutionAndPlay(id, 'mana');
 }
 
-function ptExecuteStackFromMana(manaCardId) {
-    const selected = document.querySelector('#ptBattleTargetGrid .pt-grid-item.selected');
-    if (!selected) { alert('対象カードを選択してください。'); return; }
+function ptExecuteStackFromMana(manaCardId, bCardId) {
+    if (!bCardId) { alert('対象カードを選択してください。'); return; }
     
-    const bCardId = selected.dataset.cardId;
     let bCard = ptState.battle.find(c => c.id === bCardId);
     let manaIndex = ptState.mana.findIndex(c => c.id === manaCardId);
 
@@ -3458,11 +3710,9 @@ function openShieldToBattleMenu(id) {
     ptCheckEvolutionAndPlay(id, 'shield');
 }
 
-function ptExecuteShieldReplace(shieldCardId) {
-    const selected = document.querySelector('#ptReplaceGrid .pt-grid-item.selected');
-    if (!selected) { alert('対象カードを選択してください。'); return; }
+function ptExecuteShieldReplace(shieldCardId, bCardId) {
+    if (!bCardId) { alert('対象カードを選択してください。'); return; }
 
-    const bCardId = selected.dataset.cardId;
     ptMoveCard(bCardId, 'battle', 'graveyard');
     ptMoveCard(shieldCardId, 'shield', 'battle');
 
@@ -3474,12 +3724,8 @@ function ptStackUnderCard(id) {
     openStackFromManaSelector(id); 
 }
 
-function ptExecuteStackOver(baseCardId) {
-    const selected = document.querySelector('#ptOverStackGrid .pt-grid-item.selected');
-    if (!selected) { alert('重ねるカードを選択してください。'); return; }
-
-    const newTopId = selected.dataset.cardId;
-    const fromZone = selected.dataset.zone;
+function ptExecuteStackOver(baseCardId, newTopId, fromZone) {
+    if (!newTopId || !fromZone) { alert('重ねるカードを選択してください。'); return; }
 
     let baseCardIndex = ptState.battle.findIndex(c => c.id === baseCardId);
     let newTopIndex = ptState[fromZone].findIndex(c => c.id === newTopId);
@@ -4564,7 +4810,7 @@ function ptFlipZeron(cardId) {
 
 // 【修正箇所】既存シールドへの重ね合わせ移動を実行
 function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
-    const selectedItems = document.querySelectorAll('#ptShieldStackGrid .pt-grid-item.selected');
+    const selectedItems = (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.selectedItems) ? [...ptBoardSelect.selectedItems] : [];
     if (selectedItems.length === 0) {
         alert("カードを1枚以上選択してください。");
         return;
@@ -4572,25 +4818,28 @@ function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
 
     let baseCard = ptState.shield.find(c => c.id === baseCardId);
     if (!baseCard) {
+        ptExitBoardSelectMode();
         closePtModal();
         return;
     }
+
+    ptExitBoardSelectMode();
 
     // 重ね合わせからの一部引き抜きを判定するためのバッファ
     const battleExtractions = {};
     const normalMoves = [];
 
     selectedItems.forEach(item => {
-        const id = item.dataset.cardId;
-        const fromZone = item.dataset.zone;
-        const parentId = item.dataset.parentId;
-        const compIdx = item.dataset.componentIndex;
+        const id = item.id;
+        const fromZone = item.zone;
+        const parentId = item.parentId;
+        const compIdx = item.componentIndex;
 
-        if (fromZone === 'battle' && parentId !== undefined) {
+        if (fromZone === 'battle' && parentId !== undefined && compIdx !== undefined) {
             if (!battleExtractions[parentId]) {
                 battleExtractions[parentId] = [];
             }
-            battleExtractions[parentId].push(parseInt(compIdx));
+            battleExtractions[parentId].push(parseInt(compIdx, 10));
         } else {
             normalMoves.push({ id: id, zone: fromZone });
         }
@@ -4604,7 +4853,7 @@ function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
         const battleIdx = ptState.battle.findIndex(c => c.id === parentId);
         if (battleIdx !== -1) {
             const parentCard = ptState.battle[battleIdx];
-            const allComponents = [parentCard, parentCard.underCards];
+            const allComponents = [parentCard, ...(parentCard.underCards || [])];
 
             const moveThese = [];
             const keepThese = [];
@@ -4617,19 +4866,16 @@ function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
                 }
             });
 
-            // バトルゾーンから一旦既存の束を削除
             ptState.battle.splice(battleIdx, 1);
 
-            // 選ばれなかったカード(残存分)で新しくバトルゾーンの束を再構築
             if (keepThese.length > 0) {
                 const newParent = keepThese[0];
                 newParent.underCards = keepThese.slice(1);
                 ptState.battle.splice(battleIdx, 0, newParent);
             }
 
-            // 移動対象バッファに選択分を格納
             moveThese.forEach(c => {
-                c.underCards = []; // 下敷き連動を個別にクリア
+                c.underCards = [];
                 cardsToMove.push(c);
             });
         }
@@ -4655,17 +4901,15 @@ function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
         card.inverted = false;
 
         if (position === 'under') {
-            // シールドの下に重ねる
             baseCard.underCards.push(card);
         } else {
-            // シールドの上に重ねる (新しく重ねられたカードを新代表に差し替え)
-            card.underCards = [baseCard, baseCard.underCards];
+            card.underCards = [baseCard, ...(baseCard.underCards || [])];
             baseCard.underCards = [];
             
             const baseIdx = ptState.shield.findIndex(c => c.id === baseCard.id);
             if (baseIdx !== -1) {
                 ptState.shield[baseIdx] = card;
-                baseCard = card; // 連続して重ねる場合の親情報を同期
+                baseCard = card;
             }
         }
     });
@@ -4906,10 +5150,11 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
     if (!card) return;
 
     const faceRadio = document.querySelector('input[name="ptShieldFace"]:checked');
-    const isFaceDown = faceRadio ? (faceRadio.value === 'faceDown') : true;
+    const isFaceDown = faceRadio ? (faceRadio.value === 'faceDown') : (window.ptPendingShieldDropOpts ? window.ptPendingShieldDropOpts.isFaceDown : true);
 
     const bundleRadio = document.querySelector('input[name="ptShieldBundleMode"]:checked');
-    const isScatter = bundleRadio ? (bundleRadio.value === 'scatter') : false;
+    const isScatter = bundleRadio ? (bundleRadio.value === 'scatter') : (window.ptPendingShieldDropOpts ? window.ptPendingShieldDropOpts.isScatter : false);
+    window.ptPendingShieldDropOpts = null;
 
     let cardIdx = ptState[fromZone].findIndex(c => c.id === cardId);
     if (cardIdx === -1) return;
@@ -6349,62 +6594,34 @@ let pt361SelectedTarget = null; // { cardId, fromZone }
 
 function openEvo361Selector(cardId, fromZone) {
     pt361SelectedTarget = null;
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "下に重ねるカードの選択 (バトルゾーン / 墓地)";
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">
-            下に重ねるカードをバトルゾーンまたは墓地から1枚選択してください。<br>
-            重ねずに単体で出すことも可能です。
-        </p>
-        <div class="pt-grid" id="ptEvo361Grid"></div>
-    `;
-
-    const grid = document.getElementById('ptEvo361Grid');
-    let list = [];
-
-    // バトルゾーンのカード（自身以外・裏向き以外）
-    ptState.battle.forEach(c => {
-        if (c.id !== cardId && !c.faceDown) {
-            list.push({ card: c, zone: 'battle' });
-        }
-    });
-
-    // 墓地のカード（自身以外）
-    ptState.graveyard.forEach(c => {
-        if (c.id !== cardId) {
-            list.push({ card: c, zone: 'graveyard' });
-        }
-    });
-
-    list.forEach(item => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'pt-grid-item';
-        itemEl.dataset.cardId = item.card.id;
-        itemEl.dataset.zone = item.zone;
-        itemEl.innerHTML = `<img src="${item.card.src}"><div class="card-qty">${item.card.name} (${zoneJapaneseName(item.zone)})</div>`;
-        itemEl.onclick = () => {
-            const isAlreadySelected = itemEl.classList.contains('selected');
-            document.querySelectorAll('#ptEvo361Grid .pt-grid-item').forEach(el => el.classList.remove('selected'));
-            if (!isAlreadySelected) {
-                itemEl.classList.add('selected');
-                pt361SelectedTarget = { cardId: item.card.id, zone: item.zone };
-            } else {
-                pt361SelectedTarget = null;
+    ptStartBoardSelectMode({
+        title: "下に重ねるカードを選択（バトルゾーン／墓地）",
+        allowedZones: ['battle'],
+        multiSelect: false,
+        includeGraveyardModal: true,
+        isEligible: (c, z) => (z === 'battle' ? (c.id !== cardId && !c.faceDown) : (c.id !== cardId)),
+        extraButtons: [
+            {
+                label: '重ねずに単体で出す',
+                className: 'btn-pt-secondary',
+                style: 'background:#fd7e14; color:white; border:none;',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    ptExecuteEvo361Standalone(cardId, fromZone);
+                }
             }
-        };
-        grid.appendChild(itemEl);
+        ],
+        onSelectSingle: (targetCard, targetZone) => {
+            pt361SelectedTarget = { cardId: targetCard.id, zone: targetZone };
+            ptExitBoardSelectMode();
+            ptExecuteEvo361Stack(cardId, fromZone);
+        },
+        onCancel: () => {
+            pt361SelectedTarget = null;
+            ptExitBoardSelectMode();
+            renderPtBoard();
+        }
     });
-
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
-        <button class="btn-pt-secondary" style="background:#fd7e14; color:white; border:none;" onclick="ptExecuteEvo361Standalone('${cardId}', '${fromZone}')">重ねずに単体で出す</button>
-        <button class="btn-pt-primary" onclick="ptExecuteEvo361Stack('${cardId}', '${fromZone}')">選択したカードを重ねて出す</button>
-    `;
-    modal.style.display = 'flex';
 }
 
 function ptExecuteEvo361Standalone(cardId, fromZone) {
@@ -6484,46 +6701,31 @@ function ptOpenEquipGearSelector(gearCardId, fromZone) {
         return;
     }
 
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "装備対象カードの選択";
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">
-            「${gearCard.name}」を装備するカードを選択してください。<br>
-            装備せずに単体で配置することも可能です。
-        </p>
-        <div class="pt-grid" id="ptEquipTargetGrid"></div>
-    `;
-
-    const grid = document.getElementById('ptEquipTargetGrid');
-    targets.forEach(tCard => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'pt-grid-item';
-        itemEl.dataset.cardId = tCard.id;
-        itemEl.innerHTML = `<img src="${tCard.src}"><div class="card-qty">${tCard.name}</div>`;
-        itemEl.onclick = () => {
-            document.querySelectorAll('#ptEquipTargetGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
-            itemEl.classList.add('selected');
-        };
-        grid.appendChild(itemEl);
-    });
-
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
-        <button class="btn-pt-secondary" style="background:#fd7e14; color:white; border:none;" onclick="ptExecuteEquipGear('${gearCardId}', '${fromZone}', null)">装備せずに出す</button>
-        <button class="btn-pt-primary" onclick="
-            const sel = document.querySelector('#ptEquipTargetGrid .pt-grid-item.selected');
-            if (!sel) {
-                alert('装備するカードを選択してください。');
-                return;
+    ptStartBoardSelectMode({
+        title: `「${gearCard.name}」を装備する対象を選択`,
+        allowedZones: ['battle'],
+        multiSelect: false,
+        isEligible: (c, z) => z === 'battle' && c.id !== gearCardId && !c.faceDown,
+        extraButtons: [
+            {
+                label: '装備せずに出す',
+                className: 'btn-pt-secondary',
+                style: 'background:#fd7e14; color:white; border:none;',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    ptExecuteEquipGear(gearCardId, fromZone, null);
+                }
             }
-            ptExecuteEquipGear('${gearCardId}', '${fromZone}', sel.dataset.cardId);
-        ">選択したカードに装備</button>
-    `;
-    modal.style.display = 'flex';
+        ],
+        onSelectSingle: (targetCard) => {
+            ptExitBoardSelectMode();
+            ptExecuteEquipGear(gearCardId, fromZone, targetCard.id);
+        },
+        onCancel: () => {
+            ptExitBoardSelectMode();
+            renderPtBoard();
+        }
+    });
 }
 
 function ptExecuteEquipGear(gearCardId, fromZone, targetCardId) {
@@ -6550,44 +6752,20 @@ function openCrossTargetSelector(gearCardId) {
         return;
     }
 
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "クロス対象の選択";
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa;">
-            「${gearCard.name}」をクロスする対象のクリーチャーを選択してください。
-        </p>
-        <div class="pt-grid" id="ptCrossTargetGrid"></div>
-    `;
-
-    const grid = document.getElementById('ptCrossTargetGrid');
-    targets.forEach(tCard => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'pt-grid-item';
-        itemEl.dataset.cardId = tCard.id;
-        itemEl.innerHTML = `<img src="${tCard.src}"><div class="card-qty">${tCard.name}</div>`;
-        itemEl.onclick = () => {
-            document.querySelectorAll('#ptCrossTargetGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
-            itemEl.classList.add('selected');
-        };
-        grid.appendChild(itemEl);
+    ptStartBoardSelectMode({
+        title: `「${gearCard.name}」をクロスする対象を選択`,
+        allowedZones: ['battle'],
+        multiSelect: false,
+        isEligible: (c, z) => z === 'battle' && c.id !== gearCardId && !c.faceDown,
+        onSelectSingle: (targetCard) => {
+            ptExitBoardSelectMode();
+            ptExecuteCrossGear(gearCardId, targetCard.id);
+        },
+        onCancel: () => {
+            ptExitBoardSelectMode();
+            renderPtBoard();
+        }
     });
-
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>
-        <button class="btn-pt-primary" onclick="
-            const sel = document.querySelector('#ptCrossTargetGrid .pt-grid-item.selected');
-            if (!sel) {
-                alert('クロスするクリーチャーを選択してください。');
-                return;
-            }
-            ptExecuteCrossGear('${gearCardId}', sel.dataset.cardId);
-        ">選択したクリーチャーにクロス</button>
-    `;
-    modal.style.display = 'flex';
 }
 
 function ptExecuteCrossGear(gearCardId, targetCardId) {
@@ -7081,71 +7259,202 @@ function ptAutoLinkBattleZone() {
 
 // G・リンク選択モーダル（コールバック連携対応版）
 function ptOpenGLinkChoiceSelectorModal(sourceCard, candidates, onComplete = null) {
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "G・リンク先の選択";
-
-    const dirText = (cand) => {
-        if (cand.displayLabel) return cand.displayLabel;
-        const d = cand.direction;
-        if (d === 'right') return `《${cand.targetCard.name}》の【左横】にリンク`;
-        if (d === 'left') return `《${cand.targetCard.name}》の【右横】にリンク`;
-        if (d === 'top') return `《${cand.targetCard.name}》の【下側】にリンク`;
-        if (d === 'bottom') return `《${cand.targetCard.name}》の【上側】にリンク`;
-        return `《${cand.targetCard.name}》にリンク`;
+    const getMatchingCandidates = (card) => {
+        return candidates.filter(cand =>
+            cand.targetCard.id === card.id ||
+            (cand.direction === 'between' && cand.partnerRightCard && cand.partnerRightCard.id === card.id)
+        );
     };
 
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa; text-align:center;">
-            「<strong>${sourceCard.name}</strong>」のリンク先を選択してください。
-        </p>
-        <div class="pt-grid" id="ptGLinkChoiceGrid"></div>
-    `;
+    const isCompactBadge = (window.innerHeight <= 600 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
+    const shortDirText = (cand) => {
+        if (isCompactBadge) {
+            if (cand.direction === 'between') return '間';
+            if (cand.direction === 'right') return '左横';
+            if (cand.direction === 'left') return '右横';
+            if (cand.direction === 'top') return '下側';
+            if (cand.direction === 'bottom') return '上側';
+            return 'リンク';
+        }
+        if (cand.direction === 'between') return '間にリンク';
+        if (cand.direction === 'right') return '左横にリンク';
+        if (cand.direction === 'left') return '右横にリンク';
+        if (cand.direction === 'top') return '下側にリンク';
+        if (cand.direction === 'bottom') return '上側にリンク';
+        return 'リンク';
+    };
 
-    const grid = document.getElementById('ptGLinkChoiceGrid');
-    candidates.forEach(cand => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'pt-grid-item';
-        itemEl.innerHTML = `
-            <img src="${cand.targetCard.src}">
-            <div class="card-qty" style="font-weight:bold; color:#fff; margin-top:4px;">${cand.targetCard.name}</div>
-            <div style="font-size:10px; color:#ffc107; margin-top:2px;">${dirText(cand)}</div>
-        `;
-        itemEl.onclick = () => {
-            closePtModal();
+    const isMultiMode = candidates.length > 1;
+    let selectedCands = [];
+
+    const getSelectedCandForCard = (card) => {
+        return selectedCands.find(cand =>
+            cand.targetCard.id === card.id ||
+            (cand.direction === 'between' && cand.partnerRightCard && cand.partnerRightCard.id === card.id)
+        ) || null;
+    };
+
+    const hasDirConflict = (c1, c2) => {
+        if (c1.direction === 'between') {
+            return c2.direction === 'between' || c2.direction === 'left' || c2.direction === 'right';
+        }
+        if (c1.direction === 'left' || c1.direction === 'right') {
+            return c2.direction === c1.direction || c2.direction === 'between';
+        }
+        return c2.direction === c1.direction;
+    };
+
+    const toggleCandSelection = (cand) => {
+        const existingIdx = selectedCands.indexOf(cand);
+        if (existingIdx !== -1) {
+            selectedCands.splice(existingIdx, 1);
+            return;
+        }
+        selectedCands = selectedCands.filter(c => !hasDirConflict(cand, c));
+        selectedCands.push(cand);
+    };
+
+    const removeCardSelection = (card) => {
+        const prevLen = selectedCands.length;
+        selectedCands = selectedCands.filter(cand =>
+            cand.targetCard.id !== card.id &&
+            !(cand.direction === 'between' && cand.partnerRightCard && cand.partnerRightCard.id === card.id)
+        );
+        return selectedCands.length !== prevLen;
+    };
+
+    const selectAllNonConflicting = () => {
+        candidates.forEach(cand => {
+            if (!selectedCands.some(c => hasDirConflict(cand, c))) {
+                selectedCands.push(cand);
+            }
+        });
+        ptRenderBoardSelectBanner();
+        renderPtBoard();
+    };
+
+    const executeSelectedCands = (candsToApply) => {
+        ptExitBoardSelectMode();
+        candsToApply.forEach(cand => {
             if (cand.direction === 'between') {
                 ptApplyGLinkBetween(sourceCard, cand.targetCard, cand.partnerRightCard);
             } else {
                 ptApplyGLinkPair(sourceCard, cand.targetCard, cand.direction);
             }
-            ptCloseGroupLoopLinks(sourceCard);
-            renderPtBoard();
-
-            // リンク完了後に後続処理（中央G・リンクモーダルなど）を実行
-            if (onComplete) {
-                setTimeout(onComplete, 120);
-            }
-        };
-        grid.appendChild(itemEl);
-    });
-
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" id="btnPtSkipGeneralGLink">今はリンクしない</button>
-    `;
-
-    document.getElementById('btnPtSkipGeneralGLink').onclick = () => {
-        closePtModal();
+        });
+        ptCloseGroupLoopLinks(sourceCard);
+        renderPtBoard();
         if (onComplete) {
-            setTimeout(onComplete, 60);
-        } else {
-            ptReturnToPreviousModal();
+            setTimeout(onComplete, 120);
         }
     };
 
-    modal.style.display = 'flex';
+    const extraButtons = [];
+    if (isMultiMode) {
+        extraButtons.push({
+            label: 'すべて選択',
+            className: 'btn-pt-secondary',
+            style: 'background:#17a2b8;',
+            onClick: selectAllNonConflicting
+        });
+    }
+    extraButtons.push({
+        label: '今はリンクしない',
+        className: 'btn-pt-secondary',
+        onClick: () => {
+            ptExitBoardSelectMode();
+            renderPtBoard();
+            if (onComplete) {
+                setTimeout(onComplete, 60);
+            } else {
+                ptReturnToPreviousModal();
+            }
+        }
+    });
+    if (isMultiMode) {
+        extraButtons.push({
+            label: 'リンクを決定',
+            className: 'btn-pt-primary',
+            onClick: () => {
+                if (selectedCands.length === 0) {
+                    alert('リンクするカードを選択してください。');
+                    return;
+                }
+                executeSelectedCands(selectedCands);
+            }
+        });
+    }
+
+    ptStartBoardSelectMode({
+        title: isMultiMode
+            ? `「${sourceCard.name}」のリンク先を選択（複数可）`
+            : `「${sourceCard.name}」のリンク先をバトルゾーンから選択`,
+        allowedZones: ['battle'],
+        multiSelect: false,
+        hideCancel: true,
+        isEligible: (c, z) => z === 'battle' && getMatchingCandidates(c).length > 0,
+        isSelected: (c) => isMultiMode && !!getSelectedCandForCard(c),
+        getBadgeText: (c) => {
+            if (isMultiMode) {
+                const selCand = getSelectedCandForCard(c);
+                if (selCand) return `${shortDirText(selCand)}✓`;
+            }
+            const matched = getMatchingCandidates(c);
+            if (matched.length === 1) return shortDirText(matched[0]);
+            return 'リンク先候補';
+        },
+        extraButtons: extraButtons,
+        onSelectSingle: (targetCard) => {
+            if (isMultiMode && removeCardSelection(targetCard)) {
+                ptRenderBoardSelectBanner();
+                renderPtBoard();
+                return;
+            }
+            const matched = getMatchingCandidates(targetCard);
+            if (matched.length === 1) {
+                if (isMultiMode) {
+                    toggleCandSelection(matched[0]);
+                    ptRenderBoardSelectBanner();
+                    renderPtBoard();
+                } else {
+                    executeSelectedCands([matched[0]]);
+                }
+                return;
+            }
+            // 同一カードに対して複数候補（例: 横と中央割り込み等）がある場合のみ小モーダルで選択
+            const modal = document.getElementById('ptListModal');
+            const title = document.getElementById('ptModalTitle');
+            const body = document.getElementById('ptModalBody');
+            const footer = document.getElementById('ptModalFooter');
+
+            title.innerText = "リンク方法の選択";
+            body.innerHTML = `<div style="display:flex; flex-direction:column; gap:8px;" id="ptGLinkSubChoiceList"></div>`;
+            const listEl = document.getElementById('ptGLinkSubChoiceList');
+            matched.forEach(cand => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-pt-primary';
+                btn.style.cssText = 'width:100%; padding:10px; font-weight:bold;';
+                if (cand.displayLabel) {
+                    btn.innerText = cand.displayLabel;
+                } else {
+                    btn.innerText = `《${cand.targetCard.name}》の【${shortDirText(cand).replace('にリンク', '')}】にリンク`;
+                }
+                btn.onclick = () => {
+                    closePtModal();
+                    if (isMultiMode) {
+                        toggleCandSelection(cand);
+                        ptRenderBoardSelectBanner();
+                        renderPtBoard();
+                    } else {
+                        executeSelectedCands([cand]);
+                    }
+                };
+                listEl.appendChild(btn);
+            });
+            footer.innerHTML = `<button class="btn-pt-secondary" onclick="closePtModal()">戻る</button>`;
+            modal.style.display = 'flex';
+        }
+    });
 }
 // ========================================================
 // 中央G・リンク キュー管理（複数枚対応・安全移行版）
@@ -7382,49 +7691,46 @@ function ptDispatchGLinkAction(action) {
 let ptCardsToUnlinkIds = [];
 
 function ptOpenUnlinkStepModal(centerCard) {
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "1/2 ゴッドのリンク解除";
     ptCardsToUnlinkIds = [];
-
-    // 現在リンクしているカードを抽出
-    const linkedCards = ptState.battle.filter(c => !c.faceDown && c.linked_ids && c.linked_ids.length > 0);
-
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa; text-align:center;">
-            中央G・リンク/ゴッドが登場しました。<br>
-            リンクを外したいカードをクリックして選択してください。（外さない場合はそのまま次へ）
-        </p>
-        <div class="pt-grid" id="ptUnlinkGrid" style="max-height:50vh; overflow-y:auto;"></div>
-    `;
-
-    const grid = document.getElementById('ptUnlinkGrid');
-    linkedCards.forEach(c => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'pt-grid-item';
-        itemEl.innerHTML = `<img src="${c.src}"><div class="card-qty">${c.name}</div>`;
-        itemEl.onclick = () => {
-            const idx = ptCardsToUnlinkIds.indexOf(c.id);
-            if (idx !== -1) {
-                ptCardsToUnlinkIds.splice(idx, 1);
-                itemEl.classList.remove('selected');
-            } else {
-                ptCardsToUnlinkIds.push(c.id);
-                itemEl.classList.add('selected');
+    ptStartBoardSelectMode({
+        title: "1/2 リンクを外すカードをバトルゾーンから選択",
+        allowedZones: ['battle'],
+        multiSelect: true,
+        ordered: false,
+        isEligible: (c, z) => z === 'battle' && !c.faceDown && c.linked_ids && c.linked_ids.length > 0,
+        hideCancel: true,
+        hideDefaultConfirm: true,
+        extraButtons: [
+            {
+                label: '外さずに次へ',
+                className: 'btn-pt-secondary',
+                onClick: () => {
+                    ptCardsToUnlinkIds = [];
+                    ptExitBoardSelectMode();
+                    ptExecuteUnlinkStep(centerCard.id, false);
+                }
+            },
+            {
+                label: 'すべて外して次へ',
+                className: 'btn-pt-secondary',
+                style: 'background:#dc3545;',
+                onClick: () => {
+                    ptCardsToUnlinkIds = [];
+                    ptExitBoardSelectMode();
+                    ptExecuteUnlinkStep(centerCard.id, true);
+                }
+            },
+            {
+                label: '選択したリンクを外して次へ',
+                className: 'btn-pt-primary',
+                onClick: () => {
+                    ptCardsToUnlinkIds = ptBoardSelect.selectedItems.map(i => i.id);
+                    ptExitBoardSelectMode();
+                    ptExecuteUnlinkStep(centerCard.id, 'selected');
+                }
             }
-        };
-        grid.appendChild(itemEl);
+        ]
     });
-
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="ptExecuteUnlinkStep('${centerCard.id}', false)">外さずに次へ</button>
-        <button class="btn-pt-secondary" style="background:#dc3545;" onclick="ptExecuteUnlinkStep('${centerCard.id}', true)">すべて外して次へ</button>
-        <button class="btn-pt-primary" onclick="ptExecuteUnlinkStep('${centerCard.id}', 'selected')">選択したリンクを外して次へ</button>
-    `;
-    modal.style.display = 'flex';
 }
 function ptExecuteUnlinkStep(centerId, unlinkMode) {
     const centerCard = ptState.battle.find(c => c.id === centerId);
@@ -7469,101 +7775,118 @@ let ptCenterGChosenLeftId = null;
 let ptCenterGChosenRightId = null;
 
 function ptOpenCenterGLinkSelectModal(centerCard) {
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "2/2 中央G・リンクの接続先選択";
     ptCenterGTarget = centerCard;
     ptCenterGChosenLeftId = (centerCard.link_neighbors && centerCard.link_neighbors.left) || null;
     ptCenterGChosenRightId = (centerCard.link_neighbors && centerCard.link_neighbors.right) || null;
 
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa; text-align:center;">
-            中央G・リンク「<strong>${centerCard.name}</strong>」にリンクさせるカードを選択してください。
-        </p>
-        <div style="display:flex; gap:16px; justify-content:center; align-items:flex-start; max-height:55vh; overflow-y:auto; padding:8px;">
-            <div style="flex:1; text-align:center;">
-                <h4 style="color:#007bff; margin:0 0 6px 0; font-size:13px;">【左側にリンク】</h4>
-                <div class="pt-grid" id="ptCenterLinkLeftGrid"></div>
-            </div>
-            <div style="flex:1; text-align:center;">
-                <h4 style="color:#28a745; margin:0 0 6px 0; font-size:13px;">【右側にリンク】</h4>
-                <div class="pt-grid" id="ptCenterLinkRightGrid"></div>
-            </div>
-        </div>
-    `;
-
-    const leftGrid = document.getElementById('ptCenterLinkLeftGrid');
-    const rightGrid = document.getElementById('ptCenterLinkRightGrid');
-
-    const battleGods = ptState.battle.filter(c => !c.faceDown && c.id !== centerCard.id);
-
-    // ★ 修正: 該当側のスロットが空いているカードのみを候補とする
     const isLeftCompatible = (c) => {
-        // すでに右側に別のカードがリンクしている場合は候補外（空いていない）
         if (c.link_neighbors && c.link_neighbors.right && c.link_neighbors.right !== centerCard.id) return false;
-
         const ab = c.ability_ids || [];
         if (ab.some(id => [307, 308, 364].includes(Number(id)))) return true;
         const dir = ptGetSpecificLinkDirection(c.text, centerCard.name);
-        return dir === 'right'; // cから見て中央Gが右＝cは左に配置
+        return dir === 'right';
     };
 
     const isRightCompatible = (c) => {
-        // すでに左側に別のカードがリンクしている場合は候補外（空いていない）
         if (c.link_neighbors && c.link_neighbors.left && c.link_neighbors.left !== centerCard.id) return false;
-
         const ab = c.ability_ids || [];
         if (ab.some(id => [293, 294, 365].includes(Number(id)))) return true;
         const dir = ptGetSpecificLinkDirection(c.text, centerCard.name);
-        return dir === 'left'; // cから見て中央Gが左＝cは右に配置
+        return dir === 'left';
     };
 
-    const renderGrids = () => {
-        leftGrid.innerHTML = '';
-        rightGrid.innerHTML = '';
+    const backLabel = (ptGLinkHubActions && ptGLinkHubActions.length > 1) ? '戻る' : '今はリンクしない';
 
-        battleGods.forEach(c => {
-            if (isLeftCompatible(c)) {
-                const itemL = document.createElement('div');
-                itemL.className = 'pt-grid-item' + (ptCenterGChosenLeftId === c.id ? ' selected' : '');
-                itemL.innerHTML = `<img src="${c.src}"><div class="card-qty">${c.name}</div>`;
-                itemL.onclick = () => {
-                    ptCenterGChosenLeftId = (ptCenterGChosenLeftId === c.id) ? null : c.id;
-                    if (ptCenterGChosenLeftId && ptCenterGChosenLeftId === ptCenterGChosenRightId) {
-                        ptCenterGChosenRightId = null;
+    ptStartBoardSelectMode({
+        title: `中央G・リンク「${centerCard.name}」の接続先を盤面から選択`,
+        allowedZones: ['battle'],
+        multiSelect: false,
+        hideCancel: true,
+        isEligible: (c, z) => z === 'battle' && !c.faceDown && c.id !== centerCard.id && (isLeftCompatible(c) || isRightCompatible(c)),
+        isSelected: (c) => ptCenterGChosenLeftId === c.id || ptCenterGChosenRightId === c.id,
+        getBadgeText: (c) => {
+            const isCompact = (window.innerHeight <= 600 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
+            if (ptCenterGChosenLeftId === c.id) return isCompact ? '左✓' : '左側にリンク';
+            if (ptCenterGChosenRightId === c.id) return isCompact ? '右✓' : '右側にリンク';
+            const canL = isLeftCompatible(c);
+            const canR = isRightCompatible(c);
+            if (canL && canR) return isCompact ? '左右可' : '左右にリンク可';
+            if (canL) return isCompact ? '左候補' : '左側候補';
+            if (canR) return isCompact ? '右候補' : '右側候補';
+            return '選択';
+        },
+        extraButtons: [
+            {
+                label: backLabel,
+                className: 'btn-pt-secondary',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    if (ptGLinkHubActions && ptGLinkHubActions.length > 1) {
+                        ptOpenGLinkHubModal();
+                    } else {
+                        ptRemoveHubActionAndReturn(ptCurrentRunningActionId);
                     }
-                    renderGrids();
-                };
-                leftGrid.appendChild(itemL);
+                }
+            },
+            {
+                label: 'リンクを決定',
+                className: 'btn-pt-primary',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    ptConfirmCenterGLink();
+                }
+            }
+        ],
+        onSelectSingle: (c) => {
+            if (ptCenterGChosenLeftId === c.id) {
+                ptCenterGChosenLeftId = null;
+                ptRenderBoardSelectBanner();
+                renderPtBoard();
+                return;
+            }
+            if (ptCenterGChosenRightId === c.id) {
+                ptCenterGChosenRightId = null;
+                ptRenderBoardSelectBanner();
+                renderPtBoard();
+                return;
             }
 
-            if (isRightCompatible(c)) {
-                const itemR = document.createElement('div');
-                itemR.className = 'pt-grid-item' + (ptCenterGChosenRightId === c.id ? ' selected' : '');
-                itemR.innerHTML = `<img src="${c.src}"><div class="card-qty">${c.name}</div>`;
-                itemR.onclick = () => {
-                    ptCenterGChosenRightId = (ptCenterGChosenRightId === c.id) ? null : c.id;
-                    if (ptCenterGChosenRightId && ptCenterGChosenRightId === ptCenterGChosenLeftId) {
-                        ptCenterGChosenLeftId = null;
-                    }
-                    renderGrids();
-                };
-                rightGrid.appendChild(itemR);
+            const canL = isLeftCompatible(c);
+            const canR = isRightCompatible(c);
+            if (canL && canR) {
+                const modal = document.getElementById('ptListModal');
+                const title = document.getElementById('ptModalTitle');
+                const body = document.getElementById('ptModalBody');
+                const footer = document.getElementById('ptModalFooter');
+
+                title.innerText = `「${c.name}」をリンクする側`;
+                body.innerHTML = `
+                    <div style="display:flex; gap:10px; justify-content:center; padding:8px 0;">
+                        <button class="btn-pt-primary" style="flex:1; padding:10px; background:#007bff;" onclick="
+                            ptCenterGChosenLeftId = '${c.id}';
+                            closePtModal();
+                            ptRenderBoardSelectBanner();
+                            renderPtBoard();
+                        ">左側にリンク</button>
+                        <button class="btn-pt-primary" style="flex:1; padding:10px; background:#28a745;" onclick="
+                            ptCenterGChosenRightId = '${c.id}';
+                            closePtModal();
+                            ptRenderBoardSelectBanner();
+                            renderPtBoard();
+                        ">右側にリンク</button>
+                    </div>
+                `;
+                footer.innerHTML = `<button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>`;
+                modal.style.display = 'flex';
+                return;
             }
-        });
-    };
 
-    renderGrids();
-
-    // ★ 修正: 最新の選択状態（変数）を確実に実行時に参照させる
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="ptOpenGLinkHubModal()">戻る</button>
-        <button class="btn-pt-primary" onclick="ptConfirmCenterGLink()">リンクを決定</button>
-    `;
-    modal.style.display = 'flex';
+            if (canL) ptCenterGChosenLeftId = c.id;
+            else if (canR) ptCenterGChosenRightId = c.id;
+            ptRenderBoardSelectBanner();
+            renderPtBoard();
+        }
+    });
 }
 // 各種モーダルの決定・スキップ処理を「ハブ復帰」に統一
 function ptConfirmCenterGLink() {
@@ -7574,6 +7897,27 @@ function ptConfirmCenterGLink() {
     const centerCard = ptCenterGTarget;
     const leftId = ptCenterGChosenLeftId;
     const rightId = ptCenterGChosenRightId;
+
+    const unlinkDir = (dir, oppDir) => {
+        const oldId = centerCard.link_neighbors && centerCard.link_neighbors[dir];
+        if (!oldId) return;
+        const oldCard = ptState.battle.find(c => c.id === oldId);
+        if (oldCard) {
+            oldCard.linked_ids = (oldCard.linked_ids || []).filter(id => id !== centerCard.id);
+            if (oldCard.link_neighbors && oldCard.link_neighbors[oppDir] === centerCard.id) {
+                delete oldCard.link_neighbors[oppDir];
+            }
+        }
+        centerCard.linked_ids = (centerCard.linked_ids || []).filter(id => id !== oldId);
+        if (centerCard.link_neighbors) delete centerCard.link_neighbors[dir];
+    };
+
+    if ((centerCard.link_neighbors && centerCard.link_neighbors.left) && centerCard.link_neighbors.left !== leftId) {
+        unlinkDir('left', 'right');
+    }
+    if ((centerCard.link_neighbors && centerCard.link_neighbors.right) && centerCard.link_neighbors.right !== rightId) {
+        unlinkDir('right', 'left');
+    }
 
     if (leftId) {
         const leftCard = ptState.battle.find(c => c.id === leftId);
@@ -7651,80 +7995,48 @@ function ptOpenCenter360UnlinkModal(centerCard) {
         return;
     }
 
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "中央G・リンク360：リンクを1枚外す";
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa; text-align:center;">
-            中央G・リンク360の効果により、リンクしているカードを1枚外せます。<br>
-            外したいカードを1枚クリックしてください。（外さない場合はそのまま次へ）
-        </p>
-        <div class="pt-grid" id="pt360UnlinkGrid" style="max-height:50vh; overflow-y:auto;"></div>
-    `;
-
-    const grid = document.getElementById('pt360UnlinkGrid');
     pt360SelectedUnlinkId = null;
-
-    linkedCards.forEach(c => {
-        const itemEl = document.createElement('div');
-        itemEl.className = 'pt-grid-item';
-        itemEl.innerHTML = `<img src="${c.src}"><div class="card-qty">${c.name}</div>`;
-        itemEl.onclick = () => {
-            if (pt360SelectedUnlinkId === c.id) {
-                pt360SelectedUnlinkId = null;
-                itemEl.classList.remove('selected');
-            } else {
-                document.querySelectorAll('#pt360UnlinkGrid .pt-grid-item').forEach(el => el.classList.remove('selected'));
-                pt360SelectedUnlinkId = c.id;
-                itemEl.classList.add('selected');
-            }
-        };
-        grid.appendChild(itemEl);
-    });
-
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="closePtModal(); ptOpenCenter360LinkModal(findCardById('${centerCard.id}'))">外さずに次へ</button>
-        <button class="btn-pt-primary" onclick="
-            if (pt360SelectedUnlinkId) {
-                const target = findCardById(pt360SelectedUnlinkId);
-                if (target) {
-                    (target.linked_ids || []).forEach(lid => {
-                        const p = findCardById(lid);
-                        if (p) {
-                            p.linked_ids = (p.linked_ids || []).filter(id => id !== target.id);
-                            if (p.link_neighbors) {
-                                for (const d in p.link_neighbors) {
-                                    if (p.link_neighbors[d] === target.id) delete p.link_neighbors[d];
-                                }
-                            }
-                        }
-                    });
-                    target.linked_ids = [];
-                    target.link_neighbors = {};
+    ptStartBoardSelectMode({
+        title: "中央G・リンク360：リンクを外すカードを1枚選択",
+        allowedZones: ['battle'],
+        multiSelect: false,
+        isEligible: (c, z) => z === 'battle' && !c.faceDown && c.linked_ids && c.linked_ids.length > 0,
+        hideCancel: true,
+        extraButtons: [
+            {
+                label: '外さずに次へ',
+                className: 'btn-pt-secondary',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    ptOpenCenter360LinkModal(findCardById(centerCard.id));
                 }
-                pt360SelectedUnlinkId = null;
-                renderPtBoard();
             }
-            closePtModal();
-            ptOpenCenter360LinkModal(findCardById('${centerCard.id}'));
-        ">選択したカードを外して次へ</button>
-    `;
-    modal.style.display = 'flex';
+        ],
+        onSelectSingle: (target) => {
+            ptExitBoardSelectMode();
+            (target.linked_ids || []).forEach(lid => {
+                const p = findCardById(lid);
+                if (p) {
+                    p.linked_ids = (p.linked_ids || []).filter(id => id !== target.id);
+                    if (p.link_neighbors) {
+                        for (const d in p.link_neighbors) {
+                            if (p.link_neighbors[d] === target.id) delete p.link_neighbors[d];
+                        }
+                    }
+                }
+            });
+            target.linked_ids = [];
+            target.link_neighbors = {};
+            renderPtBoard();
+            ptOpenCenter360LinkModal(findCardById(centerCard.id));
+        }
+    });
 }
 
 // 2. 好きな数のカードを全方位（上・下・左・右）にリンクさせるモーダル
 function ptOpenCenter360LinkModal(centerCard) {
     if (!centerCard) return;
 
-    const modal = document.getElementById('ptListModal');
-    const title = document.getElementById('ptModalTitle');
-    const body = document.getElementById('ptModalBody');
-    const footer = document.getElementById('ptModalFooter');
-
-    title.innerText = "中央G・リンク360：接続先の選択";
     ptCenter360Target = centerCard;
     ptCenter360ChosenSlots = {
         top: (centerCard.link_neighbors && centerCard.link_neighbors.top) || null,
@@ -7733,41 +8045,12 @@ function ptOpenCenter360LinkModal(centerCard) {
         right: (centerCard.link_neighbors && centerCard.link_neighbors.right) || null
     };
 
-    body.innerHTML = `
-        <p style="margin-bottom:12px; font-size:13px; color:#aaa; text-align:center;">
-            「<strong>${centerCard.name}</strong>」にリンクさせるカードを各方向に選択してください。<br>
-            好きな数を同時にリンクできます。
-        </p>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; max-height:55vh; overflow-y:auto; padding:6px;">
-            <div style="border:1px solid #444; border-radius:6px; padding:6px; text-align:center;">
-                <h4 style="margin:0 0 4px 0; color:#ffc107; font-size:12px;">【上側にリンク】</h4>
-                <div class="pt-grid" id="pt360GridTop"></div>
-            </div>
-            <div style="border:1px solid #444; border-radius:6px; padding:6px; text-align:center;">
-                <h4 style="margin:0 0 4px 0; color:#17a2b8; font-size:12px;">【下側にリンク】</h4>
-                <div class="pt-grid" id="pt360GridBottom"></div>
-            </div>
-            <div style="border:1px solid #444; border-radius:6px; padding:6px; text-align:center;">
-                <h4 style="margin:0 0 4px 0; color:#007bff; font-size:12px;">【左側にリンク】</h4>
-                <div class="pt-grid" id="pt360GridLeft"></div>
-            </div>
-            <div style="border:1px solid #444; border-radius:6px; padding:6px; text-align:center;">
-                <h4 style="margin:0 0 4px 0; color:#28a745; font-size:12px;">【右側にリンク】</h4>
-                <div class="pt-grid" id="pt360GridRight"></div>
-            </div>
-        </div>
-    `;
-
-    const candidates = ptState.battle.filter(c => !c.faceDown && c.id !== centerCard.id && c.ability_ids && c.ability_ids.some(id => PT_GLINK_ALL_IDS.includes(id)));
-
-    // 方向適性の判定
     const getCompatibleDirs = (c) => {
         const ab = c.ability_ids || [];
         const dirs = [];
         const specificDir = ptGetSpecificLinkDirection(c.text, centerCard.name);
 
         if (specificDir) {
-            // specificDirはcから見た向きなので、centerCardから見た配置方向に変換
             if (specificDir === 'bottom') dirs.push('top');
             if (specificDir === 'top') dirs.push('bottom');
             if (specificDir === 'right') dirs.push('left');
@@ -7778,50 +8061,99 @@ function ptOpenCenter360LinkModal(centerCard) {
         if (ab.includes(307) || ab.includes(308) || ab.includes(364)) dirs.push('left');
         if (ab.includes(293) || ab.includes(294) || ab.includes(365)) dirs.push('right');
 
-        // 方向指定がない一般G・リンクは360全方向に配置可能
         if (dirs.length === 0) {
             dirs.push('top', 'bottom', 'left', 'right');
         }
         return dirs;
     };
 
-    const renderDirectionGrids = () => {
-        ['top', 'bottom', 'left', 'right'].forEach(dir => {
-            const gridEl = document.getElementById(`pt360Grid${dir.charAt(0).toUpperCase() + dir.slice(1)}`);
-            if (!gridEl) return;
-            gridEl.innerHTML = '';
+    const dirLabelMap = { top: '上側', bottom: '下側', left: '左側', right: '右側' };
+    const findAssignedDir = (cardId) => ['top', 'bottom', 'left', 'right'].find(d => ptCenter360ChosenSlots[d] === cardId) || null;
+    const backLabel = (ptGLinkHubActions && ptGLinkHubActions.length > 1) ? '戻る' : '今はリンクしない';
 
-            candidates.forEach(c => {
-                if (!getCompatibleDirs(c).includes(dir)) return;
-
-                const isSelected = ptCenter360ChosenSlots[dir] === c.id;
-                const itemEl = document.createElement('div');
-                itemEl.className = 'pt-grid-item' + (isSelected ? ' selected' : '');
-                itemEl.innerHTML = `<img src="${c.src}"><div class="card-qty">${c.name}</div>`;
-                itemEl.onclick = () => {
-                    if (ptCenter360ChosenSlots[dir] === c.id) {
-                        ptCenter360ChosenSlots[dir] = null;
+    ptStartBoardSelectMode({
+        title: `中央G・リンク360「${centerCard.name}」の接続先を盤面から選択`,
+        allowedZones: ['battle'],
+        multiSelect: false,
+        hideCancel: true,
+        isEligible: (c, z) => z === 'battle' && !c.faceDown && c.id !== centerCard.id && c.ability_ids && c.ability_ids.some(id => PT_GLINK_ALL_IDS.includes(id)) && getCompatibleDirs(c).length > 0,
+        isSelected: (c) => !!findAssignedDir(c.id),
+        getBadgeText: (c) => {
+            const isCompact = (window.innerHeight <= 600 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
+            const assigned = findAssignedDir(c.id);
+            if (assigned) return isCompact ? `${dirLabelMap[assigned].charAt(0)}✓` : `${dirLabelMap[assigned]}にリンク`;
+            const dirs = getCompatibleDirs(c);
+            if (dirs.length === 1) return isCompact ? `${dirLabelMap[dirs[0]].charAt(0)}候補` : `${dirLabelMap[dirs[0]]}候補`;
+            return isCompact ? '方向選択' : '方向を選んでリンク';
+        },
+        extraButtons: [
+            {
+                label: backLabel,
+                className: 'btn-pt-secondary',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    if (ptGLinkHubActions && ptGLinkHubActions.length > 1) {
+                        ptOpenGLinkHubModal();
                     } else {
-                        // 他のスロットで選ばれていたら解除
-                        for (const d in ptCenter360ChosenSlots) {
-                            if (ptCenter360ChosenSlots[d] === c.id) ptCenter360ChosenSlots[d] = null;
-                        }
-                        ptCenter360ChosenSlots[dir] = c.id;
+                        ptRemoveHubActionAndReturn(ptCurrentRunningActionId);
                     }
-                    renderDirectionGrids();
+                }
+            },
+            {
+                label: 'リンクを決定',
+                className: 'btn-pt-primary',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    ptConfirmCenter360Link();
+                }
+            }
+        ],
+        onSelectSingle: (c) => {
+            const assigned = findAssignedDir(c.id);
+            if (assigned) {
+                ptCenter360ChosenSlots[assigned] = null;
+                ptRenderBoardSelectBanner();
+                renderPtBoard();
+                return;
+            }
+
+            const dirs = getCompatibleDirs(c);
+            if (dirs.length === 1) {
+                ptCenter360ChosenSlots[dirs[0]] = c.id;
+                ptRenderBoardSelectBanner();
+                renderPtBoard();
+                return;
+            }
+
+            // 複数方向に配置可能なゴッドの場合のみ方向を選択
+            const modal = document.getElementById('ptListModal');
+            const title = document.getElementById('ptModalTitle');
+            const body = document.getElementById('ptModalBody');
+            const footer = document.getElementById('ptModalFooter');
+
+            title.innerText = `「${c.name}」のリンク方向`;
+            body.innerHTML = `<div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;" id="pt360DirButtons"></div>`;
+            const btnGrid = document.getElementById('pt360DirButtons');
+            dirs.forEach(dir => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-pt-primary';
+                btn.style.cssText = 'padding:10px; font-weight:bold;';
+                btn.innerText = `${dirLabelMap[dir]}にリンク`;
+                btn.onclick = () => {
+                    for (const d in ptCenter360ChosenSlots) {
+                        if (ptCenter360ChosenSlots[d] === c.id) ptCenter360ChosenSlots[d] = null;
+                    }
+                    ptCenter360ChosenSlots[dir] = c.id;
+                    closePtModal();
+                    ptRenderBoardSelectBanner();
+                    renderPtBoard();
                 };
-                gridEl.appendChild(itemEl);
+                btnGrid.appendChild(btn);
             });
-        });
-    };
-
-    renderDirectionGrids();
-
-    footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="ptOpenGLinkHubModal()">戻る</button>
-        <button class="btn-pt-primary" onclick="ptConfirmCenter360Link()">リンクを決定</button>
-    `;
-    modal.style.display = 'flex';
+            footer.innerHTML = `<button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>`;
+            modal.style.display = 'flex';
+        }
+    });
 }
 
 function ptConfirmCenter360Link() {
@@ -7830,6 +8162,23 @@ function ptConfirmCenter360Link() {
         return;
     }
     const centerCard = ptCenter360Target;
+    const oppMap = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+
+    ['top', 'bottom', 'left', 'right'].forEach(dir => {
+        const oldId = centerCard.link_neighbors && centerCard.link_neighbors[dir];
+        const targetId = ptCenter360ChosenSlots[dir];
+        if (oldId && oldId !== targetId) {
+            const oldCard = ptState.battle.find(c => c.id === oldId);
+            if (oldCard) {
+                oldCard.linked_ids = (oldCard.linked_ids || []).filter(id => id !== centerCard.id);
+                if (oldCard.link_neighbors && oldCard.link_neighbors[oppMap[dir]] === centerCard.id) {
+                    delete oldCard.link_neighbors[oppMap[dir]];
+                }
+            }
+            centerCard.linked_ids = (centerCard.linked_ids || []).filter(id => id !== oldId);
+            if (centerCard.link_neighbors) delete centerCard.link_neighbors[dir];
+        }
+    });
 
     ['top', 'bottom', 'left', 'right'].forEach(dir => {
         const targetId = ptCenter360ChosenSlots[dir];
@@ -8101,6 +8450,304 @@ function ptExecuteExLifeSubstitute(cardId) {
     closePtModal();
     renderPtBoard();
 }
+
+// ==========================================
+// 汎用 盤面直接選択モード（＋墓地・超次元モーダル併用）
+// ==========================================
+let ptBoardSelect = {
+    active: false,
+    title: '',
+    allowedZones: [],
+    multiSelect: false,
+    ordered: false,
+    allowStackComponents: false,
+    includeGraveyardModal: false,
+    includePsychicModal: false,
+    isEligible: null,
+    isSelected: null,
+    getBadgeText: null,
+    selectedItems: [], // { id, zone, card, parentId?, componentIndex? }    onSelectSingle: null,
+    onConfirm: null,
+    onCancel: null,
+    extraButtons: [],
+    confirmLabel: '決定',
+    hideDefaultConfirm: false,
+    hideCancel: false
+};
+
+function ptStartBoardSelectMode(config) {
+    closePtModal();
+    ptHideContextMenu();
+
+    ptBoardSelect = {
+        active: true,
+        title: config.title || 'カードを選択してください',
+        allowedZones: config.allowedZones || [],
+        multiSelect: !!config.multiSelect,
+        ordered: !!config.ordered,
+        allowStackComponents: !!config.allowStackComponents,
+        includeGraveyardModal: !!config.includeGraveyardModal,
+        includePsychicModal: !!config.includePsychicModal,
+        isEligible: config.isEligible || null,
+        isSelected: config.isSelected || null,
+        getBadgeText: config.getBadgeText || null,
+        selectedItems: [],
+        onSelectSingle: config.onSelectSingle || null,
+        onConfirm: config.onConfirm || null,
+        onCancel: config.onCancel || null,
+        extraButtons: config.extraButtons || [],
+        confirmLabel: config.confirmLabel || '決定',
+        hideDefaultConfirm: !!config.hideDefaultConfirm,
+        hideCancel: !!config.hideCancel
+    };
+
+    document.body.classList.add('pt-board-select-active');
+    ['battle', 'shield', 'mana', 'hand'].forEach(z => {
+        document.body.classList.toggle(`pt-bs-allow-${z}`, ptBoardSelect.allowedZones.includes(z));
+    });
+
+    if (ptBoardSelect.allowedZones.includes('hand')) {
+        restoreHandZone();
+    } else {
+        minimizeHandZone();
+    }
+
+    ptRenderBoardSelectBanner();
+    renderPtBoard();
+    window.scrollTo(0, 0);
+}
+
+function ptExitBoardSelectMode() {
+    ptBoardSelect.active = false;
+    ptBoardSelect.selectedItems = [];
+    document.body.classList.remove(
+        'pt-board-select-active',
+        'pt-bs-allow-battle',
+        'pt-bs-allow-shield',
+        'pt-bs-allow-mana',
+        'pt-bs-allow-hand'
+    );
+    const banner = document.getElementById('ptBoardSelectBanner');
+    if (banner) {
+        banner.style.display = 'none';
+        banner.innerHTML = '';
+    }
+}
+
+function ptRenderBoardSelectBanner() {
+    const banner = document.getElementById('ptBoardSelectBanner');
+    if (!banner || !ptBoardSelect.active) return;
+
+    banner.innerHTML = '';
+    const titleSpan = document.createElement('span');
+    if (ptBoardSelect.multiSelect) {
+        titleSpan.innerText = `${ptBoardSelect.title} (${ptBoardSelect.selectedItems.length}枚選択中)`;
+    } else {
+        titleSpan.innerText = ptBoardSelect.title;
+    }
+    banner.appendChild(titleSpan);
+
+    if (ptBoardSelect.includeGraveyardModal) {
+        const graveCount = ptBoardSelect.selectedItems.filter(i => i.zone === 'graveyard').length;
+        const btnGrave = document.createElement('button');
+        btnGrave.className = 'btn-pt-secondary';
+        btnGrave.style.background = '#6f42c1';
+        btnGrave.style.color = '#fff';
+        btnGrave.innerText = graveCount > 0 ? `🪦 墓地から選択 (${graveCount})` : '🪦 墓地から選択';
+        btnGrave.onclick = () => ptOpenBoardSelectZoneModal('graveyard');
+        banner.appendChild(btnGrave);
+    }
+
+    if (ptBoardSelect.includePsychicModal) {
+        const psyCount = ptBoardSelect.selectedItems.filter(i => i.zone === 'psychic').length;
+        const btnPsy = document.createElement('button');
+        btnPsy.className = 'btn-pt-secondary';
+        btnPsy.style.background = '#17a2b8';
+        btnPsy.style.color = '#fff';
+        btnPsy.innerText = psyCount > 0 ? `🌌 超次元から選択 (${psyCount})` : '🌌 超次元から選択';
+        btnPsy.onclick = () => ptOpenBoardSelectZoneModal('psychic');
+        banner.appendChild(btnPsy);
+    }
+
+    ptBoardSelect.extraButtons.forEach(btnCfg => {
+        const b = document.createElement('button');
+        b.className = btnCfg.className || 'btn-pt-secondary';
+        if (btnCfg.style) b.style.cssText += btnCfg.style;
+        b.innerText = btnCfg.label;
+        b.onclick = btnCfg.onClick;
+        banner.appendChild(b);
+    });
+
+    if (ptBoardSelect.multiSelect && !ptBoardSelect.hideDefaultConfirm) {
+        const btnConfirm = document.createElement('button');
+        btnConfirm.className = 'btn-pt-primary';
+        btnConfirm.innerText = ptBoardSelect.confirmLabel;
+        btnConfirm.onclick = () => {
+            if (ptBoardSelect.onConfirm) {
+                ptBoardSelect.onConfirm([...ptBoardSelect.selectedItems]);
+            }
+        };
+        banner.appendChild(btnConfirm);
+    }
+
+    if (!ptBoardSelect.hideCancel) {
+        const btnCancel = document.createElement('button');
+        btnCancel.className = 'btn-pt-secondary';
+        btnCancel.innerText = 'キャンセル';
+        btnCancel.onclick = () => {
+            if (ptBoardSelect.onCancel) {
+                ptBoardSelect.onCancel();
+            } else {
+                ptExitBoardSelectMode();
+                renderPtBoard();
+            }
+        };
+        banner.appendChild(btnCancel);
+    }
+
+    banner.style.display = 'flex';
+}
+
+function ptHandleBoardSelectClick(card, zone, opts = {}) {
+    if (!ptBoardSelect.active) return;
+
+    // 複数枚構成カードの中身を個別選択するモードの場合
+    if (ptBoardSelect.allowStackComponents && zone === 'battle' && card.underCards && card.underCards.length > 0 && !opts.fromComponentModal) {
+        ptOpenBoardSelectComponentsModal(card, zone);
+        return;
+    }
+
+    if (!ptBoardSelect.multiSelect) {
+        if (ptBoardSelect.onSelectSingle) {
+            ptBoardSelect.onSelectSingle(card, zone);
+        }
+        return;
+    }
+
+    const idx = ptBoardSelect.selectedItems.findIndex(item => item.id === card.id);
+    if (idx !== -1) {
+        ptBoardSelect.selectedItems.splice(idx, 1);
+    } else {
+        const entry = { id: card.id, zone: zone, card: card };
+        if (opts.parentId !== undefined) entry.parentId = opts.parentId;
+        if (opts.componentIndex !== undefined) entry.componentIndex = opts.componentIndex;
+        ptBoardSelect.selectedItems.push(entry);
+    }
+
+    ptRenderBoardSelectBanner();
+    if (!opts.skipRenderBoard) {
+        renderPtBoard();
+    }
+}
+
+function ptOpenBoardSelectComponentsModal(parentCard, zone) {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "構成カードの選択";
+    const allComponents = [parentCard, ...(parentCard.underCards || [])];
+
+    const renderModalGrid = () => {
+        body.innerHTML = `
+            <p style="margin-bottom:12px; font-size:13px; color:#aaa;">重ねられているカードから選択したいカードをクリックしてください。</p>
+            <div class="pt-grid" id="ptBsCompGrid"></div>
+        `;
+        const grid = document.getElementById('ptBsCompGrid');
+        allComponents.forEach((comp, idx) => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'pt-grid-item';
+            const displaySrc = comp.faceDown ? '/images/card/backimage.webp' : comp.src;
+            const displayName = comp.faceDown ? '（裏向きのカード）' : comp.name;
+            itemEl.innerHTML = `<img src="${displaySrc}"><div class="card-qty">${displayName}</div>`;
+
+            const selIdx = ptBoardSelect.selectedItems.findIndex(item => item.id === comp.id);
+            if (selIdx !== -1) {
+                itemEl.classList.add('selected');
+                const badge = document.createElement('div');
+                badge.className = 'badge-selected-count';
+                badge.innerText = ptBoardSelect.ordered ? `${selIdx + 1}番目` : '選択中';
+                itemEl.appendChild(badge);
+            }
+
+            itemEl.onclick = () => {
+                ptHandleBoardSelectClick(comp, zone, {
+                    fromComponentModal: true,
+                    parentId: parentCard.id,
+                    componentIndex: idx
+                });
+                renderModalGrid();
+            };
+            grid.appendChild(itemEl);
+        });
+    };
+
+    renderModalGrid();
+    footer.innerHTML = `<button class="btn-pt-primary" onclick="closePtModal()">選択して盤面へ戻る</button>`;
+    modal.style.display = 'flex';
+}
+
+function ptOpenBoardSelectZoneModal(zoneKey) {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    const zoneLabel = zoneJapaneseName(zoneKey);
+    title.innerText = `${zoneLabel}から選択`;
+
+    const renderZoneGrid = () => {
+        const list = (ptState[zoneKey] || []).filter(c => !ptBoardSelect.isEligible || ptBoardSelect.isEligible(c, zoneKey));
+        if (list.length === 0) {
+            body.innerHTML = `<p style="text-align:center; color:#aaa; padding:20px;">${zoneLabel}に選択可能なカードがありません。</p>`;
+            return;
+        }
+
+        body.innerHTML = `
+            <p style="margin-bottom:12px; font-size:13px; color:#aaa;">${zoneLabel}からカードを選択してください。</p>
+            <div class="pt-grid" id="ptBsZoneModalGrid"></div>
+        `;
+        const grid = document.getElementById('ptBsZoneModalGrid');
+
+        list.forEach(card => {
+            const itemEl = document.createElement('div');
+            itemEl.className = 'pt-grid-item';
+            itemEl.innerHTML = `<img src="${card.src}"><div class="card-qty">${card.name}</div>`;
+
+            const selIdx = ptBoardSelect.selectedItems.findIndex(item => item.id === card.id);
+            if (selIdx !== -1) {
+                itemEl.classList.add('selected');
+                const badge = document.createElement('div');
+                badge.className = 'badge-selected-count';
+                badge.innerText = ptBoardSelect.ordered ? `${selIdx + 1}番目` : '選択中';
+                itemEl.appendChild(badge);
+            }
+
+            itemEl.onclick = () => {
+                if (!ptBoardSelect.multiSelect) {
+                    closePtModal();
+                    ptHandleBoardSelectClick(card, zoneKey);
+                } else {
+                    ptHandleBoardSelectClick(card, zoneKey, { skipRenderBoard: true });
+                    renderZoneGrid();
+                }
+            };
+            grid.appendChild(itemEl);
+        });
+    };
+
+    renderZoneGrid();
+    footer.innerHTML = `<button class="btn-pt-primary" onclick="closePtModal()">盤面に戻る</button>`;
+    modal.style.display = 'flex';
+}
+
+let ptResizeRenderTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(ptResizeRenderTimer);
+    ptResizeRenderTimer = setTimeout(() => {
+        if (typeof renderPtBoard === 'function') renderPtBoard();
+    }, 120);
+});
 </script>
 </body>
-</html>
