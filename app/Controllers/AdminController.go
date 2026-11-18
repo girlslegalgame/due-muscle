@@ -61,7 +61,7 @@ func (c *AdminController) Index(w http.ResponseWriter, r *http.Request) {
 	sqlReports := `
 		SELECT 
 			r.report_id, r.deck_id, r.user_id, r.reported_user_id, r.report_type, 
-			r.user_report_category, r.status, r.created_at,
+			r.user_report_category, COALESCE(r.reason, ''), r.status, r.created_at,
 			d.deck_name, d.is_public,
 			reporter.username as reporter_name,
 			creator.username as creator_name
@@ -83,14 +83,14 @@ func (c *AdminController) Index(w http.ResponseWriter, r *http.Request) {
 	var reports []adminView.Report
 	for rowsReports.Next() {
 		var reportID, deckID, userID, reportedUserID sql.NullInt64
-		var reportType, userReportCategory, status, createdAt sql.NullString
+		var reportType, userReportCategory, reason, status, createdAt sql.NullString
 		var deckName sql.NullString
 		var isPublic sql.NullInt64
 		var reporterName, creatorName sql.NullString
 
 		_ = rowsReports.Scan(
 			&reportID, &deckID, &userID, &reportedUserID, &reportType,
-			&userReportCategory, &status, &createdAt,
+			&userReportCategory, &reason, &status, &createdAt,
 			&deckName, &isPublic,
 			&reporterName, &creatorName,
 		)
@@ -106,7 +106,7 @@ func (c *AdminController) Index(w http.ResponseWriter, r *http.Request) {
 			CreatorName:        creatorName.String,
 			UserID:             int(userID.Int64),
 			ReporterName:       reporterName.String,
-			Reason:             "", // 必要に応じてDBから取得
+			Reason:             reason.String,
 			Status:             status.String,
 		})
 	}
@@ -371,8 +371,8 @@ func (c *AdminController) HandleReportApi(w http.ResponseWriter, r *http.Request
 	stmtInfo := `
 		SELECT r.user_id, r.report_type, d.deck_name, d.user_id as creator_id, u.username as creator_name
 		FROM deck_reports r
-		JOIN decks d ON r.deck_id = d.deck_id
-		JOIN users u ON d.user_id = u.user_id
+		LEFT JOIN decks d ON r.deck_id = d.deck_id
+		LEFT JOIN users u ON d.user_id = u.user_id
 		WHERE r.report_id = ?
 	`
 	var repUserId sql.NullInt64
@@ -401,6 +401,30 @@ func (c *AdminController) HandleReportApi(w http.ResponseWriter, r *http.Request
 		label := "デッキを編集する"
 		c.sendNotification(db, cId, "【重要】デッキ非公開のお知らせ", msg, &url, &label)
 
+	} else if action == "clear_article" {
+		// 記事削除
+		db.Exec("UPDATE decks SET article = NULL WHERE deck_id = ?", deckId)
+		if reportId != 0 {
+			db.Exec("UPDATE deck_reports SET status = 'resolved' WHERE report_id = ?", reportId)
+		}
+
+		cId := int(creatorId.Int64)
+		dName := deckName.String
+		if !hasReport {
+			_ = db.QueryRow("SELECT user_id FROM decks WHERE deck_id = ?", deckId).Scan(&cId)
+			_ = db.QueryRow("SELECT deck_name FROM decks WHERE deck_id = ?", deckId).Scan(&dName)
+		}
+
+		msg := fmt.Sprintf("デッキ「%s」に掲載されていた記事は、以下の理由により削除されました。\n\n理由: %s\n\n内容をご確認のうえ、適切な内容で記事を作成してください。", dName, reason)
+		url := fmt.Sprintf("/decks/edit?deck_id=%d&tab=article", deckId)
+		label := "記事を編集する"
+		c.sendNotification(db, cId, "【重要】デッキ記事削除のお知らせ", msg, &url, &label)
+
+		if hasReport && repUserId.Valid {
+			c.sendNotification(db, int(repUserId.Int64), "通報いただいた件についてのご案内",
+				fmt.Sprintf("ご報告いただきましたデッキ「%s」の記事につきまして、確認の上、削除対応を行いました。ご協力ありがとうございました。", dName), nil, nil)
+		}
+
 	} else if action == "dismiss" {
 		// 通報却下
 		db.Exec("UPDATE deck_reports SET status = 'dismissed' WHERE report_id = ?", reportId)
@@ -410,6 +434,8 @@ func (c *AdminController) HandleReportApi(w http.ResponseWriter, r *http.Request
 			targetName := fmt.Sprintf("デッキ「%s」", deckName.String)
 			if repType.String == "user" {
 				targetName = fmt.Sprintf("ユーザー「%s」", creatorName.String)
+			} else if repType.String == "article" {
+				targetName = fmt.Sprintf("デッキ「%s」の記事", deckName.String)
 			}
 			msg := fmt.Sprintf("ご報告いただきました%sにつきまして、確認を行いましたが問題は見られなかったため、対応を見送らせていただきました。\nご協力ありがとうございました。", targetName)
 			c.sendNotification(db, int(repUserId.Int64), "通報いただいた件についてのご案内", msg, nil, nil)

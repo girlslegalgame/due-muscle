@@ -11,6 +11,11 @@ if (typeof applyRegulationBadge === 'undefined') {
     sBadge.src = '/js/regulation_badge.js';
     document.head.appendChild(sBadge);
 }
+if (typeof DeckArticle === 'undefined') {
+    const sArt = document.createElement('script');
+    sArt.src = '/js/deck_article.js';
+    document.head.appendChild(sArt);
+}
 </script>
 <!-- 共通デッキ詳細モーダルのスタイル -->
 <style>
@@ -729,6 +734,7 @@ if (typeof applyRegulationBadge === 'undefined') {
             <div id="tab-extra" class="tab-item" onclick="switchTab('extra')">GR / 超次元 / 特殊</div>
             <div id="tab-analysis" class="tab-item" onclick="switchTab('analysis')">分析</div>
             <div id="tab-price" class="tab-item" onclick="switchTab('price')">価格査定(PR)</div>
+            <div id="tab-usage" class="tab-item" onclick="switchTab('usage')" style="display: none;">使い方</div>
         </div>
 
         <div class="scroll-area">
@@ -1022,6 +1028,11 @@ if (typeof applyRegulationBadge === 'undefined') {
                     </table>
                 </div>
             </div>
+
+            <!-- 使い方（テンプレート記事） -->
+            <div id="content-usage" class="tab-content">
+                <div id="modal-usage-article" style="padding: 8px 6px;"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -1194,6 +1205,9 @@ function openDeckModal(deckId, deckName, initialTab = 'main') {
     document.getElementById('modal-dim-list').innerHTML = '';
     document.getElementById('modal-gr-list').innerHTML = '';
     document.getElementById('modal-special-list').innerHTML = '';
+
+    const tabUsage = document.getElementById('tab-usage');
+    if (tabUsage) tabUsage.style.display = 'none';
 
     document.getElementById('deckModal').style.display = 'block';
     document.body.style.overflow = 'hidden'; 
@@ -1690,7 +1704,7 @@ function initCharts(cards) {
 }
 
 function switchTab(type) {
-    const types = ['main', 'extra', 'analysis', 'price'];
+    const types = ['main', 'extra', 'analysis', 'price', 'usage'];
     types.forEach(t => {
         const tabEl = document.getElementById('tab-' + t);
         const contEl = document.getElementById('content-' + t);
@@ -1920,24 +1934,28 @@ function runPriceEstimate(shopCode = null, refresh = false) {
 /**
  * テンプレートデッキ確認用オープン関数（メイン・GR/次元/特殊のみ表示）
  */
-function openTemplateDeckModal(templateId, templateName) {
+function openTemplateDeckModal(templateId, templateName, initialTab = 'main') {
     document.getElementById('modal-deck-title').innerText = templateName || 'テンプレート内容';
 
-    // 「分析」「価格査定」タブを非表示にする
+    // 「分析」「価格査定」タブを非表示にし、「使い方」タブを表示する
     const tabAnalysis = document.getElementById('tab-analysis');
     const tabPrice = document.getElementById('tab-price');
+    const tabUsage = document.getElementById('tab-usage');
     if (tabAnalysis) tabAnalysis.style.display = 'none';
     if (tabPrice) tabPrice.style.display = 'none';
+    if (tabUsage) tabUsage.style.display = '';
 
     const mainList = document.getElementById('modal-main-list');
     mainList.innerHTML = '読み込み中...';
     document.getElementById('modal-dim-list').innerHTML = '';
     document.getElementById('modal-gr-list').innerHTML = '';
     document.getElementById('modal-special-list').innerHTML = '';
+    const usageEl = document.getElementById('modal-usage-article');
+    if (usageEl) usageEl.innerHTML = '<p style="color:#666;">読み込み中...</p>';
 
     document.getElementById('deckModal').style.display = 'block';
     document.body.style.overflow = 'hidden';
-    switchTab('main');
+    switchTab(initialTab || 'main');
 
     fetch('/api/deck-templates/cards?template_id=' + templateId)
         .then(res => res.json())
@@ -1945,9 +1963,18 @@ function openTemplateDeckModal(templateId, templateName) {
             const cards = data.cards || [];
             currentDeckCards = cards;
             renderImages(cards);
+            if (usageEl) {
+                const rawArticle = (data.template && data.template.article) ? data.template.article : '';
+                if (rawArticle && String(rawArticle).trim() !== '') {
+                    usageEl.innerHTML = (typeof DeckArticle !== 'undefined') ? DeckArticle.render(rawArticle) : rawArticle;
+                } else {
+                    usageEl.innerHTML = '<p style="color:#888; text-align:center; padding:30px 0;">この記事（使い方）はまだ登録されていません。</p>';
+                }
+            }
         })
         .catch(err => {
             mainList.innerHTML = 'データの読み込みに失敗しました。';
+            if (usageEl) usageEl.innerHTML = '<p style="color:#dc3545;">読み込みに失敗しました。</p>';
             console.error(err);
         });
 }
@@ -1958,8 +1985,10 @@ function closeModal() {
     // 隠したタブを再表示できるように復元
     const tabAnalysis = document.getElementById('tab-analysis');
     const tabPrice = document.getElementById('tab-price');
+    const tabUsage = document.getElementById('tab-usage');
     if (tabAnalysis) tabAnalysis.style.display = '';
     if (tabPrice) tabPrice.style.display = '';
+    if (tabUsage) tabUsage.style.display = 'none';
 
     const select = document.getElementById('modal-analysis-mode-select');
     if (select) select.value = 'analysis';
@@ -1972,6 +2001,40 @@ window.addEventListener('click', (e) => {
         if (typeof closeDetailModal === 'function') closeDetailModal();
     }
 });
+
+function toggleDeckLike(event, btn) {
+    if (event && event.stopPropagation) event.stopPropagation();
+    if (!btn || btn.disabled) return;
+    const deckId = Number(btn.dataset.deckId);
+    if (!deckId) return;
+
+    btn.disabled = true;
+    fetch('/api/decks/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deckId })
+    })
+    .then(async res => {
+        if (res.status === 401) {
+            window.location.href = '/login';
+            return null;
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (!data || !data.success) return;
+        const isLiked = !!data.liked;
+        btn.dataset.liked = isLiked ? '1' : '0';
+        const svgHtml = isLiked
+            ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M2 21h4V9H2v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg>'
+            : '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>';
+        btn.innerHTML = svgHtml + `<span class="deck-like-count">${data.likes_count}</span>`;
+    })
+    .catch(() => {})
+    .finally(() => {
+        btn.disabled = false;
+    });
+}
 
 /* ==========================================
    共通モーダル側 分析タブ内のモード切替

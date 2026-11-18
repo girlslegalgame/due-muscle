@@ -861,14 +861,15 @@ func (c *CardController) CardVersionsApi(w http.ResponseWriter, r *http.Request)
 	// defer db.Close()
 
 	targetQuery := `
-        SELECT c.card_name, ccb.combination_id 
+        SELECT c.card_name, ccb.combination_id, COALESCE(ccb.is_main_side, 1)
         FROM card c 
         LEFT JOIN card_combination ccb ON c.card_id = ccb.card_id 
         WHERE c.card_id = ?`
 
 	var cardName string
 	var combinationId sql.NullInt64
-	err = db.QueryRow(targetQuery, cardId).Scan(&cardName, &combinationId)
+	var isMainSide int
+	err = db.QueryRow(targetQuery, cardId).Scan(&cardName, &combinationId, &isMainSide)
 	if err != nil {
 		log.Printf("[CardVersionsApi targetQueryエラー card_id=%s] %v", cardId, err)
 		json.NewEncoder(w).Encode([]interface{}{}) // 空配列を返却
@@ -936,7 +937,7 @@ func (c *CardController) CardVersionsApi(w http.ResponseWriter, r *http.Request)
 
 	if isCombo {
 		sqlQuery += ` AND ccb.combination_id IS NOT NULL 
-          AND ccb.is_main_side = 1 
+          AND ccb.is_main_side = :is_main_side 
           AND (
             SELECT GROUP_CONCAT(c_all2.card_name ORDER BY cc_all2.card_id ASC SEPARATOR '|||') 
             FROM card_combination cc_ref2 
@@ -958,6 +959,7 @@ func (c *CardController) CardVersionsApi(w http.ResponseWriter, r *http.Request)
 	params := map[string]interface{}{":name": cardName}
 	if isCombo {
 		params[":target_id"] = cardId
+		params[":is_main_side"] = isMainSide
 	}
 
 	execSql, args := buildNamedQuery(sqlQuery, params)

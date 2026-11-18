@@ -93,6 +93,7 @@
     }
     .badge-user { background: #fce7f3; color: #be185d; }
     .badge-deck { background: #e0f2fe; color: #0369a1; }
+    .badge-article { background: #fef3c7; color: #92400e; }
     .badge-public { background: #dcfce7; color: #15803d; }
     .badge-private { background: #fee2e2; color: #b91c1c; }
     .badge-pending { background: #fef3c7; color: #b45309; }
@@ -164,8 +165,8 @@
                         <tr>
                             <td>{{$r.ReportID}}</td>
                             <td>
-                                <span class="badge {{if eq $r.ReportType "user"}}badge-user{{else}}badge-deck{{end}}">
-                                    {{if eq $r.ReportType "user"}}作成者{{else}}デッキ{{end}}
+                                <span class="badge {{if eq $r.ReportType "user"}}badge-user{{else if eq $r.ReportType "article"}}badge-article{{else}}badge-deck{{end}}">
+                                    {{if eq $r.ReportType "user"}}作成者{{else if eq $r.ReportType "article"}}記事{{else}}デッキ{{end}}
                                 </span>
                                 {{if $r.UserReportCategory}}
                                     <br><small style="font-size:0.7rem; font-weight:bold; color:#64748b;">
@@ -217,8 +218,11 @@
                                             {{end}}
                                         </div>
                                     {{else}}
-                                        <!-- 通常のデッキ通報・その他 -->
-                                        <div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 4px;">
+                                        <!-- 通常のデッキ通報・記事通報・その他 -->
+                                        <div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 4px; flex-wrap: wrap;">
+                                            {{if eq $r.ReportType "article"}}
+                                                <button class="btn-adm btn-adm-warning" onclick="handleReport('{{$r.ReportID}}', '{{$r.DeckID}}', 'clear_article')">記事削除</button>
+                                            {{end}}
                                             <button class="btn-adm btn-adm-danger" onclick="handleReport('{{$r.ReportID}}', '{{$r.DeckID}}', 'make_private')">非公開化</button>
                                             <button class="btn-adm btn-adm-secondary" onclick="handleReport('{{$r.ReportID}}', '{{$r.DeckID}}', 'dismiss')">却下</button>
                                         </div>
@@ -527,8 +531,9 @@ function cleanProcessedReports() {
 // 2. 通常通報の処理（非公開化 / 却下）
 function handleReport(reportId, deckId, action) {
     let reason = '';
-    if (action === 'make_private') {
-        reason = prompt('非公開にする理由を入力してください（ユーザーへの通知に記載されます）:', '利用規約違反が確認されたため');
+    if (action === 'make_private' || action === 'clear_article') {
+        const targetLabel = (action === 'clear_article') ? '記事を削除' : '非公開に';
+        reason = prompt(`${targetLabel}する理由を入力してください（ユーザーへの通知に記載されます）:`, '利用規約違反が確認されたため');
         if (reason === null) return;
     } else if (!confirm('この通報を却下しますか？')) {
         return;

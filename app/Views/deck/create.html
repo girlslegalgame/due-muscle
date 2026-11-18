@@ -1213,10 +1213,77 @@
         display: block !important;
         object-fit: contain !important;
     }
+
+    /* 記事エディタ用スタイル */
+    #article-deck-editor.active {
+        display: flex !important;
+        flex-direction: column;
+        border: 1px solid #ccc;
+        background: #fff;
+        padding: 12px;
+        box-sizing: border-box;
+        gap: 10px;
+        overflow-y: auto;
+    }
+    .article-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #e2e8f0;
+        align-items: center;
+    }
+    .article-tool-btn {
+        padding: 5px 10px;
+        background: #f1f5f9;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        color: #334155;
+    }
+    .article-tool-btn:hover { background: #e2e8f0; }
+    .article-tool-btn.active { background: #007bff; color: #fff; border-color: #007bff; }
+    #deck-article-visual-editor {
+        width: 100%;
+        flex: 1;
+        min-height: 280px;
+        padding: 14px;
+        border: 1px solid #cbd5e1;
+        border-radius: 6px;
+        background: #fff;
+        overflow-y: auto;
+        box-sizing: border-box;
+        outline: none;
+    }
+    #deck-article-visual-editor:focus {
+        border-color: #007bff;
+        box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.12);
+    }
+    #deck-article-visual-editor:empty:before {
+        content: attr(data-placeholder);
+        color: #94a3b8;
+        pointer-events: none;
+    }
+    #article-insert-banner {
+        display: none;
+        background: #e0f2fe;
+        border: 1px solid #bae6fd;
+        color: #0369a1;
+        padding: 6px 8px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: bold;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+    }
 </style>
 <!-- 外部ライブラリ読み込み -->
 <script src="/js/card_image_helper.js?v=2"></script>
 <script src="/js/regulation_badge.js"></script>
+<script src="/js/deck_article.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="/js/ccfolia_exporter.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
@@ -1227,6 +1294,7 @@
             <div id="tab-main" class="tab active" onclick="switchDeckTab('main')">メイン 0</div>
             <div id="tab-extra" class="tab" onclick="switchDeckTab('extra')">GR/超次元 0</div>
             <div id="tab-special" class="tab" onclick="switchDeckTab('special')">特殊</div>
+            <div id="tab-article" class="tab" onclick="switchDeckTab('article')">解説記事</div>
         </div>
         <div id="deck-header">
             <h3>デッキ内容</h3>
@@ -1272,6 +1340,25 @@
                 <div id="slot-zeroron" class="special-box empty"></div>
             </div>
         </div>    
+
+        <!-- 記事エディタ -->
+        <div id="article-deck-editor" class="deck-content">
+            <div class="article-toolbar">
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleBlock('H2')">H1 見出し</button>
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleBlock('H3')">H2 中見出し</button>
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleBlock('H4')">H3 小見出し</button>
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleBlock('P')">本文</button>
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleCommand('bold')">B 太文字</button>
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleCommand('insertUnorderedList')">・リスト</button>
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleBlock('BLOCKQUOTE')">” 引用</button>
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleHr()">― 区切り線</button>
+            </div>
+            <div style="font-size: 12px; color: #64748b;">
+                ※ 見出しや太文字もそのままの見た目で編集できます。右側（スマホは下部）のカード検索からカードをクリックすると、カーソル位置にカード画像を添付できます。
+            </div>
+            <textarea id="deck-article-input" style="display: none;"></textarea>
+            <div id="deck-article-visual-editor" class="deck-article-rendered" contenteditable="true" data-placeholder="デッキの回し方、採用理由、コンボ解説などを入力してください..."></div>
+        </div>
     </div>
     <button id="search-toggle-btn" onclick="toggleSearchSection()">◀ 検索を隠す</button>
     <!-- 検索エリア（右側・左側縦長配置へ変更） -->
@@ -1291,6 +1378,12 @@
                 <label><input type="checkbox" class="scope-check" value="name" checked> カード名</label>
                 <label><input type="checkbox" class="scope-check" value="text"> テキスト</label>
                 <label><input type="checkbox" class="scope-check" value="race"> 種族</label>
+            </div>
+            <div id="article-insert-banner">
+                <span>📌 クリックで記事にカード画像を添付</span>
+                <label style="cursor:pointer; display:flex; align-items:center; gap:3px; margin:0; white-space:nowrap;">
+                    <input type="checkbox" id="article-insert-mode-toggle" checked> 挿入モード
+                </label>
             </div>
         </div>
         
@@ -1319,6 +1412,11 @@
                     <span id="detail-qty">0</span> / <span id="detail-limit">4</span>枚
                     <button class="btn-qty" onclick="adjustQty(1)">+</button>
                 </div>
+                <div id="detail-attach-article-wrap" style="display: none; text-align: center; margin-bottom: 10px;">
+                    <button type="button" onclick="attachDetailCardToArticle()" style="padding: 8px 16px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; cursor: pointer;">
+                        この面を記事に添付
+                    </button>
+                </div>
             </div>
             
             <div class="detail-desc">
@@ -1334,6 +1432,26 @@
         <div class="version-section">
             <h4>バージョン切り替え</h4>
             <div id="detail-version-list" class="version-list"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 記事添付用：複数面カード選択モーダル -->
+<div id="articleSideSelectModal" class="sub-modal" style="z-index: 11500;">
+    <div class="sub-modal-content" style="max-width: 520px; height: auto; max-height: 85vh;">
+        <div class="sub-modal-header">
+            <span>記事に添付する面を選択</span>
+            <span onclick="closeArticleSideModal()" style="cursor:pointer; font-size: 22px;">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 16px;">
+            <p style="font-size: 12px; color: #64748b; margin: 0 0 12px 0;">
+                添付したい面のカードをクリックしてください。
+            </p>
+            <div id="article-side-select-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;"></div>
+        </div>
+        <div style="padding: 12px 16px; border-top: 1px solid #eee; display: flex; gap: 10px; background: #fff;">
+            <button type="button" onclick="closeArticleSideModal()" style="flex: 1; padding: 10px; background: #f1f5f9; color: #334155; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">キャンセル</button>
+            <button type="button" onclick="attachAllSidesToArticle()" style="flex: 1.5; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">すべての面を並べて添付</button>
         </div>
     </div>
 </div>
@@ -1981,6 +2099,14 @@ window.addEventListener('DOMContentLoaded', () => {
                 String(deckConfig.thumbnail_imagepath)
             );
         }
+        if (deckConfig.article) {
+            setArticleEditorValue(deckConfig.article);
+        }
+    }
+
+    const urlTab = new URLSearchParams(window.location.search).get('tab');
+    if (urlTab === 'article') {
+        switchDeckTab('article');
     }
 
     // マスターデータの取得
@@ -2036,6 +2162,9 @@ window.addEventListener('DOMContentLoaded', () => {
     const formatSelect = document.getElementById('save-deck-format');
     if (nameInput) nameInput.addEventListener('input', saveDraftToLocalStorage);
     if (formatSelect) formatSelect.addEventListener('change', saveDraftToLocalStorage);
+    initVisualArticleEditor();
+    const articleInput = document.getElementById('deck-article-input');
+    if (articleInput) articleInput.addEventListener('input', saveDraftToLocalStorage);
 
     // ★追加：マスタ取得や描画が少し落ち着いたタイミングで復元チェックを実行
     setTimeout(checkAndRestoreDraft, 250);
@@ -2180,9 +2309,21 @@ function determineZoneType(charIdsStr) {
 resultsDiv.addEventListener('click', (e) => {
     if (e.target.tagName === 'IMG') {
         const cardId = e.target.dataset.cardId;
+        const isArticleTab = document.getElementById('tab-article')?.classList.contains('active');
+        const isInsertOn = document.getElementById('article-insert-mode-toggle')?.checked;
+        if (isArticleTab && isInsertOn) {
+            const cardObj = cardCache[cardId] || {
+                card_id: cardId,
+                card_name: e.target.dataset.cardName || '',
+                imagepath: e.target.dataset.imagepath || '',
+                combo_names: e.target.dataset.comboNames || ''
+            };
+            handleArticleCardPick(cardObj);
+            return;
+        }
         openCardDetail(cardId, e.target);
     }
-});  
+});
 
 
 // --- D. SortableJS 設定 ---
@@ -2441,21 +2582,294 @@ function switchDeckTab(type) {
     });
     
     const targetTab = document.getElementById('tab-' + type);
-    const targetContent = type === 'extra' ? document.getElementById('extra-deck-area') : document.getElementById(type + '-deck-list');
+    const targetContent = type === 'extra'
+        ? document.getElementById('extra-deck-area')
+        : (type === 'article' ? document.getElementById('article-deck-editor') : document.getElementById(type + '-deck-list'));
 
     if (targetTab) targetTab.classList.add('active');
     if (targetContent) {
         targetContent.classList.add('active');
-        if (type === 'extra' || type === 'special') {
+        if (type === 'extra' || type === 'special' || type === 'article') {
             targetContent.style.display = 'flex';
         } else {
             targetContent.style.display = 'grid';
         }
     }
 
+    const banner = document.getElementById('article-insert-banner');
+    if (banner) {
+        banner.style.display = (type === 'article') ? 'flex' : 'none';
+    }
+
     if (type === 'main') {
         setTimeout(adjustMainDeckRows, 100); 
     }
+}
+let lastArticleRange = null;
+
+function initVisualArticleEditor() {
+    if (typeof DeckArticle !== 'undefined') DeckArticle.injectArticleStyles();
+    const editor = document.getElementById('deck-article-visual-editor');
+    if (!editor) return;
+
+    const saveSelection = () => {
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount > 0) {
+            const range = sel.getRangeAt(0);
+            if (editor.contains(range.commonAncestorContainer)) {
+                lastArticleRange = range.cloneRange();
+            }
+        }
+    };
+
+    editor.addEventListener('keyup', saveSelection);
+    editor.addEventListener('mouseup', saveSelection);
+    editor.addEventListener('blur', saveSelection);
+    editor.addEventListener('input', () => {
+        // 空の <br> だけが残った場合は :empty を効かせるために整理
+        if (editor.innerHTML === '<br>' || editor.innerHTML === '<p><br></p>') {
+            editor.innerHTML = '';
+        }
+        syncVisualEditorToInput();
+    });
+
+    // 外部からのHTMLスタイル混入を防ぐためプレーンテキストペーストに統一
+    editor.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text/plain');
+        document.execCommand('insertText', false, text);
+        syncVisualEditorToInput();
+    });
+}
+
+function setArticleEditorValue(rawMarkdown) {
+    const ta = document.getElementById('deck-article-input');
+    const editor = document.getElementById('deck-article-visual-editor');
+    if (ta) ta.value = rawMarkdown || '';
+    if (editor && typeof DeckArticle !== 'undefined') {
+        editor.innerHTML = DeckArticle.render(rawMarkdown || '', { editable: true });
+    }
+}
+
+function syncVisualEditorToInput() {
+    const editor = document.getElementById('deck-article-visual-editor');
+    const ta = document.getElementById('deck-article-input');
+    if (editor && ta && typeof DeckArticle !== 'undefined') {
+        ta.value = DeckArticle.serializeEditor(editor);
+    }
+    saveDraftToLocalStorage();
+}
+
+function focusAndRestoreArticleSelection() {
+    const editor = document.getElementById('deck-article-visual-editor');
+    if (!editor) return null;
+    editor.focus();
+    const sel = window.getSelection();
+    if (lastArticleRange && editor.contains(lastArticleRange.commonAncestorContainer)) {
+        sel.removeAllRanges();
+        sel.addRange(lastArticleRange);
+    }
+    return editor;
+}
+
+function execArticleCommand(cmd) {
+    const editor = focusAndRestoreArticleSelection();
+    if (!editor) return;
+    document.execCommand(cmd, false, null);
+    syncVisualEditorToInput();
+}
+
+function execArticleBlock(tag) {
+    const editor = focusAndRestoreArticleSelection();
+    if (!editor) return;
+    const sel = window.getSelection();
+    let targetTag = tag;
+    // すでに同じ見出し・引用ブロック内にいる場合は通常段落に戻す
+    if (sel && sel.rangeCount > 0 && tag !== 'P') {
+        let node = sel.anchorNode;
+        while (node && node !== editor) {
+            if (node.nodeType === 1 && node.tagName === tag) {
+                targetTag = 'P';
+                break;
+            }
+            node = node.parentNode;
+        }
+    }
+    document.execCommand('formatBlock', false, targetTag);
+    syncVisualEditorToInput();
+}
+
+function execArticleHr() {
+    const editor = focusAndRestoreArticleSelection();
+    if (!editor) return;
+    document.execCommand('insertHorizontalRule', false, null);
+    syncVisualEditorToInput();
+}
+
+function insertCardIntoArticle(card) {
+    const editor = document.getElementById('deck-article-visual-editor');
+    if (!editor || typeof DeckArticle === 'undefined') return;
+
+    const chipHtml = DeckArticle.buildCardChipHtml(card.card_id, card.card_name || '', card.imagepath || '', true);
+    const temp = document.createElement('div');
+    temp.innerHTML = chipHtml;
+    const chipEl = temp.firstElementChild;
+
+    focusAndRestoreArticleSelection();
+    const sel = window.getSelection();
+    let targetGrid = null;
+
+    if (sel && sel.rangeCount > 0) {
+        let node = sel.getRangeAt(0).startContainer;
+        while (node && node !== editor) {
+            if (node.nodeType === 1 && node.classList.contains('article-card-grid')) {
+                targetGrid = node;
+                break;
+            }
+            // 直前の兄要素がカードグリッドならそこへ横並び追加
+            if (node.parentNode === editor && node.previousElementSibling && node.previousElementSibling.classList.contains('article-card-grid')) {
+                const range = sel.getRangeAt(0);
+                if (range.startOffset === 0 && (node.textContent || '').trim() === '') {
+                    targetGrid = node.previousElementSibling;
+                    break;
+                }
+            }
+            node = node.parentNode;
+        }
+    }
+
+    if (targetGrid) {
+        targetGrid.appendChild(chipEl);
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'article-card-grid';
+        grid.contentEditable = 'false';
+        grid.appendChild(chipEl);
+
+        if (sel && sel.rangeCount > 0 && editor.contains(sel.getRangeAt(0).commonAncestorContainer)) {
+            const range = sel.getRangeAt(0);
+            let block = range.startContainer;
+            while (block && block.parentNode !== editor) {
+                block = block.parentNode;
+            }
+            if (block && block.parentNode === editor) {
+                if ((block.textContent || '').trim() === '') {
+                    editor.insertBefore(grid, block);
+                } else {
+                    block.after(grid);
+                }
+            } else {
+                editor.appendChild(grid);
+            }
+        } else {
+            editor.appendChild(grid);
+        }
+
+        // グリッドの後ろに入力用の行を確保してカーソルを移動
+        let nextP = grid.nextElementSibling;
+        if (!nextP || nextP.classList.contains('article-card-grid')) {
+            nextP = document.createElement('p');
+            nextP.innerHTML = '<br>';
+            grid.after(nextP);
+        }
+        const newRange = document.createRange();
+        newRange.setStart(nextP, 0);
+        newRange.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(newRange);
+        lastArticleRange = newRange.cloneRange();
+    }
+
+    syncVisualEditorToInput();
+}
+
+function removeArticleCardChip(btn) {
+    const chip = btn.closest('.article-card-chip');
+    if (!chip) return;
+    const grid = chip.closest('.article-card-grid');
+    chip.remove();
+    if (grid && grid.querySelectorAll('.article-card-chip').length === 0) {
+        grid.remove();
+    }
+    syncVisualEditorToInput();
+}
+
+let pendingArticleSides = [];
+
+function handleArticleCardPick(cardObj) {
+    const isTwinpact = (cardObj.twinpact == 1 || cardObj.twinpact === '1');
+    const comboParts = cardObj.combo_names ? String(cardObj.combo_names).split('|||').map(s => s.trim()).filter(Boolean) : [];
+    const uniqueComboNames = new Set(comboParts);
+    const hasDistinctComboNames = uniqueComboNames.size > 1;
+    const isMultiSideCandidate = hasDistinctComboNames || (!cardObj.combo_names && (cardObj.is_combo == 1 || cardObj.is_combo === '1'));
+
+    if (isMultiSideCandidate && !isTwinpact && cardObj.card_id) {
+        fetch('/api/cards/combination?card_id=' + encodeURIComponent(cardObj.card_id))
+            .then(res => res.json())
+            .then(sides => {
+                const hasTwin = Array.isArray(sides) && sides.some(s => s.twinpact == 1 || s.twinpact === '1');
+                const sideNames = Array.isArray(sides) ? new Set(sides.map(s => (s.card_name || '').trim()).filter(Boolean)) : new Set();
+                if (Array.isArray(sides) && sides.length > 1 && !hasTwin && sideNames.size > 1) {
+                    openArticleSideModal(sides);
+                } else {
+                    insertCardIntoArticle(cardObj);
+                }
+            })
+            .catch(() => insertCardIntoArticle(cardObj));
+        return;
+    }
+    insertCardIntoArticle(cardObj);
+}
+
+function openArticleSideModal(sides) {
+    pendingArticleSides = sides;
+    const grid = document.getElementById('article-side-select-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    sides.forEach(side => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; transition:transform 0.15s ease, border-color 0.15s ease;';
+        item.onmouseenter = () => { item.style.borderColor = '#007bff'; item.style.transform = 'translateY(-2px)'; };
+        item.onmouseleave = () => { item.style.borderColor = '#e2e8f0'; item.style.transform = ''; };
+
+        const img = document.createElement('img');
+        img.src = getCardImagePath(side);
+        img.alt = side.card_name || '';
+        img.style.cssText = 'width:100%; max-width:130px; aspect-ratio:110/154; object-fit:contain; border-radius:6px; background:#fff;';
+        img.onerror = () => handleImageError(img);
+
+        const label = document.createElement('div');
+        label.innerText = side.card_name || '';
+        label.style.cssText = 'font-size:12px; font-weight:bold; text-align:center; color:#1e293b; line-height:1.3;';
+
+        item.appendChild(img);
+        item.appendChild(label);
+        item.onclick = () => {
+            insertCardIntoArticle(side);
+            closeArticleSideModal();
+        };
+        grid.appendChild(item);
+    });
+
+    document.getElementById('articleSideSelectModal').style.display = 'flex';
+}
+
+function closeArticleSideModal() {
+    document.getElementById('articleSideSelectModal').style.display = 'none';
+    pendingArticleSides = [];
+}
+
+function attachAllSidesToArticle() {
+    pendingArticleSides.forEach(side => insertCardIntoArticle(side));
+    closeArticleSideModal();
+}
+
+function attachDetailCardToArticle() {
+    const target = activeDetailSideData || selectedCardData;
+    if (!target) return;
+    insertCardIntoArticle(target);
+    closeDetailModal();
 }
 
 function updateDeckDisplay() {
@@ -2485,8 +2899,8 @@ function updateDeckDisplay() {
 
 // --- F. カード詳細モーダル ---
 let currentCombinationSides = []; // 各面の情報を保持
+let activeDetailSideData = null;  // 詳細モーダルで現在表示中の面
 
-// ★ 構成面（両面・関連面）を取得・描画する共通関数
 // ★ 構成面（両面・関連面）を取得・描画する共通関数
 function loadCombinationSides(cardId) {
     const comboSection = document.getElementById('combination-section');
@@ -2515,6 +2929,7 @@ function loadCombinationSides(cardId) {
                     if (side.card_id == selectedCardData.card_id) sideImg.className = 'selected';
                     
                     sideImg.onclick = () => {
+                        activeDetailSideData = side;
                         document.getElementById('detail-name').innerText = side.card_name;
                         document.getElementById('detail-text').innerText = side.text || "効果なし";
                         document.getElementById('detail-main-img').src = getCardImagePath(side);
@@ -2644,6 +3059,12 @@ function renderDetailModal() {
         };
         versionList.appendChild(vImg);
     });
+    activeDetailSideData = selectedCardData;
+    const attachWrap = document.getElementById('detail-attach-article-wrap');
+    if (attachWrap) {
+        const isArticleTab = document.getElementById('tab-article')?.classList.contains('active');
+        attachWrap.style.display = isArticleTab ? 'block' : 'none';
+    }
     modal.style.display = 'block';
 }
 
@@ -3390,7 +3811,8 @@ function submitDeckSave() {
         cards: allCards, 
         format_id: parseInt(formatId, 10),
         thumbnail_card_id: thumbnailCardId ? parseInt(thumbnailCardId, 10) : null,
-        is_public: isPublic
+        is_public: isPublic,
+        article: (document.getElementById('deck-article-input') || {}).value || ''
     };
 
     fetch('/api/decks', {
@@ -4041,6 +4463,7 @@ function saveDraftToLocalStorage() {
         deckId: deckId,
         deckName: deckName,
         formatId: formatId,
+        article: (document.getElementById('deck-article-input') || {}).value || '',
         cards: cards,
         updatedAt: Date.now()
     };
@@ -4130,6 +4553,9 @@ function restoreDraft(draft) {
     if (draft.formatId) {
         const formatSelect = document.getElementById('save-deck-format');
         if (formatSelect) formatSelect.value = draft.formatId;
+    }
+    if (draft.article !== undefined) {
+        setArticleEditorValue(draft.article);
     }
 
     updateDeckDisplay();
@@ -4257,10 +4683,10 @@ function renderTemplateList() {
                     ${civBadgesHtml ? `<div class="deck-civ-badges" style="margin-top:0;">${civBadgesHtml}</div>` : ''}
                     ${t.goods_name ? `<span style="color:#0056b3;">${escapeHTML(t.goods_name)}</span>` : ''}
                 </div>
-                ${t.description ? `<div style="font-size:11px; color:#888; margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHTML(t.description)}</div>` : ''}
             </div>
             <div style="display:flex; gap:6px; flex-shrink:0;">
-                <button type="button" onclick="openTemplateDeckModal(${t.template_id}, '${escapeHTML(t.template_name || '')}')" style="padding:8px 12px; background:#17a2b8; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px;">確認</button>
+                <button type="button" onclick="openTemplateDeckModal(${t.template_id}, '${escapeHTML(t.template_name || '')}', 'main')" style="padding:8px 12px; background:#17a2b8; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px;">確認</button>
+                <button type="button" onclick="openTemplateDeckModal(${t.template_id}, '${escapeHTML(t.template_name || '')}', 'usage')" style="padding:8px 12px; background:#fd7e14; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px;">使い方</button>
                 <button type="button" onclick="applyTemplate(${t.template_id})" style="padding:8px 16px; background:#28a745; color:white; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px;">読込</button>
             </div>
         `;

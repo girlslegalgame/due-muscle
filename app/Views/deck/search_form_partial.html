@@ -144,6 +144,17 @@
         </select>
     </div>
 
+    <div>
+        <label>並び順</label>
+        <select name="sort">
+            <option value="newest" {{if or (eq .searchValues.sort "") (eq .searchValues.sort "newest")}}selected{{end}}>更新日が新しい順</option>
+            <option value="oldest" {{if eq .searchValues.sort "oldest"}}selected{{end}}>更新日が古い順</option>
+            {{if eq .actionUrl "/search"}}
+            <option value="likes" {{if eq .searchValues.sort "likes"}}selected{{end}}>高評価が多い順</option>
+            {{end}}
+        </select>
+    </div>
+
     <!-- 文明選択 -->
     <div style="grid-column: span 2;">
         <label style="font-size: 0.8rem; font-weight: bold; display: block; margin-bottom: 5px; color: #555;">採用カードの文明 (複数選択可)</label>

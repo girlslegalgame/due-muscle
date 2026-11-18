@@ -232,6 +232,7 @@ func RegisterRoutes(r chi.Router) {
 			r.Post("/copy", deckCtrl.CopyDeckApi)
 			r.Put("/set_public", deckCtrl.SetDeckPublicApi)
 			r.Post("/report", deckCtrl.ReportDeckApi)
+			r.Post("/like", deckCtrl.LikeDeckApi)
 			r.Get("/estimate-price", deckCtrl.EstimatePriceApi)
 			// ★ /api/decks/owned-cards
 			r.Get("/owned-cards", deckCtrl.GetOwnedCardsApi)

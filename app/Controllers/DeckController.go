@@ -99,6 +99,12 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 	totalPages := 1
 	userID, ok := getSessionUserID(r)
 	db := getDB()
+	c.ensureDeckExtraColumnsExist(db)
+
+	sortParam := query.Get("sort")
+	if sortParam == "" {
+		sortParam = "newest"
+	}
 
 	if ok {
 		sqlStr := `SELECT d.*, f.format_name, cd.imagepath AS thumbnail_imagepath
@@ -178,7 +184,13 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		sqlStr += " ORDER BY d.updated_at DESC"
+		if sortParam == "oldest" {
+			sqlStr += " ORDER BY d.updated_at ASC"
+		} else if sortParam == "likes" {
+			sqlStr += " ORDER BY COALESCE(d.likes_count, 0) DESC, d.updated_at DESC"
+		} else {
+			sqlStr += " ORDER BY d.updated_at DESC"
+		}
 
 		rows, err := db.Query(sqlStr, params...)
 		var allDecks []map[string]interface{}
@@ -229,6 +241,7 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 			d["civ_dark"] = strings.Contains(civList, "3")
 			d["civ_fire"] = strings.Contains(civList, "4")
 			d["civ_nature"] = strings.Contains(civList, "5")
+			d["LikesCount"] = d["likes_count"]
 
 			rawDate := fmt.Sprintf("%v", d["updated_at"])
 			if len(rawDate) >= 10 {
@@ -324,6 +337,7 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
 			"card_name": cardName,
 			"civ_ids":   civIds,
 			"civ_logic": civLogic,
+			"sort":      sortParam,
 		},
 	})
 }
@@ -333,6 +347,7 @@ func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
  */
 func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 	db := getDB()
+	c.ensureDeckExtraColumnsExist(db)
 	query := r.URL.Query()
 
 	deckName := strings.TrimSpace(query.Get("deck_name"))
@@ -343,9 +358,12 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 	if civLogic == "" {
 		civLogic = "include"
 	}
+	sortParam := query.Get("sort")
+	if sortParam == "" {
+		sortParam = "newest"
+	}
 
-	sqlStr := `SELECT d.*, f.format_name, u.username as creator_name, cd.imagepath as thumbnail_imagepath
-               FROM decks d
+	sqlStr := `SELECT d.*, f.format_name, u.username as creator_name, cd.imagepath as thumbnail_imagepath               FROM decks d
                JOIN formats f ON d.format_id = f.format_id
                JOIN users u ON d.user_id = u.user_id
                LEFT JOIN card_detail cd ON d.thumbnail_card_id = cd.card_id
@@ -421,7 +439,13 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	sqlStr += " ORDER BY d.updated_at DESC"
+	if sortParam == "oldest" {
+		sqlStr += " ORDER BY d.updated_at ASC"
+	} else if sortParam == "likes" {
+		sqlStr += " ORDER BY COALESCE(d.likes_count, 0) DESC, d.updated_at DESC"
+	} else {
+		sqlStr += " ORDER BY d.updated_at DESC"
+	}
 
 	rows, err := db.Query(sqlStr, params...)
 	if err != nil {
@@ -472,6 +496,25 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 		decks = allDecks[offset:end]
 	}
 
+	userID, ok := getSessionUserID(r)
+	likedMap := make(map[int]bool)
+	if ok && len(decks) > 0 {
+		var dids []string
+		for _, d := range decks {
+			dids = append(dids, fmt.Sprintf("%v", d["deck_id"]))
+		}
+		lRows, lErr := db.Query(fmt.Sprintf("SELECT deck_id FROM deck_likes WHERE user_id = ? AND deck_id IN (%s)", strings.Join(dids, ",")), userID)
+		if lErr == nil {
+			defer lRows.Close()
+			for lRows.Next() {
+				var lid int
+				if lRows.Scan(&lid) == nil {
+					likedMap[lid] = true
+				}
+			}
+		}
+	}
+
 	// ★ deck_item.html での参照（直接/階層/大文字/小文字）のすべてに対応できるよう補完
 	for _, d := range decks {
 		did, _ := strconv.Atoi(fmt.Sprintf("%v", d["deck_id"]))
@@ -512,6 +555,10 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 		d["CreatorName"] = d["creator_name"]
 		d["UserID"] = d["user_id"] // ★ この行を追加
 		d["FormatName"] = d["format_name"]
+		d["LikesCount"] = d["likes_count"]
+		ownerID, _ := strconv.Atoi(fmt.Sprintf("%v", d["user_id"]))
+		d["IsOwner"] = ok && ownerID == userID
+		d["IsLiked"] = likedMap[did]
 		d["IsPublic"] = true
 		d["is_public"] = 1
 
@@ -543,9 +590,6 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 		{"civilization_id": 6, "civilization_name": "ゼロ"},
 	}
 
-	// ログイン状態を取得
-	userID, ok := getSessionUserID(r)
-
 	views.RenderView(w, r, "deck/search.html", map[string]interface{}{
 		"title":         "公開デッキ検索",
 		"description":   "他のプレイヤーが公開しているデュエル・マスターズのデッキレシピを検索・閲覧・複製・一人回しできます。",
@@ -564,6 +608,7 @@ func (c *DeckController) Search(w http.ResponseWriter, r *http.Request) {
 			"card_name": cardName,
 			"civ_ids":   civIds,
 			"civ_logic": civLogic,
+			"sort":      sortParam,
 		},
 	})
 }
@@ -734,6 +779,7 @@ func (c *DeckController) StoreDeckApi(w http.ResponseWriter, r *http.Request) {
 
 	// ★ DDL(ALTER TABLE) はトランザクション開始前に実行する（暗黙コミット防止）
 	c.ensureDummyColumnsExist(db)
+	c.ensureDeckExtraColumnsExist(db)
 
 	isPublic := 0
 	if p, ok := input["is_public"]; ok {
@@ -779,9 +825,14 @@ func (c *DeckController) StoreDeckApi(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var article string
+	if a, ok := input["article"].(string); ok {
+		article = a
+	}
+
 	// ★ created_at, updated_at を追加
-	res, err := tx.Exec("INSERT INTO decks (user_id, deck_name, format_id, thumbnail_card_id, is_public, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())",
-		userID, input["deck_name"], input["format_id"], tcid, isPublic)
+	res, err := tx.Exec("INSERT INTO decks (user_id, deck_name, format_id, thumbnail_card_id, is_public, article, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())",
+		userID, input["deck_name"], input["format_id"], tcid, isPublic, article)
 	if err != nil {
 		log.Printf("[StoreDeckApi INSERT deck Error]: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -949,6 +1000,7 @@ func (c *DeckController) UpdateDeckApi(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 
 	c.ensureDummyColumnsExist(db)
+	c.ensureDeckExtraColumnsExist(db)
 
 	var tcid interface{} = nil
 	if val, ok := input["thumbnail_card_id"]; ok && val != nil && val != "" {
@@ -956,9 +1008,13 @@ func (c *DeckController) UpdateDeckApi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	deckId := int64(input["deck_id"].(float64))
+	var article string
+	if a, ok := input["article"].(string); ok {
+		article = a
+	}
 
-	_, err = tx.Exec("UPDATE decks SET deck_name = ?, format_id = ?, thumbnail_card_id = ?, is_public = ?, updated_at = NOW() WHERE deck_id = ? AND user_id = ?",
-		input["deck_name"], input["format_id"], tcid, isPublic, deckId, userID)
+	_, err = tx.Exec("UPDATE decks SET deck_name = ?, format_id = ?, thumbnail_card_id = ?, is_public = ?, article = ?, updated_at = NOW() WHERE deck_id = ? AND user_id = ?",
+		input["deck_name"], input["format_id"], tcid, isPublic, article, deckId, userID)
 	if err != nil {
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 		return
@@ -1446,6 +1502,7 @@ func (c *DeckController) ReportDeckApi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := getDB()
+	c.ensureDeckExtraColumnsExist(db)
 	var reportBan sql.NullString
 	err := db.QueryRow("SELECT report_ban_until FROM users WHERE user_id = ?", userID).Scan(&reportBan)
 	if err == nil && reportBan.Valid && reportBan.String != "" {
@@ -1475,8 +1532,8 @@ func (c *DeckController) ReportDeckApi(w http.ResponseWriter, r *http.Request) {
 	}
 
 	reportType := "deck"
-	if rt, ok := input["report_type"].(string); ok && rt == "user" {
-		reportType = "user"
+	if rt, ok := input["report_type"].(string); ok && (rt == "user" || rt == "article") {
+		reportType = rt
 	}
 
 	var userCategory *string = nil
@@ -1501,13 +1558,13 @@ func (c *DeckController) ReportDeckApi(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if reason == "" || (reportType == "deck" && deckId == nil) || (reportType == "user" && reportedUserId == nil) {
+	if reason == "" || ((reportType == "deck" || reportType == "article") && deckId == nil) || (reportType == "user" && reportedUserId == nil) {
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "入力情報が不足しています。"})
 		return
 	}
 
-	if reportType == "deck" {
+	if reportType == "deck" || reportType == "article" {
 		var creatorID int
 		err := db.QueryRow("SELECT user_id FROM decks WHERE deck_id = ?", *deckId).Scan(&creatorID)
 		if err != nil {
@@ -1634,6 +1691,28 @@ func (c *DeckController) UserPublicDecks(w http.ResponseWriter, r *http.Request)
 	}
 
 	currentUserID, isLoggedIn := getSessionUserID(r) // ★ ログイン状態を取得
+	if isLoggedIn && len(decks) > 0 {
+		likedMap := make(map[int]bool)
+		var dids []string
+		for _, d := range decks {
+			dids = append(dids, fmt.Sprintf("%v", d["deck_id"]))
+		}
+		if lRows, lErr := db.Query(fmt.Sprintf("SELECT deck_id FROM deck_likes WHERE user_id = ? AND deck_id IN (%s)", strings.Join(dids, ",")), currentUserID); lErr == nil {
+			defer lRows.Close()
+			for lRows.Next() {
+				var lid int
+				if lRows.Scan(&lid) == nil {
+					likedMap[lid] = true
+				}
+			}
+		}
+		for _, d := range decks {
+			did, _ := strconv.Atoi(fmt.Sprintf("%v", d["deck_id"]))
+			ownerID, _ := strconv.Atoi(fmt.Sprintf("%v", d["user_id"]))
+			d["IsOwner"] = ownerID == currentUserID
+			d["IsLiked"] = likedMap[did]
+		}
+	}
 
 	views.RenderView(w, r, "deck/user_decks.html", map[string]interface{}{
 		"title":       fmt.Sprintf("%s さんの公開デッキ一覧", uname),
@@ -2741,6 +2820,7 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 	}
 
 	db := getDB()
+	c.ensureDeckExtraColumnsExist(db)
 	var deck map[string]interface{}
 	rows, _ := db.Query(`
         SELECT d.*, f.format_name, u.username as creator_name, cd.imagepath as thumbnail_imagepath
@@ -2795,11 +2875,32 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var likesCount int
+	var isOwner, isLiked bool
+	var articleStr string
+	if deck != nil {
+		likesCount, _ = strconv.Atoi(fmt.Sprintf("%v", deck["likes_count"]))
+		isOwner = currentUserID > 0 && deckOwnerID == currentUserID
+		if a := fmt.Sprintf("%v", deck["article"]); a != "" && a != "<nil>" {
+			articleStr = a
+		}
+		if currentUserID > 0 {
+			var cnt int
+			_ = db.QueryRow("SELECT COUNT(*) FROM deck_likes WHERE deck_id = ? AND user_id = ?", deckId, currentUserID).Scan(&cnt)
+			isLiked = cnt > 0
+		}
+	}
+
 	views.RenderView(w, r, "deck/share.html", map[string]interface{}{
 		"title":       fmt.Sprintf("%v", deck["deck_name"]),
 		"description": fmt.Sprintf("デュエ筋で公開されたデッキ「%v」のレシピ・分析詳細ページです。", deck["deck_name"]),
 		"deck":        deck,
 		"pdo_db":      db,
+		"article":     articleStr,
+		"likesCount":  likesCount,
+		"isOwner":     isOwner,
+		"isLiked":     isLiked,
+		"isLoggedIn":  currentUserID > 0,
 	})
 }
 
@@ -2914,6 +3015,136 @@ func (c *DeckController) SaveOwnedCardsApi(w http.ResponseWriter, r *http.Reques
 
 	tx.Commit()
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
+}
+/**
+ * デッキ高評価API（自分以外の公開デッキに1回のみ）
+ */
+func (c *DeckController) LikeDeckApi(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	userID, ok := getSessionUserID(r)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "高評価にはログインが必要です。"})
+		return
+	}
+
+	var input map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "リクエストが不正です。"})
+		return
+	}
+
+	deckID, _ := strconv.Atoi(fmt.Sprintf("%v", input["deck_id"]))
+	if deckID <= 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "デッキIDが不正です。"})
+		return
+	}
+
+	db := getDB()
+	c.ensureDeckExtraColumnsExist(db)
+
+	var ownerID, isPublic int
+	err := db.QueryRow("SELECT user_id, is_public FROM decks WHERE deck_id = ?", deckID).Scan(&ownerID, &isPublic)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "デッキが見つかりません。"})
+		return
+	}
+	if isPublic != 1 {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "非公開デッキには高評価できません。"})
+		return
+	}
+	if ownerID == userID {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "自分が作成したデッキには高評価できません。"})
+		return
+	}
+
+	var exists int
+	_ = db.QueryRow("SELECT COUNT(*) FROM deck_likes WHERE deck_id = ? AND user_id = ?", deckID, userID).Scan(&exists)
+
+	liked := false
+	if exists > 0 {
+		if _, err := db.Exec("DELETE FROM deck_likes WHERE deck_id = ? AND user_id = ?", deckID, userID); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+			return
+		}
+		liked = false
+	} else {
+		if _, err := db.Exec("INSERT INTO deck_likes (deck_id, user_id, created_at) VALUES (?, ?, NOW())", deckID, userID); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+			return
+		}
+		liked = true
+	}
+
+	var newCount int
+	_, _ = db.Exec("UPDATE decks SET likes_count = (SELECT COUNT(*) FROM deck_likes WHERE deck_id = ?) WHERE deck_id = ?", deckID, deckID)
+	_ = db.QueryRow("SELECT likes_count FROM decks WHERE deck_id = ?", deckID).Scan(&newCount)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":     true,
+		"liked":       liked,
+		"likes_count": newCount,
+	})
+}
+
+var checkedDeckExtraColumns = false
+
+func (c *DeckController) ensureDeckExtraColumnsExist(db *sql.DB) {
+	if checkedDeckExtraColumns {
+		return
+	}
+	defer func() { checkedDeckExtraColumns = true }()
+
+	rows, err := db.Query("SHOW COLUMNS FROM decks LIKE 'article'")
+	if err == nil {
+		hasCol := rows.Next()
+		rows.Close()
+		if !hasCol {
+			_, _ = db.Exec("ALTER TABLE decks ADD COLUMN article MEDIUMTEXT NULL;")
+		}
+	}
+
+	rowsLikes, err := db.Query("SHOW COLUMNS FROM decks LIKE 'likes_count'")
+	if err == nil {
+		hasCol := rowsLikes.Next()
+		rowsLikes.Close()
+		if !hasCol {
+			_, _ = db.Exec("ALTER TABLE decks ADD COLUMN likes_count INT NOT NULL DEFAULT 0;")
+		}
+	}
+
+	_, _ = db.Exec(`
+		CREATE TABLE IF NOT EXISTS deck_likes (
+			like_id INT AUTO_INCREMENT PRIMARY KEY,
+			deck_id INT NOT NULL,
+			user_id INT NOT NULL,
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE KEY uniq_deck_user (deck_id, user_id),
+			INDEX idx_deck_id (deck_id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+	`)
+
+	// deck_reports.report_type に 'article' を許可
+	rowsRep, err := db.Query("SHOW COLUMNS FROM deck_reports LIKE 'report_type'")
+	if err == nil {
+		if rowsRep.Next() {
+			var field, colType, isNull, key, extra string
+			var defVal sql.NullString
+			if err := rowsRep.Scan(&field, &colType, &isNull, &key, &defVal, &extra); err == nil {
+				if strings.HasPrefix(strings.ToLower(colType), "enum") && !strings.Contains(colType, "article") {
+					_, _ = db.Exec("ALTER TABLE deck_reports MODIFY COLUMN report_type VARCHAR(30) NOT NULL DEFAULT 'deck';")
+				}
+			}
+		}
+		rowsRep.Close()
+	}
 }
 
 func md5Sum(text string) [16]byte {

@@ -20,7 +20,7 @@
 <!-- ★ JSON定義用タグを配置（エディタの構文エラーを回避） -->
 <script id="template-edit-init-data" type="application/json">
 {
-    "initialDesc": {{ .initialDescJSON }},
+    "initialArticle": {{ .initialArticleJSON }},
     "selectedIsOfficial": {{ .selectedIsOfficialJSON }},
     "selectedGoodsId": {{ .selectedGoodsIdJSON }},
     "officialGoods": {{ .officialGoodsJSON }}
@@ -31,7 +31,7 @@
 (function() {
     // ★ JSONから安全に値を取り出す
     const _tmplData = JSON.parse(document.getElementById('template-edit-init-data').textContent);
-    const initialDesc = _tmplData.initialDesc || '';
+    const initialArticle = _tmplData.initialArticle || '';
     let selectedIsOfficial = Number(_tmplData.selectedIsOfficial || 0);
     let selectedGoodsId = _tmplData.selectedGoodsId;
     const officialGoods = _tmplData.officialGoods || [];
@@ -56,7 +56,7 @@
         }
 
         const formatSelect = document.getElementById('save-deck-format');
-        if (formatSelect && !document.getElementById('save-template-desc')) {
+        if (formatSelect && !document.getElementById('official-goods-select-row')) {
             const formatGroup = formatSelect.closest('div');
             
             const officialGroup = document.createElement('div');
@@ -77,14 +77,13 @@
                 </div>
             `;
             formatGroup.parentNode.insertBefore(officialGroup, formatGroup.nextSibling);
+        }
 
-            const descGroup = document.createElement('div');
-            descGroup.style.marginTop = '10px';
-            descGroup.innerHTML = `
-                <label style="font-weight: bold; font-size: 13px; display: block; margin-bottom: 6px; color: #444;">テンプレート説明</label>
-                <textarea id="save-template-desc" placeholder="デッキの特徴や使い方などを記入" style="width: 100%; height: 60px; padding: 8px; border: 1px solid #d1d1d6; border-radius: 8px; box-sizing: border-box; font-size: 13px;">${escapeHTML(initialDesc)}</textarea>
-            `;
-            officialGroup.parentNode.insertBefore(descGroup, officialGroup.nextSibling);
+        if (typeof setArticleEditorValue === 'function' && initialArticle) {
+            setArticleEditorValue(initialArticle);
+        } else {
+            const articleInput = document.getElementById('deck-article-input');
+            if (articleInput && initialArticle) articleInput.value = initialArticle;
         }
 
         const publicToggle = document.getElementById('save-deck-public');
@@ -161,7 +160,7 @@
         const name = document.getElementById('save-deck-name').value.trim();
         const formatId = document.getElementById('save-deck-format').value;
         const thumbnailCardId = document.getElementById('save-deck-thumbnail-id').value;
-        const desc = (document.getElementById('save-template-desc') || {}).value || '';
+        const article = (document.getElementById('deck-article-input') || {}).value || '';
 
         if (!name) return alert("テンプレート名を入力してください。");
         if (!formatId) return alert("フォーマットを選択してください。");
@@ -207,7 +206,7 @@
             body: JSON.stringify({
                 deck_id: typeof deckId !== 'undefined' ? deckId : null,
                 deck_name: name,
-                description: desc,
+                article: article,
                 format_id: parseInt(formatId, 10),
                 thumbnail_card_id: thumbnailCardId ? parseInt(thumbnailCardId, 10) : null,
                 is_official: selectedIsOfficial,

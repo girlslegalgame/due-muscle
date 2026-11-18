@@ -1,4 +1,5 @@
 <!-- app/Views/deck/share.html -->
+<script src="/js/deck_article.js"></script>
 <style>
     /* deck_detail_modal をモーダルではなく、ページ埋め込みレイアウトとして展開 */
     #deckModal {
@@ -29,6 +30,25 @@
         overflow-y: visible !important;
         padding: 10px 0 !important;
     }
+    .btn-like-deck {
+        background: #fff;
+        color: #e83e8c;
+        border: 1.5px solid #e83e8c;
+        height: 38px;
+        font-size: 0.85rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+    }
+    .btn-like-deck.liked {
+        background: #e83e8c;
+        color: #fff;
+        border-color: #e83e8c;
+    }
+    .btn-like-deck.is-disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
 </style>
 
 <div class="container">
@@ -43,7 +63,26 @@
                     <span>更新日: {{.deck.formatted_at}}</span>
                 </div>
             </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <button type="button" id="btn-like-deck"
+                        class="create-btn btn-like-deck {{if .isLiked}}liked{{end}} {{if .isOwner}}is-disabled{{end}}"
+                        onclick="likeDeck(SHARE_DECK_ID)">
+                    {{if .isLiked}}
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                            <path d="M2 21h4V9H2v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+                        </svg>
+                        <span>高評価済み</span>
+                    {{else}}
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                        </svg>
+                        <span>高評価</span>
+                    {{end}}
+                    (<span id="share-likes-count">{{.likesCount}}</span>)
+                </button>
+                {{if .isOwner}}
+                <a href="/decks/edit?deck_id={{.deck.deck_id}}&tab=article" class="create-btn" style="background: #28a745; height: 38px; font-size: 0.85rem; display: inline-flex; align-items: center; text-decoration: none;">記事を編集</a>
+                {{end}}
                 <button type="button" class="create-btn" style="background: #17a2b8; height: 38px; font-size: 0.85rem;" onclick="copyShareUrl()">URLをコピー</button>
                 <button type="button" class="create-btn" style="background: #ffc107; color: #212529; height: 38px; font-size: 0.85rem;" onclick="copyDeck(SHARE_DECK_ID)">デッキを複製</button>
             </div>
@@ -52,6 +91,31 @@
 
     <!-- deck_detail_modal.html をインクルード -->
     {{template "deck_detail_modal.html" .}}
+
+    <!-- デッキ解説・記事セクション -->
+    <div id="deck-article-section" style="background: #fff; padding: 24px; border-radius: 12px; border: 1px solid #ddd; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+            <h3 style="margin: 0; font-size: 1.25rem; color: #1a202c;">デッキ解説</h3>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                {{if .isOwner}}
+                <a href="/decks/edit?deck_id={{.deck.deck_id}}&tab=article" style="padding: 6px 14px; background: #28a745; color: #fff; border-radius: 6px; font-size: 0.85rem; font-weight: bold; text-decoration: none;">記事を作成・編集する</a>
+                {{else if .article}}
+                <button type="button" onclick="openArticleReportModal()" style="padding: 6px 12px; background: #fff5f5; color: #e53e3e; border: 1px solid #feb2b2; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;">⚠ 記事を通報する</button>
+                {{end}}
+            </div>
+        </div>
+        <div id="share-article-content">
+            {{if not .article}}
+                <p style="color: #888; text-align: center; padding: 20px 0; margin: 0;">
+                    {{if .isOwner}}
+                        まだ記事が作成されていません。「記事を作成・編集する」からデッキの回し方や採用カードの解説を書けます。
+                    {{else}}
+                        このデッキにはまだ解説記事が投稿されていません。
+                    {{end}}
+                </p>
+            {{end}}
+        </div>
+    </div>
 
     <!-- デッキ共有ページ 機能ガイド（SEO・クローラー向け解説補足） -->
     <div style="background: #fff; padding: 24px; border-radius: 8px; border: 1px solid #ddd; margin-top: 20px; line-height: 1.8; color: #444;">
@@ -73,13 +137,125 @@
 </div>
 <!-- card_detail_modal.html をインクルード -->
 {{template "card_detail_modal.html" .}}
+<!-- 記事通報モーダル -->
+<div id="articleReportModal" class="sub-modal" style="display: none;">
+    <div class="sub-modal-content" style="max-width: 480px; width: 92%; background: #fff; border-radius: 12px; overflow: hidden;">
+        <div class="sub-modal-header" style="background: #1a202c; color: #fff; padding: 14px 18px; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-weight: bold;">記事の通報</span>
+            <span style="cursor:pointer; font-size: 1.4rem;" onclick="closeArticleReportModal()">&times;</span>
+        </div>
+        <div class="sub-modal-body" style="padding: 20px;">
+            <p style="margin-top: 0; font-size: 0.9rem; color: #444;">不快な表現、誹謗中傷、スパムなど利用規約に違反する内容が含まれている場合は理由をご記入ください。</p>
+            <label style="font-size: 0.85rem; font-weight: bold; color: #555; display: block; margin-bottom: 6px;">通報理由 (必須)</label>
+            <textarea id="article_report_reason" rows="4" style="width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #ccc; border-radius: 4px;" placeholder="不快な内容・規約違反の詳細を入力してください"></textarea>
+            <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
+                <button type="button" onclick="closeArticleReportModal()" style="padding: 8px 16px; background: #e2e8f0; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">キャンセル</button>
+                <button type="button" onclick="submitArticleReport()" style="padding: 8px 16px; background: #dc3545; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">送信する</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="share-data-bridge"
+     data-deck-id="{{.deck.deck_id}}"
+     data-deck-name="{{.deck.deck_name}}"
+     data-is-logged-in="{{if .isLoggedIn}}1{{else}}0{{end}}"
+     data-is-owner="{{if .isOwner}}1{{else}}0{{end}}"
+     data-is-liked="{{if .isLiked}}1{{else}}0{{end}}"
+     style="display: none;"></div>
+<script id="share-article-raw" type="application/json">{{.article}}</script>
+
 <div id="share-data-bridge" data-deck-id="{{.deck.deck_id}}" data-deck-name="{{.deck.deck_name}}" style="display: none;"></div>
 
 
 <script>
 const SHARE_DECK_ID = Number("{{.deck.deck_id}}");
 const SHARE_DECK_NAME = "{{.deck.deck_name}}";
+const _shareBridge = document.getElementById('share-data-bridge');
+const SHARE_IS_LOGGED_IN = _shareBridge ? (_shareBridge.dataset.isLoggedIn === '1') : false;
+const SHARE_IS_OWNER = _shareBridge ? (_shareBridge.dataset.isOwner === '1') : false;
+let SHARE_IS_LIKED = _shareBridge ? (_shareBridge.dataset.isLiked === '1') : false;
 
+function likeDeck(deckId) {
+    if (!SHARE_IS_LOGGED_IN) {
+        window.location.href = '/login';
+        return;
+    }
+    if (SHARE_IS_OWNER) {
+        return;
+    }
+
+    const btn = document.getElementById('btn-like-deck');
+    if (btn) btn.disabled = true;
+
+    fetch('/api/decks/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: deckId })
+    })
+    .then(res => res.json().then(data => ({ ok: res.ok, data })))
+    .then(({ ok, data }) => {
+        if (!ok || !data.success || !btn) return;
+        SHARE_IS_LIKED = !!data.liked;
+        btn.classList.toggle('liked', SHARE_IS_LIKED);
+        if (SHARE_IS_LIKED) {
+            btn.innerHTML = `
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M2 21h4V9H2v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+                </svg>
+                <span>高評価済み</span> (<span id="share-likes-count">${data.likes_count}</span>)
+            `;
+        } else {
+            btn.innerHTML = `
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                </svg>
+                <span>高評価</span> (<span id="share-likes-count">${data.likes_count}</span>)
+            `;
+        }
+    })
+    .catch(() => {})
+    .finally(() => {
+        if (btn) btn.disabled = false;
+    });
+}
+
+function openArticleReportModal() {
+    if (!SHARE_IS_LOGGED_IN) {
+        alert('通報機能を利用するにはログインが必要です。');
+        window.location.href = '/login';
+        return;
+    }
+    document.getElementById('article_report_reason').value = '';
+    document.getElementById('articleReportModal').style.display = 'flex';
+}
+
+function closeArticleReportModal() {
+    document.getElementById('articleReportModal').style.display = 'none';
+}
+
+function submitArticleReport() {
+    const reason = document.getElementById('article_report_reason').value.trim();
+    if (!reason) {
+        alert('通報理由を入力してください。');
+        return;
+    }
+    fetch('/api/decks/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deck_id: SHARE_DECK_ID, report_type: 'article', reason: reason })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('記事の通報を受け付けました。ご協力ありがとうございます。');
+            closeArticleReportModal();
+        } else {
+            alert(data.error || '送信に失敗しました。');
+        }
+    })
+    .catch(() => alert('通信エラーが発生しました。'));
+}
 // URLコピー処理
 function copyShareUrl() {
     const url = window.location.origin + '/decks/share?deck_id=' + SHARE_DECK_ID;
@@ -134,5 +310,27 @@ function copyDeck(deckId) {
 // 読み込み完了時に deck_detail_modal 内の openDeckModal を自動実行
 document.addEventListener('DOMContentLoaded', () => {
     openDeckModal(SHARE_DECK_ID, SHARE_DECK_NAME);
+
+    const rawArticleTag = document.getElementById('share-article-raw');
+    if (rawArticleTag && rawArticleTag.textContent) {
+        try {
+            const rawText = JSON.parse(rawArticleTag.textContent);
+            if (rawText && String(rawText).trim() !== '') {
+                const container = document.getElementById('share-article-content');
+                if (container && typeof DeckArticle !== 'undefined') {
+                    container.innerHTML = DeckArticle.render(rawText);
+                }
+            }
+        } catch (e) {}
+    }
+
+    if (window.location.hash === '#deck-article-section') {
+        const scrollToArticle = () => {
+            const el = document.getElementById('deck-article-section');
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+        setTimeout(scrollToArticle, 150);
+        setTimeout(scrollToArticle, 600);
+    }
 });
 </script>

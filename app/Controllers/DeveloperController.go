@@ -87,7 +87,7 @@ func (c *DeveloperController) TemplateCreate(w http.ResponseWriter, r *http.Requ
 		"deckConfigJSON":        template.JS("{}"),
 		"initialDeckNameJSON":   template.JS(`""`),
 		"initialCardsJSON":      template.JS("[]"),
-		"initialDescJSON":       template.JS(`""`),
+		"initialArticleJSON":    template.JS(`""`),
 		"selectedIsOfficialJSON": template.JS("0"),
 		"selectedGoodsIdJSON":   template.JS("null"),
 	})
@@ -182,7 +182,7 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 	formatsJSON, _ := json.Marshal(formats)
 	officialGoodsJSON, _ := json.Marshal(officialGoods)
 	initialCardsJSON, _ := json.Marshal(cards)
-	descJSON, _ := json.Marshal(tpl["description"])
+	articleJSON, _ := json.Marshal(tpl["article"])
 	deckNameJSON, _ := json.Marshal(tpl["template_name"])
 	deckConfigJSON, _ := json.Marshal(tpl)
 
@@ -209,7 +209,7 @@ func (c *DeveloperController) TemplateEdit(w http.ResponseWriter, r *http.Reques
 		"deckConfigJSON":        template.JS(deckConfigJSON), // ★ この行を追加
 		"initialDeckNameJSON":   template.JS(deckNameJSON),
 		"initialCardsJSON":      template.JS(initialCardsJSON),
-		"initialDescJSON":       template.JS(descJSON),
+		"initialArticleJSON":    template.JS(articleJSON),
 		"selectedIsOfficialJSON": template.JS(strconv.Itoa(isOfficial)),
 		"selectedGoodsIdJSON":   template.JS(goodsIDJSON),
 	})
@@ -299,13 +299,15 @@ func (c *DeveloperController) SaveMasterDataApi(w http.ResponseWriter, r *http.R
 }
 
 func (c *DeveloperController) GetTemplatesApi(w http.ResponseWriter, r *http.Request) {
-	if _, ok := c.checkAuth(w, r); !ok {
-		return
+	if strings.HasPrefix(r.URL.Path, "/api/developer") {
+		if _, ok := c.checkAuth(w, r); !ok {
+			return
+		}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	db := getDB()
-	sqlStr := `SELECT dt.*, f.format_name, g.goods_name, cd.imagepath as thumbnail_imagepath,
-               (
+	c.ensureTemplateColumnsExist(db)
+	sqlStr := `SELECT dt.*, f.format_name, g.goods_name, cd.imagepath as thumbnail_imagepath,               (
                    SELECT GROUP_CONCAT(DISTINCT cc.civilization_id)
                    FROM deck_template_cards dtc
                    LEFT JOIN card_civilization cc ON dtc.card_id = cc.card_id
@@ -344,9 +346,9 @@ func (c *DeveloperController) SaveTemplateApi(w http.ResponseWriter, r *http.Req
 	json.NewDecoder(r.Body).Decode(&in)
 
 	name := strings.TrimSpace(fmt.Sprintf("%v", in["deck_name"]))
-	desc := strings.TrimSpace(fmt.Sprintf("%v", in["description"]))
-	if desc == "<nil>" {
-		desc = ""
+	article := fmt.Sprintf("%v", in["article"])
+	if article == "<nil>" {
+		article = ""
 	}
 	formatId, _ := strconv.Atoi(fmt.Sprintf("%v", in["format_id"]))
 	if formatId == 0 {
@@ -382,18 +384,18 @@ func (c *DeveloperController) SaveTemplateApi(w http.ResponseWriter, r *http.Req
 
 	if templateId > 0 {
 		_, err = tx.Exec(`UPDATE deck_templates 
-                          SET template_name = ?, description = ?, format_id = ?, thumbnail_card_id = ?, is_official = ?, goods_id = ?, updated_at = NOW() 
+                          SET template_name = ?, article = ?, format_id = ?, thumbnail_card_id = ?, is_official = ?, goods_id = ?, updated_at = NOW() 
                           WHERE template_id = ?`,
-			name, desc, formatId, thumbId, isOfficial, goodsId, templateId)
+			name, article, formatId, thumbId, isOfficial, goodsId, templateId)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 			return
 		}
 		tx.Exec("DELETE FROM deck_template_cards WHERE template_id = ?", templateId)
 	} else {
-		res, err := tx.Exec(`INSERT INTO deck_templates (template_name, description, format_id, thumbnail_card_id, is_official, goods_id, created_at, updated_at) 
+		res, err := tx.Exec(`INSERT INTO deck_templates (template_name, article, format_id, thumbnail_card_id, is_official, goods_id, created_at, updated_at) 
                              VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-			name, desc, formatId, thumbId, isOfficial, goodsId)
+			name, article, formatId, thumbId, isOfficial, goodsId)
 		if err != nil {
 			json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
 			return
@@ -601,6 +603,17 @@ func (c *DeveloperController) ensureTemplateColumnsExist(db *sql.DB) {
 		rowsG.Close()
 		if !hasGoods {
 			db.Exec("ALTER TABLE deck_templates ADD COLUMN goods_id INT NULL AFTER is_official;")
+		}
+	}
+
+	// article 列の確認・追加 / description の NULL 許容化
+	rowsA, err := db.Query("SHOW COLUMNS FROM deck_templates LIKE 'article'")
+	if err == nil {
+		hasArt := rowsA.Next()
+		rowsA.Close()
+		if !hasArt {
+			db.Exec("ALTER TABLE deck_templates ADD COLUMN article MEDIUMTEXT NULL;")
+			db.Exec("ALTER TABLE deck_templates MODIFY description TEXT NULL;")
 		}
 	}
 

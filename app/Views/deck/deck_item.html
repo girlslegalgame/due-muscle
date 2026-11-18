@@ -60,6 +60,36 @@
         {{else}}
             <a href="/decks/share?deck_id={{ $deckId }}" style="color: #007bff; font-weight: bold; text-decoration: underline; font-size: 0.85rem;">詳細ページ</a>
         {{end}}
+        {{ $likesCount := or .Deck.LikesCount .Deck.likes_count 0 }}
+        {{ $isLiked := or .Deck.IsLiked .Deck.is_liked }}
+        {{ $isOwner := or .Deck.IsOwner .Deck.is_owner }}
+        {{if or (eq .Context "index") $isOwner}}
+            <span title="高評価数" style="color: #e83e8c; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 3px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M2 21h4V9H2v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+                </svg>
+                <span>{{$likesCount}}</span>
+            </span>
+        {{else}}
+            <button type="button"
+                    class="btn-deck-like"
+                    data-deck-id="{{ $deckId }}"
+                    data-liked="{{if $isLiked}}1{{else}}0{{end}}"
+                    onclick="event.stopPropagation(); toggleDeckLike(event, this)"
+                    title="高評価 / 解除"
+                    style="background: transparent; border: none; padding: 2px 6px; border-radius: 12px; cursor: pointer; color: #e83e8c; font-weight: bold; font-size: 0.8rem; display: inline-flex; align-items: center; gap: 3px;">
+                {{if $isLiked}}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                        <path d="M2 21h4V9H2v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/>
+                    </svg>
+                {{else}}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+                    </svg>
+                {{end}}
+                <span class="deck-like-count">{{$likesCount}}</span>
+            </button>
+        {{end}}
         <span>{{ or .Deck.formatted_at .FormattedAt }}</span>
-    </div>  
+    </div>
 </div>
