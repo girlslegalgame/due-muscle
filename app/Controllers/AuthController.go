@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"crypto/subtle"
@@ -13,11 +14,15 @@ import (
 	"io"
 	"log"
 	"math/rand"
+	"net"
 	"net/http"
+	"net/mail"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	models "deck-maker/app/Models"
@@ -31,8 +36,56 @@ type AuthController struct {
 }
 
 func NewAuthController(db *sql.DB) *AuthController {
+	if db != nil {
+		ensureUserDeviceColumns(db)
+	}
 	return &AuthController{
 		db: db,
+	}
+}
+
+var (
+	userDeviceColsMu      sync.Mutex
+	userDeviceColsChecked bool
+)
+
+func ensureUserDeviceColumns(db *sql.DB) {
+	userDeviceColsMu.Lock()
+	defer userDeviceColsMu.Unlock()
+	if userDeviceColsChecked || db == nil {
+		return
+	}
+
+	checkAndExec := func(queryCheck, queryAlter string) bool {
+		var cnt int
+		if err := db.QueryRow(queryCheck).Scan(&cnt); err != nil {
+			log.Printf("カラム確認エラー: %v", err)
+			return false
+		}
+		if cnt == 0 {
+			if _, err := db.Exec(queryAlter); err != nil {
+				log.Printf("ALTER TABLE エラー: %v", err)
+				return false
+			}
+		}
+		return true
+	}
+
+	ok1 := checkAndExec(
+		"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'registered_ip'",
+		"ALTER TABLE users ADD COLUMN registered_ip VARCHAR(45) NULL",
+	)
+	ok2 := checkAndExec(
+		"SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND COLUMN_NAME = 'device_fingerprint'",
+		"ALTER TABLE users ADD COLUMN device_fingerprint VARCHAR(64) NULL",
+	)
+	ok3 := checkAndExec(
+		"SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'users' AND INDEX_NAME = 'idx_ip_fp_created'",
+		"ALTER TABLE users ADD INDEX idx_ip_fp_created (registered_ip, device_fingerprint, created_at)",
+	)
+
+	if ok1 && ok2 && ok3 {
+		userDeviceColsChecked = true
 	}
 }
 
@@ -42,7 +95,22 @@ func (c *AuthController) ShowRegisterForm(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/mydecks", http.StatusFound)
 		return
 	}
-	views.RenderView(w, r, "auth/register.html", map[string]interface{}{"errors": errors})
+
+	var sessionError string
+	if errMsg, ok := session["error"].(string); ok && errMsg != "" {
+		sessionError = errMsg
+		delete(session, "error")
+		views.SaveSession(w, session)
+	} else if cookie, err := r.Cookie("device_has_registered"); err == nil && cookie.Value == "1" {
+		sessionError = "この端末では既にアカウントが作成されています。1端末につき作成できるアカウントは1つまでです。"
+	}
+
+	views.RenderView(w, r, "auth/register.html", map[string]interface{}{
+		"SessionError":     sessionError,
+		"Errors":           errors,
+		"errors":           errors,
+		"TurnstileSiteKey": os.Getenv("TURNSTILE_SITE_KEY"),
+	})
 }
 
 func (c *AuthController) ShowLoginForm(w http.ResponseWriter, r *http.Request, errors []string) {
@@ -240,7 +308,11 @@ func (c *AuthController) ShowLoginVerifyForm(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	views.RenderView(w, r, "auth/verify.html", map[string]interface{}{"action_url": "/login/verify"})
+	views.RenderView(w, r, "auth/verify.html", map[string]interface{}{
+		"action_url": "/login/verify",
+		"ActionURL":  "/login/verify",
+		"IsLogin":    true,
+	})
 }
 
 /**
@@ -367,6 +439,86 @@ func (c *AuthController) Logout(w http.ResponseWriter, r *http.Request) {
 }
 
 var loginIDRegex = regexp.MustCompile(`^[a-zA-Z0-9_]{5,15}$`)
+var emailFormatRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+
+func isValidRealEmail(email string) bool {
+	if len(email) > 254 {
+		return false
+	}
+	addr, err := mail.ParseAddress(email)
+	if err != nil || addr.Address != email {
+		return false
+	}
+	if !emailFormatRegex.MatchString(email) {
+		return false
+	}
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return false
+	}
+	domain := parts[1]
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	// MXレコードの確認（メール受信可能な実在ドメインか）
+	if mxRecords, err := net.DefaultResolver.LookupMX(ctx, domain); err == nil && len(mxRecords) > 0 {
+		return true
+	}
+	// フォールバックとしてA/AAAAレコードを確認
+	ips, err := net.DefaultResolver.LookupIPAddr(ctx, domain)
+	return err == nil && len(ips) > 0
+}
+
+func getClientIP(r *http.Request) string {
+	if cfIP := strings.TrimSpace(r.Header.Get("CF-Connecting-IP")); cfIP != "" {
+		return cfIP
+	}
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		parts := strings.Split(xff, ",")
+		if ip := strings.TrimSpace(parts[0]); ip != "" {
+			return ip
+		}
+	}
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
+}
+
+func verifyTurnstile(token, remoteIP string) bool {
+	secretKey := os.Getenv("TURNSTILE_SECRET_KEY")
+	if secretKey == "" {
+		// ローカル環境でキー未設定時のみスキップ（本番では必ず設定）
+		return os.Getenv("RAILWAY_ENVIRONMENT") == ""
+	}
+	if token == "" {
+		return false
+	}
+
+	form := url.Values{}
+	form.Set("secret", secretKey)
+	form.Set("response", token)
+	if remoteIP != "" {
+		form.Set("remoteip", remoteIP)
+	}
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.PostForm("https://challenges.cloudflare.com/turnstile/v0/siteverify", form)
+	if err != nil {
+		log.Printf("Turnstile API Error: %v", err)
+		return false
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return false
+	}
+	return result.Success
+}
 
 func (c *AuthController) SendVerificationCode(w http.ResponseWriter, r *http.Request) {
 	session := views.GetSession(r)
@@ -380,6 +532,19 @@ func (c *AuthController) SendVerificationCode(w http.ResponseWriter, r *http.Req
 	}
 
 	_ = r.ParseForm()
+	clientIP := getClientIP(r)
+	turnstileToken := r.FormValue("cf-turnstile-response")
+	if !verifyTurnstile(turnstileToken, clientIP) {
+		session["error"] = "ロボット対策の認証に失敗しました。ページを再読み込みしてもう一度お試しください。"
+		views.SaveSession(w, session)
+		http.Redirect(w, r, "/register", http.StatusFound)
+		return
+	}
+
+	deviceFingerprint := strings.TrimSpace(r.FormValue("device_fingerprint"))
+	if len(deviceFingerprint) > 64 {
+		deviceFingerprint = deviceFingerprint[:64]
+	}
 	loginID := strings.TrimSpace(r.FormValue("login_id"))
 	username := strings.TrimSpace(r.FormValue("username"))
 	email := strings.TrimSpace(r.FormValue("email"))
@@ -410,11 +575,36 @@ func (c *AuthController) SendVerificationCode(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if email != "" && !isValidRealEmail(email) {
+		session["error"] = "有効で実在するメールアドレスを入力してください。"
+		views.SaveSession(w, session)
+		http.Redirect(w, r, "/register", http.StatusFound)
+		return
+	}
+
 	db, err := models.DatabaseConnect()
 	if err != nil {
 		log.Printf("DB接続エラー: %v", err)
 		return
 	}
+	ensureUserDeviceColumns(db)
+
+	// 同一IP かつ 同一端末フィンガープリントでの連続作成チェック（7日以内）
+		if deviceFingerprint != "" {
+			var recentCount int
+			err = db.QueryRow(`
+				SELECT COUNT(*) FROM users
+				WHERE registered_ip = ?
+				AND device_fingerprint = ?
+				AND created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+			`, clientIP, deviceFingerprint).Scan(&recentCount)
+			if err == nil && recentCount > 0 {
+				session["error"] = "この端末では短時間に複数のアカウントを作成できません。"
+				views.SaveSession(w, session)
+				http.Redirect(w, r, "/register", http.StatusFound)
+				return
+			}
+		}
 
 	// ユーザーID重複チェック
 	var exists int
@@ -440,11 +630,10 @@ func (c *AuthController) SendVerificationCode(w http.ResponseWriter, r *http.Req
 	hashedBytes, _ := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	passwordHash := string(hashedBytes)
 
-	// メール認証を行わない場合（メール未入力、二段階認証OFF、またはローカル環境）は即時本登録
-	isLocal := os.Getenv("RAILWAY_ENVIRONMENT") == ""
-	if email == "" || !twoFactor || isLocal {
-		res, err := db.Exec("INSERT INTO users (login_id, username, email, password_hash, two_factor_enabled, created_at, updated_at) VALUES (?, ?, NULLIF(?, ''), ?, ?, NOW(), NOW())",
-			loginID, username, email, passwordHash, twoFactor)
+	// メール認証を行わない場合（メール未入力のみ）は即時本登録
+	if email == "" {
+		res, err := db.Exec("INSERT INTO users (login_id, username, email, password_hash, two_factor_enabled, registered_ip, device_fingerprint, created_at, updated_at) VALUES (?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NOW(), NOW())",
+			loginID, username, email, passwordHash, twoFactor, clientIP, deviceFingerprint)
 		if err != nil {
 			session["error"] = "登録に失敗しました: " + err.Error()
 			views.SaveSession(w, session)
@@ -469,9 +658,18 @@ func (c *AuthController) SendVerificationCode(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	// メール認証が必要な場合（メールあり かつ 二段階認証ON）
+	// メールアドレス入力時は二段階認証設定に関わらずワンタイムパスワード認証を強制
 	code := fmt.Sprintf("%06d", rand.Intn(1000000))
 	expiresAt := time.Now().Unix() + 600
+
+	isLocal := os.Getenv("RAILWAY_ENVIRONMENT") == ""
+	emailSent := c.sendEmail(email, "【デュエ筋】アカウント新規作成 認証コード", fmt.Sprintf("<p>認証コード: <h2>%s</h2> (有効期限: 10分)</p>", code))
+	if !emailSent && !isLocal {
+		session["error"] = "認証メールの送信に失敗しました。メールアドレスが正しいかご確認ください。"
+		views.SaveSession(w, session)
+		http.Redirect(w, r, "/register", http.StatusFound)
+		return
+	}
 
 	session["temp_register"] = map[string]interface{}{
 		"login_id":           loginID,
@@ -479,11 +677,15 @@ func (c *AuthController) SendVerificationCode(w http.ResponseWriter, r *http.Req
 		"email":              email,
 		"password_hash":      passwordHash,
 		"two_factor_enabled": twoFactor,
+		"registered_ip":      clientIP,
+		"device_fingerprint": deviceFingerprint,
 		"code":               code,
 		"expires_at":         expiresAt,
 	}
+	if isLocal {
+		session["verification_code"] = code
+	}
 
-	c.sendEmail(email, "【デュエ筋】アカウント新規作成 認証コード", fmt.Sprintf("認証コード: %s (有効期限10分)", code))
 	views.SaveSession(w, session)
 	http.Redirect(w, r, "/register/verify", http.StatusFound)
 }
@@ -500,7 +702,11 @@ func (c *AuthController) ShowVerifyForm(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	views.RenderView(w, r, "auth/verify.html", map[string]interface{}{"action_url": "/register/verify"})
+	views.RenderView(w, r, "auth/verify.html", map[string]interface{}{
+		"action_url": "/register/verify",
+		"ActionURL":  "/register/verify",
+		"IsLogin":    false,
+	})
 }
 
 /**
@@ -525,7 +731,16 @@ func (c *AuthController) VerifyRegister(w http.ResponseWriter, r *http.Request) 
 	}
 
 	tempUser := tempUserRaw.(map[string]interface{})
-	expiresAt := tempUser["expires_at"].(int64)
+
+	var expiresAt int64
+	switch v := tempUser["expires_at"].(type) {
+	case float64:
+		expiresAt = int64(v)
+	case int64:
+		expiresAt = v
+	default:
+		expiresAt = 0
+	}
 
 	// 有効期限検証
 	if time.Now().Unix() > expiresAt {
@@ -558,11 +773,14 @@ func (c *AuthController) VerifyRegister(w http.ResponseWriter, r *http.Request) 
 		log.Printf("DB接続エラー: %v", err)
 		return
 	}
+	ensureUserDeviceColumns(db)
 
 	loginIDStr, _ := tempUser["login_id"].(string)
 	emailStr, _ := tempUser["email"].(string)
 	twoFactorVal, _ := tempUser["two_factor_enabled"].(bool)
 	pwdHash, _ := tempUser["password_hash"].(string)
+	regIP, _ := tempUser["registered_ip"].(string)
+	deviceFP, _ := tempUser["device_fingerprint"].(string)
 
 	var existingUserId int
 	err = db.QueryRow("SELECT user_id FROM users WHERE login_id = ? OR (? != '' AND email = ?)", 
@@ -575,8 +793,8 @@ func (c *AuthController) VerifyRegister(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	res, err := db.Exec("INSERT INTO users (login_id, username, email, password_hash, two_factor_enabled, created_at, updated_at) VALUES (?, ?, NULLIF(?, ''), ?, ?, NOW(), NOW())",
-		loginIDStr, tempUser["username"].(string), emailStr, pwdHash, twoFactorVal)
+	res, err := db.Exec("INSERT INTO users (login_id, username, email, password_hash, two_factor_enabled, registered_ip, device_fingerprint, created_at, updated_at) VALUES (?, ?, NULLIF(?, ''), ?, ?, ?, NULLIF(?, ''), NOW(), NOW())",
+		loginIDStr, tempUser["username"].(string), emailStr, pwdHash, twoFactorVal, regIP, deviceFP)
 	if err != nil {
 		panic(err)
 	}
@@ -594,6 +812,7 @@ func (c *AuthController) VerifyRegister(w http.ResponseWriter, r *http.Request) 
 	})
 
 	delete(session, "temp_register") // 一時データの消去
+	delete(session, "verification_code")
 
 	session["success"] = "アカウント登録が完了しました！"
 	views.SaveSession(w, session)
@@ -672,6 +891,13 @@ func (c *AuthController) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	twoFactor := r.FormValue("two_factor") == "1"
 	if email == "" {
 		twoFactor = false
+	}
+
+	if email != "" && !isValidRealEmail(email) {
+		session["error"] = "有効で実在するメールアドレスを入力してください。"
+		views.SaveSession(w, session)
+		http.Redirect(w, r, "/account", http.StatusFound)
+		return
 	}
 
 	defer func() {

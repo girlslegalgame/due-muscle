@@ -163,6 +163,13 @@
             <label for="password_confirm">パスワード確認</label>
             <input type="password" id="password_confirm" name="password_confirm" placeholder="パスワードを再入力してください" required>
         </div>
+
+        <input type="hidden" name="device_fingerprint" id="device_fingerprint">
+        {{if .TurnstileSiteKey}}
+            <div class="form-group" style="display: flex; justify-content: center;">
+                <div class="cf-turnstile" data-sitekey="{{.TurnstileSiteKey}}"></div>
+            </div>
+        {{end}}
         
         <button type="submit" class="btn-submit">登録</button>
     </form>
@@ -171,3 +178,67 @@
         <p>既にアカウントをお持ちですか？ <br><a href="/login">ログインはこちら</a></p>
     </div>
 </div>
+
+{{if .TurnstileSiteKey}}
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+{{end}}
+<script>
+(function() {
+    function getCanvasSignal() {
+        try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('dm-deck-fp', 2, 15);
+            return canvas.toDataURL();
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function fallbackHash(str) {
+        let h1 = 0x811c9dc5, h2 = 0x811c9dc5;
+        for (let i = 0; i < str.length; i++) {
+            h1 ^= str.charCodeAt(i);
+            h1 = Math.imul(h1, 0x01000193);
+            h2 ^= str.charCodeAt(str.length - 1 - i);
+            h2 = Math.imul(h2, 0x01000193);
+        }
+        return ('00000000' + (h1 >>> 0).toString(16)).slice(-8) +
+               ('00000000' + (h2 >>> 0).toString(16)).slice(-8);
+    }
+
+    async function computeFingerprint() {
+        const raw = [
+            navigator.userAgent || '',
+            navigator.language || '',
+            screen.width + 'x' + screen.height + 'x' + screen.colorDepth,
+            Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+            navigator.hardwareConcurrency || '',
+            navigator.platform || '',
+            getCanvasSignal()
+        ].join('|');
+
+        if (window.crypto && window.crypto.subtle) {
+            try {
+                const buf = new TextEncoder().encode(raw);
+                const hash = await crypto.subtle.digest('SHA-256', buf);
+                return Array.from(new Uint8Array(hash))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+            } catch (e) {}
+        }
+        return fallbackHash(raw);
+    }
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const fpInput = document.getElementById('device_fingerprint');
+        if (!fpInput) return;
+        fpInput.value = await computeFingerprint();
+    });
+})();
+</script>
