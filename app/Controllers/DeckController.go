@@ -1851,6 +1851,8 @@ func getVersionKeywords(db *sql.DB, cardId int) string {
 /**
  * 楽天市場APIを用いたデッキ価格査定API
  */
+var cachedYahooDMBrandID string
+
 func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 
@@ -2092,6 +2094,65 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		return strings.Contains(folded, "デュエマ") || strings.Contains(compact, "デュエルマスターズ")
 	}
 
+	// ★ 追加: 商品のブランド名からデュエル・マスターズか判定
+	isDuelMastersBrand := func(item map[string]interface{}) bool {
+		if brand, ok := item["brand"].(map[string]interface{}); ok && brand != nil {
+			bName := fmt.Sprintf("%v", brand["name"])
+			if bName != "" && bName != "<nil>" {
+				folded := width.Fold.String(bName)
+				compact := strings.NewReplacer(" ", "", "　", "", "・", "", "･", "", "-", "", "−", "", "―", "").Replace(folded)
+				return compact == "デュエルマスターズ" || compact == "デュエマ"
+			}
+		}
+		return false
+	}
+
+	// ★ 追加: Yahoo!ショッピングの「デュエル・マスターズ」ブランドIDを取得（初回のみAPIから自動取得してキャッシュ）
+	dmBrandId := ""
+	if targetService == "yahoo" && yahooAppId != "" {
+		if cachedYahooDMBrandID != "" {
+			dmBrandId = cachedYahooDMBrandID
+		} else if envBid := os.Getenv("YAHOO_DM_BRAND_ID"); envBid != "" {
+			cachedYahooDMBrandID = strings.TrimSpace(envBid)
+			dmBrandId = cachedYahooDMBrandID
+		} else if envBid := getEnvWithFallback("YAHOO_DM_BRAND_ID"); envBid != "" {
+			cachedYahooDMBrandID = strings.TrimSpace(envBid)
+			dmBrandId = cachedYahooDMBrandID
+		} else {
+			brandEndpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&results=30",
+				url.QueryEscape(yahooAppId), url.QueryEscape("デュエル・マスターズ"))
+			client := &http.Client{Timeout: 5 * time.Second}
+			req, _ := http.NewRequest("GET", brandEndpoint, nil)
+			req.Header.Set("User-Agent", "Mozilla/5.0")
+			if resp, err := client.Do(req); err == nil {
+				if resp.StatusCode == 200 {
+					body, _ := io.ReadAll(resp.Body)
+					var resData map[string]interface{}
+					if json.Unmarshal(body, &resData) == nil {
+						if hits, ok := resData["hits"].([]interface{}); ok {
+							for _, hit := range hits {
+								if hMap, ok := hit.(map[string]interface{}); ok && isDuelMastersBrand(hMap) {
+									if brand, ok := hMap["brand"].(map[string]interface{}); ok {
+										if idNum, ok := brand["id"].(float64); ok && idNum > 0 {
+											cachedYahooDMBrandID = strconv.FormatInt(int64(idNum), 10)
+											dmBrandId = cachedYahooDMBrandID
+											break
+										} else if idStr, ok := brand["id"].(string); ok && strings.TrimSpace(idStr) != "" {
+											cachedYahooDMBrandID = strings.TrimSpace(idStr)
+											dmBrandId = cachedYahooDMBrandID
+											break
+										}
+									}
+								}
+							}
+						}
+					}
+				}
+				resp.Body.Close()
+			}
+		}
+	}
+
 	normalize := func(str string) string {
 		s := strings.ReplaceAll(str, "\\", "")
 		s = strings.ReplaceAll(s, "∑", "シグマ")
@@ -2176,7 +2237,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			verKw = getVersionKeywords(db, cardInfo.CardID)
 		}
 
-		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s_dm1", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
+		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s_dm2", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
 
 		// ★ キャッシュクリア指定時は該当キーのキャッシュを事前に削除
 		if forceRefresh {
@@ -2298,6 +2359,43 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			}
 		}
 
+		var brandKeywordsToTry []string
+		appendBrandKeyword := func(kw string) {
+			kw = strings.TrimSpace(kw)
+			if kw == "" {
+				return
+			}
+			for _, existing := range brandKeywordsToTry {
+				if existing == kw {
+					return
+				}
+			}
+			brandKeywordsToTry = append(brandKeywordsToTry, kw)
+		}
+		if extraKw != "" {
+			appendBrandKeyword(safeKw + " " + extraKw)
+			if baseSearchName != safeKw {
+				appendBrandKeyword(baseSearchName + " " + extraKw)
+			}
+		}
+		if versionMode == "exact" && verKw != "" {
+			appendBrandKeyword(safeKw + " " + verKw)
+			if baseSearchName != safeKw {
+				appendBrandKeyword(baseSearchName + " " + verKw)
+			}
+		}
+		if isSpecialFiveSet {
+			appendBrandKeyword(safeKw + " 5枚セット")
+			if baseSearchName != safeKw {
+				appendBrandKeyword(baseSearchName + " 5枚セット")
+			}
+		} else {
+			appendBrandKeyword(safeKw)
+			if baseSearchName != safeKw {
+				appendBrandKeyword(baseSearchName)
+			}
+		}
+
 		normTop := normalize(topName)
 		normBottom := ""
 		if isTwinpact && bottomName != "" {
@@ -2353,13 +2451,16 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			return ret, httpCode
 		}
 
-		fetchYahooItems := func(kw string) ([]map[string]interface{}, int) {
+		fetchYahooItems := func(kw string, brandId string) ([]map[string]interface{}, int) {
 			if yahooAppId == "" {
 				return nil, 400
 			}
 			endpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&sort=%%2Bprice&results=20",
 				url.QueryEscape(yahooAppId), url.QueryEscape(kw))
 
+			if brandId != "" {
+				endpoint += "&brand_id=" + url.QueryEscape(brandId)
+			}
 			if targetShopCode != "" {
 				endpoint += "&seller_id=" + url.QueryEscape(strings.ToLower(targetShopCode))
 			}
@@ -2368,7 +2469,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			var body []byte
 			httpCode := 0
 
-			// ★ 429(レートリミット)対策として最大2回リトライ
+			// 429(レートリミット)対策として最大2回リトライ
 			for attempt := 0; attempt <= 2; attempt++ {
 				req, _ := http.NewRequest("GET", endpoint, nil)
 				req.Header.Set("User-Agent", "Mozilla/5.0")
@@ -2383,9 +2484,8 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 				body, _ = io.ReadAll(resp.Body)
 				resp.Body.Close()
 
-				// レートリミットの場合は待機して再試行
 				if httpCode == 429 {
-					time.Sleep(time.Duration(1000*(attempt+1)) * time.Millisecond) // 1秒 -> 2秒待機
+					time.Sleep(time.Duration(1000*(attempt+1)) * time.Millisecond)
 					continue
 				}
 				break
@@ -2493,102 +2593,183 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			return matched
 		}
 
+		findBestYahooMatch := func(yItems []map[string]interface{}, requireDM bool) map[string]interface{} {
+			lowest := math.MaxInt64
+			var bestCandidate map[string]interface{} = nil
+
+			for _, item := range yItems {
+				title := fmt.Sprintf("%v", item["name"])
+				if title == "" || title == "<nil>" {
+					continue
+				}
+				if requireDM && !isDuelMastersTitle(title) && !isDuelMastersBrand(item) {
+					continue
+				}
+
+				titleKana := width.Fold.String(title)
+				titleNoSpace := regexp.MustCompile(`\s+`).ReplaceAllString(titleKana, "")
+				if ngTitlePattern.MatchString(titleKana) || ngTitlePattern.MatchString(titleNoSpace) {
+					continue
+				}
+
+				normTitle := normalize(title)
+				if isSpecialFiveSet && !strings.Contains(normTitle, "5枚セット") {
+					continue
+				}
+
+				isMatched := false
+				if !isTwinpact {
+					if strings.Contains(normTitle, normTop) {
+						isMatched = true
+					}
+				} else {
+					if strings.Contains(normTitle, normTop) || (normBottom != "" && strings.Contains(normTitle, normBottom)) {
+						isMatched = true
+					}
+				}
+
+				if isMatched {
+					pVal := 0
+					if pNum, ok := item["price"].(float64); ok {
+						pVal = int(pNum)
+					} else if pStr, ok := item["price"].(string); ok {
+						pVal, _ = strconv.Atoi(pStr)
+					}
+
+					sName := ""
+					sCode := ""
+					if seller, ok := item["seller"].(map[string]interface{}); ok && seller != nil {
+						if n, ok := seller["name"]; ok && n != nil {
+							sName = fmt.Sprintf("%v", n)
+						}
+						if id, ok := seller["sellerId"]; ok && id != nil {
+							sCode = fmt.Sprintf("%v", id)
+						}
+					}
+
+					if targetShopCode != "" && !strings.EqualFold(sCode, targetShopCode) {
+						continue
+					}
+
+					rawItemUrl := fmt.Sprintf("%v", item["url"])
+					affUrl := buildYahooAffiliateUrl(rawItemUrl)
+
+					if pVal > 0 && pVal < lowest {
+						lowest = pVal
+						bestCandidate = map[string]interface{}{
+							"price":        pVal,
+							"itemUrl":      rawItemUrl,
+							"affiliateUrl": affUrl,
+							"itemName":     title,
+							"shopName":     sName,
+							"shopCode":     sCode,
+						}
+					}
+				}
+			}
+			return bestCandidate
+		}
+
 		var matchedItem map[string]interface{} = nil
 		bestKeywordUsed := baseSearchName
 		lastApiHitCount := 0
 		httpCode := 200
 
 		if targetService == "yahoo" {
+			var noBrandMatched map[string]interface{} = nil
+			noBrandKeyword := baseSearchName
+			var brandMatched map[string]interface{} = nil
+			brandKeyword := baseSearchName
+
+			// 1. ブランド指定なしの通常検索
 			for _, kw := range keywordsToTry {
-				yItems, yCode := fetchYahooItems(kw)
+				yItems, yCode := fetchYahooItems(kw, "")
 				lastApiHitCount = len(yItems)
 				httpCode = yCode
-
 				if len(yItems) > 0 {
-					lowest := math.MaxInt64
-					var bestCandidate map[string]interface{} = nil
-
-					for _, item := range yItems {
-						title := fmt.Sprintf("%v", item["name"])
-						if title == "" || title == "<nil>" {
-							continue
-						}
-						// ★ 追加
-						if !isDuelMastersTitle(title) {
-							continue
-						}
-
-						titleKana := width.Fold.String(title)
-						titleNoSpace := regexp.MustCompile(`\s+`).ReplaceAllString(titleKana, "")
-						if ngTitlePattern.MatchString(titleKana) || ngTitlePattern.MatchString(titleNoSpace) {
-							continue
-						}
-
-						normTitle := normalize(title)
-						if isSpecialFiveSet && !strings.Contains(normTitle, "5枚セット") {
-							continue
-						}
-
-						// タイトル一致判定
-						isMatched := false
-						if !isTwinpact {
-							if strings.Contains(normTitle, normTop) {
-								isMatched = true
-							}
-						} else {
-							if strings.Contains(normTitle, normTop) || (normBottom != "" && strings.Contains(normTitle, normBottom)) {
-								isMatched = true
-							}
-						}
-
-						if isMatched {
-							pVal := 0
-							if pNum, ok := item["price"].(float64); ok {
-								pVal = int(pNum)
-							} else if pStr, ok := item["price"].(string); ok {
-								pVal, _ = strconv.Atoi(pStr)
-							}
-
-							// セラー情報の安全な取得
-							sName := ""
-							sCode := ""
-							if seller, ok := item["seller"].(map[string]interface{}); ok {
-								sName = fmt.Sprintf("%v", seller["name"])
-								sCode = fmt.Sprintf("%v", seller["sellerId"])
-							}
-
-							if targetShopCode != "" && !strings.EqualFold(sCode, targetShopCode) {
-								continue
-							}
-
-							rawItemUrl := fmt.Sprintf("%v", item["url"])
-							affUrl := buildYahooAffiliateUrl(rawItemUrl)
-
-							if pVal > 0 && pVal < lowest {
-								lowest = pVal
-								bestCandidate = map[string]interface{}{
-									"price":        pVal,
-									"itemUrl":      fmt.Sprintf("%v", item["url"]),
-									"affiliateUrl": affUrl,
-									"itemName":     title,
-									"shopName":     sName,
-									"shopCode":     sCode,
-								}
-							}
-						}
-					}
-
-					if bestCandidate != nil {
-						matchedItem = bestCandidate
-						bestKeywordUsed = kw
+					if cand := findBestYahooMatch(yItems, true); cand != nil {
+						noBrandMatched = cand
+						noBrandKeyword = kw
 						break
 					}
 				}
-				// キーワード試行間のスリープ
 				time.Sleep(250 * time.Millisecond)
 			}
+			if noBrandMatched == nil && strings.Contains(topName, "・") {
+				fbBase := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
+				for _, fbKw := range []string{"デュエマ " + fbBase, "デュエルマスターズ " + fbBase} {
+					fbItems, fbCode := fetchYahooItems(fbKw, "")
+					lastApiHitCount = len(fbItems)
+					httpCode = fbCode
+					if len(fbItems) > 0 {
+						if cand := findBestYahooMatch(fbItems, true); cand != nil {
+							noBrandMatched = cand
+							noBrandKeyword = fbKw
+							break
+						}
+					}
+					time.Sleep(250 * time.Millisecond)
+				}
+			}
+
+			// 2. ブランド「デュエル・マスターズ」指定検索
+			if dmBrandId != "" {
+				for _, kw := range brandKeywordsToTry {
+					yItems, yCode := fetchYahooItems(kw, dmBrandId)
+					if len(yItems) > 0 {
+						lastApiHitCount = len(yItems)
+					}
+					if yCode != 0 {
+						httpCode = yCode
+					}
+					if len(yItems) > 0 {
+						if cand := findBestYahooMatch(yItems, false); cand != nil {
+							brandMatched = cand
+							brandKeyword = kw + " [brand:" + dmBrandId + "]"
+							break
+						}
+					}
+					time.Sleep(250 * time.Millisecond)
+				}
+				if brandMatched == nil && strings.Contains(topName, "・") {
+					fbBase := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
+					fbItems, fbCode := fetchYahooItems(fbBase, dmBrandId)
+					if len(fbItems) > 0 {
+						lastApiHitCount = len(fbItems)
+					}
+					if fbCode != 0 {
+						httpCode = fbCode
+					}
+					if len(fbItems) > 0 {
+						if cand := findBestYahooMatch(fbItems, false); cand != nil {
+							brandMatched = cand
+							brandKeyword = fbBase + " [brand:" + dmBrandId + "]"
+						}
+					}
+				}
+			}
+
+			// 3. 両方の結果を比較し、安い方を採用
+			if noBrandMatched != nil && brandMatched != nil {
+				noBrandPrice, _ := noBrandMatched["price"].(int)
+				brandPrice, _ := brandMatched["price"].(int)
+				if brandPrice > 0 && (noBrandPrice <= 0 || brandPrice < noBrandPrice) {
+					matchedItem = brandMatched
+					bestKeywordUsed = brandKeyword
+				} else {
+					matchedItem = noBrandMatched
+					bestKeywordUsed = noBrandKeyword
+				}
+			} else if brandMatched != nil {
+				matchedItem = brandMatched
+				bestKeywordUsed = brandKeyword
+			} else if noBrandMatched != nil {
+				matchedItem = noBrandMatched
+				bestKeywordUsed = noBrandKeyword
+			}
 		} else {
-			for _, kw := range keywordsToTry {				cItems, cCode := fetchRakutenItems(kw)
+			for _, kw := range keywordsToTry {
+				cItems, cCode := fetchRakutenItems(kw)
 				lastApiHitCount = len(cItems)
 				httpCode = cCode
 
@@ -2610,100 +2791,19 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 				time.Sleep(50 * time.Millisecond)
 			}
 		}
-		if matchedItem == nil && strings.Contains(topName, "・") {
+
+		if targetService != "yahoo" && matchedItem == nil && strings.Contains(topName, "・") {
 			fbBase := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
 			for _, fbKw := range []string{"デュエマ " + fbBase, "デュエルマスターズ " + fbBase} {
-				if targetService == "yahoo" {
-					fbItems, fbCode := fetchYahooItems(fbKw)
-					lastApiHitCount = len(fbItems)
-					httpCode = fbCode
-					if len(fbItems) > 0 {
-						var lowestCandidate map[string]interface{} = nil
-						lowestPrice := math.MaxInt64
-						for _, item := range fbItems {
-							title := fmt.Sprintf("%v", item["name"])
-							// ★ 追加: デュエマ関連チェック
-							if !isDuelMastersTitle(title) || ngTitlePattern.MatchString(title) {
-								continue
-							}
-							normTitle := normalize(title)
-
-							isMatched := false
-							if !isTwinpact {
-								if strings.Contains(normTitle, normTop) {
-									isMatched = true
-								}
-							} else {
-								if isAmbiguous {
-									if normBottom != "" && strings.Contains(normTitle, normTop) && strings.Contains(normTitle, normBottom) {
-										isMatched = true
-									} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
-										isMatched = true
-									}
-								} else {
-									if strings.Contains(normTitle, normTop) {
-										isMatched = true
-									} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
-										isMatched = true
-									}
-								}
-							}
-
-							if isMatched {
-								if targetShopCode != "" {
-									itemSCode := ""
-									if seller, ok := item["seller"].(map[string]interface{}); ok && seller != nil {
-										if id, ok := seller["sellerId"]; ok && id != nil {
-											itemSCode = fmt.Sprintf("%v", id)
-										}
-									}
-									if !strings.EqualFold(itemSCode, targetShopCode) {
-										continue
-									}
-								}
-
-								pVal, _ := strconv.Atoi(fmt.Sprintf("%v", item["price"]))
-								if pVal > 0 && pVal < lowestPrice {
-									lowestPrice = pVal
-									lowestCandidate = item
-								}
-							}
-						}
-						if lowestCandidate != nil {
-							sName, sCode := "", ""
-							if seller, ok := lowestCandidate["seller"].(map[string]interface{}); ok && seller != nil {
-								if n, ok := seller["name"]; ok && n != nil {
-									sName = fmt.Sprintf("%v", n)
-								}
-								if id, ok := seller["sellerId"]; ok && id != nil {
-									sCode = fmt.Sprintf("%v", id)
-								}
-							}
-
-							rawUrl := fmt.Sprintf("%v", lowestCandidate["url"])
-							matchedItem = map[string]interface{}{
-								"price":        lowestCandidate["price"],
-								"itemUrl":      rawUrl,
-								"affiliateUrl": buildYahooAffiliateUrl(rawUrl),
-								"itemName":     lowestCandidate["name"],
-								"shopName":     sName,
-								"shopCode":     sCode,
-							}
-							bestKeywordUsed = fbKw
-							break
-						}
-					}
-				} else {
-					fbItems, fbCode := fetchRakutenItems(fbKw)
-					lastApiHitCount = len(fbItems)
-					httpCode = fbCode
-					if len(fbItems) > 0 {
-						candidate := findBestMatch(fbItems)
-						if candidate != nil {
-							matchedItem = candidate
-							bestKeywordUsed = fbKw
-							break
-						}
+				fbItems, fbCode := fetchRakutenItems(fbKw)
+				lastApiHitCount = len(fbItems)
+				httpCode = fbCode
+				if len(fbItems) > 0 {
+					candidate := findBestMatch(fbItems)
+					if candidate != nil {
+						matchedItem = candidate
+						bestKeywordUsed = fbKw
+						break
 					}
 				}
 			}
