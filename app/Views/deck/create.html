@@ -1452,22 +1452,26 @@
     </div>
 </div>
 
-<!-- 記事添付用：複数面カード選択モーダル -->
+<!-- 記事添付用：複数面・バージョン選択モーダル -->
 <div id="articleSideSelectModal" class="sub-modal" style="z-index: 11500;">
     <div class="sub-modal-content" style="max-width: 520px; height: auto; max-height: 85vh;">
         <div class="sub-modal-header">
-            <span>記事に添付する面を選択</span>
+            <span id="article-side-modal-title">記事に添付する面を選択</span>
             <span onclick="closeArticleSideModal()" style="cursor:pointer; font-size: 22px;">&times;</span>
         </div>
         <div class="sub-modal-body" style="padding: 16px;">
-            <p style="font-size: 12px; color: #64748b; margin: 0 0 12px 0;">
+            <div id="article-side-version-wrap" style="display: none; margin-bottom: 14px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                <div style="font-size: 12px; font-weight: bold; color: #334155; margin-bottom: 4px;">バージョン切り替え</div>
+                <div id="article-side-version-list" class="version-list"></div>
+            </div>
+            <p id="article-side-modal-desc" style="font-size: 12px; color: #64748b; margin: 0 0 12px 0;">
                 添付したい面のカードをクリックしてください。
             </p>
             <div id="article-side-select-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px;"></div>
         </div>
         <div style="padding: 12px 16px; border-top: 1px solid #eee; display: flex; gap: 10px; background: #fff;">
             <button type="button" onclick="closeArticleSideModal()" style="flex: 1; padding: 10px; background: #f1f5f9; color: #334155; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">キャンセル</button>
-            <button type="button" onclick="attachAllSidesToArticle()" style="flex: 1.5; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">すべての面を並べて添付</button>
+            <button type="button" id="article-attach-all-sides-btn" onclick="attachAllSidesToArticle()" style="flex: 1.5; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">すべての面を並べて添付</button>
         </div>
     </div>
 </div>
@@ -2813,34 +2817,141 @@ function removeArticleCardChip(btn) {
 let pendingArticleSides = [];
 
 function handleArticleCardPick(cardObj) {
-    const isTwinpact = (cardObj.twinpact == 1 || cardObj.twinpact === '1');
-    const comboParts = cardObj.combo_names ? String(cardObj.combo_names).split('|||').map(s => s.trim()).filter(Boolean) : [];
-    const uniqueComboNames = new Set(comboParts);
-    const hasDistinctComboNames = uniqueComboNames.size > 1;
-    const isMultiSideCandidate = hasDistinctComboNames || (!cardObj.combo_names && (cardObj.is_combo == 1 || cardObj.is_combo === '1'));
-
-    if (isMultiSideCandidate && !isTwinpact && cardObj.card_id) {
-        fetch('/api/cards/combination?card_id=' + encodeURIComponent(cardObj.card_id))
-            .then(res => res.json())
-            .then(sides => {
-                const hasTwin = Array.isArray(sides) && sides.some(s => s.twinpact == 1 || s.twinpact === '1');
-                const sideNames = Array.isArray(sides) ? new Set(sides.map(s => (s.card_name || '').trim()).filter(Boolean)) : new Set();
-                if (Array.isArray(sides) && sides.length > 1 && !hasTwin && sideNames.size > 1) {
-                    openArticleSideModal(sides);
-                } else {
-                    insertCardIntoArticle(cardObj);
-                }
-            })
-            .catch(() => insertCardIntoArticle(cardObj));
+    if (!cardObj || !cardObj.card_id) {
+        insertCardIntoArticle(cardObj);
         return;
     }
-    insertCardIntoArticle(cardObj);
+
+    fetch('/api/cards/versions?card_id=' + encodeURIComponent(cardObj.card_id))
+        .then(res => res.json())
+        .then(versions => {
+            const versionList = Array.isArray(versions) ? versions : [];
+            const hasMultipleVersions = versionList.length > 1;
+
+            const isTwinpact = (cardObj.twinpact == 1 || cardObj.twinpact === '1') ||
+                (versionList[0] && (versionList[0].twinpact == 1 || versionList[0].twinpact === '1'));
+            const comboParts = cardObj.combo_names ? String(cardObj.combo_names).split('|||').map(s => s.trim()).filter(Boolean) : [];
+            const uniqueComboNames = new Set(comboParts);
+            const hasDistinctComboNames = uniqueComboNames.size > 1;
+            const isMultiSideCandidate = !isTwinpact && (hasDistinctComboNames || (!cardObj.combo_names && (cardObj.is_combo == 1 || cardObj.is_combo === '1')));
+
+            if (isMultiSideCandidate) {
+                const targetVer = versionList.find(v => v.card_id == cardObj.card_id) || versionList[0] || cardObj;
+                fetch('/api/cards/combination?card_id=' + encodeURIComponent(targetVer.card_id))
+                    .then(res => res.json())
+                    .then(sides => {
+                        const hasTwin = Array.isArray(sides) && sides.some(s => s.twinpact == 1 || s.twinpact === '1');
+                        const sideNames = Array.isArray(sides) ? new Set(sides.map(s => (s.card_name || '').trim()).filter(Boolean)) : new Set();
+                        if (Array.isArray(sides) && sides.length > 1 && !hasTwin && sideNames.size > 1) {
+                            openArticleSideModal(sides, versionList, targetVer.card_id);
+                        } else if (hasMultipleVersions) {
+                            openArticleVersionModal(versionList);
+                        } else {
+                            insertCardIntoArticle(targetVer);
+                        }
+                    })
+                    .catch(() => {
+                        if (hasMultipleVersions) {
+                            openArticleVersionModal(versionList);
+                        } else {
+                            insertCardIntoArticle(cardObj);
+                        }
+                    });
+                return;
+            }
+
+            if (hasMultipleVersions) {
+                openArticleVersionModal(versionList);
+            } else {
+                insertCardIntoArticle(versionList[0] || cardObj);
+            }
+        })
+        .catch(() => insertCardIntoArticle(cardObj));
 }
 
-function openArticleSideModal(sides) {
-    pendingArticleSides = sides;
+function openArticleVersionModal(versions) {
+    pendingArticleSides = [];
+    const titleEl = document.getElementById('article-side-modal-title');
+    const descEl = document.getElementById('article-side-modal-desc');
+    const verWrap = document.getElementById('article-side-version-wrap');
+    const allBtn = document.getElementById('article-attach-all-sides-btn');
     const grid = document.getElementById('article-side-select-grid');
     if (!grid) return;
+
+    if (titleEl) titleEl.innerText = '記事に添付するバージョンを選択';
+    if (descEl) descEl.innerText = '添付したいバージョンのカードをクリックしてください。';
+    if (verWrap) verWrap.style.display = 'none';
+    if (allBtn) allBtn.style.display = 'none';
+    grid.innerHTML = '';
+
+    versions.forEach(ver => {
+        const item = document.createElement('div');
+        item.style.cssText = 'display:flex; flex-direction:column; align-items:center; gap:6px; padding:8px; border:1px solid #e2e8f0; border-radius:8px; cursor:pointer; background:#f8fafc; transition:transform 0.15s ease, border-color 0.15s ease;';
+        item.onmouseenter = () => { item.style.borderColor = '#007bff'; item.style.transform = 'translateY(-2px)'; };
+        item.onmouseleave = () => { item.style.borderColor = '#e2e8f0'; item.style.transform = ''; };
+
+        const img = document.createElement('img');
+        img.src = getCardImagePath(ver);
+        img.alt = ver.card_name || '';
+        img.style.cssText = 'width:100%; max-width:130px; aspect-ratio:110/154; object-fit:contain; border-radius:6px; background:#fff;';
+        img.onerror = () => handleImageError(img);
+
+        const label = document.createElement('div');
+        label.innerText = ver.modelnum || ver.card_name || '';
+        label.style.cssText = 'font-size:12px; font-weight:bold; text-align:center; color:#1e293b; line-height:1.3;';
+
+        item.appendChild(img);
+        item.appendChild(label);
+        item.onclick = () => {
+            insertCardIntoArticle(ver);
+            closeArticleSideModal();
+        };
+        grid.appendChild(item);
+    });
+
+    document.getElementById('articleSideSelectModal').style.display = 'flex';
+}
+
+function openArticleSideModal(sides, versions = [], activeVersionId = null) {
+    pendingArticleSides = sides;
+    const titleEl = document.getElementById('article-side-modal-title');
+    const descEl = document.getElementById('article-side-modal-desc');
+    const verWrap = document.getElementById('article-side-version-wrap');
+    const verListEl = document.getElementById('article-side-version-list');
+    const allBtn = document.getElementById('article-attach-all-sides-btn');
+    const grid = document.getElementById('article-side-select-grid');
+    if (!grid) return;
+
+    if (titleEl) titleEl.innerText = '記事に添付する面を選択';
+    if (descEl) descEl.innerText = '添付したい面のカードをクリックしてください。';
+    if (allBtn) allBtn.style.display = '';
+
+    if (verWrap && verListEl) {
+        verListEl.innerHTML = '';
+        if (Array.isArray(versions) && versions.length > 1) {
+            verWrap.style.display = 'block';
+            versions.forEach(v => {
+                const vImg = document.createElement('img');
+                vImg.onerror = () => handleImageError(vImg);
+                vImg.src = getCardImagePath(v);
+                vImg.title = v.modelnum || v.card_name || '';
+                if (v.card_id == activeVersionId) vImg.className = 'selected';
+                vImg.onclick = () => {
+                    fetch('/api/cards/combination?card_id=' + encodeURIComponent(v.card_id))
+                        .then(res => res.json())
+                        .then(newSides => {
+                            if (Array.isArray(newSides) && newSides.length > 0) {
+                                openArticleSideModal(newSides, versions, v.card_id);
+                            }
+                        });
+                };
+                verListEl.appendChild(vImg);
+            });
+        } else {
+            verWrap.style.display = 'none';
+        }
+    }
+
     grid.innerHTML = '';
 
     sides.forEach(side => {
@@ -2873,6 +2984,8 @@ function openArticleSideModal(sides) {
 
 function closeArticleSideModal() {
     document.getElementById('articleSideSelectModal').style.display = 'none';
+    const verListEl = document.getElementById('article-side-version-list');
+    if (verListEl) verListEl.innerHTML = '';
     pendingArticleSides = [];
 }
 
