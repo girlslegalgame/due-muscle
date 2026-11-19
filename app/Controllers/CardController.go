@@ -715,6 +715,7 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
                 END as display_name,
                 (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                 (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                 (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                  FROM card_combination cc_ref 
                  JOIN card_combination cc_all ON cc_ref.combination_id = cc_all.combination_id 
@@ -743,6 +744,7 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
                 END as display_name,
                 (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                 (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                 (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                  FROM card_combination cc_ref 
                  JOIN card_combination cc_all ON cc_ref.combination_id = cc_all.combination_id 
@@ -924,6 +926,7 @@ func (c *CardController) CardVersionsApi(w http.ResponseWriter, r *http.Request)
 
                    c.pow, c.cost, cd.twinpact, cd.modelnum, cd.imagepath, cd.release_date, cd.` + "`limit`" + ` as card_limit,
                    (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
+                   (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                    (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
                     FROM card_combination cc_ref 
                     JOIN card_combination cc_all ON cc_ref.combination_id = cc_all.combination_id 

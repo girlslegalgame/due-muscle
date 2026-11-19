@@ -77,7 +77,11 @@
         border-radius: 8px;
         box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
     }
-
+    #detail-main-img.rotate-left-90 {
+        transform: rotate(-90deg);
+        max-width: 200px;
+        max-height: 280px;
+    }
     .detail-desc {
         grid-column: 2 / 3;
         grid-row: 2 / 3;
@@ -160,7 +164,17 @@
             aspect-ratio: 110/154;
             margin: 0 auto !important;
         }
+        .detail-image-wrapper.is-rotated {
+            max-width: 280px !important;
+            aspect-ratio: 154 / 110 !important;
+        }
 
+        #detail-main-img.rotate-left-90 {
+            width: auto !important;
+            height: auto !important;
+            max-width: 185px !important;
+            max-height: 260px !important;
+        }
         #detail-main-img {
             width: 100% !important;
             height: auto !important;
@@ -255,6 +269,7 @@ function renderCardDetail(card) {
         imgEl.src = '/images/card/noimage.webp';
     }
     imgEl.onerror = function() { this.src = '/images/card/noimage.webp'; this.onerror = null; };
+    applyDetailCardRotation(imgEl, imgEl.parentElement, card);
 
     const comboSection = document.getElementById('combination-section');
     const comboList = document.getElementById('detail-combination-list');
@@ -285,5 +300,42 @@ function renderCardDetail(card) {
 
 function closeDetailModal() {
     document.getElementById('cardDetailModal').style.display = 'none';
+}
+function shouldRotateCardLeft(card) {
+    if (!card) return false;
+    const raw = card.cardtype_ids !== undefined && card.cardtype_ids !== null
+        ? card.cardtype_ids
+        : (card.cardtype_id !== undefined && card.cardtype_id !== null ? card.cardtype_id : '');
+    const ids = String(raw).split(',').map(s => parseInt(s.trim(), 10));
+    return ids.some(id => id === 6 || id === 7 || id === 8);
+}
+
+function applyDetailCardRotation(imgEl, wrapperEl, card) {
+    if (!imgEl) return;
+    const setRotate = (enable) => {
+        imgEl.classList.toggle('rotate-left-90', enable);
+        if (wrapperEl) wrapperEl.classList.toggle('is-rotated', enable);
+    };
+
+    if (!shouldRotateCardLeft(card)) {
+        imgEl.onload = null;
+        setRotate(false);
+        return;
+    }
+
+    const checkAndRotate = () => {
+        // 既に横長として保存されている画像は二重回転させない
+        if (imgEl.naturalWidth > 0 && imgEl.naturalWidth > imgEl.naturalHeight) {
+            setRotate(false);
+        } else {
+            setRotate(true);
+        }
+    };
+
+    setRotate(true);
+    imgEl.onload = checkAndRotate;
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+        checkAndRotate();
+    }
 }
 </script>

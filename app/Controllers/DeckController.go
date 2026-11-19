@@ -1401,6 +1401,18 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
             ) as text, 
             cd.imagepath, 
             COALESCE(cd.twinpact, CASE WHEN dc.dummy_card_type = 'twinpact' THEN 1 ELSE 0 END) as twinpact,
+            CASE
+                WHEN COALESCE(cd.hypermode, 0) = 1 OR (
+                    cc_self.combination_id IS NOT NULL AND EXISTS (
+                        SELECT 1
+                        FROM card_combination cc_hm
+                        JOIN card_detail cd_hm ON cc_hm.card_id = cd_hm.card_id
+                        WHERE cc_hm.combination_id = cc_self.combination_id
+                          AND cd_hm.hypermode = 1
+                    )
+                ) THEN 1
+                ELSE 0
+            END as is_hypermode,
             CASE WHEN dc.dummy_name IS NOT NULL THEN 1 ELSE 0 END as is_dummy,
             COALESCE(dc.dummy_card_type, 'normal') as dummy_card_type,
             cd_partner.imagepath as combination_imagepath, 

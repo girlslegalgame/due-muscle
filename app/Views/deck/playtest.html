@@ -629,6 +629,21 @@
             background: none; border: none; color: #aaa; font-size: 24px; cursor: pointer;
         }
         .pt-modal-close:hover { color: #fff; }
+        .pt-detail-img-wrap.is-rotated {
+            height: 240px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 12px;
+        }
+        #ptDetailModalBody img.pt-detail-rotated {
+            transform: rotate(-90deg);
+            width: auto !important;
+            height: 320px !important;
+            max-width: none !important;
+            max-height: none !important;
+            margin-bottom: 0 !important;
+        }
         .pt-modal-body {
             padding: 16px;
             overflow-y: auto;
@@ -1253,6 +1268,17 @@
                 height: auto !important;
                 max-width: 100% !important;
                 margin-bottom: 6px !important;
+            }
+            .pt-detail-img-wrap.is-rotated {
+                height: min(calc(100dvh - 155px), 214px) !important;
+                margin-bottom: 6px !important;
+            }
+            #ptDetailModalBody img.pt-detail-rotated {
+                height: min(calc((100dvh - 155px) * 7 / 5), 300px) !important;
+                max-height: none !important;
+                width: auto !important;
+                max-width: none !important;
+                margin-bottom: 0 !important;
             }
         }
         /* G・リンク盤面直接選択モード */
@@ -2099,6 +2125,11 @@ function initPlaytestGame() {
                 creature_src: creatureSrc,
                 type: card.card_type_in_deck || 'main',
                 twinpact: card.twinpact || '0',
+                is_hypermode: (
+                    card.is_hypermode == 1 || card.is_hypermode === true || card.is_hypermode === 'true' ||
+                    card.hypermode == 1 || card.hypermode === true || card.hypermode === 'true' ||
+                    card.partner_hypermode == 1 || card.partner_hypermode === true || card.partner_hypermode === 'true'
+                ),
                 combination_id: card.combination_id || null, 
                 is_multicolor: isMulticolor, 
                 cardtype_ids: [...cardtypeIds],               
@@ -3156,7 +3187,8 @@ function ptMoveCard(cardId, from, to, opts = {}) {
     }
 
     // 複数面カードの選択モーダルを開く場合は false を返して処理を保留する
-    if (to === 'battle' && isDoubleSidedCard(card) && !opts.skipDoubleSidedCheck) {
+    // ※ ハイパーモードを持つカードは出る時に面選択を出さずそのまま表面で出す
+    if (to === 'battle' && isDoubleSidedCard(card) && !card.is_hypermode && !opts.skipDoubleSidedCheck) {
         ptOpenDoubleSidedSelectModal(card, from);
         return false; 
     }
@@ -4106,7 +4138,7 @@ function ptFlipCardFace(id) {
                     if (Array.isArray(data) && data.length >= 3) {
                         ptOpen3DDoubleSidedSelectModal(card, data);
                     } else {
-                        executeNormalFlip(card);
+                        executeNormalFlip(card, data);
                     }
                 })
                 .catch(err => {
@@ -4120,12 +4152,31 @@ function ptFlipCardFace(id) {
     }
 }
 
-function executeNormalFlip(card) {
+function executeNormalFlip(card, combinationData = null) {
     if (card.equipped_to_id) {
         card.equipped_to_id = null;
     }
 
-    if (!card.flipped) {
+    const wasLeftOnly = (card.cardtype_ids || []).some(id => [6, 7, 8].includes(id)) && !(card.cardtype_ids || []).includes(1);
+
+    if (Array.isArray(combinationData) && combinationData.length >= 2) {
+        const nextSide = combinationData.find(d => getCardImageUrl(d.imagepath) !== card.src) || (card.flipped ? combinationData[0] : combinationData[1]);
+        if (nextSide) {
+            card.src = getCardImageUrl(nextSide.imagepath);
+            if (nextSide.card_name) card.name = nextSide.card_name;
+            card.cardtype_ids = ptNormalizeIds(nextSide.cardtype_ids);
+            if (nextSide.characteristics_ids !== undefined && nextSide.characteristics_ids !== null) {
+                card.characteristics_ids = ptNormalizeIds(nextSide.characteristics_ids);
+            }
+            if (nextSide.ability_ids !== undefined && nextSide.ability_ids !== null) {
+                card.ability_ids = ptNormalizeIds(nextSide.ability_ids);
+            }
+            card.flipped = (card.src !== card.original_src);
+            if (!card.flipped && !(card.cardtype_ids || []).includes(1)) {
+                card.tapped = false;
+            }
+        }
+    } else if (!card.flipped) {
         card.src = card.creature_src;
         card.flipped = true;
         if (card.is_dummy && card.dummy_card_type === 'double') {
@@ -4145,6 +4196,14 @@ function executeNormalFlip(card) {
             card.ability_ids = [...(card.original_ability_ids || [])];
         }
     }
+
+    const isLeftRotateSide = (card.cardtype_ids || []).some(id => [6, 7, 8].includes(id));
+    if (isLeftRotateSide) {
+        card.tapped = true;
+    } else if (wasLeftOnly) {
+        card.tapped = false;
+    }
+
     renderPtBoard();
 }
 
@@ -4156,14 +4215,24 @@ function ptExecute3DFlip(cardId, imgPath, cardName, rawCardtypeIds) {
             card.equipped_to_id = null;
         }
 
+        const wasLeftOnly = (card.cardtype_ids || []).some(id => [6, 7, 8].includes(id)) && !(card.cardtype_ids || []).includes(1);
         card.src = imgPath;
+        if (cardName) card.name = cardName;
         const cardtypeIds = ptNormalizeIds(rawCardtypeIds);
+        card.cardtype_ids = cardtypeIds;
         const isCreatureSide = cardtypeIds.includes(1);
+        const isLeftRotateSide = cardtypeIds.some(id => [6, 7, 8].includes(id));
         if (isCreatureSide) {
             card.flipped = true;
+            if (wasLeftOnly && !isLeftRotateSide) {
+                card.tapped = false;
+            }
         } else {
             card.flipped = false;
             card.tapped = false;
+        }
+        if (isLeftRotateSide) {
+            card.tapped = true;
         }
         renderPtBoard();
     }
@@ -8272,7 +8341,40 @@ function ptConfirmCenter360Link() {
 // ========================================================
 // 構成カード一覧確認モーダル ＆ 直接拡大表示
 // ========================================================
+function ptShouldRotateCardLeft(card) {
+    if (!card || card.faceDown) return false;
+    const ids = ptNormalizeIds(card.cardtype_ids);
+    return ids.some(cid => cid === 6 || cid === 7 || cid === 8);
+}
 
+function ptApplyDetailModalRotation(imgEl, wrapEl, card, displaySrc) {
+    if (!imgEl) return;
+    const setRotate = (enable) => {
+        imgEl.classList.toggle('pt-detail-rotated', enable);
+        if (wrapEl) wrapEl.classList.toggle('is-rotated', enable);
+    };
+
+    if (!ptShouldRotateCardLeft(card) || (typeof ptLandscapeCache !== 'undefined' && ptLandscapeCache.has(displaySrc))) {
+        imgEl.onload = null;
+        setRotate(false);
+        return;
+    }
+
+    const checkOrientation = () => {
+        if (imgEl.naturalWidth > 0 && imgEl.naturalWidth > imgEl.naturalHeight) {
+            if (typeof ptLandscapeCache !== 'undefined') ptLandscapeCache.add(displaySrc);
+            setRotate(false);
+        } else {
+            setRotate(true);
+        }
+    };
+
+    setRotate(true);
+    imgEl.onload = checkOrientation;
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+        checkOrientation();
+    }
+}
 // カードオブジェクトから直接拡大表示（構成カード一覧等用）
 function ptShowCardDetailModalDirect(card) {
     ptHideContextMenu();
@@ -8287,9 +8389,17 @@ function ptShowCardDetailModalDirect(card) {
     const displayName = card.faceDown ? '（裏向きのカード）' : card.name;
 
     body.innerHTML = `
-        <img src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+        <div class="pt-detail-img-wrap" id="ptDetailImgWrap">
+            <img id="ptDetailImg" src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+        </div>
         <div style="font-weight:bold; font-size:16px; color:#fff; margin-bottom:6px;">${displayName}</div>
     `;
+    ptApplyDetailModalRotation(
+        document.getElementById('ptDetailImg'),
+        document.getElementById('ptDetailImgWrap'),
+        card,
+        displaySrc
+    );
     modal.style.display = 'flex';
 }
 

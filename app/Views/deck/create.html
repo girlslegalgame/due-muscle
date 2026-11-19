@@ -414,6 +414,14 @@
         border-radius: 8px; 
         box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
     }
+    .detail-image.is-rotated {
+        min-height: 200px;
+    }
+    .detail-image img.rotate-left-90 {
+        transform: rotate(-90deg);
+        max-width: 185px;
+        max-height: 260px;
+    }
     .detail-qty { 
         grid-column: 1 / 2; 
         grid-row: 3 / 4; 
@@ -1144,6 +1152,14 @@
             width: 100%;
             max-width: 200px; 
             margin: 0 auto !important;
+        }
+        .detail-image.is-rotated {
+            max-width: 260px;
+            min-height: 190px;
+        }
+        .detail-image img.rotate-left-90 {
+            max-width: 170px;
+            max-height: 240px;
         }
         .detail-qty {
             order: 3;
@@ -2932,7 +2948,9 @@ function loadCombinationSides(cardId) {
                         activeDetailSideData = side;
                         document.getElementById('detail-name').innerText = side.card_name;
                         document.getElementById('detail-text').innerText = side.text || "効果なし";
-                        document.getElementById('detail-main-img').src = getCardImagePath(side);
+                        const mainImg = document.getElementById('detail-main-img');
+                        mainImg.src = getCardImagePath(side);
+                        applyDetailCardRotation(mainImg, mainImg.parentElement, side);
                         comboList.querySelectorAll('img').forEach(img => img.classList.remove('selected'));
                         sideImg.classList.add('selected');
                     };
@@ -2942,7 +2960,42 @@ function loadCombinationSides(cardId) {
         })
         .catch(err => console.error("構成面の取得に失敗しました:", err));
 }
+function shouldRotateCardLeft(card) {
+    if (!card) return false;
+    const raw = card.cardtype_ids !== undefined && card.cardtype_ids !== null
+        ? card.cardtype_ids
+        : (card.cardtype_id !== undefined && card.cardtype_id !== null ? card.cardtype_id : '');
+    const ids = String(raw).split(',').map(s => parseInt(s.trim(), 10));
+    return ids.some(id => id === 6 || id === 7 || id === 8);
+}
 
+function applyDetailCardRotation(imgEl, wrapperEl, card) {
+    if (!imgEl) return;
+    const setRotate = (enable) => {
+        imgEl.classList.toggle('rotate-left-90', enable);
+        if (wrapperEl) wrapperEl.classList.toggle('is-rotated', enable);
+    };
+
+    if (!shouldRotateCardLeft(card)) {
+        imgEl.onload = null;
+        setRotate(false);
+        return;
+    }
+
+    const checkAndRotate = () => {
+        if (imgEl.naturalWidth > 0 && imgEl.naturalWidth > imgEl.naturalHeight) {
+            setRotate(false);
+        } else {
+            setRotate(true);
+        }
+    };
+
+    setRotate(true);
+    imgEl.onload = checkAndRotate;
+    if (imgEl.complete && imgEl.naturalWidth > 0) {
+        checkAndRotate();
+    }
+}
 function openCardDetail(cardId, el) {
     if (el && (el.dataset.isDummy === "1" || (typeof cardId === 'string' && cardId.startsWith('dummy_')))) {
         openDummyEditModal(el);
@@ -2957,6 +3010,7 @@ function openCardDetail(cardId, el) {
             card_name: el.dataset.cardName || '',
             combo_names: el.dataset.comboNames || '',
             char_ids: el.dataset.charIds || '',
+            cardtype_ids: el.dataset.cardtypeIds || '',
             imagepath: el.dataset.imagepath || '',
             card_limit: el.dataset.cardLimit || '',
             civilization: el.dataset.civ || '',
@@ -3010,6 +3064,7 @@ function renderDetailModal() {
     const mainDetailImg = document.getElementById('detail-main-img');
     mainDetailImg.onerror = () => handleImageError(mainDetailImg);
     mainDetailImg.src = getCardImagePath(selectedCardData);
+    applyDetailCardRotation(mainDetailImg, mainDetailImg.parentElement, selectedCardData);
 
     if (isDoru || isZero) {
         const slotId = isDoru ? 'slot-dolmagedon' : 'slot-zeroron';

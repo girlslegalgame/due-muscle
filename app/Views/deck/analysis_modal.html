@@ -789,9 +789,33 @@ function updateAnalysisCharts() {
         }
 
         let cost = parseInt(img.dataset.cost);
-        if (isNaN(cost)) cost = 0;
+        if (isNaN(cost) || cost < 0) cost = 0;
         if (cost > 9) cost = 9;
         mana[cost] += 1;
+
+        // ツインパクトカードの下面コストをマナカーブに反映
+        const cached = (typeof cardCache !== 'undefined' && cardCache[img.dataset.cardId]) ? cardCache[img.dataset.cardId] : {};
+        const twinpactVal = img.dataset.twinpact !== undefined ? img.dataset.twinpact : cached.twinpact;
+        const dummyTypeVal = img.dataset.dummyCardType || cached.dummy_card_type;
+        const isTwinpact = (twinpactVal == 1 || twinpactVal === 'true' || twinpactVal === true || dummyTypeVal === 'twinpact')
+            || (twinpactVal === undefined && dummyTypeVal !== 'double');
+
+        if (isTwinpact) {
+            let pCostRaw = img.dataset.partnerCost;
+            if (pCostRaw === undefined || pCostRaw === '') {
+                pCostRaw = (cached.partner_cost !== undefined && cached.partner_cost !== null && cached.partner_cost !== '')
+                    ? cached.partner_cost
+                    : cached.dummy_partner_cost;
+            }
+            let cost2 = parseInt(pCostRaw);
+            if (!isNaN(cost2)) {
+                if (cost2 < 0) cost2 = 0;
+                if (cost2 > 9) cost2 = 9;
+                if (cost2 !== cost) {
+                    mana[cost2] += 1;
+                }
+            }
+        }
     });
 
     [1, 2, 3, 4, 5, 6].forEach(id => {

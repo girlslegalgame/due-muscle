@@ -215,10 +215,18 @@ function ptShowCardDetailModalById(id, zone) {
     const displayName = card.faceDown ? '（裏向きのカード）' : card.name;
 
     body.innerHTML = `
-        <img src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+        <div class="pt-detail-img-wrap" id="ptDetailImgWrap">
+            <img id="ptDetailImg" src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+        </div>
         <div style="font-weight:bold; font-size:16px; color:#fff; margin-bottom:6px;">${displayName}</div>
         <div style="font-size:12px; color:#aaa;">(現在地: ${zoneJapaneseName(zone)})</div>
     `;
+    ptApplyDetailModalRotation(
+        document.getElementById('ptDetailImg'),
+        document.getElementById('ptDetailImgWrap'),
+        card,
+        displaySrc
+    );
     modal.style.display = 'flex';
 }
 
