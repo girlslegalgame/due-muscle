@@ -2082,6 +2082,16 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 	apiBaseUrl := "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701"
 	ngTitlePattern := regexp.MustCompile(`(?i)(ス\s*リーブ|カードス\s*リーブ|プレイマット|ラバーマット|デッキケース|ストレージボックス|デッキシールド|カードファイル|バインダー|未開封BOX|未開封パック|くじ|オリパ|プロテクト|DXカード)`)
 
+	// ★ 追加: 商品タイトルに「デュエマ」または「デュエル・マスターズ」（表記ゆれ含む）が含まれるか判定
+	isDuelMastersTitle := func(title string) bool {
+		if title == "" || title == "<nil>" {
+			return false
+		}
+		folded := width.Fold.String(title)
+		compact := strings.NewReplacer(" ", "", "　", "", "・", "", "･", "", "-", "", "−", "", "―", "").Replace(folded)
+		return strings.Contains(folded, "デュエマ") || strings.Contains(compact, "デュエルマスターズ")
+	}
+
 	normalize := func(str string) string {
 		s := strings.ReplaceAll(str, "\\", "")
 		s = strings.ReplaceAll(s, "∑", "シグマ")
@@ -2166,7 +2176,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			verKw = getVersionKeywords(db, cardInfo.CardID)
 		}
 
-		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
+		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s_dm1", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
 
 		// ★ キャッシュクリア指定時は該当キーのキャッシュを事前に削除
 		if forceRefresh {
@@ -2254,31 +2264,37 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 		safeKw := cleanSearchWord(baseSearchName)
 		var keywordsToTry []string
-		
+		appendDMKeywords := func(kw string) {
+			keywordsToTry = append(keywordsToTry, "デュエマ "+kw)
+			keywordsToTry = append(keywordsToTry, "デュエルマスターズ "+kw)
+		}
+
 		// 1. ユーザー手動入力の追加キーワードがあれば最優先
 		if extraKw != "" {
-			keywordsToTry = append(keywordsToTry, safeKw+" "+extraKw)
-			keywordsToTry = append(keywordsToTry, baseSearchName+" "+extraKw)
+			appendDMKeywords(safeKw + " " + extraKw)
+			if baseSearchName != safeKw {
+				appendDMKeywords(baseSearchName + " " + extraKw)
+			}
 		}
 
 		// 2. バージョン指定モード（exact）の場合、型番キーワード（例: "dm01", "dm01 シークレット"）を追加
 		if versionMode == "exact" && verKw != "" {
-			keywordsToTry = append(keywordsToTry, safeKw+" "+verKw)
+			appendDMKeywords(safeKw + " " + verKw)
 			if baseSearchName != safeKw {
-				keywordsToTry = append(keywordsToTry, baseSearchName+" "+verKw)
+				appendDMKeywords(baseSearchName + " " + verKw)
 			}
 		}
-		
+
 		// 3. 通常カード名での検索候補
 		if isSpecialFiveSet {
-			keywordsToTry = append(keywordsToTry, safeKw + " 5枚セット", baseSearchName + " 5枚セット")
-		} else {
-			keywordsToTry = append(keywordsToTry, safeKw)
+			appendDMKeywords(safeKw + " 5枚セット")
 			if baseSearchName != safeKw {
-				keywordsToTry = append(keywordsToTry, baseSearchName)
+				appendDMKeywords(baseSearchName + " 5枚セット")
 			}
-			if strings.Contains(baseSearchName, "“") || strings.Contains(baseSearchName, "”") || strings.Contains(baseSearchName, "\"") || len([]rune(safeKw)) <= 5 {
-				keywordsToTry = append(keywordsToTry, "デュエマ "+safeKw)
+		} else {
+			appendDMKeywords(safeKw)
+			if baseSearchName != safeKw {
+				appendDMKeywords(baseSearchName)
 			}
 		}
 
@@ -2424,6 +2440,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 				if title == "" || title == "<nil>" {
 					title = fmt.Sprintf("%v", candidate["title"])
 				}
+				// ★ 追加
+				if !isDuelMastersTitle(title) {
+					continue
+				}
 
 				titleKana := width.Fold.String(title)
 				titleNoSpace := regexp.MustCompile(`\s+`).ReplaceAllString(titleKana, "")
@@ -2491,6 +2511,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 					for _, item := range yItems {
 						title := fmt.Sprintf("%v", item["name"])
 						if title == "" || title == "<nil>" {
+							continue
+						}
+						// ★ 追加
+						if !isDuelMastersTitle(title) {
 							continue
 						}
 
@@ -2587,97 +2611,99 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			}
 		}
 		if matchedItem == nil && strings.Contains(topName, "・") {
-			fbKw := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
-			if targetService == "yahoo" {
-				fbItems, fbCode := fetchYahooItems(fbKw)
-				lastApiHitCount = len(fbItems)
-				httpCode = fbCode
-				if len(fbItems) > 0 {
-					var lowestCandidate map[string]interface{} = nil
-					lowestPrice := math.MaxInt64
-					for _, item := range fbItems {
-						title := fmt.Sprintf("%v", item["name"])
-						if ngTitlePattern.MatchString(title) {
-							continue
-						}
-						normTitle := normalize(title)
-						
-						// ★ 通常検索と同様にツインパクト判定を行う
-						isMatched := false
-						if !isTwinpact {
-							if strings.Contains(normTitle, normTop) {
-								isMatched = true
+			fbBase := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
+			for _, fbKw := range []string{"デュエマ " + fbBase, "デュエルマスターズ " + fbBase} {
+				if targetService == "yahoo" {
+					fbItems, fbCode := fetchYahooItems(fbKw)
+					lastApiHitCount = len(fbItems)
+					httpCode = fbCode
+					if len(fbItems) > 0 {
+						var lowestCandidate map[string]interface{} = nil
+						lowestPrice := math.MaxInt64
+						for _, item := range fbItems {
+							title := fmt.Sprintf("%v", item["name"])
+							// ★ 追加: デュエマ関連チェック
+							if !isDuelMastersTitle(title) || ngTitlePattern.MatchString(title) {
+								continue
 							}
-						} else {
-							if isAmbiguous {
-								if normBottom != "" && strings.Contains(normTitle, normTop) && strings.Contains(normTitle, normBottom) {
-									isMatched = true
-								} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
+							normTitle := normalize(title)
+
+							isMatched := false
+							if !isTwinpact {
+								if strings.Contains(normTitle, normTop) {
 									isMatched = true
 								}
 							} else {
-								if strings.Contains(normTitle, normTop) {
-									isMatched = true
-								} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
-									isMatched = true
-								}
-							}
-						}
-
-						if isMatched {
-							// ★ 追加: ショップ指定がある場合はショップコードをチェック
-							if targetShopCode != "" {
-								itemSCode := ""
-								if seller, ok := item["seller"].(map[string]interface{}); ok && seller != nil {
-									if id, ok := seller["sellerId"]; ok && id != nil {
-										itemSCode = fmt.Sprintf("%v", id)
+								if isAmbiguous {
+									if normBottom != "" && strings.Contains(normTitle, normTop) && strings.Contains(normTitle, normBottom) {
+										isMatched = true
+									} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
+										isMatched = true
+									}
+								} else {
+									if strings.Contains(normTitle, normTop) {
+										isMatched = true
+									} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
+										isMatched = true
 									}
 								}
-								if !strings.EqualFold(itemSCode, targetShopCode) {
-									continue
+							}
+
+							if isMatched {
+								if targetShopCode != "" {
+									itemSCode := ""
+									if seller, ok := item["seller"].(map[string]interface{}); ok && seller != nil {
+										if id, ok := seller["sellerId"]; ok && id != nil {
+											itemSCode = fmt.Sprintf("%v", id)
+										}
+									}
+									if !strings.EqualFold(itemSCode, targetShopCode) {
+										continue
+									}
+								}
+
+								pVal, _ := strconv.Atoi(fmt.Sprintf("%v", item["price"]))
+								if pVal > 0 && pVal < lowestPrice {
+									lowestPrice = pVal
+									lowestCandidate = item
+								}
+							}
+						}
+						if lowestCandidate != nil {
+							sName, sCode := "", ""
+							if seller, ok := lowestCandidate["seller"].(map[string]interface{}); ok && seller != nil {
+								if n, ok := seller["name"]; ok && n != nil {
+									sName = fmt.Sprintf("%v", n)
+								}
+								if id, ok := seller["sellerId"]; ok && id != nil {
+									sCode = fmt.Sprintf("%v", id)
 								}
 							}
 
-							pVal, _ := strconv.Atoi(fmt.Sprintf("%v", item["price"]))
-							if pVal > 0 && pVal < lowestPrice {
-								lowestPrice = pVal
-								lowestCandidate = item
+							rawUrl := fmt.Sprintf("%v", lowestCandidate["url"])
+							matchedItem = map[string]interface{}{
+								"price":        lowestCandidate["price"],
+								"itemUrl":      rawUrl,
+								"affiliateUrl": buildYahooAffiliateUrl(rawUrl),
+								"itemName":     lowestCandidate["name"],
+								"shopName":     sName,
+								"shopCode":     sCode,
 							}
+							bestKeywordUsed = fbKw
+							break
 						}
 					}
-					if lowestCandidate != nil {
-						sName, sCode := "", ""
-						// ★ lowestCandidate から正しく店舗情報を抽出
-						if seller, ok := lowestCandidate["seller"].(map[string]interface{}); ok && seller != nil {
-							if n, ok := seller["name"]; ok && n != nil {
-								sName = fmt.Sprintf("%v", n)
-							}
-							if id, ok := seller["sellerId"]; ok && id != nil {
-								sCode = fmt.Sprintf("%v", id)
-							}
+				} else {
+					fbItems, fbCode := fetchRakutenItems(fbKw)
+					lastApiHitCount = len(fbItems)
+					httpCode = fbCode
+					if len(fbItems) > 0 {
+						candidate := findBestMatch(fbItems)
+						if candidate != nil {
+							matchedItem = candidate
+							bestKeywordUsed = fbKw
+							break
 						}
-						
-						rawUrl := fmt.Sprintf("%v", lowestCandidate["url"])
-						matchedItem = map[string]interface{}{
-							"price":        lowestCandidate["price"],
-							"itemUrl":      rawUrl,
-							"affiliateUrl": buildYahooAffiliateUrl(rawUrl), // ★ 追加: アフィリエイトURLを設定
-							"itemName":     lowestCandidate["name"],
-							"shopName":     sName,
-							"shopCode":     sCode,
-						}
-						bestKeywordUsed = fbKw
-					}
-				}
-			} else {
-				fbItems, fbCode := fetchRakutenItems(fbKw)
-				lastApiHitCount = len(fbItems)
-				httpCode = fbCode
-				if len(fbItems) > 0 {
-					candidate := findBestMatch(fbItems)
-					if candidate != nil {
-						matchedItem = candidate
-						bestKeywordUsed = fbKw
 					}
 				}
 			}
@@ -2737,10 +2763,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		} else {
 			notFoundCount++
 			if targetService == "yahoo" {
-				searchUrl := "https://shopping.yahoo.co.jp/search?p=" + url.QueryEscape(baseSearchName)
+				searchUrl := "https://shopping.yahoo.co.jp/search?p=" + url.QueryEscape("デュエマ "+baseSearchName)
 				affiliateUrl = buildYahooAffiliateUrl(searchUrl)
 			} else {
-				searchUrl := "https://search.rakuten.co.jp/search/mall/" + url.QueryEscape(baseSearchName) + "/"
+				searchUrl := "https://search.rakuten.co.jp/search/mall/" + url.QueryEscape("デュエマ "+baseSearchName) + "/"
 				affiliateUrl = buildAffiliateUrl(searchUrl)
 			}
 		}
