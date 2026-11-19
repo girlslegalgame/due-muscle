@@ -1883,6 +1883,17 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 	excludeCardsRaw := query.Get("exclude_cards")
 	extraKeywordsRaw := query.Get("extra_keywords")
 
+	// ★ 追加: 分割査定用の対象カード指定（"|||"区切り）
+	targetCardsRaw := query.Get("target_cards")
+	targetCardsMap := make(map[string]bool)
+	if targetCardsRaw != "" {
+		for _, part := range strings.Split(targetCardsRaw, "|||") {
+			if trimmed := strings.TrimSpace(part); trimmed != "" {
+				targetCardsMap[trimmed] = true
+			}
+		}
+	}
+
 	// カードごとの追加キーワードマップ（"カード名": "キーワード"）
 	extraKeywords := make(map[string]string)
 	if extraKeywordsRaw != "" {
@@ -2198,6 +2209,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 	for _, k := range cardKeys {
 		cardInfo := cardMap[k]
+		// ★ 追加: target_cards が指定されている場合、該当カード以外はスキップ
+		if len(targetCardsMap) > 0 && !targetCardsMap[cardInfo.DisplayName] {
+			continue
+		}
 		qty := cardInfo.Quantity
 		isTwinpact := cardInfo.IsTwinpact
 		topName := cardInfo.TopName
@@ -2897,7 +2912,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			"shop_code":     shopCode,
 		})
 
-		time.Sleep(150 * time.Millisecond)
+		time.Sleep(50 * time.Millisecond)
 	}
 
 	sort.SliceStable(items, func(i, j int) bool {

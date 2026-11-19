@@ -1766,107 +1766,115 @@ function onServiceChange() {
     recalculateTotalPrice();
 }
 /**
- * 査定実行
+ * 査定実行（タイムアウト防止のため5種ずつ分割実行）
  * @param {string|null} shopCode 特定ショップ指定
  * @param {boolean} refresh キャッシュをクリアして再取得するかどうか
  */
-function runPriceEstimate(shopCode = null, refresh = false) {
+async function runPriceEstimate(shopCode = null, refresh = false) {
     if (!currentDeckId) return;
 
     const btn = document.getElementById('btn-start-estimate');
     const loading = document.getElementById('price-estimate-loading');
+    const loadingTitle = loading ? loading.querySelector('p') : null;
     const shopSelect = document.getElementById('price-shop-select');
 
-    // 引数で渡されていない場合は、セレクトボックスの現在値を取得
     const selectedShop = (shopCode !== null) ? shopCode : (shopSelect ? shopSelect.value : '');
+    const service = document.querySelector('input[name="price_estimate_service"]:checked')?.value || 'rakuten';
+    const targetMode = document.querySelector('input[name="price_estimate_target"]:checked')?.value || 'unowned';
+    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'any';
+    const serviceLabel = (service === 'yahoo') ? 'Yahoo!ショッピング' : '楽天市場';
 
     btn.disabled = true;
     btn.style.opacity = '0.6';
     loading.style.display = 'block';
+    if (loadingTitle) {
+        loadingTitle.innerText = `${serviceLabel}から最安値情報を取得しています...`;
+    }
 
-    // 1. 選択中のモールサービス（rakuten / yahoo）
-    const service = document.querySelector('input[name="price_estimate_service"]:checked')?.value || 'rakuten';
+    try {
+        const extraKeywordsMap = {};
+        const targetCardNames = [];
+        const allRows = Array.from(document.querySelectorAll('#price-card-list-body tr'));
 
-    // 2. 査定対象（未購入のみ / 全カード）
-    const targetMode = document.querySelector('input[name="price_estimate_target"]:checked')?.value || 'unowned';
-    let excludeCardsParam = '';
-
-    // 3. 各行の追加キーワード（バージョン・型番指定等）の収集
-    const extraKeywordsMap = {};
-    document.querySelectorAll('#price-card-list-body tr').forEach(tr => {
-        const cardName = tr.dataset.cardName;
-        const extraKw = tr.querySelector('.card-extra-keyword-input')?.value.trim();
-        if (cardName && extraKw) {
-            extraKeywordsMap[cardName] = extraKw;
-        }
-    });
-
-    if (targetMode === 'unowned') {
-        const fullyOwnedCards = [];
-        document.querySelectorAll('#price-card-list-body tr').forEach(tr => {
+        allRows.forEach(tr => {
             const cardName = tr.dataset.cardName;
-            const totalQty = parseInt(tr.dataset.totalQty) || parseInt(tr.querySelector('.cell-total-qty')?.innerText) || 0;
-            const inputVal = tr.querySelector('.owned-qty-input')?.value;
-            const ownedQty = (inputVal !== undefined && inputVal !== '') ? parseInt(inputVal) : 0;
+            if (!cardName) return;
 
-            // 総枚数が1以上で、かつ購入済み枚数が総枚数に達しているカードのみ除外
-            if (totalQty > 0 && ownedQty >= totalQty && cardName) {
-                fullyOwnedCards.push(cardName);
+            const extraKw = tr.querySelector('.card-extra-keyword-input')?.value.trim();
+            if (extraKw) {
+                extraKeywordsMap[cardName] = extraKw;
             }
+
+            if (targetMode === 'unowned') {
+                const totalQty = parseInt(tr.dataset.totalQty) || parseInt(tr.querySelector('.cell-total-qty')?.innerText) || 0;
+                const inputVal = tr.querySelector('.owned-qty-input')?.value;
+                const ownedQty = (inputVal !== undefined && inputVal !== '') ? parseInt(inputVal) : 0;
+                if (totalQty > 0 && ownedQty >= totalQty) {
+                    return; // 全数購入済みはスキップ
+                }
+            }
+            targetCardNames.push(cardName);
         });
 
-        const totalRows = document.querySelectorAll('#price-card-list-body tr').length;
-        if (totalRows > 0 && fullyOwnedCards.length >= totalRows) {
-            loading.style.display = 'none';
-            btn.disabled = false;
-            btn.style.opacity = '1';
+        if (allRows.length > 0 && targetCardNames.length === 0) {
             document.getElementById('deck-total-price').innerText = '0';
             document.getElementById('price-not-found-warn').innerText = '※ すべてのカードが購入済みのため査定対象がありません';
             return;
         }
 
-        if (fullyOwnedCards.length > 0) {
-            excludeCardsParam = encodeURIComponent(fullyOwnedCards.join('|||'));
+        // 5種類ずつチャンクに分割（テーブル未生成時は空配列1回で全取得）
+        const chunkSize = 5;
+        const chunks = [];
+        if (targetCardNames.length > 0) {
+            for (let i = 0; i < targetCardNames.length; i += chunkSize) {
+                chunks.push(targetCardNames.slice(i, i + chunkSize));
+            }
+        } else {
+            chunks.push([]);
         }
-    }
-    const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'any';
 
-    // 4. APIエンドポイントURL組み立て
-    let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
-    url += '&service=' + encodeURIComponent(service);
-    url += '&version_mode=' + encodeURIComponent(versionMode);
-    if (selectedShop) url += '&shop_code=' + encodeURIComponent(selectedShop);
-    if (refresh) url += '&refresh=1';
-    if (excludeCardsParam) url += '&exclude_cards=' + excludeCardsParam;
-    if (Object.keys(extraKeywordsMap).length > 0) {
-        url += '&extra_keywords=' + encodeURIComponent(JSON.stringify(extraKeywordsMap));
-    }
+        let processedCount = 0;
+        const totalTargets = targetCardNames.length;
 
-    fetch(url)
-        .then(async res => {
+        for (const chunk of chunks) {
+            if (loadingTitle && totalTargets > 0) {
+                loadingTitle.innerText = `${serviceLabel}から最安値情報を取得しています... (${processedCount} / ${totalTargets} 種)`;
+            }
+
+            let url = '/api/decks/estimate-price?deck_id=' + currentDeckId;
+            url += '&service=' + encodeURIComponent(service);
+            url += '&version_mode=' + encodeURIComponent(versionMode);
+            if (selectedShop) url += '&shop_code=' + encodeURIComponent(selectedShop);
+            if (refresh) url += '&refresh=1';
+            if (chunk.length > 0) {
+                url += '&target_cards=' + encodeURIComponent(chunk.join('|||'));
+            }
+            if (Object.keys(extraKeywordsMap).length > 0) {
+                url += '&extra_keywords=' + encodeURIComponent(JSON.stringify(extraKeywordsMap));
+            }
+
+            const res = await fetch(url);
             const text = await res.text();
+            let data;
             try {
-                return JSON.parse(text);
+                data = JSON.parse(text);
             } catch (e) {
                 console.error('Server Response:', text);
                 throw new Error('サーバー応答エラー: ' + text.substring(0, 100));
             }
-        })
-        .then(data => {
+
             if (!data.success) {
                 alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
                 return;
             }
 
-            // 5. ショップ一覧ドロップダウンの再構築
+            // ショップ一覧の更新
             if (data.shops && typeof data.shops === 'object') {
                 Object.assign(knownShops, data.shops);
                 if (shopSelect) {
                     shopSelect.innerHTML = '<option value="">すべてのショップ（最安値）</option>';
-
                     const shopKeys = Object.keys(knownShops);
                     shopKeys.sort((a, b) => (knownShops[a] || '').localeCompare(knownShops[b] || '', 'ja'));
-
                     shopKeys.forEach(code => {
                         const name = knownShops[code];
                         if (name && name !== '<nil>' && name !== '') {
@@ -1876,21 +1884,22 @@ function runPriceEstimate(shopCode = null, refresh = false) {
                             shopSelect.appendChild(opt);
                         }
                     });
-                    // 送信した選択値を維持
                     shopSelect.value = selectedShop;
                 }
             }
 
-            // 6. 各行への単価・小計・ショップ名・リンク反映
+            // 取得したチャンク分のカード行を更新
             const cardResultMap = {};
             const resultCards = Array.isArray(data.cards) ? data.cards : [];
             resultCards.forEach(c => {
                 cardResultMap[c.card_name] = c;
             });
 
-            const rows = document.querySelectorAll('#price-card-list-body tr');
-            rows.forEach(tr => {
+            const targetSet = chunk.length > 0 ? new Set(chunk) : null;
+            allRows.forEach(tr => {
                 const name = tr.dataset.cardName;
+                if (targetSet && !targetSet.has(name)) return;
+
                 const c = cardResultMap[name];
                 const unitCell = tr.querySelector('.cell-unit-price');
                 const shopCell = tr.querySelector('.cell-shop');
@@ -1899,7 +1908,7 @@ function runPriceEstimate(shopCode = null, refresh = false) {
                 if (c && c.price !== null) {
                     const priceStr = `¥${Number(c.price).toLocaleString()}`;
                     const shopStr = c.shop_name ? `<span style="font-size:0.75rem; word-break:break-all;">${c.shop_name}</span>` : '-';
-                    const linkHtml = c.affiliate_url 
+                    const linkHtml = c.affiliate_url
                         ? `<a href="${c.affiliate_url}" target="_blank" rel="noopener noreferrer" style="color: #007bff; text-decoration: underline; font-weight: bold;">購入</a>`
                         : '<span style="color: #999;">-</span>';
 
@@ -1915,21 +1924,31 @@ function runPriceEstimate(shopCode = null, refresh = false) {
                 }
             });
 
-            // 7. ヒットしなかったカードの警告表示と再計算・並び替え
-            const warnEl = document.getElementById('price-not-found-warn');
-            warnEl.innerText = data.not_found_cards > 0 ? `※ ${data.not_found_cards} 種のカードは見つかりませんでした（0円として計算）` : '';
-            sortPriceTableRows();
+            processedCount += chunk.length;
             recalculateTotalPrice();
-        })
-        .catch(err => {
-            alert('通信エラーが発生しました: ' + err.message);
-            console.error(err);
-        })
-        .finally(() => {
-            loading.style.display = 'none';
-            btn.disabled = false;
-            btn.style.opacity = '1';
+        }
+
+        // 未ヒット件数を集計して表示
+        let notFoundCnt = 0;
+        const targetAllSet = new Set(targetCardNames);
+        allRows.forEach(tr => {
+            if (targetAllSet.size > 0 && !targetAllSet.has(tr.dataset.cardName)) return;
+            const val = tr.querySelector('.cell-unit-price')?.dataset.val;
+            if (val === undefined || val === '') notFoundCnt++;
         });
+        document.getElementById('price-not-found-warn').innerText =
+            notFoundCnt > 0 ? `※ ${notFoundCnt} 種のカードは見つかりませんでした（0円として計算）` : '';
+
+        sortPriceTableRows();
+        recalculateTotalPrice();
+    } catch (err) {
+        alert('通信エラーが発生しました: ' + err.message);
+        console.error(err);
+    } finally {
+        loading.style.display = 'none';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+    }
 }
 /**
  * テンプレートデッキ確認用オープン関数（メイン・GR/次元/特殊のみ表示）
