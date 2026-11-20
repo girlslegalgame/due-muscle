@@ -703,7 +703,7 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 	if !isFiltered {
 		sqlQuery = fmt.Sprintf(`
             SELECT 
-    			c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.regulation,
+    			c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.hypermode, cd.regulation,
                 CASE 
                     WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (
                         SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
@@ -732,10 +732,9 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 	} else {
 		sqlQuery = fmt.Sprintf(`
             SELECT 
-                c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.regulation,
+                c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.hypermode, cd.regulation,
                 CASE
-                    WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (
-                        SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
+                    WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (                        SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
                         FROM card_combination cc_sub
                         JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
                         WHERE cc_sub.combination_id = ccb.combination_id
@@ -924,7 +923,7 @@ func (c *CardController) CardVersionsApi(w http.ResponseWriter, r *http.Request)
                        ELSE c.text 
                    END as text,
 
-                   c.pow, c.cost, cd.twinpact, cd.modelnum, cd.imagepath, cd.release_date, cd.` + "`limit`" + ` as card_limit,
+                   c.pow, c.cost, cd.twinpact, cd.hypermode, cd.modelnum, cd.imagepath, cd.release_date, cd.` + "`limit`" + ` as card_limit,
                    (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                    (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 
@@ -1009,6 +1008,7 @@ func (c *CardController) CardCombinationApi(w http.ResponseWriter, r *http.Reque
                 c.text,
                 COALESCE(cd.imagepath, (SELECT imagepath FROM card_detail WHERE card_id = c.card_id AND imagepath IS NOT NULL AND imagepath != '' LIMIT 1), '') as imagepath,
                 COALESCE(cd.twinpact, (SELECT twinpact FROM card_detail WHERE card_id = c.card_id LIMIT 1), 0) as twinpact,
+                COALESCE(cd.hypermode, (SELECT hypermode FROM card_detail WHERE card_id = c.card_id LIMIT 1), 0) as hypermode,
                 (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                 (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                 (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
@@ -1045,6 +1045,7 @@ func (c *CardController) CardCombinationApi(w http.ResponseWriter, r *http.Reque
                             c.text,
                             COALESCE(cd.imagepath, (SELECT imagepath FROM card_detail WHERE card_id = c.card_id AND imagepath IS NOT NULL AND imagepath != '' LIMIT 1), '') as imagepath,
                             COALESCE(cd.twinpact, (SELECT twinpact FROM card_detail WHERE card_id = c.card_id LIMIT 1), 0) as twinpact,
+                            COALESCE(cd.hypermode, (SELECT hypermode FROM card_detail WHERE card_id = c.card_id LIMIT 1), 0) as hypermode,
                             (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c.card_id) as civ_ids,
                             (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                             (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,

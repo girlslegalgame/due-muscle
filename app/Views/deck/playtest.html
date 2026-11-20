@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>1人回し - {{if .deckName}}{{.deckName}}{{else}}デッキ{{end}}</title>
-    <script src="/js/card_image_helper.js"></script>
     <style>
         /* --- 基本・全体設定 --- */
         html, body {
@@ -123,6 +122,40 @@
             font-size: 13px;
             cursor: pointer;
         }
+        .header-bar-wrapper {
+            position: relative;
+            flex-shrink: 0;
+        }
+        .pt-header-reopen-btn {
+            display: none;
+            position: absolute;
+            top: 0;
+            right: 8px;
+            z-index: 600;
+            align-items: center;
+            justify-content: center;
+            padding: 3px 10px;
+            background: rgba(30, 30, 30, 0.9);
+            color: #fff;
+            border: 1px solid #555;
+            border-top: none;
+            border-radius: 0 0 6px 6px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+        }
+        body.pt-header-collapsed .header-bar {
+            display: none !important;
+        }
+        body.pt-header-collapsed .pt-header-reopen-btn {
+            display: inline-flex;
+        }
+        body.pt-glink-select-active .pt-header-reopen-btn,
+        body.pt-board-select-active .pt-header-reopen-btn {
+            opacity: 0;
+            pointer-events: none !important;
+        }
 
         /* 警告オーバーレイ */
         .error-overlay {
@@ -182,6 +215,9 @@
             box-sizing: border-box !important;
             overflow: hidden !important;
             height: calc(100vh - 170px);
+        }
+        body.pt-header-collapsed .playtest-board {
+            height: calc(100vh - 120px);
         }
         .playtest-row {
             display: flex !important;
@@ -937,7 +973,12 @@
                 white-space: nowrap !important;
                 overflow: hidden !important;
                 text-overflow: ellipsis !important;
-                max-width: 35vw !important;
+                max-width: 28vw !important;
+            }
+            .pt-header-reopen-btn {
+                padding: 2px 8px;
+                font-size: 9px;
+                right: 4px;
             }
             .header-bar div { display: flex !important; gap: 2px !important; }
             .header-bar .btn-exit {
@@ -957,6 +998,10 @@
                 width: 100% !important;
                 max-width: 100% !important;
                 min-width: 0 !important;
+            }
+            body.pt-header-collapsed .playtest-board {
+                height: calc(100dvh - 4px) !important;
+                max-height: calc(100dvh - 4px) !important;
             }
 
             .playtest-row {
@@ -1439,6 +1484,109 @@
             bottom: auto;
             top: 4px;
         }
+        /* 処理中の呪文（呪文効果処理モード）バー */
+        .pt-casting-bar {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 800;
+            background: rgba(22, 18, 38, 0.94);
+            border: 2px solid #9b59b6;
+            border-radius: 10px;
+            padding: 6px 12px 8px 12px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.8), 0 0 14px rgba(155, 89, 182, 0.45);
+            max-width: min(92vw, 760px);
+            box-sizing: border-box;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: auto;
+        }
+        body:not(.pt-header-collapsed) .pt-casting-bar {
+            top: 46px;
+        }
+        @media screen and (min-width: 901px) and (min-height: 601px) {
+            body:not(.pt-header-collapsed) .pt-casting-bar {
+                top: 146px;
+            }
+        }
+        .pt-casting-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #e6c8ff;
+            white-space: nowrap;
+        }
+        .pt-casting-toggle-btn {
+            background: rgba(155, 89, 182, 0.3);
+            color: #fff;
+            border: 1px solid #9b59b6;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            cursor: pointer;
+        }
+        .pt-casting-cards {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 2px 0;
+            touch-action: pan-x;
+            -webkit-overflow-scrolling: touch;
+        }
+        .pt-casting-bar.collapsed .pt-casting-cards {
+            display: none;
+        }
+        .pt-casting-card {
+            position: relative;
+            width: 58px;
+            height: 81px;
+            flex: 0 0 auto;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #9b59b6;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+            cursor: pointer;
+            background: #2a2a2a;
+        }
+        .pt-casting-card img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+            pointer-events: none;
+        }
+        @media screen and (orientation: landscape) and (max-height: 900px), screen and (max-height: 600px) {
+            body:not(.pt-header-collapsed) .pt-casting-bar {
+                top: 28px;
+            }
+            body.pt-header-collapsed .pt-casting-bar {
+                top: 4px;
+            }
+            .pt-casting-bar {
+                padding: 4px 8px;
+                gap: 4px;
+                border-radius: 8px;
+            }
+            .pt-casting-header {
+                font-size: 10px;
+                gap: 8px;
+            }
+            .pt-casting-toggle-btn {
+                padding: 1px 6px;
+                font-size: 9px;
+            }
+            .pt-casting-card {
+                width: 40px;
+                height: 56px;
+            }
+        }
     </style>
     <script src="/js/card_image_helper.js?v=2"></script>
 </head>
@@ -1468,16 +1616,20 @@
             (adsbygoogle = window.adsbygoogle || []).push({});
         </script>
     </div>
-    <div class="header-bar">
-        <h2>1人回し: {{if .deckName}}{{.deckName}}{{else}}デッキ{{end}}</h2>
-        <div>
-            <!-- ★ クラス btn-turn-end を追加 -->
-            <button class="btn-exit btn-turn-end" style="background:#fd7e14; margin-right:8px;" onclick="ptPassTurnAndStart()">ターン終了</button>
-            <button class="btn-exit" style="background:#17a2b8; margin-right:8px;" onclick="openUntapMenu()">カードをアンタップ</button>
-            <!-- 【修正】IDを追加し、表記を「一括選択モード」に変更 -->
-            <button id="btnToggleSelect" class="btn-exit" style="background:#28a745; margin-right:8px;" onclick="toggleSelectMode()">一括選択モード</button>
-            <button class="btn-exit" onclick="ptExitGame()">終了する</button>
+    <div class="header-bar-wrapper">
+        <div class="header-bar">
+            <h2>1人回し: {{if .deckName}}{{.deckName}}{{else}}デッキ{{end}}</h2>
+            <div>
+                <!-- ★ クラス btn-turn-end を追加 -->
+                <button class="btn-exit btn-turn-end" style="background:#fd7e14; margin-right:8px;" onclick="ptPassTurnAndStart()">ターン終了</button>
+                <button class="btn-exit" style="background:#17a2b8; margin-right:8px;" onclick="openUntapMenu()">カードをアンタップ</button>
+                <!-- 【修正】IDを追加し、表記を「一括選択モード」に変更 -->
+                <button id="btnToggleSelect" class="btn-exit" style="background:#28a745; margin-right:8px;" onclick="toggleSelectMode()">一括選択モード</button>
+                <button class="btn-exit" style="margin-right:8px;" onclick="ptExitGame()">終了する</button>
+                <button type="button" class="btn-exit" style="background:#555;" onclick="event.stopPropagation(); ptToggleHeader(false)" title="ヘッダーを隠す">▲ 隠す</button>
+            </div>
         </div>
+        <button type="button" id="ptHeaderOpenBtn" class="pt-header-reopen-btn" onclick="event.stopPropagation(); ptToggleHeader(true)">▼ ヘッダー</button>
     </div>
 
     <div class="playtest-board" id="playtestBoard">
@@ -1541,6 +1693,8 @@
 </div>
 <!-- 汎用盤面直接選択モード用フローティングバナー -->
 <div id="ptBoardSelectBanner" class="pt-glink-select-banner pt-board-select-banner" style="display: none;"></div>
+<!-- 処理中の呪文表示エリア -->
+<div id="ptCastingSpellBar" class="pt-casting-bar" style="display: none;"></div>
 <!-- コンテキストメニュー -->
 <ul id="ptContextMenu" class="context-menu"></ul>
 <!-- 拡大表示専用モーダル（前面にポップアップ） -->
@@ -1573,7 +1727,7 @@ const initialCards = Array.isArray(initialCardsRaw) ? initialCardsRaw : [];
 let ptLandscapeCache = new Set();
 
 let ptState = {
-    deck: [], hand: [], mana: [], graveyard: [], battle: [], shield: [], psychic: [], gr: [], partner: [] // ★ partner 追加
+    deck: [], hand: [], mana: [], graveyard: [], battle: [], shield: [], psychic: [], gr: [], partner: [], casting: [] // ★ casting 追加
 };
 let ptDraggedCardId = null;
 let selectedCards = new Set(); 
@@ -1970,7 +2124,7 @@ function restoreHandZone() {
 // ゲーム初期化処理 (ドルマゲドンX ＆ 零龍 登録対応版)
 // ==========================================
 function initPlaytestGame() {
-    ptState = { deck: [], hand: [], mana: [], graveyard: [], battle: [], shield: [], psychic: [], gr: [] };
+    ptState = { deck: [], hand: [], mana: [], graveyard: [], battle: [], shield: [], psychic: [], gr: [], partner: [], casting: [] };
     selectedCards.clear();
 
     // デッキ内に含まれる種族・カードタイプの事前抽出
@@ -2044,7 +2198,7 @@ function initPlaytestGame() {
         let creatureSrc = '';
         let cardName = card.card_name || 'カード';
         let originalName = cardName;
-        let partnerName = card.dummy_partner_name || '';
+        let partnerName = card.partner_card_name || card.dummy_partner_name || '';
 
         if (isDummyCard) {
             if (dummyType === 'double') {
@@ -2086,7 +2240,7 @@ function initPlaytestGame() {
             cardtypeIds = [1]; // 未設定ダミーのデフォルト
         }
 
-        const partnerCardtypeIds = ptNormalizeIds(card.dummy_partner_cardtype_ids || '');
+        const partnerCardtypeIds = ptNormalizeIds(card.partner_cardtype_ids || card.dummy_partner_cardtype_ids || '');
         const partnerCharacteristicsIds = ptNormalizeIds(card.dummy_partner_characteristics_ids || '');
         const partnerAbilityIds = ptNormalizeIds(card.dummy_partner_ability_ids || '');
 
@@ -2138,7 +2292,7 @@ function initPlaytestGame() {
                 original_cardtype_ids: [...cardtypeIds],
                 original_characteristics_ids: [...characteristicsIds],
                 original_ability_ids: [...abilityIds],
-                partner_cardtype_ids: partnerCardtypeIds.length > 0 ? partnerCardtypeIds : [1],
+                partner_cardtype_ids: partnerCardtypeIds.length > 0 ? partnerCardtypeIds : (isDummyCard && dummyType === 'double' ? [1] : []),
                 partner_characteristics_ids: partnerCharacteristicsIds.length > 0 ? partnerCharacteristicsIds : [...characteristicsIds],
                 partner_ability_ids: partnerAbilityIds,
                 underCards: [], tapped: false, inverted: false, faceDown: false, flipped: false,
@@ -2511,6 +2665,7 @@ function renderPtBoard() {
             }
         }
     } catch(e) { console.error("Partner zone render error:", e); }
+    try { renderCastingSpellBar(); } catch(e) { console.error("Casting bar render error:", e); }
 }
 
 // =========================================================================
@@ -2859,9 +3014,15 @@ function renderZone(zoneId, arr, name) {
             el.appendChild(bsBadge);
         }
 
-        const auraCards = (!card.faceDown && card.underCards) ? card.underCards.filter(uc =>
-            uc.cardtype_ids && uc.cardtype_ids.includes(8) && !uc.faceDown
-        ) : [];
+        const isAuraOverlay = (uc) => (
+            zoneId === 'pt-zone-battle' &&
+            !uc.is_under_stacked &&
+            uc.cardtype_ids &&
+            uc.cardtype_ids.includes(8) &&
+            !uc.faceDown
+        );
+
+        const auraCards = (!card.faceDown && card.underCards) ? card.underCards.filter(isAuraOverlay) : [];
         if (auraCards.length > 0) {
             el.classList.add('has-aura');
             const isMobileZone = (window.innerHeight <= 500 || (window.innerWidth <= 900 && window.innerWidth > window.innerHeight));
@@ -2880,7 +3041,7 @@ function renderZone(zoneId, arr, name) {
         }
 
         const regularUnders = card.underCards ? card.underCards.filter(uc => 
-            !(uc.cardtype_ids && uc.cardtype_ids.includes(8) && !uc.faceDown)
+            !(!card.faceDown && isAuraOverlay(uc))
         ) : [];
         if (regularUnders.length > 0) {
             const b = document.createElement('div');
@@ -3105,6 +3266,11 @@ function handleDrop(e, targetZone) {
         return;
     }
 
+    if (fromZone === 'casting' && targetZone === 'battle') {
+        ptDraggedCardId = null;
+        return;
+    }
+
     if (targetZone === 'battle') {
         ptCheckEvolutionAndPlay(id, fromZone);
         ptDraggedCardId = null;
@@ -3137,10 +3303,22 @@ function handleDrop(e, targetZone) {
     ptMoveCard(id, fromZone, targetZone);
     ptDraggedCardId = null;
 }
+function ptFlattenCardList(items) {
+    if (!Array.isArray(items)) return items ? [items] : [];
+    const res = [];
+    items.forEach(item => {
+        if (Array.isArray(item)) {
+            res.push(...ptFlattenCardList(item));
+        } else if (item && typeof item === 'object') {
+            res.push(item);
+        }
+    });
+    return res;
+}
 
 function findCardZone(cardId) {
     let found = '';
-    ['hand','mana','battle','shield','graveyard','psychic','gr','deck','partner'].forEach(z => { // ★ 'partner' 追加
+    ['hand','mana','battle','shield','graveyard','psychic','gr','deck','partner','casting'].forEach(z => { // ★ 'casting' 追加
         if (ptState[z] && ptState[z].some(c => c.id === cardId)) {
             found = z;
         }
@@ -3209,10 +3387,10 @@ function ptMoveCard(cardId, from, to, opts = {}) {
     if (from === 'battle' && ptState.battle[index].faceDown && ptState.battle[index].underCards && ptState.battle[index].underCards.length > 0) {
         card = ptState.battle[index]; 
         
-        let underCards = [card.underCards];
-        let nextTopCard = underCards.shift(); 
+        let underCards = ptFlattenCardList(card.underCards || []);
+        let nextTopCard = underCards.shift();
         
-        nextTopCard.underCards = underCards;   
+        nextTopCard.underCards = underCards;
         ptState.battle.splice(index, 1, nextTopCard);
         card.underCards = [];
     } else {
@@ -3261,6 +3439,7 @@ function ptMoveCard(cardId, from, to, opts = {}) {
     // バトルゾーン以外への移動時、最初の面(表面)に自動リセット
     if (to !== 'battle') {
         card.flipped = false;
+        card.is_under_stacked = false;
         if (card.original_src) {
             card.src = card.original_src;
         }
@@ -3321,10 +3500,14 @@ function ptMoveCard(cardId, from, to, opts = {}) {
         card.inverted = false; card.faceDown = false; card.tapped = false;
         card.underCards = [];
         ptState.partner = [card];
+    } else if (to === 'casting') {
+        card.inverted = false; card.faceDown = false; card.tapped = false;
+        card.underCards = [];
+        ptState.casting.push(card);
     }
 
 // ★ 追加: バトルゾーンから離れて他ゾーンへ配置完了した直後にパートナー帰還確認
-    if (isDueParty && card.is_partner && from === 'battle' && to !== 'battle' && to !== 'partner' && !opts.skipPartnerCheck) {
+    if (isDueParty && card.is_partner && from === 'battle' && to !== 'battle' && to !== 'partner' && to !== 'casting' && !opts.skipPartnerCheck) {
         renderPtBoard();
         ptOpenPartnerReturnChoiceModal(card, to);
         return true;
@@ -3357,8 +3540,7 @@ function ptExecuteUnderCardSelectMove(parentId, toZone, opts = {}) {
         return;
     }
 
-    const parentCard = ptState.battle[battleIdx];
-    // ★ 修正: スプレッド構文でフラットな配列として結合
+    const parentCard = ptState.shield[shieldIdx];
     const allComponents = [parentCard, ...(parentCard.underCards || [])];
 
     const toMoveIndexes = [];
@@ -3513,6 +3695,7 @@ function openCardMenu(e, card, zone) {
         const toggleTitle = card.faceDown ? "表向きにする" : "裏向きにする";
         menuHtml += `
             <li onclick="ptToggleFacedown('${card.id}')">${toggleTitle}</li>
+            ${ptHasSpellSide(card) ? `<li onclick="ptCastSpell('${card.id}', 'partner')">✨ 唱える</li>` : ''}
             <hr>
             <li onclick="ptMoveCard('${card.id}', 'partner', 'battle')">バトルゾーンに置く</li>
             <li onclick="openStackUnderBattleSelector('${card.id}', 'partner')">バトルゾーンのカードの下に置く</li>
@@ -3564,6 +3747,7 @@ function openCardMenu(e, card, zone) {
             }
 
             menuHtml += `
+                ${ptHasSpellSide(card) ? `<li onclick="ptCastSpell('${card.id}', 'battle')">✨ 唱える</li>` : ''}
                 <li onclick="ptSealCardPrompt('${card.id}')">🔒 山札の上から封印を付ける...</li>
                 <hr>
                 <li onclick="ptMoveCard('${card.id}', 'battle', 'hand')">手札に置く</li>
@@ -3584,6 +3768,7 @@ function openCardMenu(e, card, zone) {
         const title = card.faceDown ? '表向きにする' : '裏向きにする';
         menuHtml += `
             <li onclick="ptToggleFacedown('${card.id}')">${title}</li>
+            ${ptHasSpellSide(card) ? `<li onclick="ptCastSpell('${card.id}', 'mana')">✨ 唱える</li>` : ''}
             <hr>
             <li onclick="ptMoveCard('${card.id}', 'mana', 'hand')">手札に置く</li>
             <li onclick="openManaToBattleMenu('${card.id}')">バトルゾーンに置く</li>
@@ -3594,6 +3779,7 @@ function openCardMenu(e, card, zone) {
         `;
     } else if (zone === 'shield') {
         menuHtml += `
+            ${ptHasSpellSide(card) ? `<li onclick="ptCastSpell('${card.id}', 'shield')">✨ 唱える</li><hr>` : ''}
             <li onclick="ptMoveCard('${card.id}', 'shield', 'hand')">手札に加える</li>
             <li onclick="openShieldToBattleMenu('${card.id}')">バトルゾーンに置く</li>
             <li onclick="openStackUnderBattleSelector('${card.id}', 'shield')">バトルゾーンのカードの下に置く</li>
@@ -3609,6 +3795,7 @@ function openCardMenu(e, card, zone) {
         `;
     } else if (zone === 'hand') {
         menuHtml += `
+            ${ptHasSpellSide(card) ? `<li onclick="ptCastSpell('${card.id}', 'hand')">✨ 唱える</li><hr>` : ''}
             <li onclick="openHandToBattleMenu('${card.id}')">バトルゾーンに置く</li>
             <li onclick="openStackUnderBattleSelector('${card.id}', 'hand')">バトルゾーンのカードの下に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'hand', 'mana')">マナに置く</li>
@@ -3906,6 +4093,8 @@ function zoneJapaneseName(key) {
         case 'graveyard': return '墓地';
         case 'psychic': return '超次元';
         case 'gr': return '超GR';
+        case 'partner': return 'パートナー';
+        case 'casting': return '処理中の呪文';
         default: return 'その他';
     }
 }
@@ -3998,7 +4187,7 @@ function ptLookAtDeckBottom(count) {
 
 function findCardById(id) {
     let found = null;
-    ['hand','mana','battle','shield','graveyard','psychic','gr','deck'].forEach(z => {
+    ['hand','mana','battle','shield','graveyard','psychic','gr','deck','partner','casting'].forEach(z => {
         if (ptState[z]) {
             const c = ptState[z].find(item => item.id === id);
             if (c) found = c;
@@ -4479,9 +4668,26 @@ function ptExecuteShieldAdd(sourceCardId, count) {
 
 
 // 特性とability_idをチェックし、進化演出プロセスへ分岐させる
-function ptCheckEvolutionAndPlay(cardId, fromZone) {
+function ptCheckEvolutionAndPlay(cardId, fromZone, opts = {}) {
     const card = ptState[fromZone].find(c => c.id === cardId);
     if (!card) return;
+
+    if (!opts.skipTwinpactChoice) {
+        const spellStatus = ptGetCardSpellStatus(card);
+        if (spellStatus.isMixedTwinpact) {
+            ptOpenTwinpactPlayChoiceModal(
+                card,
+                fromZone,
+                () => ptCheckEvolutionAndPlay(cardId, fromZone, { ...opts, skipTwinpactChoice: true }),
+                () => ptCastSpell(cardId, fromZone)
+            );
+            return;
+        }
+        if (spellStatus.isPureSpell) {
+            ptCastSpell(cardId, fromZone);
+            return;
+        }
+    }
 
     const charIds = card.characteristics_ids || [];
     const abIds = card.ability_ids || [];
@@ -5080,7 +5286,7 @@ function ptStackDeckTopToShield(baseCardId, position) {
     if (position === 'under') {
         baseCard.underCards.push(deckCard);
     } else {
-        deckCard.underCards = [baseCard, baseCard.underCards];
+        deckCard.underCards = ptFlattenCardList([baseCard, ...(baseCard.underCards || [])]);
         baseCard.underCards = [];
         const baseIdx = ptState.shield.findIndex(c => c.id === baseCardId);
         if (baseIdx !== -1) {
@@ -5139,7 +5345,7 @@ function ptMoveShieldComponent(parentId, cardId, toZone) {
     if (shieldIdx === -1) return;
 
     const parentCard = ptState.shield[shieldIdx];
-    const allComponents = [parentCard, parentCard.underCards];
+    const allComponents = ptFlattenCardList([parentCard, ...(parentCard.underCards || [])]);
 
     // 対象となるカードを特定
     const targetIdx = allComponents.findIndex(c => c.id === cardId);
@@ -5196,7 +5402,7 @@ function ptMoveAllShieldComponents(parentId, toZone) {
     if (shieldIdx === -1) return;
 
     const parentCard = ptState.shield[shieldIdx];
-    const allComponents = [parentCard, parentCard.underCards];
+    const allComponents = ptFlattenCardList([parentCard, ...(parentCard.underCards || [])]);
 
     // 盤面のシールドから束ごと削除
     ptState.shield.splice(shieldIdx, 1);
@@ -5349,7 +5555,7 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
 
                 if (isScatter) {
                     c.underCards = [];
-                    c.underCards = [baseCard, baseCard.underCards];
+                    c.underCards = ptFlattenCardList([baseCard, ...(baseCard.underCards || [])]);
                     baseCard.underCards = [];
                     
                     const baseIdx = ptState.shield.findIndex(sh => sh.id === baseCard.id);
@@ -5359,8 +5565,8 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
                     }
                 } else {
                     c.underCards.forEach(uc => uc.faceDown = isFaceDown);
-                    const originalUnderOfC = [c.underCards];
-                    c.underCards = [originalUnderOfC, baseCard, baseCard.underCards];
+                    const originalUnderOfC = ptFlattenCardList(c.underCards || []);
+                    c.underCards = ptFlattenCardList([...originalUnderOfC, baseCard, ...(baseCard.underCards || [])]);
                     baseCard.underCards = [];
                     
                     const baseIdx = ptState.shield.findIndex(sh => sh.id === baseCard.id);
@@ -5398,7 +5604,7 @@ function ptExecuteShieldUnderCardSelectMove(parentId, toZone, opts = {}) {
     }
 
     const parentCard = ptState.shield[shieldIdx];
-    const allComponents = [parentCard, parentCard.underCards];
+    const allComponents = ptFlattenCardList([parentCard, ...(parentCard.underCards || [])]);
 
     const toMoveIndexes = [];
     selectedItems.forEach(item => {
@@ -5527,6 +5733,7 @@ function ptExecuteAuraExistingPlay(auraId, fromZone, targetGrId, mode) {
     aura.faceDown = false;
     aura.tapped = false;
     aura.inverted = false;
+    aura.is_under_stacked = false;
 
     let targetGr = ptState.battle.find(c => c.id === targetGrId);
     if (targetGr) {
@@ -5566,6 +5773,7 @@ function ptExecuteSingleGRAuraPlay(auraId, fromZone) {
     aura.faceDown = false;
     aura.tapped = false;
     aura.inverted = false;
+    aura.is_under_stacked = false;
 
     // GR召喚
     let grCard = ptState.gr.pop();
@@ -5647,6 +5855,7 @@ function ptAttachAuraToSpecific(auraId, targetGrId) {
 
     let targetGr = ptState.battle.find(c => c.id === targetGrId);
     if (targetGr) {
+        aura.is_under_stacked = false;
         targetGr.underCards.push(aura);
     }
 
@@ -5656,7 +5865,7 @@ function ptAttachAuraToSpecific(auraId, targetGrId) {
 }
 
 function ptCheckAndReturnSpecialCard(card, toZone, opts = {}) {
-    if (toZone === 'battle' || toZone === 'gr' || toZone === 'psychic') {
+    if (toZone === 'battle' || toZone === 'gr' || toZone === 'psychic' || toZone === 'casting') {
         return false;
     }
     const hasGR = card.characteristics_ids && card.characteristics_ids.includes(10);
@@ -5665,10 +5874,8 @@ function ptCheckAndReturnSpecialCard(card, toZone, opts = {}) {
     if (hasGR || hasPsychic) {
         // 重ねられていたオーラや封印、進化元などを切り離して救出
         if (card.underCards && card.underCards.length > 0) {
-            const attachedCards = [card.underCards];
-            card.underCards = []; // GRクリーチャー本体の下敷きからクリア
-
-            // 切り離されたカード群を、本来の目的地(toZone)へ移動配置
+            const attachedCards = ptFlattenCardList(card.underCards || []);
+            card.underCards = []; // GRクリーチャー本体の下敷きからクリア            // 切り離されたカード群を、本来の目的地(toZone)へ移動配置
             attachedCards.forEach(attached => {
                 attached.underCards = [];
                 attached.tapped = false;
@@ -5733,8 +5940,13 @@ function openLookingCardMenu(e, card) {
     }
 
     const count = ptReturnOrder.length;
+    const hasSpellSelected = ptReturnOrder.some(id => {
+        const c = ptLookingCards.find(item => item.id === id);
+        return c && ptHasSpellSide(c);
+    });
     
     menu.innerHTML = `
+        ${hasSpellSelected ? `<li onclick="ptCastLookingSpells()">✨ 選択した呪文を唱える</li><hr>` : ''}
         <li onclick="ptMoveLookingCardsBatch('hand')">選択した ${count} 枚を手札に加える</li>
         <li onclick="ptMoveLookingCardsBatch('mana')">選択した ${count} 枚をマナに置く</li>
         <li onclick="ptMoveLookingCardsBatch('graveyard')">選択した ${count} 枚を墓地に置く</li>
@@ -6283,7 +6495,7 @@ function ptReleaseSeal(cardId, skipRender = false) {
         ptState.battle.splice(index, 1);
 
         card.faceDown = false; // 墓地に置くため表向きに戻す
-        const sealUnderCards = [card.underCards];
+        const sealUnderCards = ptFlattenCardList(card.underCards || []);
         card.underCards = []; // 参照クリア
         ptState.graveyard.push(card); // 封印カード本体を墓地へ
 
@@ -6443,10 +6655,15 @@ function openGroupedViewerContextMenu(e, itemEl, groupIds, fromZone) {
 
     // ★ 選択中の先頭カードを特定
     const targetCardId = allSelectedIds[0];
+    const hasSpellSelected = allSelectedIds.some(id => {
+        const c = (ptState[fromZone] || []).find(item => item.id === id);
+        return c && ptHasSpellSide(c);
+    });
 
     const menu = document.getElementById('ptContextMenu');
     menu.innerHTML = `
         <li onclick="ptShowCardDetailModalById('${targetCardId}', '${fromZone}')">🔎 拡大表示</li>
+        ${hasSpellSelected ? `<li onclick="ptCastGroupedViewerSpells('${fromZone}')">✨ 唱える</li>` : ''}
         <hr>
         <li onclick="ptMoveGroupedViewerBatch('${fromZone}', 'hand')">選択した ${count} 枚を手札に加える</li>
         <li onclick="ptMoveGroupedViewerBatch('${fromZone}', 'mana')">選択した ${count} 枚をマナに置く</li>
@@ -8936,5 +9153,302 @@ window.addEventListener('resize', () => {
         if (typeof renderPtBoard === 'function') renderPtBoard();
     }, 120);
 });
+
+function ptToggleHeader(forceOpen) {
+    const isCollapsed = (typeof forceOpen === 'boolean')
+        ? !forceOpen
+        : !document.body.classList.contains('pt-header-collapsed');
+    document.body.classList.toggle('pt-header-collapsed', isCollapsed);
+    if (typeof renderPtBoard === 'function') {
+        renderPtBoard();
+    }
+}
+
+// ==========================================
+// 呪文詠唱・効果処理モード・ツインパクト選択
+// ==========================================
+let ptCastingBarCollapsed = false;
+
+function ptIsTwinpactCard(card) {
+    if (!card) return false;
+    return card.twinpact === '1' || card.twinpact === 1 || card.twinpact === true || card.twinpact === 'true' || (card.is_dummy && card.dummy_card_type === 'twinpact');
+}
+
+function ptGetCardSpellStatus(card) {
+    if (!card) {
+        return { isPureSpell: false, isMixedTwinpact: false, hasSpell: false, topIsSpell: false, bottomIsSpell: false, spellSideName: '', nonSpellSideName: '' };
+    }
+    const topTypes = ptNormalizeIds(card.cardtype_ids);
+    const bottomTypes = ptNormalizeIds(card.partner_cardtype_ids);
+    const topIsSpell = topTypes.includes(2);
+    const bottomIsSpell = bottomTypes.includes(2);
+    const topName = card.original_name || card.name || '上面';
+    const bottomName = card.partner_name || '下面';
+
+    if (!ptIsTwinpactCard(card)) {
+        return {
+            isPureSpell: topIsSpell,
+            isMixedTwinpact: false,
+            hasSpell: topIsSpell,
+            topIsSpell: topIsSpell,
+            bottomIsSpell: false,
+            spellSideName: topName,
+            nonSpellSideName: topName
+        };
+    }
+
+    const isMixed = (topIsSpell && !bottomIsSpell) || (!topIsSpell && bottomIsSpell);
+    const isBothSpell = topIsSpell && bottomIsSpell;
+    return {
+        isPureSpell: isBothSpell,
+        isMixedTwinpact: isMixed,
+        hasSpell: topIsSpell || bottomIsSpell,
+        topIsSpell: topIsSpell,
+        bottomIsSpell: bottomIsSpell,
+        spellSideName: (bottomIsSpell && !topIsSpell) ? bottomName : topName,
+        nonSpellSideName: (topIsSpell && !bottomIsSpell) ? bottomName : topName
+    };
+}
+
+function ptHasSpellSide(card) {
+    return ptGetCardSpellStatus(card).hasSpell;
+}
+
+function ptOpenTwinpactPlayChoiceModal(card, fromZone, onChooseBattle, onChooseSpell, onCancel = null) {
+    const status = ptGetCardSpellStatus(card);
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "ツインパクトカードの使う面を選択";
+    body.innerHTML = `
+        <div style="text-align:center; padding: 8px 0;">
+            <img src="${card.src}" style="width:120px; height:168px; border-radius:6px; box-shadow:0 4px 12px rgba(0,0,0,0.6); margin-bottom:12px;">
+            <p style="font-size:13px; color:#ccc; margin:0 0 14px 0;">どちらとして使いますか？</p>
+            <button id="ptBtnTwinpactBattle" class="btn-pt-primary" style="width:100%; padding:11px; font-weight:bold; margin-bottom:10px;">
+                ⚔️ バトルゾーンに出す（${status.nonSpellSideName}）
+            </button>
+            <button id="ptBtnTwinpactSpell" class="btn-pt-primary" style="width:100%; padding:11px; font-weight:bold; background:#9b59b6;">
+                ✨ 呪文として唱える（${status.spellSideName}）
+            </button>
+        </div>
+    `;
+    footer.innerHTML = `<button id="ptBtnTwinpactCancel" class="btn-pt-secondary">キャンセル</button>`;
+
+    document.getElementById('ptBtnTwinpactBattle').onclick = () => {
+        closePtModal();
+        if (onChooseBattle) onChooseBattle();
+    };
+    document.getElementById('ptBtnTwinpactSpell').onclick = () => {
+        closePtModal();
+        if (onChooseSpell) onChooseSpell();
+    };
+    document.getElementById('ptBtnTwinpactCancel').onclick = () => {
+        closePtModal();
+        if (onCancel) onCancel();
+    };
+
+    modal.style.display = 'flex';
+}
+
+function ptCastSpell(cardId, fromZone, opts = {}) {
+    ptHideContextMenu();
+    ptCastingBarCollapsed = false;
+    const moved = ptMoveCard(cardId, fromZone, 'casting', opts);
+    if (moved && !opts.skipRender) {
+        renderPtBoard();
+    }
+    return moved;
+}
+
+function ptCastLookingSpells() {
+    ptHideContextMenu();
+    ptActiveRevealContext = 'looking';
+    let idsToCast = [...ptReturnOrder];
+    if (idsToCast.length === 0 && ptLastRightClickedCardId) {
+        idsToCast = [ptLastRightClickedCardId];
+    }
+    if (idsToCast.length === 0) return;
+
+    ptReturnOrder = [];
+    ptLastRightClickedCardId = null;
+
+    idsToCast.forEach(id => {
+        const idx = ptLookingCards.findIndex(c => c.id === id);
+        if (idx !== -1 && ptHasSpellSide(ptLookingCards[idx])) {
+            const card = ptLookingCards.splice(idx, 1)[0];
+            ptState.deck.push(card);
+            ptCastSpell(id, 'deck', { skipRender: true });
+        }
+    });
+
+    if (ptLookingCards && ptLookingCards.length > 0) {
+        renderLookingCardsModal();
+    } else {
+        closePtModal();
+        ptActiveRevealContext = null;
+    }
+    renderPtBoard();
+}
+
+function ptCastGroupedViewerSpells(fromZone) {
+    ptHideContextMenu();
+    const items = document.querySelectorAll('#ptViewerGrid .pt-grid-item.selected');
+    let allIds = [];
+    items.forEach(item => {
+        const ids = JSON.parse(item.getAttribute('data-selected-ids') || '[]');
+        allIds = allIds.concat(ids);
+    });
+    if (allIds.length === 0) return;
+
+    allIds.forEach(id => {
+        const c = (ptState[fromZone] || []).find(item => item.id === id);
+        if (c && ptHasSpellSide(c)) {
+            ptCastSpell(id, fromZone, { skipUnderCheck: true, skipRender: true });
+        }
+    });
+    closePtModal();
+    renderPtBoard();
+}
+
+function ptToggleCastingBar() {
+    ptCastingBarCollapsed = !ptCastingBarCollapsed;
+    const bar = document.getElementById('ptCastingSpellBar');
+    if (bar) bar.classList.toggle('collapsed', ptCastingBarCollapsed);
+    const btn = document.getElementById('ptCastingToggleBtn');
+    if (btn) btn.innerText = ptCastingBarCollapsed ? '▼ 表示' : '▲ 畳む';
+}
+
+function openCastingCardMenu(e, card) {
+    const menu = document.getElementById('ptContextMenu');
+    menu.innerHTML = `
+        <li onclick="ptShowCardDetailModalById('${card.id}', 'casting')">🔎 拡大表示</li>
+        <hr>
+        <li onclick="ptMoveCard('${card.id}', 'casting', 'graveyard')">墓地に置く</li>
+        <li onclick="ptMoveCard('${card.id}', 'casting', 'mana')">マナゾーンに置く</li>
+        <li onclick="ptMoveCard('${card.id}', 'casting', 'hand')">手札に戻す</li>
+        <li onclick="ptOpenShieldDropSelectModal('${card.id}', 'casting')">シールドに置く</li>
+        <li onclick="openDeckDropSelectModal('${card.id}', 'casting')">山札に置く</li>
+        <li onclick="openStackUnderBattleSelector('${card.id}', 'casting')">バトルゾーンにあるカードの下に置く</li>
+        <li onclick="ptMoveCard('${card.id}', 'casting', 'psychic')">超次元ゾーンに置く</li>
+    `;
+    menu.style.display = 'block';
+    adjustMenuPosition(e, menu);
+}
+
+function setupCastingCardEvents(el, card) {
+    let timer = null;
+    let moved = false;
+    let longPressed = false;
+    let startX = 0, startY = 0;
+
+    el.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 1) return;
+        moved = false;
+        longPressed = false;
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+
+        timer = setTimeout(() => {
+            if (!moved) {
+                longPressed = true;
+                if (navigator.vibrate) navigator.vibrate(40);
+                openCastingCardMenu({
+                    clientX: startX,
+                    clientY: startY,
+                    preventDefault: () => {},
+                    stopPropagation: () => {}
+                }, card);
+                timer = null;
+            }
+        }, 500);
+    }, { passive: true });
+
+    el.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        if (Math.hypot(touch.clientX - startX, touch.clientY - startY) > 8) {
+            moved = true;
+            if (timer) {
+                clearTimeout(timer);
+                timer = null;
+            }
+        }
+    }, { passive: true });
+
+    el.addEventListener('touchend', () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    });
+
+    el.addEventListener('touchcancel', () => {
+        if (timer) {
+            clearTimeout(timer);
+            timer = null;
+        }
+    });
+
+    el.onclick = (e) => {
+        e.stopPropagation();
+        if (longPressed) {
+            longPressed = false;
+            return;
+        }
+        ptShowCardDetailModalById(card.id, 'casting');
+    };
+
+    el.oncontextmenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openCastingCardMenu(e, card);
+    };
+}
+
+function renderCastingSpellBar() {
+    const bar = document.getElementById('ptCastingSpellBar');
+    if (!bar) return;
+
+    const castingCards = ptState.casting || [];
+    if (castingCards.length === 0) {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+        ptCastingBarCollapsed = false;
+        return;
+    }
+
+    bar.classList.toggle('collapsed', ptCastingBarCollapsed);
+    bar.innerHTML = `
+        <div class="pt-casting-header">
+            <span>🔮 処理中の呪文 (${castingCards.length}枚) - 右クリック/長押しで移動</span>
+            <button type="button" id="ptCastingToggleBtn" class="pt-casting-toggle-btn" onclick="event.stopPropagation(); ptToggleCastingBar()">${ptCastingBarCollapsed ? '▼ 表示' : '▲ 畳む'}</button>
+        </div>
+        <div class="pt-casting-cards" id="ptCastingCardsContainer"></div>
+    `;
+
+    const container = document.getElementById('ptCastingCardsContainer');
+    castingCards.forEach(card => {
+        const el = document.createElement('div');
+        el.className = 'pt-casting-card';
+        el.title = card.name || '呪文';
+        el.draggable = true;
+        el.innerHTML = `<img src="${card.src}">`;
+
+        el.ondragstart = (e) => {
+            ptDraggedCardId = card.id;
+            if (e.dataTransfer) {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', card.id);
+            }
+        };
+
+        setupCastingCardEvents(el, card);
+        container.appendChild(el);
+    });
+
+    bar.style.display = 'flex';
+}
 </script>
 </body>

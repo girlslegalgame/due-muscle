@@ -471,7 +471,9 @@ function ptOpenShieldBreakModal(parentCard) {
     const footer = document.getElementById('ptModalFooter');
 
     title.innerText = "シールド回収";
-    const allShieldCards = [parentCard, ...parentCard.underCards];
+    const allShieldCards = (typeof ptFlattenCardList === 'function')
+        ? ptFlattenCardList([parentCard, ...(parentCard.underCards || [])])
+        : [parentCard, ...(parentCard.underCards || [])];
 
     if (allShieldCards.length === 1) {
         body.innerHTML = `
@@ -497,6 +499,7 @@ function ptOpenShieldBreakModal(parentCard) {
         allShieldCards.forEach(card => {
             const itemEl = document.createElement('div');
             itemEl.className = 'pt-grid-item';
+            itemEl.onclick = () => ptShowCardDetailModalDirect(card);
             itemEl.innerHTML = `
                 <img src="${card.src}">
                 <div class="card-qty">${card.name}</div>
@@ -1345,7 +1348,9 @@ function ptOpenShieldUnderCardSelectModal(parentCard, toZone, opts = {}) {
     `;
 
     const grid = document.getElementById('ptShieldUnderSelectGrid');
-    const allComponents = [parentCard, ...parentCard.underCards];
+    const allComponents = (typeof ptFlattenCardList === 'function')
+        ? ptFlattenCardList([parentCard, ...(parentCard.underCards || [])])
+        : [parentCard, ...(parentCard.underCards || [])];
 
     allComponents.forEach((card, idx) => {
         const itemEl = document.createElement('div');
@@ -1377,9 +1382,31 @@ function ptOpenShieldUnderCardSelectModal(parentCard, toZone, opts = {}) {
     modal.style.display = 'flex';
 }
 
-function ptOpenBattlePlacementSelectModal(cardId, fromZone) {
+function ptOpenBattlePlacementSelectModal(cardId, fromZone, opts = {}) {
     const card = ptState[fromZone].find(c => c.id === cardId);
     if (!card) return;
+
+    if (!opts.skipTwinpactChoice && typeof ptGetCardSpellStatus === 'function') {
+        const spellStatus = ptGetCardSpellStatus(card);
+        if (spellStatus.isMixedTwinpact) {
+            ptOpenTwinpactPlayChoiceModal(
+                card,
+                fromZone,
+                () => ptOpenBattlePlacementSelectModal(cardId, fromZone, { ...opts, skipTwinpactChoice: true }),
+                () => {
+                    ptCastSpell(cardId, fromZone);
+                    ptReturnToPreviousModal();
+                },
+                () => ptCancelBattlePlacement(cardId, fromZone)
+            );
+            return;
+        }
+        if (spellStatus.isPureSpell) {
+            ptCastSpell(cardId, fromZone);
+            ptReturnToPreviousModal();
+            return;
+        }
+    }
 
     const modal = document.getElementById('ptListModal');
     const title = document.getElementById('ptModalTitle');
@@ -1981,10 +2008,15 @@ function openDeckViewContextMenu(e, itemEl, groupIds) {
 
     // ★ 選択中の先頭カードを特定
     const targetCardId = allSelectedIds[0];
+    const hasSpellSelected = typeof ptHasSpellSide === 'function' && allSelectedIds.some(id => {
+        const c = ptState.deck.find(item => item.id === id);
+        return c && ptHasSpellSide(c);
+    });
 
     const menu = document.getElementById('ptContextMenu');
     menu.innerHTML = `
         <li onclick="ptShowCardDetailModalById('${targetCardId}', 'deck')">🔎 拡大表示</li>
+        ${hasSpellSelected ? `<li onclick="ptCastDeckViewSpells()">✨ 唱える</li>` : ''}
         <hr>
         <li onclick="ptMoveDeckViewBatch('hand')">選択した ${count} 枚を手札に加える</li>
         <li onclick="ptMoveDeckViewBatch('mana')">選択した ${count} 枚をマナに置く</li>
@@ -1995,6 +2027,25 @@ function openDeckViewContextMenu(e, itemEl, groupIds) {
     `;
     menu.style.display = 'block';
     adjustMenuPosition(e, menu);
+}
+function ptCastDeckViewSpells() {
+    ptHideContextMenu();
+    const items = document.querySelectorAll('#ptDeckViewGrid .pt-grid-item.selected');
+    let allIds = [];
+    items.forEach(item => {
+        const ids = JSON.parse(item.getAttribute('data-selected-ids') || '[]');
+        allIds = allIds.concat(ids);
+    });
+    if (allIds.length === 0) return;
+
+    allIds.forEach(id => {
+        const c = ptState.deck.find(item => item.id === id);
+        if (c && ptHasSpellSide(c)) {
+            ptCastSpell(id, 'deck', { skipRender: true });
+        }
+    });
+    closePtModal();
+    renderPtBoard();
 }
 function ptMoveDeckViewBatch(targetZone) {
     ptHideContextMenu();
@@ -2058,8 +2109,13 @@ function openRevealedCardMenu(e, card) {
     }
 
     const count = ptRevealedSelectedIds.length;
+    const hasSpellSelected = typeof ptHasSpellSide === 'function' && ptRevealedSelectedIds.some(id => {
+        const c = ptRevealedMatchedCards.find(x => x.id === id) || ptRevealedUnmatchedCards.find(x => x.id === id);
+        return c && ptHasSpellSide(c);
+    });
     const menu = document.getElementById('ptContextMenu');
     menu.innerHTML = `
+        ${hasSpellSelected ? `<li onclick="ptCastRevealedSpells()">✨ 唱える</li><hr>` : ''}
         <li onclick="ptMoveRevealedCardsBatch('hand')">選択した ${count} 枚を手札に加える</li>
         <li onclick="ptMoveRevealedCardsBatch('mana')">選択した ${count} 枚をマナに置く</li>
         <li onclick="ptMoveRevealedCardsBatch('graveyard')">選択した ${count} 枚を墓地に置く</li>
@@ -2069,6 +2125,40 @@ function openRevealedCardMenu(e, card) {
     `;
     menu.style.display = 'block';
     adjustMenuPosition(e, menu);
+}function ptCastRevealedSpells() {
+    ptHideContextMenu();
+    let idsToCast = [...ptRevealedSelectedIds];
+    if (idsToCast.length === 0) return;
+    ptRevealedSelectedIds = [];
+
+    idsToCast.forEach(id => {
+        let card = null;
+        let mIdx = ptRevealedMatchedCards.findIndex(c => c.id === id);
+        if (mIdx !== -1) {
+            if (!ptHasSpellSide(ptRevealedMatchedCards[mIdx])) return;
+            card = ptRevealedMatchedCards.splice(mIdx, 1)[0];
+        } else {
+            let uIdx = ptRevealedUnmatchedCards.findIndex(c => c.id === id);
+            if (uIdx !== -1) {
+                if (!ptHasSpellSide(ptRevealedUnmatchedCards[uIdx])) return;
+                card = ptRevealedUnmatchedCards.splice(uIdx, 1)[0];
+            }
+        }
+        if (card) {
+            ptState.deck.push(card);
+            ptCastSpell(id, 'deck', { skipRender: true });
+        }
+    });
+
+    const hasMatched = ptRevealedMatchedCards && ptRevealedMatchedCards.length > 0;
+    const hasUnmatched = ptRevealedUnmatchedCards && ptRevealedUnmatchedCards.length > 0;
+    if (!hasMatched && !hasUnmatched) {
+        closePtModal();
+        ptActiveRevealContext = null;
+    } else {
+        renderRevealedUntilModal();
+    }
+    renderPtBoard();
 }
 function ptMoveRevealedCardsBatch(targetZone) {
     ptHideContextMenu();
