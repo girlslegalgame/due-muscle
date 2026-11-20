@@ -924,6 +924,7 @@ func (c *CardController) CardVersionsApi(w http.ResponseWriter, r *http.Request)
                    END as text,
 
                    c.pow, c.cost, cd.twinpact, cd.hypermode, cd.modelnum, cd.imagepath, cd.release_date, cd.` + "`limit`" + ` as card_limit,
+                   cd.regulation,
                    (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c.card_id) as char_ids,
                    (SELECT GROUP_CONCAT(cardtype_id) FROM card_cardtype WHERE card_id = c.card_id) as cardtype_ids,
                    (SELECT GROUP_CONCAT(c_all.card_name ORDER BY cc_all.card_id ASC SEPARATOR '|||') 

@@ -3298,8 +3298,13 @@ function renderDetailModal() {
         vImg.onclick = () => {
             selectedCardData = v;
             if (activeClickedElement && activeClickedElement.parentNode !== resultsDiv) {
-                activeClickedElement.src = vImg.src;
+                const rawSrc = getCardImagePath(v);
+                delete activeClickedElement.dataset.regApplied; // ★ ガードフラグをリセット
+                activeClickedElement.src = rawSrc;
                 activeClickedElement.dataset.cardId = v.card_id;
+                activeClickedElement.dataset.imagepath = rawSrc;
+                activeClickedElement.dataset.regulation = v.regulation || '';
+                applyRegulationBadge(activeClickedElement, v.regulation);
             }
             renderDetailModal();
             loadCombinationSides(v.card_id);
