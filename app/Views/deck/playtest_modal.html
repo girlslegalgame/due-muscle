@@ -84,6 +84,16 @@ function ptCloseModalManual() {
     ptHideContextMenu();
     let needRender = false;
 
+    if (typeof ptState !== 'undefined' && ptState.casting && ptState.casting.length > 0) {
+        if (typeof ptPauseRevealModal === 'function') {
+            ptPauseRevealModal();
+        } else {
+            closePtModal();
+            ptActiveRevealContext = null;
+        }
+        return;
+    }
+
     if (ptLookingCards && ptLookingCards.length > 0) {
         ptLookingCards.forEach(c => {
             c.faceDown = true;
@@ -111,6 +121,10 @@ function ptCloseModalManual() {
     }
 
     closePtModal();
+    if (typeof ptRemoveSessionById === 'function' && typeof ptActiveSessionId !== 'undefined' && ptActiveSessionId) {
+        ptRemoveSessionById(ptActiveSessionId);
+        ptActiveSessionId = null;
+    }
     ptActiveRevealContext = null;
     ptGLinkHubActions = [];
     ptCurrentRunningActionId = null;
@@ -172,6 +186,11 @@ function ptReturnToPreviousModal() {
         return;
     }
 
+    if (typeof ptState !== 'undefined' && ptState.casting && ptState.casting.length > 0 && (ptActiveRevealContext === 'looking' || ptActiveRevealContext === 'revealed')) {
+        if (typeof ptPauseRevealModal === 'function') ptPauseRevealModal();
+        return;
+    }
+
     if (ptActiveRevealContext === 'revealed') {
         const hasMatched = ptRevealedMatchedCards && ptRevealedMatchedCards.length > 0;
         const hasUnmatched = ptRevealedUnmatchedCards && ptRevealedUnmatchedCards.length > 0;
@@ -191,6 +210,7 @@ function ptReturnToPreviousModal() {
     } else {
         closePtModal();
         ptActiveRevealContext = null;
+        if (typeof renderPtBoard === 'function') renderPtBoard();
     }
 }
 
@@ -784,6 +804,7 @@ function renderLookingCardsModal() {
         <button class="btn-pt-secondary" id="btn-return-ordered" onclick="ptReturnLookingCards('ordered_bottom')">好きな順で山札の下に置く</button>
         <button class="btn-pt-secondary" onclick="ptReturnLookingCards('shuffle_all')">すべて山札に戻してシャッフル</button>
         <button class="btn-pt-secondary" onclick="ptReturnLookingCards('shuffle_bottom')">すべてシャッフルして山札の下に置く</button>
+        <button class="btn-pt-secondary" onclick="ptPauseRevealModal()" style="background:#6f42c1;">⏸ 保留して盤面を操作</button>
     `;
     modal.style.display = 'flex';
     updateReturnOrderUI();
@@ -953,6 +974,7 @@ function renderRevealedUntilModal() {
         <button class="btn-pt-primary" onclick="ptHandleUnmatchedAction('graveyard')" style="background:#dc3545; color:#fff;">残りをすべて墓地に置く</button>
         <button class="btn-pt-primary" onclick="ptHandleUnmatchedAction('shuffle_all')" style="background:#28a745; color:#fff;">残りを山札に加えシャッフル</button>
         <button class="btn-pt-primary" onclick="ptHandleUnmatchedAction('shuffle_bottom')" style="background:#17a2b8; color:#fff;">残りをシャッフルし山札の下に置く</button>
+        <button class="btn-pt-secondary" onclick="ptPauseRevealModal()" style="background:#6f42c1;">⏸ 保留して盤面を操作</button>
     `;
     modal.style.display = 'flex';
 }
@@ -1394,16 +1416,37 @@ function ptOpenBattlePlacementSelectModal(cardId, fromZone, opts = {}) {
                 fromZone,
                 () => ptOpenBattlePlacementSelectModal(cardId, fromZone, { ...opts, skipTwinpactChoice: true }),
                 () => {
+                    const cardObj = ptState[fromZone].find(c => c.id === cardId);
+                    if (cardObj && typeof ptActiveSessionId !== 'undefined' && ptActiveSessionId && (ptActiveRevealContext === 'looking' || ptActiveRevealContext === 'revealed')) {
+                        cardObj.sourceSessionId = ptActiveSessionId;
+                        if (typeof ptUpdateSessionLabelForSpell === 'function') ptUpdateSessionLabelForSpell(ptActiveSessionId, cardObj.name);
+                    }
                     ptCastSpell(cardId, fromZone);
-                    ptReturnToPreviousModal();
+                    if (ptBatchMoveQueue && ptBatchMoveQueue.length > 0) {
+                        ptProcessNextBatchMove();
+                    } else if (typeof ptActiveSessionId !== 'undefined' && ptActiveSessionId) {
+                        ptPauseRevealModal();
+                    } else {
+                        ptReturnToPreviousModal();
+                    }
                 },
                 () => ptCancelBattlePlacement(cardId, fromZone)
             );
             return;
         }
         if (spellStatus.isPureSpell) {
+            if (typeof ptActiveSessionId !== 'undefined' && ptActiveSessionId && (ptActiveRevealContext === 'looking' || ptActiveRevealContext === 'revealed')) {
+                card.sourceSessionId = ptActiveSessionId;
+                if (typeof ptUpdateSessionLabelForSpell === 'function') ptUpdateSessionLabelForSpell(ptActiveSessionId, card.name);
+            }
             ptCastSpell(cardId, fromZone);
-            ptReturnToPreviousModal();
+            if (ptBatchMoveQueue && ptBatchMoveQueue.length > 0) {
+                ptProcessNextBatchMove();
+            } else if (typeof ptActiveSessionId !== 'undefined' && ptActiveSessionId) {
+                ptPauseRevealModal();
+            } else {
+                ptReturnToPreviousModal();
+            }
             return;
         }
     }
@@ -1849,6 +1892,10 @@ function ptExecuteStackUnderBattle(cardId, fromZone, targetBattleId) {
     if (idx === -1) return;
 
     let card = ptState[fromZone].splice(idx, 1)[0];
+    if (fromZone === 'casting' && card.sourceSessionId) {
+        ptPendingOpenSessionAfterMove = card.sourceSessionId;
+        card.sourceSessionId = null;
+    }
     card.faceDown = false;
     card.tapped = false;
     card.inverted = false;
@@ -2125,7 +2172,8 @@ function openRevealedCardMenu(e, card) {
     `;
     menu.style.display = 'block';
     adjustMenuPosition(e, menu);
-}function ptCastRevealedSpells() {
+}
+function ptCastRevealedSpells() {
     ptHideContextMenu();
     let idsToCast = [...ptRevealedSelectedIds];
     if (idsToCast.length === 0) return;
@@ -2145,20 +2193,22 @@ function openRevealedCardMenu(e, card) {
             }
         }
         if (card) {
+            if (typeof ptActiveSessionId !== 'undefined' && ptActiveSessionId) {
+                card.sourceSessionId = ptActiveSessionId;
+                if (typeof ptUpdateSessionLabelForSpell === 'function') ptUpdateSessionLabelForSpell(ptActiveSessionId, card.name);
+            }
             ptState.deck.push(card);
             ptCastSpell(id, 'deck', { skipRender: true });
         }
     });
 
-    const hasMatched = ptRevealedMatchedCards && ptRevealedMatchedCards.length > 0;
-    const hasUnmatched = ptRevealedUnmatchedCards && ptRevealedUnmatchedCards.length > 0;
-    if (!hasMatched && !hasUnmatched) {
+    if (typeof ptPauseRevealModal === 'function') {
+        ptPauseRevealModal();
+    } else {
         closePtModal();
         ptActiveRevealContext = null;
-    } else {
-        renderRevealedUntilModal();
+        renderPtBoard();
     }
-    renderPtBoard();
 }
 function ptMoveRevealedCardsBatch(targetZone) {
     ptHideContextMenu();
