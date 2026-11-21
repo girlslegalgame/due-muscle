@@ -7,8 +7,6 @@ Disallow: /mydecks
 Disallow: /account
 Disallow: /login
 Disallow: /register
-Disallow: /decks/share
-Disallow: /users/decks
 
 User-agent: Mediapartners-Google
 Allow: /
