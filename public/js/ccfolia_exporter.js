@@ -91,7 +91,8 @@ const CcfoliaExporter = (function () {
         }
 
         if (cardData.cost !== null && cardData.cost !== undefined && cardData.cost !== '') {
-            line1Parts.push(`(${cardData.cost})`);
+            const costVal = String(cardData.cost).trim() === '2147483647' ? '∞' : cardData.cost;
+            line1Parts.push(`(${costVal})`);
         }
         let line1 = line1Parts.join('　');
 
@@ -102,7 +103,8 @@ const CcfoliaExporter = (function () {
 
         let isNonCreatureWithNoRace = (cardTypeIds.length > 0 && !cardTypeIds.includes(1)) && (raceIds.length === 0 || (raceIds.length === 1 && raceIds[0] === 1));
         let line2Head = isNonCreatureWithNoRace ? cardTypeStr : [cardTypeStr, raceStr || (cardTypeIds.length > 0 && !cardTypeIds.includes(1) ? '(種族なし)' : '')].filter(Boolean).join('：');
-        let line2Pow = (cardData.pow !== null && cardData.pow !== undefined && cardData.pow !== '') ? cardData.pow : '';
+        let rawPow = (cardData.pow !== null && cardData.pow !== undefined && cardData.pow !== '') ? cardData.pow : '';
+        let line2Pow = String(rawPow).trim() === '2147483647' ? '∞' : rawPow;
         let line2 = (line2Head && line2Pow) ? `${line2Head}　${line2Pow}` : (line2Head || line2Pow);
 
         let text = cardData.text ? cardData.text.trim() : '';
@@ -305,8 +307,278 @@ const CcfoliaExporter = (function () {
         return await zip.generateAsync({ type: 'blob' });
     }
 
+    /**
+     * デッキカード一覧を受け取り、ドラグハート・3D龍解・特殊カードを展開してココフォリアZIPを生成・DLする共通関数
+     */
+    async function exportDeckZip(cards, options = {}) {
+        const deckName = options.deckName || 'deck';
+        const includeText = options.includeText ?? true;
+        const separatePartner = options.separatePartner ?? false;
+        const includeDim = options.includeDim ?? true;
+        const includeGr = options.includeGr ?? true;
+        const includeSpecial = options.includeSpecial ?? true;
+        const includeLinked = options.includeLinked ?? true;
+        const thumbnailId = options.thumbnailId || null;
+
+        const zip = new JSZip();
+        try {
+            const tokenRes = await fetch('/images/.token');
+            if (tokenRes.ok) zip.file('.token', await tokenRes.blob());
+        } catch (e) {}
+
+        const standaloneItemsObj = {};
+        const decksObj = {};
+        const resourcesObj = {};
+        const mainDeckItems = {};
+        const grDeckItems = {};
+        const zeroDecksItems = {};
+
+        const loadedImageMap = {};
+        async function fetchImageMeta(cardOrPath) {
+            if (!cardOrPath) return null;
+            let imgPath = typeof cardOrPath === 'string' ? cardOrPath : (cardOrPath.imagepath || cardOrPath.image_data_url || '');
+            let isDataUrl = imgPath.startsWith('data:image');
+            if (!isDataUrl && typeof cardOrPath === 'object' && (cardOrPath.is_dummy == 1 || !imgPath)) {
+                if (typeof getCardImageUrl === 'function') imgPath = getCardImageUrl(cardOrPath);
+                isDataUrl = imgPath.startsWith('data:image');
+            }
+            if (!imgPath) return null;
+            if (loadedImageMap[imgPath]) return loadedImageMap[imgPath];
+
+            try {
+                let blob;
+                if (isDataUrl) {
+                    blob = await (await fetch(imgPath)).blob();
+                } else {
+                    let fullPath = imgPath;
+                    if (!fullPath.startsWith('http')) {
+                        if (!fullPath.startsWith('/images/card/')) {
+                            fullPath = '/images/card/' + fullPath.replace(/^\/+/, '');
+                        }
+                    }
+                    let res = await fetch(fullPath);
+                    if (!res.ok) {
+                        res = await fetch('/images/card/noimage.webp');
+                    }
+                    if (!res.ok) return null;
+                    blob = await res.blob();
+                }
+                const filename = await registerImage(zip, resourcesObj, blob);
+                const aspectRatio = await new Promise(resolve => {
+                    const img = new Image();
+                    img.onload = () => resolve(img.naturalWidth / img.naturalHeight);
+                    img.onerror = () => resolve(51 / 73);
+                    img.src = URL.createObjectURL(blob);
+                });
+                const meta = { filename, blob, aspectRatio };
+                loadedImageMap[imgPath] = meta;
+                return meta;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function addStandaloneCard(imgFilename, coverFilename, memo, posX, posY, width = 4, height = 6) {
+            const itemId = generateId();
+            standaloneItemsObj[itemId] = {
+                x: posX, y: posY, z: 999, angle: 0, width, height,
+                deckId: null, locked: false, visible: true, closed: false,
+                withoutOwner: false, freezed: true, type: "object", active: true,
+                memo: memo || "", imageUrl: imgFilename, coverImageUrl: coverFilename || null,
+                clickAction: null, order: 1
+            };
+        }
+
+        const targetThumbnailId = thumbnailId || (cards.find(c => c.thumbnail_card_id)?.thumbnail_card_id);
+        let partnerExtracted = false;
+        let standaloneX = -12;
+        const exportedSecondCardNames = new Set();
+
+        for (const card of cards) {
+            const zone = (card.card_type_in_deck || card.type || 'main').toLowerCase();
+            const cardName = (card.card_name || '').trim();
+            const qty = parseInt(card.quantity || 1, 10);
+
+            let combinationMembers = [];
+            if (card.combination_members_json) {
+                try {
+                    combinationMembers = typeof card.combination_members_json === 'string'
+                        ? JSON.parse(card.combination_members_json)
+                        : card.combination_members_json;
+                } catch (e) {}
+            }
+            // データ内にない場合はAPIから遅延取得
+            if (combinationMembers.length === 0 && card.card_id && !String(card.card_id).startsWith('dummy_')) {
+                const isComboCandidate = card.combination_id || card.partner_card_id || (card.combo_names && card.combo_names.includes('|||'));
+                if (isComboCandidate) {
+                    try {
+                        const comboRes = await fetch('/api/cards/combination?card_id=' + card.card_id);
+                        if (comboRes.ok) combinationMembers = await comboRes.json();
+                    } catch (e) {}
+                }
+            }
+
+            const isDokindam = (cardName === '禁断 ～封印されしX～' || cardName === '伝説の禁断 ドキンダムX');
+
+            // 1. 特殊カード (ドルマゲドン・零龍・ドキンダム)
+            if (zone === 'special' || isDokindam) {
+                if (!includeSpecial) continue;
+                if (cardName.includes('ドルマゲドン')) {
+                    for (let m of combinationMembers) {
+                        const meta = await fetchImageMeta(m.imagepath);
+                        if (meta) {
+                            const isDorm = m.card_name.includes('終焉の禁断 ドルマゲドンX');
+                            const w = isDorm ? 12 : 4, h = isDorm ? 17 : 6;
+                            addStandaloneCard(meta.filename, null, includeText ? buildSingleCardMemo(m) : "", standaloneX, -3, w, h);
+                            standaloneX -= (w + 1);
+                        }
+                    }
+                    continue;
+                }
+                if (cardName.includes('零龍') || cardName.includes('零無') || cardName.includes('の儀')) {
+                    for (let m of combinationMembers) {
+                        const meta = await fetchImageMeta(m.imagepath);
+                        if (!meta) continue;
+                        const memo = includeText ? buildSingleCardMemo(m) : "";
+                        if (m.card_name.trim() === '零龍') {
+                            addStandaloneCard(meta.filename, null, memo, standaloneX, -3, 12, 12);
+                            standaloneX -= 13;
+                        } else {
+                            zeroDecksItems[generateId()] = { imageUrl: meta.filename, memo };
+                        }
+                    }
+                    continue;
+                }
+                if (isDokindam && combinationMembers.length === 2) {
+                    combinationMembers.sort((a, b) => (b.is_main_side || 0) - (a.is_main_side || 0));
+                    const frontMeta = await fetchImageMeta(combinationMembers[0].imagepath);
+                    const backMeta = await fetchImageMeta(combinationMembers[1].imagepath);
+                    if (frontMeta && backMeta) {
+                        addStandaloneCard(frontMeta.filename, backMeta.filename, includeText ? buildSingleCardMemo(combinationMembers[0]) : "", standaloneX, -3, 4, 6);
+                        standaloneX -= 5;
+                    }
+                    continue;
+                }
+                const meta = await fetchImageMeta(card);
+                if (meta) {
+                    addStandaloneCard(meta.filename, null, includeText ? createCardMemo(card) : "", standaloneX, -3, 4, 6);
+                    standaloneX -= 5;
+                }
+                continue;
+            }
+
+            // 2. 超次元ゾーン (ドラグハート・3D龍解・サイキック)
+            if (zone === 'super_dimensional' || zone === 'psychic') {
+                if (!includeDim) continue;
+                const superDimX = -8, superDimY = -10;
+                for (let q = 0; q < qty; q++) {
+                    combinationMembers.sort((a, b) => (b.is_main_side || 0) - (a.is_main_side || 0) || a.card_id - b.card_id);
+
+                    if (combinationMembers.length === 2) {
+                        const m1 = combinationMembers[0], m2 = combinationMembers[1];
+                        const meta1 = await fetchImageMeta(m1.imagepath);
+                        const meta2 = await fetchImageMeta(m2.imagepath);
+                        const m2CharIds = String(m2.char_ids || '').split(',').map(v => parseInt(v.trim()));
+                        const isLinked = m2CharIds.includes(4) || m2.card_name.includes('極真龍魂 オール・オーバー・ザ・ワールド');
+
+                        if (!includeLinked && isLinked) {
+                            if (meta1) addStandaloneCard(meta1.filename, null, includeText ? buildSingleCardMemo(m1) : "", superDimX, superDimY, 4, 6);
+                            continue;
+                        }
+                        let separate = isLinked;
+                        let m2W = 4, m2H = 6;
+                        if (m2.card_name.includes('極真龍魂 オール・オーバー・ザ・ワールド')) {
+                            m2W = 10; m2H = 18;
+                        } else if (m2CharIds.includes(4)) {
+                            const asp = meta2 ? meta2.aspectRatio : 51/73;
+                            if (Math.abs(asp - (400/859)) < 0.08) { m2W = 6; m2H = 12; }
+                            else if (Math.abs(asp - (160/229)) < 0.08) { m2W = 6; m2H = 8; }
+                        }
+                        const isSameAsp = meta1 && meta2 && Math.abs(meta1.aspectRatio - meta2.aspectRatio) < 0.05;
+                        if (!separate && isSameAsp) {
+                            addStandaloneCard(meta1.filename, meta2.filename, includeText ? buildSingleCardMemo(m1) : "", superDimX, superDimY, 4, 6);
+                        } else {
+                            if (meta1) addStandaloneCard(meta1.filename, null, includeText ? buildSingleCardMemo(m1) : "", superDimX, superDimY, 4, 6);
+                            const m2Name = m2.card_name.trim();
+                            if (meta2 && !exportedSecondCardNames.has(m2Name)) {
+                                addStandaloneCard(meta2.filename, null, includeText ? buildSingleCardMemo(m2) : "", superDimX, superDimY, m2W, m2H);
+                                exportedSecondCardNames.add(m2Name);
+                            }
+                        }
+                    } else if (combinationMembers.length >= 3) {
+                        // 3D龍解カード等の全形態を出力
+                        const charIds = String(combinationMembers[0].char_ids || '').split(',').map(v => parseInt(v.trim()));
+                        let sizes = [{ w: 4, h: 6 }, { w: 4, h: 6 }, { w: 4, h: 6 }];
+                        if (charIds.includes(6)) sizes = [{ w: 4, h: 6 }, { w: 8, h: 6 }, { w: 6, h: 12 }];
+                        else if (charIds.includes(3)) sizes = [{ w: 4, h: 6 }, { w: 6, h: 8 }, { w: 6, h: 12 }];
+
+                        for (let i = 0; i < combinationMembers.length; i++) {
+                            const m = combinationMembers[i];
+                            const meta = await fetchImageMeta(m.imagepath);
+                            const sz = sizes[i] || { w: 4, h: 6 };
+                            if (meta) addStandaloneCard(meta.filename, null, includeText ? buildSingleCardMemo(m) : "", superDimX, superDimY, sz.w, sz.h);
+                        }
+                    } else {
+                        const meta = await fetchImageMeta(card);
+                        if (meta) addStandaloneCard(meta.filename, null, includeText ? createCardMemo(card) : "", superDimX, superDimY, 4, 6);
+                    }
+                }
+                continue;
+            }
+
+            // 3. 超GRゾーン
+            if (zone === 'gr') {
+                if (!includeGr) continue;
+                const meta = await fetchImageMeta(card);
+                if (!meta) continue;
+                for (let q = 0; q < qty; q++) {
+                    grDeckItems[generateId()] = { imageUrl: meta.filename, memo: includeText ? createCardMemo(card) : "" };
+                }
+                continue;
+            }
+
+            // 4. メインデッキ
+            const meta = await fetchImageMeta(card);
+            if (!meta) continue;
+            const memoText = includeText ? createCardMemo(card) : "";
+            for (let q = 0; q < qty; q++) {
+                const isThumb = targetThumbnailId && (String(card.card_id || card.id) === String(targetThumbnailId));
+                if (separatePartner && !partnerExtracted && isThumb) {
+                    addStandaloneCard(meta.filename, null, memoText, -7, -3);
+                    partnerExtracted = true;
+                } else {
+                    mainDeckItems[generateId()] = { imageUrl: meta.filename, memo: memoText };
+                }
+            }
+        }
+
+        if (Object.keys(mainDeckItems).length > 0) {
+            decksObj[generateId()] = { x: -2, y: -3, z: 99, zIndex: 1, width: 4, height: 6, locked: false, freezed: true, coverImageUrl: null, items: mainDeckItems };
+        }
+        if (Object.keys(grDeckItems).length > 0) {
+            decksObj[generateId()] = { x: 3, y: -3, z: 99, zIndex: 1, width: 4, height: 6, locked: false, freezed: true, coverImageUrl: null, items: grDeckItems };
+        }
+        if (Object.keys(zeroDecksItems).length > 0) {
+            decksObj[generateId()] = { x: 8, y: -3, z: 99, zIndex: 1, width: 4, height: 6, locked: false, freezed: true, coverImageUrl: null, items: zeroDecksItems };
+        }
+
+        const dataJson = {
+            meta: { version: "1.1.0" },
+            entities: { room: {}, items: standaloneItemsObj, decks: decksObj, notes: {}, characters: {}, effects: {}, scenes: {}, savedatas: {}, snapshots: {} },
+            resources: resourcesObj
+        };
+        zip.file('__data.json', JSON.stringify(dataJson, null, 2));
+        const content = await zip.generateAsync({ type: 'blob' });
+
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = `${deckName}.zip`;
+        link.click();
+    }
+
     return { 
         buildZip,
+        exportDeckZip,
         generateId,
         calculateSha256,
         createCardMemo,

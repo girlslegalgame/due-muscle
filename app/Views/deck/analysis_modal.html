@@ -277,6 +277,7 @@
                     <option value="draw">初手ドロー</option>
                     <option value="first-action">初動チェック</option>
                     <option value="analysis" selected>デッキ分析</option>
+                    <option value="highlander">ハイランダーチェック</option>
                     <option value="kiyonaga" id="create-opt-kiyonaga" style="display: none;">清永ヒット率計算</option>
                 </select>
             </div>
@@ -385,6 +386,28 @@
                     <button class="btn-hand-qty" onclick="adjustFaHand(1)">+</button>
                 </div>
             </div>
+            <!-- 4. ハイランダーチェックコンテンツ -->
+            <div id="analysis-view-highlander" class="analysis-mode-content" style="display: none;">
+                <div class="fa-header">
+                    <span class="fa-title">ハイランダーチェック</span>
+                </div>
+                <div id="highlander-status-box" style="padding: 12px; border-radius: 8px; font-weight: bold; font-size: 14px; text-align: center; margin-bottom: 15px;"></div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 15px;">
+                    <div>
+                        <div style="font-size: 13px; font-weight: bold; color: #334155;">枚数制限がないカードを許可</div>
+                    </div>
+                    <label class="toggle-switch" style="margin: 0;">
+                        <input type="checkbox" id="highlander-ignore-nolimit" onchange="runHighlanderCheck()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div id="highlander-duplicates-wrap" style="display: none;">
+                    <div style="font-size: 12px; font-weight: bold; color: #dc3545; margin-bottom: 8px;">重複しているカード:</div>
+                    <div id="highlander-duplicates-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;"></div>
+                </div>
+            </div>
             <div id="analysis-view-kiyonaga" class="analysis-mode-content" style="display: none;">
                 <div class="fa-header">
                     <span class="fa-title">五輪の求道者 清永 ヒット率計算</span>
@@ -469,6 +492,9 @@ function switchAnalysisMode() {
     } else if (mode === 'kiyonaga') {
         document.getElementById('analysis-view-kiyonaga').style.display = 'block';
         calculateCreateKiyonagaHitRate();
+    } else if (mode === 'highlander') {
+        document.getElementById('analysis-view-highlander').style.display = 'block';
+        runHighlanderCheck();
     }
 }
 
@@ -993,6 +1019,91 @@ function calculateCreateKiyonagaHitRate() {
     document.getElementById('create-kiyonaga-hit-percent').innerText = hitPercent;
     document.getElementById('create-kiyonaga-hit-combos').innerText = hitCombos.toLocaleString();
     document.getElementById('create-kiyonaga-total-combos').innerText = totalCombos.toLocaleString();
+}
+
+// ハイランダーチェック処理
+function runHighlanderCheck() {
+    const ignoreNoLimit = document.getElementById('highlander-ignore-nolimit')?.checked ?? false;
+    const imgs = Array.from(mainList.querySelectorAll('img'));
+    const statusBox = document.getElementById('highlander-status-box');
+    const dupWrap = document.getElementById('highlander-duplicates-wrap');
+    const dupList = document.getElementById('highlander-duplicates-list');
+
+    if (imgs.length === 0) {
+        statusBox.style.background = '#f1f5f9';
+        statusBox.style.color = '#64748b';
+        statusBox.innerText = 'メインデッキにカードが入っていません。';
+        dupWrap.style.display = 'none';
+        return;
+    }
+
+    const cardGroups = new Map();
+
+    imgs.forEach(img => {
+        const name = (img.dataset.cardName || '').trim();
+        const comboNames = img.dataset.comboNames || '';
+        const groupKey = comboNames ? comboNames : name;
+
+        if (!cardGroups.has(groupKey)) {
+            const limitVal = img.dataset.cardLimit;
+            const isNoLimit = (limitVal === undefined || limitVal === '' || limitVal === null);
+            cardGroups.set(groupKey, {
+                displayName: name,
+                imagepath: img.src || img.dataset.imagepath,
+                count: 0,
+                isNoLimit: isNoLimit
+            });
+        }
+        cardGroups.get(groupKey).count++;
+    });
+
+    const duplicates = [];
+    cardGroups.forEach(item => {
+        if (item.count > 1) {
+            if (ignoreNoLimit && item.isNoLimit) {
+                return;
+            }
+            duplicates.push(item);
+        }
+    });
+
+    dupList.innerHTML = '';
+
+    if (duplicates.length === 0) {
+        statusBox.style.background = '#e6fffa';
+        statusBox.style.color = '#047857';
+        statusBox.style.border = '1px solid #a7f3d0';
+        statusBox.innerText = '✨ ハイランダーです';
+        dupWrap.style.display = 'none';
+    } else {
+        statusBox.style.background = '#fef2f2';
+        statusBox.style.color = '#b91c1c';
+        statusBox.style.border = '1px solid #fecaca';
+        statusBox.innerText = `⚠️ ハイランダーではありません（重複: ${duplicates.length}種）`;
+        dupWrap.style.display = 'block';
+
+        duplicates.forEach(d => {
+            const row = document.createElement('div');
+            row.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #fff; border: 1px solid #fecaca; border-radius: 6px;';
+            const img = document.createElement('img');
+            img.src = d.imagepath;
+            img.onerror = () => handleImageError(img);
+            img.style.cssText = 'width: 32px; height: 44px; object-fit: contain; border-radius: 4px;';
+
+            const nameBox = document.createElement('div');
+            nameBox.style.cssText = 'flex: 1; min-width: 0; font-size: 13px; font-weight: bold; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
+            nameBox.innerText = d.displayName;
+
+            const badge = document.createElement('span');
+            badge.style.cssText = 'background: #dc3545; color: #fff; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 12px; flex-shrink: 0;';
+            badge.innerText = `${d.count}枚`;
+
+            row.appendChild(img);
+            row.appendChild(nameBox);
+            row.appendChild(badge);
+            dupList.appendChild(row);
+        });
+    }
 }
 </script>
 {{ end }}

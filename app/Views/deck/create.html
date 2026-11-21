@@ -1360,7 +1360,6 @@
                 {{ end }}
                 <!-- ★追加：未実装カード追加ボタン -->
                 <button type="button" class="btn-settings" style="background: #fd7e14; padding: 8px 12px; font-size: 13px;" onclick="openDummyCardModal()">+ダミー追加</button>
-                <button type="button" class="btn-filter" style="background: #6c757d; padding: 8px 12px; font-size: 13px;" onclick="openHighlanderCheckModal()">ハイランダー</button>
                 <button class="btn-sort" onclick="toggleSortModal()">並び替え</button>
                 <button class="btn-analysis" onclick="openAnalysisModal()">分析</button>
                 <button id="save-deck-btn" onclick="openSaveModal()" style="padding: 8px 20px; background: #28a745; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">保存する</button>
@@ -1993,36 +1992,7 @@
     </div>
 </div>
 
-<!-- ハイランダー確認モーダル -->
-<div id="highlanderModal" class="sub-modal" style="z-index: 10500;">
-    <div class="sub-modal-content" style="max-width: 460px; height: auto; max-height: 85vh;">
-        <div class="sub-modal-header" style="background: #333; color: #fff;">
-            <span>ハイランダーチェック</span>
-            <span onclick="closeHighlanderModal()" style="cursor: pointer; font-size: 24px;">&times;</span>
-        </div>
-        <div class="sub-modal-body" style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
-            <div id="highlander-status-box" style="padding: 12px; border-radius: 8px; font-weight: bold; font-size: 14px; text-align: center;"></div>
-            
-            <div style="display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 10px 12px; border-radius: 8px; border: 1px solid #e2e8f0;">
-                <div>
-                    <div style="font-size: 13px; font-weight: bold; color: #334155;">枚数制限がないカードを許可</div>
-                </div>
-                <label class="toggle-switch" style="margin: 0;">
-                    <input type="checkbox" id="highlander-ignore-nolimit" onchange="runHighlanderCheck()">
-                    <span class="toggle-slider"></span>
-                </label>
-            </div>
 
-            <div id="highlander-duplicates-wrap" style="display: none;">
-                <div style="font-size: 12px; font-weight: bold; color: #dc3545; margin-bottom: 8px;">重複しているカード:</div>
-                <div id="highlander-duplicates-list" style="display: flex; flex-direction: column; gap: 8px; max-height: 240px; overflow-y: auto; padding-right: 4px;"></div>
-            </div>
-        </div>
-        <div style="padding: 12px 16px; border-top: 1px solid #eee; background: #fff; text-align: right;">
-            <button type="button" onclick="closeHighlanderModal()" style="width: 100%; padding: 10px; background: #007bff; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">閉じる</button>
-        </div>
-    </div>
-</div>
 
 {{template "dummy_cards_partial" .}}
 
@@ -3857,101 +3827,6 @@ function clearAllFilters() {
     searchCards();
 }
 
-
-// --- ハイランダー確認ロジック ---
-function openHighlanderCheckModal() {
-    document.getElementById('highlanderModal').style.display = 'block';
-    runHighlanderCheck();
-}
-
-function closeHighlanderModal() {
-    document.getElementById('highlanderModal').style.display = 'none';
-}
-
-function runHighlanderCheck() {
-    const ignoreNoLimit = document.getElementById('highlander-ignore-nolimit')?.checked ?? false;
-    const imgs = Array.from(mainList.querySelectorAll('img'));
-    const statusBox = document.getElementById('highlander-status-box');
-    const dupWrap = document.getElementById('highlander-duplicates-wrap');
-    const dupList = document.getElementById('highlander-duplicates-list');
-
-    if (imgs.length === 0) {
-        statusBox.style.background = '#f1f5f9';
-        statusBox.style.color = '#64748b';
-        statusBox.innerText = 'メインデッキにカードが入っていません。';
-        dupWrap.style.display = 'none';
-        return;
-    }
-
-    const cardGroups = new Map();
-
-    imgs.forEach(img => {
-        const name = (img.dataset.cardName || '').trim();
-        const comboNames = img.dataset.comboNames || '';
-        const groupKey = comboNames ? comboNames : name;
-
-        if (!cardGroups.has(groupKey)) {
-            const limitVal = img.dataset.cardLimit;
-            const isNoLimit = (limitVal === undefined || limitVal === '' || limitVal === null);
-            cardGroups.set(groupKey, {
-                displayName: name,
-                imagepath: img.src || img.dataset.imagepath,
-                count: 0,
-                isNoLimit: isNoLimit
-            });
-        }
-        cardGroups.get(groupKey).count++;
-    });
-
-    const duplicates = [];
-    cardGroups.forEach(item => {
-        if (item.count > 1) {
-            if (ignoreNoLimit && item.isNoLimit) {
-                return; // 上限なしを許可する場合は無視
-            }
-            duplicates.push(item);
-        }
-    });
-
-    dupList.innerHTML = '';
-
-    if (duplicates.length === 0) {
-        statusBox.style.background = '#e6fffa';
-        statusBox.style.color = '#047857';
-        statusBox.style.border = '1px solid #a7f3d0';
-        statusBox.innerText = '✨ ハイランダーです';
-        dupWrap.style.display = 'none';
-    } else {
-        statusBox.style.background = '#fef2f2';
-        statusBox.style.color = '#b91c1c';
-        statusBox.style.border = '1px solid #fecaca';
-        statusBox.innerText = `⚠️ ハイランダーではありません（重複: ${duplicates.length}種）`;
-        dupWrap.style.display = 'block';
-
-        duplicates.forEach(d => {
-            const row = document.createElement('div');
-            row.style.cssText = 'display: flex; align-items: center; gap: 10px; padding: 6px 10px; background: #fff; border: 1px solid #fecaca; border-radius: 6px;';
-            const img = document.createElement('img');
-            img.src = d.imagepath;
-            img.onerror = () => handleImageError(img);
-            img.style.cssText = 'width: 32px; height: 44px; object-fit: contain; border-radius: 4px;';
-
-            const nameBox = document.createElement('div');
-            nameBox.style.cssText = 'flex: 1; min-width: 0; font-size: 13px; font-weight: bold; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;';
-            nameBox.innerText = d.displayName;
-
-            const badge = document.createElement('span');
-            badge.style.cssText = 'background: #dc3545; color: #fff; font-size: 12px; font-weight: bold; padding: 2px 8px; border-radius: 12px; flex-shrink: 0;';
-            badge.innerText = `${d.count}枚`;
-
-            row.appendChild(img);
-            row.appendChild(nameBox);
-            row.appendChild(badge);
-            dupList.appendChild(row);
-        });
-    }
-}
-
 // --- H. デッキ保存・設定モーダル制御と保存処理 ---
 
 function openSaveModal() {
@@ -4316,112 +4191,12 @@ async function exportDeckAsCcfoliaZip(payload, options = {}) {
     }
 
     try {
-        const mainDeckItems = [];
-        const subDecksMap = { super_dimensional: [], gr: [], special: [] };
-        const standaloneItems = [];
-
-        const fetchImageBlob = async (url) => {
-            try {
-                const res = await fetch(url);
-                if (res.ok) return await res.blob();
-            } catch (e) {}
-            const res = await fetch('/images/card/noimage.webp');
-            return await res.blob();
-        };
-
-        // memoテキスト生成ヘルパー
-        const buildCardMemo = (card, cached) => {
-            if (!options.detailMemo) {
-                return card.card_name || '';
-            }
-            const lines = [`【${card.card_name || ''}】`];
-            if (card.cost !== undefined && card.cost !== null && card.cost !== '') {
-                lines.push(`コスト: ${card.cost}`);
-            }
-            if (cached.typename) lines.push(`タイプ: ${cached.typename}`);
-            if (cached.race_names) lines.push(`種族: ${cached.race_names}`);
-            const text = cached.text || card.text;
-            if (text) {
-                lines.push('--------------------');
-                lines.push(text);
-            }
-            return lines.join('\n');
-        };
-
-        const thumbCardId = payload.thumbnail_card_id ? String(payload.thumbnail_card_id) : null;
-        let standaloneExtracted = false;
-
-        for (const card of payload.cards) {
-            const cached = cardCache[card.id] || {};
-            let fullCardData = { ...cached, ...card };
-
-            // 実在カードの場合、APIから正確な面情報（タイプ・種族・ツインパクト下面）を取得・補完
-            if (!card.is_dummy && card.id && (!cached.combination_sides || !cached.typename)) {
-                try {
-                    const comboRes = await fetch('/api/cards/combination?card_id=' + card.id);
-                    if (comboRes.ok) {
-                        const sides = await comboRes.json();
-                        if (Array.isArray(sides) && sides.length > 0) {
-                            cached.combination_sides = sides;
-                            Object.assign(cached, sides[0]); // 表面のタイプ・種族等を反映
-                            fullCardData = { ...cached, ...card, combination_sides: sides };
-                        }
-                    }
-                } catch (e) {}
-            }
-
-            let imgUrl = '';
-            if (cached && cached.imagepath) {
-                imgUrl = getCardImagePath(cached);
-            } else {
-                const imgEl = document.querySelector(`img[data-card-id="${card.id}"]`) || document.querySelector(`img[data-card-name="${escapeSelectorValue(card.card_name)}"]`);
-                imgUrl = imgEl ? imgEl.src : '/images/card/noimage.webp';
-            }
-
-            const blob = await fetchImageBlob(imgUrl);
-            const memoText = options.detailMemo ? CcfoliaExporter.createCardMemo(fullCardData) : (card.card_name || '');
-            const item = { blob: blob, memo: memoText, count: 1 };
-            // ★ サムネイルカードを独立させる場合（最初の1枚のみ独立枠へ移動）
-            if (options.standaloneThumb && !standaloneExtracted && thumbCardId && String(card.id) === thumbCardId) {
-                standaloneItems.push(item);
-                standaloneExtracted = true;
-                continue;
-            }
-
-            if (card.type === 'main') {
-                mainDeckItems.push(item);
-            } else if (card.type === 'super_dimensional' || card.type === 'gr' || card.type === 'special') {
-                subDecksMap[card.type].push(item);
-            }
-        }
-
-        const subDecks = [];
-        if (subDecksMap.super_dimensional.length > 0) {
-            subDecks.push({ name: '超次元ゾーン', cards: subDecksMap.super_dimensional });
-        }
-        if (subDecksMap.gr.length > 0) {
-            subDecks.push({ name: '超GRゾーン', cards: subDecksMap.gr });
-        }
-        if (subDecksMap.special.length > 0) {
-            subDecks.push({ name: '特殊ゾーン', cards: subDecksMap.special });
-        }
-
-        const zipBlob = await CcfoliaExporter.buildZip({
+        await CcfoliaExporter.exportDeckZip(payload.cards, {
             deckName: payload.deck_name,
-            mainDeck: mainDeckItems,
-            subDecks: subDecks,
-            standalones: standaloneItems // ★ 独立カードを渡す
+            includeText: options.detailMemo ?? true,
+            separatePartner: options.standaloneThumb ?? false,
+            thumbnailId: payload.thumbnail_card_id
         });
-
-        const url = URL.createObjectURL(zipBlob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${payload.deck_name || 'deck'}_ccfolia.zip`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
         closeSaveModal();
     } catch (e) {
         console.error("ココフォリアZIP出力エラー:", e);

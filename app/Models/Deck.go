@@ -210,9 +210,32 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                  JOIN card_combination cc_all ON cc_ref.combination_id = cc_all.combination_id 
                  JOIN card c_all ON cc_all.card_id = c_all.card_id 
                  WHERE cc_ref.card_id = c.card_id) as combo_names,
+
+                -- ★ 追加: ドラグハート・3D龍解等の全形態（裏面・3面目含む）をJSONで取得
+                (SELECT CONCAT('[', GROUP_CONCAT(
+                    JSON_OBJECT(
+                        'card_id', c_sub.card_id,
+                        'card_name', c_sub.card_name,
+                        'cost', c_sub.cost,
+                        'pow', c_sub.pow,
+                        'text', c_sub.text,
+                        'imagepath', cd_sub.imagepath,
+                        'is_main_side', cc_sub.is_main_side,
+                        'char_ids', (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c_sub.card_id),
+                        'civ_ids', (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c_sub.card_id),
+                        'typename', (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c_sub.card_id),
+                        'race_names', (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c_sub.card_id)
+                    )
+                    ORDER BY cc_sub.is_main_side DESC, c_sub.card_id ASC
+                ), ']')
+                FROM card_combination cc_base
+                JOIN card_combination cc_sub ON cc_base.combination_id = cc_sub.combination_id
+                JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
+                LEFT JOIN card_detail cd_sub ON c_sub.card_id = cd_sub.card_id
+                WHERE cc_base.card_id = c.card_id) as combination_members_json,
                 
                 -- ★ OR を排除してインデックスを完全適用（フルスキャン防止）
-                COALESCE(NULLIF(TRIM(BOTH ',' FROM CONCAT_WS(',', 
+                COALESCE(NULLIF(TRIM(BOTH ',' FROM CONCAT_WS(',',
                     (SELECT GROUP_CONCAT(DISTINCT ability_id) FROM card_ability WHERE card_id = c.card_id),
                     (SELECT GROUP_CONCAT(DISTINCT ca2.ability_id) FROM card_combination cc2 JOIN card_ability ca2 ON cc2.card_id = ca2.card_id WHERE cc2.combination_id = cc.combination_id AND cc2.card_id <> c.card_id)
                 )), ''), dc.dummy_ability_ids) as ability_ids,
