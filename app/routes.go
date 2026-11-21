@@ -105,8 +105,16 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/decks/new", deckCtrl.Create)
 	r.Get("/decks/edit", deckCtrl.Edit)
 	r.Get("/decks/playtest", deckCtrl.Playtest)
-	r.Get("/decks/share", deckCtrl.Share)
-	r.Get("/users/decks", deckCtrl.UserPublicDecks)
+
+	// ロボットのインデックス・追跡を禁止するミドルウェア
+	noIndexMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+			next.ServeHTTP(w, r)
+		})
+	}
+	r.With(noIndexMiddleware).Get("/decks/share", deckCtrl.Share)
+	r.With(noIndexMiddleware).Get("/users/decks", deckCtrl.UserPublicDecks)
 	// AIジャッジ専用ページ
 	r.Get("/rule-bot", ruleBotCtrl.Index)
 	r.Get("/notifications", notifCtrl.Index)
