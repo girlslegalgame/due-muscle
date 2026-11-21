@@ -1008,11 +1008,11 @@ if (typeof DeckArticle === 'undefined') {
                         <thead style="position: sticky; top: 0; background: #f8f9fa; z-index: 2;">
                             <tr>
                                 <th style="width: 88px;">
-                                    <div style="font-size: 0.75rem; margin-bottom: 2px;">購入済</div>
+                                    <div style="font-size: 0.75rem; margin-bottom: 2px;">未購入</div>
                                     <div style="font-size: 0.65rem; font-weight: normal;">
-                                        <a href="javascript:void(0)" onclick="toggleAllOwned(true)" style="color: #007bff; text-decoration: underline;">全選</a>
+                                        <a href="javascript:void(0)" onclick="toggleAllUnowned(true)" style="color: #007bff; text-decoration: underline;">全数</a>
                                         <span style="color: #ccc;">|</span>
-                                        <a href="javascript:void(0)" onclick="toggleAllOwned(false)" style="color: #dc3545; text-decoration: underline;">全解</a>
+                                        <a href="javascript:void(0)" onclick="toggleAllUnowned(false)" style="color: #dc3545; text-decoration: underline;">0枚</a>
                                     </div>
                                 </th>
                                 <th class="price-card-name-col">カード名</th>
@@ -1113,7 +1113,7 @@ let modalAdditionalDrawCount = 0;
 let modalFaSelectedCardIds = new Set();
 let modalFaHandCount = 5;
 let priceEstimateCache = {};
-let currentDeckOwnedCards = {};
+let currentDeckUnownedCards = null; // 未購入カード管理用
 let modalSelectedAbilityIds = new Set(); // 選択された能力IDのSet
 let modalMasterAbilities = []; 
 
@@ -1193,7 +1193,7 @@ function openDeckModal(deckId, deckName, initialTab = 'main') {
     currentDeckId = deckId;
     knownShops = {};
     priceEstimateCache = {};
-    currentDeckOwnedCards = {};
+    currentDeckUnownedCards = null;
     priceTableInitialized = false; // フラグリセット
 
     document.getElementById('deck-total-price').innerText = '-';
@@ -1244,29 +1244,26 @@ function openDeckModal(deckId, deckName, initialTab = 'main') {
 
 // ユーザーID（Goテンプレート展開）
 const currentLoggedInUserId = '{{if .UserID}}{{.UserID}}{{end}}';
-function getOwnedCardsFromStorage(deckId) {
-    if (currentDeckOwnedCards && typeof currentDeckOwnedCards === 'object' && !Array.isArray(currentDeckOwnedCards) && Object.keys(currentDeckOwnedCards).length > 0) {
-        return currentDeckOwnedCards;
+function getUnownedCardsFromStorage(deckId) {
+    if (currentDeckUnownedCards && typeof currentDeckUnownedCards === 'object' && !Array.isArray(currentDeckUnownedCards)) {
+        return currentDeckUnownedCards;
     }
     try {
-        const local = localStorage.getItem('deck_owned_cards_' + deckId);
+        const local = localStorage.getItem('deck_unowned_cards_' + deckId);
         if (local) {
             const parsed = JSON.parse(local);
-            if (Array.isArray(parsed)) {
-                return {};
-            }
-            return parsed || {};
+            if (!Array.isArray(parsed)) return parsed;
         }
     } catch(e) {}
-    return {};
+    return null;
 }
 
-function saveOwnedCardsToStorage(deckId, ownedObj) {
-    currentDeckOwnedCards = ownedObj;
+function saveUnownedCardsToStorage(deckId, unownedObj) {
+    currentDeckUnownedCards = unownedObj;
     if (!deckId) return;
 
     try {
-        localStorage.setItem('deck_owned_cards_' + deckId, JSON.stringify(ownedObj));
+        localStorage.setItem('deck_unowned_cards_' + deckId, JSON.stringify(unownedObj));
     } catch(e) {}
 
     fetch('/api/decks/owned-cards', {
@@ -1274,44 +1271,44 @@ function saveOwnedCardsToStorage(deckId, ownedObj) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
             deck_id: parseInt(deckId, 10),
-            owned_cards: ownedObj
+            unowned_cards: unownedObj
         })
-    }).catch(err => console.error('購入済み状態の同期に失敗しました:', err));
+    }).catch(err => console.error('未購入状態の同期に失敗しました:', err));
 }
 /**
- * 「購入済み」の全選択 / 全解除
- * @param {boolean} selectAll true: 全選択 / false: 全解除
+ * 「未購入」の全数（デッキ最大枚数） / 0枚切り替え
+ * @param {boolean} setMax true: 全カード未購入（最大枚数） / false: 0枚（全て購入済み）
  */
-function toggleAllOwned(selectAll) {
-    const msg = selectAll 
-        ? 'すべてのカードの購入枚数をデッキの最大枚数にしますか？' 
-        : 'すべてのカードの購入枚数を0にしますか？';
+function toggleAllUnowned(setMax) {
+    const msg = setMax 
+        ? 'すべてのカードの未購入枚数をデッキの最大枚数にしますか？' 
+        : 'すべてのカードの未購入枚数を0にしますか？（購入済み状態）';
     if (!confirm(msg)) return;
 
-    const inputs = document.querySelectorAll('#price-card-list-body .owned-qty-input');
-    const newOwnedMap = {};
+    const inputs = document.querySelectorAll('#price-card-list-body .unowned-qty-input');
+    const newUnownedMap = {};
 
     inputs.forEach(input => {
         const max = parseInt(input.max) || 0;
-        const val = selectAll ? max : 0;
+        const val = setMax ? max : 0;
         input.value = val;
         
         const row = input.closest('tr');
         const cardName = row?.dataset.cardName;
 
         if (row) {
-            const isFull = val >= max && max > 0;
-            row.classList.toggle('card-row-owned', isFull);
-            row.style.backgroundColor = isFull ? '#f1f3f4' : '';
-            row.style.opacity = isFull ? '0.6' : '1';
+            const isZero = val === 0;
+            row.classList.toggle('card-row-owned', isZero);
+            row.style.backgroundColor = isZero ? '#f1f3f4' : '';
+            row.style.opacity = isZero ? '0.6' : '1';
         }
 
-        if (val > 0 && cardName) {
-            newOwnedMap[cardName] = val;
+        if (cardName) {
+            newUnownedMap[cardName] = val;
         }
     });
 
-    saveOwnedCardsToStorage(currentDeckId, newOwnedMap);
+    saveUnownedCardsToStorage(currentDeckId, newUnownedMap);
     recalculateTotalPrice();
 }
 // バージョンモード切り替え時のハンドラ
@@ -1328,13 +1325,11 @@ function initPriceTable(cards) {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const ownedMap = getOwnedCardsFromStorage(currentDeckId);
     const versionMode = document.querySelector('input[name="price_estimate_version_mode"]:checked')?.value || 'any';
 
     const cardMap = {};
     cards.forEach(c => {
         let name = (c.card_name || '').trim();
-        // card_combination または twinpact のカードは上下を結合
         const isCombo = !empty(c.combination_id) || (!empty(c.twinpact) && !empty(c.partner_card_id));
         if (isCombo && !empty(c.partner_card_id)) {
             const selfId = parseInt(c.card_id);
@@ -1350,7 +1345,6 @@ function initPriceTable(cards) {
         const modelnum = (c.modelnum || '').trim();
         const cardId = c.card_id;
 
-        // バージョン指定（exact）の場合は modelnum でグループ分け
         let key = name;
         let displayName = name;
         if (versionMode === 'exact') {
@@ -1372,17 +1366,52 @@ function initPriceTable(cards) {
         cardMap[key].quantity += qty;
     });
 
+    // 既存データの読み込みと逆算判定
+    let unownedMap = getUnownedCardsFromStorage(currentDeckId);
+    let needSaveConverted = false;
+
+    // もし未購入データが存在せず、旧購入済みデータ（localStorage等）がある場合は逆算
+    if (!unownedMap) {
+        let legacyOwned = null;
+        if (window._tempLegacyOwned) {
+            legacyOwned = window._tempLegacyOwned;
+            delete window._tempLegacyOwned;
+        } else {
+            try {
+                const oldLocal = localStorage.getItem('deck_owned_cards_' + currentDeckId);
+                if (oldLocal) legacyOwned = JSON.parse(oldLocal);
+            } catch(e) {}
+        }
+
+        unownedMap = {};
+        Object.values(cardMap).forEach(c => {
+            if (legacyOwned && typeof legacyOwned === 'object') {
+                const ownedVal = legacyOwned[c.displayName] ?? legacyOwned[c.name] ?? 0;
+                // ★ 総枚数から購入済み枚数を逆算して未購入枚数を算出
+                unownedMap[c.displayName] = Math.max(0, c.quantity - parseInt(ownedVal));
+                needSaveConverted = true;
+            } else {
+                // 初回は全数未購入
+                unownedMap[c.displayName] = c.quantity;
+            }
+        });
+
+        if (needSaveConverted) {
+            saveUnownedCardsToStorage(currentDeckId, unownedMap);
+        }
+    }
+
     Object.values(cardMap).forEach(c => {
-        const ownedMapSafe = (ownedMap && typeof ownedMap === 'object' && !Array.isArray(ownedMap)) ? ownedMap : {};
-        const ownedQty = Math.min(ownedMapSafe[c.displayName] || ownedMapSafe[c.name] || 0, c.quantity);
-        const isFullOwned = (c.quantity > 0 && ownedQty >= c.quantity);
+        const savedVal = unownedMap ? unownedMap[c.displayName] ?? unownedMap[c.name] : undefined;
+        const unownedQty = (savedVal !== undefined) ? Math.min(Math.max(0, parseInt(savedVal)), c.quantity) : c.quantity;
+        const isZero = (unownedQty === 0);
 
         const tr = document.createElement('tr');
-        tr.dataset.cardName = c.displayName; // ★ 表示名（型番付き）を行キーにする
+        tr.dataset.cardName = c.displayName;
         tr.dataset.rawName = c.name;
         tr.dataset.totalQty = c.quantity;
-        tr.className = isFullOwned ? 'card-row-owned' : '';
-        if (isFullOwned) {
+        tr.className = isZero ? 'card-row-owned' : '';
+        if (isZero) {
             tr.style.backgroundColor = '#f1f3f4';
             tr.style.opacity = '0.6';
         }
@@ -1390,11 +1419,11 @@ function initPriceTable(cards) {
         tr.innerHTML = `
             <td>
                 <div style="display: flex; align-items: center; justify-content: center; gap: 3px;">
-                    <button type="button" class="btn-qty-step" onclick="stepOwnedQty(this, -1)">-</button>
-                    <input type="number" class="owned-qty-input" min="0" max="${c.quantity}" value="${ownedQty}" 
+                    <button type="button" class="btn-qty-step" onclick="stepUnownedQty(this, -1)">-</button>
+                    <input type="number" class="unowned-qty-input" min="0" max="${c.quantity}" value="${unownedQty}" 
                         style="width: 32px; text-align: center; padding: 2px 0; border: 1px solid #ccc; border-radius: 4px; -moz-appearance: textfield; font-size: 0.85rem;"
-                        onchange="changeCardOwnedQty(this, '${escapeHtmlAttr(c.displayName)}', ${c.quantity})">
-                    <button type="button" class="btn-qty-step" onclick="stepOwnedQty(this, 1)">+</button>
+                        onchange="changeCardUnownedQty(this, '${escapeHtmlAttr(c.displayName)}', ${c.quantity})">
+                    <button type="button" class="btn-qty-step" onclick="stepUnownedQty(this, 1)">+</button>
                 </div>
             </td>
             <td class="price-card-name-col" title="${escapeHtmlAttr(c.displayName)}">${c.displayName}</td>
@@ -1416,9 +1445,9 @@ function initPriceTable(cards) {
 /**
  * [+] / [-] ボタンクリックで枚数を増減
  */
-function stepOwnedQty(btn, diff) {
+function stepUnownedQty(btn, diff) {
     const container = btn.closest('div');
-    const input = container.querySelector('.owned-qty-input');
+    const input = container.querySelector('.unowned-qty-input');
     const tr = btn.closest('tr');
     if (!input || !tr) return;
 
@@ -1433,30 +1462,26 @@ function stepOwnedQty(btn, diff) {
 
     if (currentVal !== nextVal) {
         input.value = nextVal;
-        changeCardOwnedQty(input, cardName, max);
+        changeCardUnownedQty(input, cardName, max);
     }
 }
 
-function changeCardOwnedQty(input, cardName, maxQty) {
+function changeCardUnownedQty(input, cardName, maxQty) {
     let val = parseInt(input.value) || 0;
     if (val < 0) val = 0;
     if (val > maxQty) val = maxQty;
     input.value = val;
 
-    let ownedMap = getOwnedCardsFromStorage(currentDeckId);
-    if (val > 0) {
-        ownedMap[cardName] = val;
-    } else {
-        delete ownedMap[cardName];
-    }
-    saveOwnedCardsToStorage(currentDeckId, ownedMap);
+    let unownedMap = getUnownedCardsFromStorage(currentDeckId) || {};
+    unownedMap[cardName] = val;
+    saveUnownedCardsToStorage(currentDeckId, unownedMap);
 
     const row = input.closest('tr');
     if (row) {
-        const isFull = val >= maxQty;
-        row.classList.toggle('card-row-owned', isFull);
-        row.style.backgroundColor = isFull ? '#f1f3f4' : '';
-        row.style.opacity = isFull ? '0.6' : '1';
+        const isZero = val === 0;
+        row.classList.toggle('card-row-owned', isZero);
+        row.style.backgroundColor = isZero ? '#f1f3f4' : '';
+        row.style.opacity = isZero ? '0.6' : '1';
     }
 
     recalculateTotalPrice();
@@ -1471,31 +1496,7 @@ function escapeHtmlAttr(str) {
 }
 
 /**
- * 「購入済み」チェック切り替え時
- */
-function toggleCardOwned(checkbox, cardName) {
-    let ownedList = getOwnedCardsFromStorage(currentDeckId);
-    if (checkbox.checked) {
-        if (!ownedList.includes(cardName)) ownedList.push(cardName);
-    } else {
-        ownedList = ownedList.filter(n => n !== cardName);
-    }
-    saveOwnedCardsToStorage(currentDeckId, ownedList);
-
-    // 行スタイルの更新（グレーアウト等の見た目のみ更新）
-    const row = checkbox.closest('tr');
-    if (row) {
-        row.classList.toggle('card-row-owned', checkbox.checked);
-        row.style.backgroundColor = checkbox.checked ? '#f1f3f4' : '';
-        row.style.opacity = checkbox.checked ? '0.6' : '1';
-    }
-
-    // 査定結果が表示されていれば合計金額を再計算
-    recalculateTotalPrice();
-}
-
-/**
- * チェック状態に応じた合計金額の再計算
+ * 未購入枚数に応じた合計金額の再計算
  */
 function recalculateTotalPrice() {
     let total = 0;
@@ -1503,12 +1504,9 @@ function recalculateTotalPrice() {
 
     const rows = document.querySelectorAll('#price-card-list-body tr');
     rows.forEach(tr => {
-        const totalQty = parseInt(tr.dataset.totalQty) || 0;
-        
-        // ★ 画面上の input の数値を直接参照
-        const input = tr.querySelector('.owned-qty-input');
-        const ownedQty = input ? (parseInt(input.value) || 0) : 0;
-        const unownedQty = Math.max(0, totalQty - ownedQty);
+        // ★ 画面上の input の未購入枚数を直接参照
+        const input = tr.querySelector('.unowned-qty-input');
+        const unownedQty = input ? (parseInt(input.value) || 0) : 0;
 
         const unitPriceVal = tr.querySelector('.cell-unit-price')?.dataset.val;
         const subtotalCell = tr.querySelector('.cell-subtotal');
@@ -1529,21 +1527,19 @@ function recalculateTotalPrice() {
             subtotalCell.dataset.val = subtotal;
             total += subtotal;
         } else {
-            // 単価が取得できていないカードは小計もリセット
             subtotalCell.innerText = '-';
             subtotalCell.dataset.val = '';
         }
     });
 
-    // 査定結果が1件以上ある場合は合計額、0件の場合は '-' を表示
     document.getElementById('deck-total-price').innerText = hasPrice ? total.toLocaleString() : '-';
 }
 
 /**
  * 査定テーブルの行を並び替え
- * 1. 未購入 & ヒットしたカード
- * 2. 未購入 & ヒットしなかったカード
- * 3. 購入済みのカード
+ * 1. 未購入（枚数 > 0） & ヒットしたカード
+ * 2. 未購入（枚数 > 0） & ヒットしなかったカード
+ * 3. 購入済み（未購入 0 枚）のカード
  */
 function sortPriceTableRows() {
     const tbody = document.getElementById('price-card-list-body');
@@ -1552,11 +1548,8 @@ function sortPriceTableRows() {
     const rows = Array.from(tbody.querySelectorAll('tr'));
     rows.sort((a, b) => {
         const getPriority = (tr) => {
-            const totalQty = parseInt(tr.dataset.totalQty) || parseInt(tr.querySelector('.cell-total-qty')?.innerText) || 0;
-            const ownedQty = parseInt(tr.querySelector('.owned-qty-input')?.value) || 0;
-            const isFullOwned = (totalQty > 0 && ownedQty >= totalQty);
-
-            if (isFullOwned) return 3; // 3: 全て購入済み（最後）
+            const unownedQty = parseInt(tr.querySelector('.unowned-qty-input')?.value) || 0;
+            if (unownedQty === 0) return 3; // 3: 購入済み（0枚）は最後
 
             const unitPrice = tr.querySelector('.cell-unit-price')?.innerText.trim();
             const isHit = unitPrice && unitPrice !== '-' && unitPrice !== '';
@@ -1566,7 +1559,6 @@ function sortPriceTableRows() {
         return getPriority(a) - getPriority(b);
     });
 
-    // 順序通りに再配置
     rows.forEach(tr => tbody.appendChild(tr));
 }
 
@@ -1718,15 +1710,14 @@ function switchTab(type) {
         // ★ 価格査定タブが開かれた時に初めてテーブルを構築する
         if (!priceTableInitialized && currentDeckCards.length > 0) {
             priceTableInitialized = true;
-            // 購入済みカード情報を取得してからテーブルを生成
             fetch('/api/decks/owned-cards?deck_id=' + currentDeckId)
                 .then(res => res.json())
                 .catch(() => ({}))
-                .then(ownedData => {
-                    if (ownedData && typeof ownedData === 'object' && !Array.isArray(ownedData)) {
-                        currentDeckOwnedCards = ownedData;
-                    } else {
-                        currentDeckOwnedCards = getOwnedCardsFromStorage(currentDeckId);
+                .then(resData => {
+                    if (resData && resData.is_legacy && resData.data) {
+                        window._tempLegacyOwned = resData.data;
+                    } else if (resData && resData.data) {
+                        currentDeckUnownedCards = resData.data;
                     }
                     initPriceTable(currentDeckCards);
                 });
@@ -1806,11 +1797,10 @@ async function runPriceEstimate(shopCode = null, refresh = false) {
             }
 
             if (targetMode === 'unowned') {
-                const totalQty = parseInt(tr.dataset.totalQty) || parseInt(tr.querySelector('.cell-total-qty')?.innerText) || 0;
-                const inputVal = tr.querySelector('.owned-qty-input')?.value;
-                const ownedQty = (inputVal !== undefined && inputVal !== '') ? parseInt(inputVal) : 0;
-                if (totalQty > 0 && ownedQty >= totalQty) {
-                    return; // 全数購入済みはスキップ
+                const inputVal = tr.querySelector('.unowned-qty-input')?.value;
+                const unownedQty = (inputVal !== undefined && inputVal !== '') ? parseInt(inputVal) : 0;
+                if (unownedQty <= 0) {
+                    return; // 未購入が0枚（＝購入済み）はスキップ
                 }
             }
             targetCardNames.push(cardName);

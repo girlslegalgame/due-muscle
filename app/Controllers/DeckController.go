@@ -3069,7 +3069,7 @@ func (c *DeckController) GetOwnedCardsApi(w http.ResponseWriter, r *http.Request
 	userID, ok := getSessionUserID(r)
 
 	if deckId == 0 || !ok {
-		json.NewEncoder(w).Encode(map[string]int{})
+		json.NewEncoder(w).Encode(map[string]interface{}{})
 		return
 	}
 
@@ -3077,23 +3077,52 @@ func (c *DeckController) GetOwnedCardsApi(w http.ResponseWriter, r *http.Request
 	var ownerID int
 	err := db.QueryRow("SELECT user_id FROM decks WHERE deck_id = ?", deckId).Scan(&ownerID)
 	if err != nil || ownerID != userID {
-		json.NewEncoder(w).Encode(map[string]int{})
+		json.NewEncoder(w).Encode(map[string]interface{}{})
 		return
 	}
 
 	db.Exec(`
-        CREATE TABLE IF NOT EXISTS deck_owned_cards (
+        CREATE TABLE IF NOT EXISTS deck_unowned_cards (
             deck_id INT NOT NULL,
             card_name VARCHAR(255) NOT NULL,
-            quantity INT NOT NULL DEFAULT 1,
+            quantity INT NOT NULL DEFAULT 0,
             PRIMARY KEY (deck_id, card_name),
             INDEX idx_deck_id (deck_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `)
-	// 既存テーブルに quantity 列がない場合の補正
-	db.Exec("ALTER TABLE deck_owned_cards ADD COLUMN quantity INT NOT NULL DEFAULT 1;")
 
-	rows, err := db.Query("SELECT card_name, quantity FROM deck_owned_cards WHERE deck_id = ?", deckId)
+	// 未移行チェック: deck_unowned_cards に無く、旧 deck_owned_cards に存在する場合は逆算して移行
+	var unownedCount int
+	_ = db.QueryRow("SELECT COUNT(*) FROM deck_unowned_cards WHERE deck_id = ?", deckId).Scan(&unownedCount)
+	if unownedCount == 0 {
+		var hasOwnedTable int
+		_ = db.QueryRow("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'deck_owned_cards'").Scan(&hasOwnedTable)
+		if hasOwnedTable > 0 {
+			var ownedCount int
+			_ = db.QueryRow("SELECT COUNT(*) FROM deck_owned_cards WHERE deck_id = ?", deckId).Scan(&ownedCount)
+			if ownedCount > 0 {
+				// 旧データをそのまま返却してフロント側でデッキ構成に合わせた正確な逆算を行わせる
+				oRows, oErr := db.Query("SELECT card_name, quantity FROM deck_owned_cards WHERE deck_id = ?", deckId)
+				if oErr == nil {
+					defer oRows.Close()
+					legacyOwned := make(map[string]int)
+					for oRows.Next() {
+						var n string
+						var q int
+						oRows.Scan(&n, &q)
+						legacyOwned[n] = q
+					}
+					json.NewEncoder(w).Encode(map[string]interface{}{
+						"is_legacy": true,
+						"data":      legacyOwned,
+					})
+					return
+				}
+			}
+		}
+	}
+
+	rows, err := db.Query("SELECT card_name, quantity FROM deck_unowned_cards WHERE deck_id = ?", deckId)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -3101,15 +3130,18 @@ func (c *DeckController) GetOwnedCardsApi(w http.ResponseWriter, r *http.Request
 	}
 	defer rows.Close()
 
-	ownedMap := make(map[string]int)
+	unownedMap := make(map[string]int)
 	for rows.Next() {
 		var name string
 		var qty int
 		rows.Scan(&name, &qty)
-		ownedMap[name] = qty
+		unownedMap[name] = qty
 	}
 
-	json.NewEncoder(w).Encode(ownedMap)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"is_legacy": false,
+		"data":      unownedMap,
+	})
 }
 
 /**
@@ -3147,6 +3179,16 @@ func (c *DeckController) SaveOwnedCardsApi(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	db.Exec(`
+        CREATE TABLE IF NOT EXISTS deck_unowned_cards (
+            deck_id INT NOT NULL,
+            card_name VARCHAR(255) NOT NULL,
+            quantity INT NOT NULL DEFAULT 0,
+            PRIMARY KEY (deck_id, card_name),
+            INDEX idx_deck_id (deck_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `)
+
 	tx, err := db.Begin()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -3155,16 +3197,21 @@ func (c *DeckController) SaveOwnedCardsApi(w http.ResponseWriter, r *http.Reques
 	}
 	defer tx.Rollback()
 
-	tx.Exec("DELETE FROM deck_owned_cards WHERE deck_id = ?", deckId)
+	tx.Exec("DELETE FROM deck_unowned_cards WHERE deck_id = ?", deckId)
 
-	// { "カード名": 所持枚数 } のマップ形式を受け取る
-	if ownedMap, ok := input["owned_cards"].(map[string]interface{}); ok {
-		for name, qVal := range ownedMap {
-			cName := strings.TrimSpace(name)
-			qty, _ := strconv.Atoi(fmt.Sprintf("%v", qVal))
-			if cName != "" && qty > 0 {
-				tx.Exec("INSERT INTO deck_owned_cards (deck_id, card_name, quantity) VALUES (?, ?, ?)", deckId, cName, qty)
-			}
+	// { "カード名": 未購入枚数 } のマップ形式を受け取る
+	targetMap := make(map[string]interface{})
+	if m, ok := input["unowned_cards"].(map[string]interface{}); ok {
+		targetMap = m
+	} else if m, ok := input["owned_cards"].(map[string]interface{}); ok {
+		targetMap = m
+	}
+
+	for name, qVal := range targetMap {
+		cName := strings.TrimSpace(name)
+		qty, _ := strconv.Atoi(fmt.Sprintf("%v", qVal))
+		if cName != "" && qty >= 0 {
+			tx.Exec("INSERT INTO deck_unowned_cards (deck_id, card_name, quantity) VALUES (?, ?, ?)", deckId, cName, qty)
 		}
 	}
 
