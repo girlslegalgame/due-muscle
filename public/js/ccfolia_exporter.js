@@ -423,27 +423,35 @@ const CcfoliaExporter = (function () {
             // 1. 特殊カード (ドルマゲドン・零龍・ドキンダム)
             if (zone === 'special' || isDokindam) {
                 if (!includeSpecial) continue;
-                if (cardName.includes('ドルマゲドン')) {
+                const isDolmageddonDeck = (cardName === '終焉の禁断 ドルマゲドンX' || cardName === 'FORBIDDEN STAR ～世界最後の日～' || cardName === 'FORBIDDEN STAR 〜世界最後の日〜');
+                if (isDolmageddonDeck) {
                     for (let m of combinationMembers) {
                         const meta = await fetchImageMeta(m.imagepath);
                         if (meta) {
-                            const isDorm = m.card_name.includes('終焉の禁断 ドルマゲドンX');
-                            const w = isDorm ? 12 : 4, h = isDorm ? 17 : 6;
+                            const mName = (m.card_name || '').trim();
+                            const isDorm = mName === '終焉の禁断 ドルマゲドンX';
+                            const isForbidden = (mName === 'FORBIDDEN STAR ～世界最後の日～' || mName === 'FORBIDDEN STAR 〜世界最後の日〜');
+                            let w = 4, h = 6;
+                            if (isDorm) { w = 12; h = 17; }
+                            else if (isForbidden) { w = 8; h = 12; }
                             addStandaloneCard(meta.filename, null, includeText ? buildSingleCardMemo(m) : "", standaloneX, -3, w, h);
                             standaloneX -= (w + 1);
                         }
                     }
                     continue;
                 }
-                if (cardName.includes('零龍') || cardName.includes('零無') || cardName.includes('の儀')) {
+
+                const zeronNames = ['零龍', '滅亡の起源 零無', '手札の儀', '墓地の儀', '破壊の儀', '復活の儀'];
+                if (zeronNames.includes(cardName)) {
                     for (let m of combinationMembers) {
                         const meta = await fetchImageMeta(m.imagepath);
                         if (!meta) continue;
                         const memo = includeText ? buildSingleCardMemo(m) : "";
-                        if (m.card_name.trim() === '零龍') {
+                        const mName = (m.card_name || '').trim();
+                        if (mName === '零龍') {
                             addStandaloneCard(meta.filename, null, memo, standaloneX, -3, 12, 12);
                             standaloneX -= 13;
-                        } else {
+                        } else if (['滅亡の起源 零無', '手札の儀', '墓地の儀', '破壊の儀', '復活の儀'].includes(mName)) {
                             zeroDecksItems[generateId()] = { imageUrl: meta.filename, memo };
                         }
                     }
