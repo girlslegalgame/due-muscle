@@ -75,6 +75,8 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/robots.txt", func(w http.ResponseWriter, r *http.Request) {
 		http.ServeFile(w, r, "public/robots.txt")
 	})
+	// app/routes.go の r.Get("/sitemap.xml", ...) 内を以下のように修正
+
 	r.Get("/sitemap.xml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/xml; charset=utf-8")
 		base := "https://due-muscle.com"
@@ -89,6 +91,21 @@ func RegisterRoutes(r chi.Router) {
 			"/profile",
 			"/contact",
 		}
+
+		// ★ DBから公開中（is_public = 1）のデッキIDを取得してサイトマップに追加
+		if db, err := models.DatabaseConnect(); err == nil {
+			rows, err := db.Query("SELECT deck_id FROM decks WHERE is_public = 1 ORDER BY updated_at DESC LIMIT 100")
+			if err == nil {
+				defer rows.Close()
+				for rows.Next() {
+					var deckID int
+					if err := rows.Scan(&deckID); err == nil {
+						urls = append(urls, fmt.Sprintf("/decks/share?deck_id=%d", deckID))
+					}
+				}
+			}
+		}
+
 		var sb strings.Builder
 		sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
 		sb.WriteString(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">` + "\n")
@@ -113,7 +130,7 @@ func RegisterRoutes(r chi.Router) {
 			next.ServeHTTP(w, r)
 		})
 	}
-	r.With(noIndexMiddleware).Get("/decks/share", deckCtrl.Share)
+	r.Get("/decks/share", deckCtrl.Share) // ★ noIndexMiddleware を外してインデックスを許可
 	r.With(noIndexMiddleware).Get("/users/decks", deckCtrl.UserPublicDecks)
 	// AIジャッジ専用ページ
 	r.Get("/rule-bot", ruleBotCtrl.Index)
