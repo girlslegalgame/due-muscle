@@ -2,6 +2,7 @@ package models
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"sync"
@@ -211,28 +212,7 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
                  JOIN card c_all ON cc_all.card_id = c_all.card_id 
                  WHERE cc_ref.card_id = c.card_id) as combo_names,
 
-                -- ★ 追加: ドラグハート・3D龍解等の全形態（裏面・3面目含む）をJSONで取得
-                (SELECT CONCAT('[', GROUP_CONCAT(
-                    JSON_OBJECT(
-                        'card_id', c_sub.card_id,
-                        'card_name', c_sub.card_name,
-                        'cost', c_sub.cost,
-                        'pow', c_sub.pow,
-                        'text', c_sub.text,
-                        'imagepath', cd_sub.imagepath,
-                        'is_main_side', cc_sub.is_main_side,
-                        'char_ids', (SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c_sub.card_id),
-                        'civ_ids', (SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c_sub.card_id),
-                        'typename', (SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c_sub.card_id),
-                        'race_names', (SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c_sub.card_id)
-                    )
-                    ORDER BY cc_sub.is_main_side DESC, c_sub.card_id ASC
-                ), ']')
-                FROM card_combination cc_base
-                JOIN card_combination cc_sub ON cc_base.combination_id = cc_sub.combination_id
-                JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
-                LEFT JOIN card_detail cd_sub ON c_sub.card_id = cd_sub.card_id
-                WHERE cc_base.card_id = c.card_id) as combination_members_json,
+                NULL as combination_members_json,
                 
                 -- ★ OR を排除してインデックスを完全適用（フルスキャン防止）
                 COALESCE(NULLIF(TRIM(BOTH ',' FROM CONCAT_WS(',',
@@ -287,9 +267,115 @@ func (d *Deck) GetCardsByDeckId(deckId int) ([]map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+defer rows.Close()
 
-	return fetchAllAssoc(rows)
+	results, err := fetchAllAssoc(rows)
+	if err != nil {
+		return nil, err
+	}
+	d.populateCombinationMembersJSON(results)
+
+	return results, nil
+}
+
+func (d *Deck) populateCombinationMembersJSON(results []map[string]interface{}) {
+	if len(results) == 0 {
+		return
+	}
+
+	combIDSet := make(map[int]bool)
+	var combIDs []int
+	for _, row := range results {
+		cid := toInt(row["combination_id"])
+		if cid > 0 && !combIDSet[cid] {
+			combIDSet[cid] = true
+			combIDs = append(combIDs, cid)
+		}
+	}
+	if len(combIDs) == 0 {
+		return
+	}
+
+	sqlStr := fmt.Sprintf(`
+		SELECT
+			cc_sub.combination_id,
+			c_sub.card_id,
+			c_sub.card_name,
+			c_sub.cost,
+			c_sub.pow,
+			c_sub.text,
+			cd_sub.imagepath,
+			cc_sub.is_main_side,
+			(SELECT GROUP_CONCAT(characteristics_id) FROM card_characteristics WHERE card_id = c_sub.card_id) as char_ids,
+			(SELECT GROUP_CONCAT(civilization_id) FROM card_civilization WHERE card_id = c_sub.card_id) as civ_ids,
+			(SELECT GROUP_CONCAT(typename SEPARATOR '/') FROM card_cardtype WHERE card_id = c_sub.card_id) as typename,
+			(SELECT GROUP_CONCAT(r.race_name SEPARATOR '/') FROM card_race cr JOIN race r ON cr.race_id = r.race_id WHERE cr.card_id = c_sub.card_id) as race_names
+		FROM card_combination cc_sub
+		JOIN card c_sub ON cc_sub.card_id = c_sub.card_id
+		LEFT JOIN card_detail cd_sub ON c_sub.card_id = cd_sub.card_id
+		WHERE cc_sub.combination_id IN (%s)
+		ORDER BY cc_sub.combination_id ASC, cc_sub.is_main_side DESC, c_sub.card_id ASC
+	`, intSliceJoin(combIDs, ","))
+
+	cRows, err := d.db.Query(sqlStr)
+	if err != nil {
+		return
+	}
+	defer cRows.Close()
+
+	membersByComb := make(map[int][]map[string]interface{})
+	for cRows.Next() {
+		var combID, cardID int
+		var cost, pow, isMainSide sql.NullInt64
+		var cardName, text, imagepath, charIDs, civIDs, typename, raceNames sql.NullString
+
+		if err := cRows.Scan(&combID, &cardID, &cardName, &cost, &pow, &text, &imagepath, &isMainSide, &charIDs, &civIDs, &typename, &raceNames); err != nil {
+			continue
+		}
+
+		nullInt := func(n sql.NullInt64) interface{} {
+			if n.Valid {
+				return n.Int64
+			}
+			return nil
+		}
+		nullStr := func(s sql.NullString) interface{} {
+			if s.Valid {
+				return s.String
+			}
+			return nil
+		}
+
+		membersByComb[combID] = append(membersByComb[combID], map[string]interface{}{
+			"card_id":      cardID,
+			"card_name":    nullStr(cardName),
+			"cost":         nullInt(cost),
+			"pow":          nullInt(pow),
+			"text":         nullStr(text),
+			"imagepath":    nullStr(imagepath),
+			"is_main_side": nullInt(isMainSide),
+			"char_ids":     nullStr(charIDs),
+			"civ_ids":      nullStr(civIDs),
+			"typename":     nullStr(typename),
+			"race_names":   nullStr(raceNames),
+		})
+	}
+
+	jsonByComb := make(map[int]string)
+	for combID, members := range membersByComb {
+		if b, err := json.Marshal(members); err == nil {
+			jsonByComb[combID] = string(b)
+		}
+	}
+
+	for _, row := range results {
+		cid := toInt(row["combination_id"])
+		if cid > 0 {
+			if j, ok := jsonByComb[cid]; ok {
+				row["combination_members_json"] = j
+			}
+		}
+	}
 }
 
 // 特定のデッキの基本情報を取得する（再編集・上書き時、サムネイルパス付き）
