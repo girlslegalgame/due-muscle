@@ -89,11 +89,12 @@
         </div>
     </div>
 
-    <!-- ★ 追加: 初期HTML出力用 採用カードリスト（SEO・クローラー・テキスト評価対策） -->
     {{if .cards}}
-    <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-        <h3 style="margin: 0 0 12px 0; font-size: 1.1rem; color: #222; border-left: 4px solid #007bff; padding-left: 8px;">採用カードリスト（テキスト版）</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; font-size: 0.9rem; color: #333;">
+    <details style="background: #fff; padding: 14px 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <summary style="font-weight: bold; font-size: 0.95rem; color: #222; cursor: pointer; user-select: none;">
+            採用カード一覧（テキスト版）を表示する
+        </summary>
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px 16px; font-size: 0.9rem; color: #333; margin-top: 14px; padding-top: 12px; border-top: 1px solid #eee;">
             {{range .cards}}
                 <div style="display: flex; justify-content: space-between; border-bottom: 1px dashed #eee; padding-bottom: 3px;">
                     <span style="font-weight: 500;">《{{.card_name}}》</span>
@@ -101,7 +102,7 @@
                 </div>
             {{end}}
         </div>
-    </div>
+    </details>
     {{end}}
 
     <!-- deck_detail_modal.html をインクルード -->
