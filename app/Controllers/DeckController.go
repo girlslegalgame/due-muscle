@@ -931,7 +931,12 @@ func (c *DeckController) Edit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/mydecks", http.StatusFound)
 		return
 	}
-	cards, _ := deckModel.GetCardsByDeckId(deckId)
+	cards, err := deckModel.GetCardsByDeckId(deckId)
+	if err != nil {
+		log.Printf("[Edit GetCardsByDeckId Error] deck_id=%d err=%v", deckId, err)
+		http.Error(w, "デッキデータの読み込みに失敗しました: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	stmt, _ := db.Query("SELECT format_id, format_name FROM formats ORDER BY format_id ASC")
 	defer stmt.Close()

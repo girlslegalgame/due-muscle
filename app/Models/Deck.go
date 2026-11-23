@@ -346,6 +346,9 @@ func fetchAllAssoc(rows *sql.Rows) ([]map[string]interface{}, error) {
 		}
 		results = append(results, rowMap)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 
 	return results, nil
 }
