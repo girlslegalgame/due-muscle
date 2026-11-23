@@ -842,7 +842,13 @@ func (c *DeckController) StoreDeckApi(w http.ResponseWriter, r *http.Request) {
 	deckId, _ := res.LastInsertId()
 
 	cards, _ := input["cards"].([]interface{})
-	replacedMap := c.saveDeckCards(tx, deckId, cards)
+	replacedMap, err := c.saveDeckCards(tx, deckId, cards)
+	if err != nil {
+		log.Printf("[StoreDeckApi saveDeckCards Error]: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+		return
+	}
 
 	if tcid == nil && len(replacedMap) > 0 {
 		var newThumbId int
@@ -874,7 +880,16 @@ func (c *DeckController) ViewDeckApi(w http.ResponseWriter, r *http.Request) {
 
 	db := getDB()
 	deckModel := models.NewDeck(db)
-	cards, _ := deckModel.GetCardsByDeckId(deckId)
+	cards, err := deckModel.GetCardsByDeckId(deckId)
+	if err != nil {
+		log.Printf("[ViewDeckApi Error] deck_id=%d err=%v", deckId, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+		return
+	}
+	if cards == nil {
+		cards = []map[string]interface{}{}
+	}
 
 	json.NewEncoder(w).Encode(cards)
 }
@@ -991,6 +1006,8 @@ func (c *DeckController) UpdateDeckApi(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	c.ensureDummyColumnsExist(db)
+	c.ensureDeckExtraColumnsExist(db)
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -998,9 +1015,6 @@ func (c *DeckController) UpdateDeckApi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
-
-	c.ensureDummyColumnsExist(db)
-	c.ensureDeckExtraColumnsExist(db)
 
 	var tcid interface{} = nil
 	if val, ok := input["thumbnail_card_id"]; ok && val != nil && val != "" {
@@ -1020,9 +1034,20 @@ func (c *DeckController) UpdateDeckApi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tx.Exec("DELETE FROM deck_cards WHERE deck_id = ?", deckId)
+	if _, err := tx.Exec("DELETE FROM deck_cards WHERE deck_id = ?", deckId); err != nil {
+		log.Printf("[UpdateDeckApi DELETE Error] deck_id=%d err=%v", deckId, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+		return
+	}
 	cards, _ := input["cards"].([]interface{})
-	replacedMap := c.saveDeckCards(tx, deckId, cards)
+	replacedMap, err := c.saveDeckCards(tx, deckId, cards)
+	if err != nil {
+		log.Printf("[UpdateDeckApi saveDeckCards Error] deck_id=%d err=%v", deckId, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+		return
+	}
 
 	if tcid == nil && len(replacedMap) > 0 {
 		var newThumbId int
@@ -1033,7 +1058,12 @@ func (c *DeckController) UpdateDeckApi(w http.ResponseWriter, r *http.Request) {
 		tx.Exec("UPDATE decks SET thumbnail_card_id = ? WHERE deck_id = ?", newThumbId, deckId)
 	}
 
-	tx.Commit()
+	if err := tx.Commit(); err != nil {
+		log.Printf("[UpdateDeckApi Commit Error] deck_id=%d err=%v", deckId, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": err.Error()})
+		return
+	}
 	json.NewEncoder(w).Encode(map[string]interface{}{"success": true})
 }
 
@@ -1086,7 +1116,7 @@ func (c *DeckController) ensureDummyColumnsExist(db *sql.DB) {
 	}
 }
 
-func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interface{}) map[string]int {
+func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interface{}) (map[string]int, error) {
 	replacedDummyMap := make(map[string]int)
 
 	sqlNorm := func(col string) string {
@@ -1103,6 +1133,8 @@ func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interfa
 		return reg.ReplaceAllString(s, "")
 	}
 
+	var placeholders []string
+	var bulkArgs []interface{}
 	order := 1
 	for _, cardItem := range cards {
 		cMap, ok := cardItem.(map[string]interface{})
@@ -1308,19 +1340,28 @@ func (c *DeckController) saveDeckCards(tx *sql.Tx, deckId int64, cards []interfa
 			cardTypeInDeck = t
 		}
 
-		tx.Exec(`INSERT INTO deck_cards (
+		placeholders = append(placeholders, "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)")
+		bulkArgs = append(bulkArgs,
+			deckId, cardId, dummyName, dummyCost, dummyCivIds, dummyCardtypeIds, dummyCharacteristicsIds, dummyAbilityIds,
+			dummyCardType, dummyPartnerName, dummyPartnerCost, dummyPartnerCivIds, dummyPartnerCardtypeIds, dummyPartnerCharacteristicsIds, dummyPartnerAbilityIds,
+			cardTypeInDeck, order,
+		)
+
+		order++
+	}
+
+	if len(placeholders) > 0 {
+		bulkSQL := `INSERT INTO deck_cards (
                     deck_id, card_id, dummy_name, dummy_cost, dummy_civ_ids, dummy_cardtype_ids, dummy_characteristics_ids, dummy_ability_ids,
                     dummy_card_type, dummy_partner_name, dummy_partner_cost, dummy_partner_civ_ids, dummy_partner_cardtype_ids, dummy_partner_characteristics_ids, dummy_partner_ability_ids,
                     quantity, card_type_in_deck, sort_order
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-			deckId, cardId, dummyName, dummyCost, dummyCivIds, dummyCardtypeIds, dummyCharacteristicsIds, dummyAbilityIds,
-			dummyCardType, dummyPartnerName, dummyPartnerCost, dummyPartnerCivIds, dummyPartnerCardtypeIds, dummyPartnerCharacteristicsIds, dummyPartnerAbilityIds,
-			cardTypeInDeck, order)
-			
-			order++
+                 ) VALUES ` + strings.Join(placeholders, ",")
+		if _, err := tx.Exec(bulkSQL, bulkArgs...); err != nil {
+			return nil, fmt.Errorf("deck_cards bulk insert error (count=%d): %w", len(placeholders), err)
+		}
 	}
 
-	return replacedDummyMap
+	return replacedDummyMap, nil
 }
 
 /**
