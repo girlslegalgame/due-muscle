@@ -3046,10 +3046,15 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// ★ 追加: 初期HTMLレンダリング用にデッキのカード一覧を取得
+	deckModel := models.NewDeck(db)
+	cards, _ := deckModel.GetCardsByDeckId(deckId)
+
 	views.RenderView(w, r, "deck/share.html", map[string]interface{}{
 		"title":       fmt.Sprintf("%v", deck["deck_name"]),
 		"description": fmt.Sprintf("デュエ筋で公開されたデッキ「%v」のレシピ・分析詳細ページです。", deck["deck_name"]),
 		"deck":        deck,
+		"cards":       cards, // ★ 追加
 		"pdo_db":      db,
 		"article":     articleStr,
 		"likesCount":  likesCount,
