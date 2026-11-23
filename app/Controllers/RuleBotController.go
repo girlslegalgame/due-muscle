@@ -13,6 +13,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -354,17 +355,54 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 		return s
 	}
 
-	cleanMessage := strings.ToLower(removeSymbols(message))
+	// DBでカードとしてヒットした《》内のみ除外（能力名を《S・トリガー》のように書いた場合は残す）
+	matchedCardNameSet := make(map[string]bool)
+	for _, mc := range matchedCards {
+		matchedCardNameSet[mc.CardName] = true
+	}
+	msgWithoutCards := reCard.ReplaceAllStringFunc(message, func(full string) string {
+		inner := strings.TrimSuffix(strings.TrimPrefix(full, "《"), "》")
+		for _, part := range strings.Split(inner, "/") {
+			if matchedCardNameSet[strings.TrimSpace(part)] {
+				return ""
+			}
+		}
+		return full
+	})
+	cleanMessage := strings.ToLower(removeSymbols(msgWithoutCards))
+
+	// 長い能力名から優先して判定し、包含される短い能力名の重複ヒットを防ぐ
+	sort.Slice(allAbilities, func(i, j int) bool {
+		return utf8.RuneCountInString(removeSymbols(allAbilities[i].AbilityName)) >
+			utf8.RuneCountInString(removeSymbols(allAbilities[j].AbilityName))
+	})
+
 	type MatchedAbility struct {
-		ID   int
-		Name string
+		ID        int
+		Name      string
+		CleanName string
 	}
 	var matchedAbilities []MatchedAbility
+	const maxMatchedAbilities = 3
 
 	for _, ab := range allAbilities {
 		cleanAbName := strings.ToLower(removeSymbols(ab.AbilityName))
-		if utf8.RuneCountInString(cleanAbName) >= 2 && strings.Contains(cleanMessage, cleanAbName) {
-			matchedAbilities = append(matchedAbilities, MatchedAbility{ID: ab.AbilityID, Name: ab.AbilityName})
+		if utf8.RuneCountInString(cleanAbName) < 2 || !strings.Contains(cleanMessage, cleanAbName) {
+			continue
+		}
+		isDuplicate := false
+		for _, m := range matchedAbilities {
+			if strings.Contains(m.CleanName, cleanAbName) {
+				isDuplicate = true
+				break
+			}
+		}
+		if isDuplicate {
+			continue
+		}
+		matchedAbilities = append(matchedAbilities, MatchedAbility{ID: ab.AbilityID, Name: ab.AbilityName, CleanName: cleanAbName})
+		if len(matchedAbilities) >= maxMatchedAbilities {
+			break
 		}
 	}
 
@@ -428,6 +466,10 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	// 連続する空白や3つ以上の改行を圧縮して無駄なトークンを削減
+	comprehensiveRules = strings.ReplaceAll(comprehensiveRules, "\r\n", "\n")
+	comprehensiveRules = regexp.MustCompile(`[ 　]+`).ReplaceAllString(comprehensiveRules, " ")
+	comprehensiveRules = regexp.MustCompile(`\n{3,}`).ReplaceAllString(comprehensiveRules, "\n\n")
 
 	// 3. システム指示
 	systemInstruction := `あなたはTCG「デュエル・マスターズ」の公認ジャッジです。
@@ -598,7 +640,7 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 相手の《神化のカルマ シフォン》がいる時、自分の《魔導管理室 カリヤドネ / ハーミット・サークル》のコストは2多くなりません。
 
 例3:
-自分の手札が3枚の状況です。《劇場戦艦 カァテンコヲル》の「出た時」の能力で、呪文側のコストが3の《魔導管理室 カリヤドネ/ハーミット・サークル》は、呪文側は手札の枚数以下のコスト3ですがが、実行しようとしている時は水文明でないため、選択できません。
+自分の手札が3枚のとき《劇場戦艦 カァテンコヲル》の「出た時」の能力で、呪文側のコストが3の《魔導管理室 カリヤドネ/ハーミット・サークル》は、呪文側は手札の枚数以下のコスト3ですが、実行しようとしている時は水文明でないため、選択できません。
 
 例4:
 自分の進化クリーチャーの下に、ツインパクトである《奇石 ミクセル / ジャミング・チャフ》が置かれている状況で、《ルナ・デイブレイクΣ》の召喚するコストは2コスト分少なくなります。
@@ -800,12 +842,25 @@ func (c *RuleBotController) ChatApi(w http.ResponseWriter, r *http.Request) {
 				} `json:"parts"`
 			} `json:"content"`
 		} `json:"candidates"`
+		UsageMetadata struct {
+			PromptTokenCount        int `json:"promptTokenCount"`
+			CachedContentTokenCount int `json:"cachedContentTokenCount"`
+			CandidatesTokenCount    int `json:"candidatesTokenCount"`
+			ThoughtsTokenCount      int `json:"thoughtsTokenCount"`
+			TotalTokenCount         int `json:"totalTokenCount"`
+		} `json:"usageMetadata"`
 	}
 
 	if err := json.Unmarshal(respBytes, &resData); err != nil {
 		sendJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	fmt.Printf("[Gemini Usage] input=%d (cached=%d), output=%d, thoughts=%d, total=%d\n",
+		resData.UsageMetadata.PromptTokenCount,
+		resData.UsageMetadata.CachedContentTokenCount,
+		resData.UsageMetadata.CandidatesTokenCount,
+		resData.UsageMetadata.ThoughtsTokenCount,
+		resData.UsageMetadata.TotalTokenCount)
 
 	reply := ""
 	if len(resData.Candidates) > 0 {
