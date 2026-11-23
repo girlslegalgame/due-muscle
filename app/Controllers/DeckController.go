@@ -3046,15 +3046,49 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// ★ 追加: 初期HTMLレンダリング用にデッキのカード一覧を取得
 	deckModel := models.NewDeck(db)
-	cards, _ := deckModel.GetCardsByDeckId(deckId)
+	rawCards, _ := deckModel.GetCardsByDeckId(deckId)
+
+	// ★ 追加: 同名カードの合算 & ツインパクト（上面 / 下面）の整形処理
+	var summarizedCards []map[string]interface{}
+	cardQtyMap := make(map[string]int)
+	var cardOrder []string
+
+	for _, c := range rawCards {
+		name := strings.TrimSpace(fmt.Sprintf("%v", c["card_name"]))
+		isTwin := fmt.Sprintf("%v", c["twinpact"]) == "1"
+		partner := strings.TrimSpace(fmt.Sprintf("%v", c["partner_card_name"]))
+
+		// ツインパクトかつ相方名があり、未結合の場合「上面 / 下面」に整形
+		if isTwin && partner != "" && partner != "<nil>" && !strings.Contains(name, "/") {
+			name = fmt.Sprintf("%s / %s", name, partner)
+		}
+
+		qty := 1
+		if qVal, ok := c["quantity"]; ok {
+			if qInt, err := strconv.Atoi(fmt.Sprintf("%v", qVal)); err == nil && qInt > 0 {
+				qty = qInt
+			}
+		}
+
+		if _, exists := cardQtyMap[name]; !exists {
+			cardOrder = append(cardOrder, name)
+		}
+		cardQtyMap[name] += qty
+	}
+
+	for _, name := range cardOrder {
+		summarizedCards = append(summarizedCards, map[string]interface{}{
+			"card_name": name,
+			"quantity":  cardQtyMap[name],
+		})
+	}
 
 	views.RenderView(w, r, "deck/share.html", map[string]interface{}{
 		"title":       fmt.Sprintf("%v", deck["deck_name"]),
 		"description": fmt.Sprintf("デュエ筋で公開されたデッキ「%v」のレシピ・分析詳細ページです。", deck["deck_name"]),
 		"deck":        deck,
-		"cards":       cards, // ★ 追加
+		"cards":       summarizedCards, // ★ 集約後のリストを渡す
 		"pdo_db":      db,
 		"article":     articleStr,
 		"likesCount":  likesCount,
