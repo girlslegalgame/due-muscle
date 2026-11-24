@@ -56,7 +56,7 @@
     <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 15px;">
             <div>
-                <h2 style="margin: 0 0 8px 0; font-size: 1.5rem;">{{.deck.deck_name}}</h2>
+                <h1 style="margin: 0 0 8px 0; font-size: 1.5rem;">{{.deck.deck_name}}</h1>
                 <div style="display: flex; gap: 15px; font-size: 0.9rem; color: #555; align-items: center; flex-wrap: wrap;">
                     <span>フォーマット: <strong>{{.deck.format_name}}</strong></span>
                     <span>製作者: <a href="/users/decks?user_id={{.deck.user_id}}" style="color: #007bff; text-decoration: underline;">{{.deck.creator_name}}</a></span>
@@ -121,7 +121,9 @@
             </div>
         </div>
         <div id="share-article-content">
-            {{if not .article}}
+            {{if .article}}
+                <div style="white-space: pre-wrap; line-height: 1.8; color: #2d3748;">{{.article}}</div>
+            {{else}}
                 <p style="color: #888; text-align: center; padding: 20px 0; margin: 0;">
                     {{if .isOwner}}
                         まだ記事が作成されていません。「記事を作成・編集する」からデッキの回し方や採用カードの解説を書けます。
@@ -133,22 +135,12 @@
         </div>
     </div>
 
-    <!-- デッキ共有ページ 機能ガイド（SEO・クローラー向け解説補足） -->
-    <div style="background: #fff; padding: 24px; border-radius: 8px; border: 1px solid #ddd; margin-top: 20px; line-height: 1.8; color: #444;">
-        <h3 style="margin-top: 0; font-size: 1.15rem; color: #222; border-left: 4px solid #007bff; padding-left: 10px;">「{{.deck.deck_name}}」の活用方法</h3>
-        <p style="font-size: 0.92rem; margin-bottom: 12px;">
-            このページでは、{{.deck.creator_name}} さんが作成した {{.deck.format_name}} 対応デッキ「{{.deck.deck_name}}」の採用カードリスト、文明バランス、マナカーブの統計データを閲覧できます。各カードをクリックすると詳細な能力テキストや関連情報を確認できます。
-        </p>
-        <ul style="font-size: 0.9rem; padding-left: 20px; margin-bottom: 14px;">
-            <li><strong>一人回しテスト：</strong>ブラウザ上で初手5枚や序盤の展開・事故率をすぐにシミュレーションできます（検証のコツは<a href="/guide/playtest" style="color: #007bff;">一人回し検証ガイド</a>をご参照ください）。</li>
-            <li><strong>レシピを複製してアレンジ：</strong>右上の「デッキを複製」ボタンから自分のマイデッキへコピーし、手持ちのカードや環境に合わせて自由に枚数を調整できます。</li>
-            <li><strong>ココフォリア出力・価格査定：</strong>オンライン対戦用のZIPエクスポートや、楽天市場・Yahoo!ショッピング連携によるデッキ構築コストの概算査定にも対応しています。</li>
-        </ul>
-        <div style="display: flex; gap: 15px; flex-wrap: wrap; font-size: 0.9rem; border-top: 1px solid #eee; padding-top: 12px;">
-            <a href="/search" style="color: #007bff; font-weight: bold;">← 他の公開デッキを探す</a>
-            <a href="/guide/deck-building" style="color: #007bff; font-weight: bold;">勝てる40枚デッキの基本構造を読む</a>
-            <a href="/decks/new" style="color: #007bff; font-weight: bold;">自分で新しいデッキを作成する</a>
-        </div>
+    <!-- 関連ページへの導線（定型文を撤去し、正規URLへ修正） -->
+    <div style="background: #fff; padding: 16px 20px; border-radius: 8px; border: 1px solid #ddd; margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; font-size: 0.9rem;">
+        <a href="/search" style="color: #007bff; font-weight: bold;">← 他の公開デッキを探す</a>
+        <a href="/guide#deck-creation" style="color: #007bff; font-weight: bold;">デッキ作成・活用ガイドを読む</a>
+        <a href="/guide#playtest" style="color: #007bff; font-weight: bold;">一人回し機能の詳細を見る</a>
+        <a href="/decks/new" style="color: #007bff; font-weight: bold;">自分で新しいデッキを作成する</a>
     </div>
 </div>
 <!-- card_detail_modal.html をインクルード -->

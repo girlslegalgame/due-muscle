@@ -31,6 +31,14 @@ func RegisterRoutes(r chi.Router) {
 	notifCtrl := &controllers.NotificationController{}
 	devCtrl := &controllers.DeveloperController{}
 
+	// ロボットのインデックス・追跡を禁止するミドルウェア
+	noIndexMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("X-Robots-Tag", "noindex, nofollow")
+			next.ServeHTTP(w, r)
+		})
+	}
+
 	// トップページ
 	r.Get("/", homeCtrl.Index)
 
@@ -41,7 +49,7 @@ func RegisterRoutes(r chi.Router) {
 	r.Get("/help", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/guide#dc-search", http.StatusMovedPermanently)
 	})
-	r.Get("/help/search", deckViews.HelpSearchHandler)
+	r.With(noIndexMiddleware).Get("/help/search", deckViews.HelpSearchHandler)
 	r.Get("/tools/ccfolia", func(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "tools/ccfolia.html", map[string]interface{}{
 			"title":       "汎用ココフォリア出力ツール",
@@ -83,7 +91,6 @@ func RegisterRoutes(r chi.Router) {
 		urls := []string{
 			"/",
 			"/search",
-			"/decks/new",
 			"/tools/ccfolia",
 			"/rule-bot",
 			"/guide",
@@ -92,9 +99,14 @@ func RegisterRoutes(r chi.Router) {
 			"/contact",
 		}
 
-		// ★ DBから公開中（is_public = 1）のデッキIDを取得してサイトマップに追加
+		// ★ DBから公開中（is_public = 1）かつ解説記事が300文字以上のデッキIDを取得してサイトマップに追加
 		if db, err := models.DatabaseConnect(); err == nil {
-			rows, err := db.Query("SELECT deck_id FROM decks WHERE is_public = 1 ORDER BY updated_at DESC LIMIT 100")
+			rows, err := db.Query(`
+				SELECT deck_id FROM decks 
+				WHERE is_public = 1 
+				  AND CHAR_LENGTH(REPLACE(REPLACE(TRIM(COALESCE(article, '')), '\r', ''), '\n', '')) >= 300 
+				ORDER BY updated_at DESC LIMIT 100
+			`)
 			if err == nil {
 				defer rows.Close()
 				for rows.Next() {
@@ -117,24 +129,17 @@ func RegisterRoutes(r chi.Router) {
 	})
 
 	// マイデッキ一覧などの既存ルート
-	r.Get("/mydecks", deckCtrl.MyDecks)
+	r.With(noIndexMiddleware).Get("/mydecks", deckCtrl.MyDecks)
 	r.Get("/search", deckCtrl.Search)
-	r.Get("/decks/new", deckCtrl.Create)
-	r.Get("/decks/edit", deckCtrl.Edit)
-	r.Get("/decks/playtest", deckCtrl.Playtest)
+	r.With(noIndexMiddleware).Get("/decks/new", deckCtrl.Create)
+	r.With(noIndexMiddleware).Get("/decks/edit", deckCtrl.Edit)
+	r.With(noIndexMiddleware).Get("/decks/playtest", deckCtrl.Playtest)
 
-	// ロボットのインデックス・追跡を禁止するミドルウェア
-	noIndexMiddleware := func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-Robots-Tag", "noindex, nofollow")
-			next.ServeHTTP(w, r)
-		})
-	}
 	r.Get("/decks/share", deckCtrl.Share) // ★ noIndexMiddleware を外してインデックスを許可
 	r.With(noIndexMiddleware).Get("/users/decks", deckCtrl.UserPublicDecks)
 	// AIジャッジ専用ページ
 	r.Get("/rule-bot", ruleBotCtrl.Index)
-	r.Get("/notifications", notifCtrl.Index)
+	r.With(noIndexMiddleware).Get("/notifications", notifCtrl.Index)
 	r.Get("/profile", func(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "home/profile.html", map[string]interface{}{
 			"title":       "運営者情報・サイトについて",

@@ -3072,6 +3072,7 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 		views.RenderView(w, r, "deck/share_not_found.html", map[string]interface{}{
 			"title":       "デッキが見つかりません",
 			"description": "指定されたデッキは非公開または削除されたため表示できません。",
+			"noIndex":     true,
 		})
 		return
 	}
@@ -3130,9 +3131,13 @@ func (c *DeckController) Share(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	cleanArticle := strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(articleStr), "\r", ""), "\n", "")
+	isThinArticle := len([]rune(cleanArticle)) < 300
+
 	views.RenderView(w, r, "deck/share.html", map[string]interface{}{
 		"title":       fmt.Sprintf("%v", deck["deck_name"]),
 		"description": fmt.Sprintf("デュエ筋で公開されたデッキ「%v」のレシピ・分析詳細ページです。", deck["deck_name"]),
+		"noIndex":     isThinArticle,
 		"deck":        deck,
 		"cards":       summarizedCards, // ★ 集約後のリストを渡す
 		"pdo_db":      db,

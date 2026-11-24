@@ -1,6 +1,6 @@
 <div class="container" style="max-width: 860px; height: calc(100vh - 120px); display: flex; flex-direction: column;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-        <h2 style="margin: 0; font-size: 1.3rem;">AIジャッジ</h2>
+        <h1 style="margin: 0; font-size: 1.3rem;">AIジャッジ</h1>
         <a href="/guide#ai-judge" style="font-size: 0.85rem; color: #007bff; text-decoration: none;">使い方・質問のコツ →</a>
     </div>
 
@@ -16,6 +16,31 @@
             <textarea id="fullChatInput" class="rule-bot-input" style="height: 44px; min-height: 44px; max-height: 150px; font-size: 0.95rem; padding: 10px 12px; resize: none; box-sizing: border-box; margin: 0; overflow-y: auto;" placeholder="質問を入力"></textarea>
             <button id="fullChatSendBtn" class="rule-bot-send" style="height: 44px; padding: 0 16px; font-size: 0.88rem; white-space: nowrap; flex-shrink: 0; box-sizing: border-box; margin: 0; align-self: flex-end;">送信</button>
         </div>
+    </div>
+</div>
+
+<!-- AIジャッジ 使い方・注意事項セクション -->
+<div class="container" style="max-width: 860px; margin-top: 28px; margin-bottom: 30px;">
+    <div style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 24px; line-height: 1.85; color: #333;">
+        <h3 style="margin-top: 0; font-size: 1.25rem; border-bottom: 2px solid #4f46e5; padding-bottom: 8px;">AIジャッジの使い方・質問のコツとご注意</h3>
+        <p style="font-size: 0.95rem;">
+            AIジャッジは、デュエル・マスターズの総合ルールやカードデータを参照して質問に回答する対話型サポートボットです。状況整理の補助ツールとして、以下のコツと注意事項をご確認のうえご利用ください。
+        </p>
+
+        <h4 style="font-size: 1.05rem; margin: 20px 0 8px; color: #1e293b; border-left: 4px solid #4f46e5; padding-left: 10px;">精度の高い回答を得る質問のコツ</h4>
+        <ul style="padding-left: 20px; margin: 0; font-size: 0.95rem;">
+            <li style="margin-bottom: 8px;"><strong>カード名は《》で囲んで指定する：</strong>入力欄で「《」を入力するとカード名の候補が自動表示されます。省略表記や愛称ではなく正式名称を指定することで、カード固有のテキストを踏まえた回答が得られやすくなります。</li>
+            <li style="margin-bottom: 8px;"><strong>どちらのターンかを明記する：</strong>「自分のターン中に」「相手の攻撃ステップで」のように、ターンプレイヤーが誰なのかを最初に書くと、効果の処理順や適用条件の誤認を防げます。</li>
+            <li style="margin-bottom: 8px;"><strong>盤面の状況と行動を時系列で書く：</strong>「バトルゾーンに《A》がいる状態で、《B》を召喚しました。どの順番で処理されますか？」のように、前提となる場と起こしたアクションを順番に記述してください。</li>
+            <li><strong>1回の質問につき1つの疑問に絞る：</strong>複数の異なる場面を一度に質問すると回答が曖昧になりやすいため、確認したい処理ごとに分けて質問することをおすすめします。</li>
+        </ul>
+
+        <h4 style="font-size: 1.05rem; margin: 22px 0 8px; color: #b91c1c; border-left: 4px solid #dc2626; padding-left: 10px;">正確性に関するご注意（免責事項）</h4>
+        <ul style="padding-left: 20px; margin: 0; font-size: 0.95rem;">
+            <li style="margin-bottom: 8px;"><strong>回答の正確性は担保されません：</strong>本機能はAIによる自動応答システムであり、回答内容の正確性・完全性・最新性を保証するものではありません。ハルシネーション（事実と異なる生成）や、最新の裁定変更が反映されていない誤った回答が出力される場合があります。</li>
+            <li style="margin-bottom: 8px;"><strong>競技シーンでの使用はお控えください：</strong>公式大会やCS（チャンピオンシップ）などの競技イベントにおける裁定の根拠としては使用できません。必ず公式ルール、公式FAQ、または大会ジャッジの判断を優先してください。友人間でのフリー対戦や非公式の場における参考情報としてご活用ください。</li>
+            <li><strong>誤回答のご報告について：</strong>明らかに誤ったルール解釈や不自然な回答が表示された場合は、精度向上のため<a href="/contact" style="color: #007bff; text-decoration: underline;">お問い合わせページ</a>よりお知らせいただけますと幸いです。</li>
+        </ul>
     </div>
 </div>
 

@@ -4,6 +4,8 @@ Disallow: /api/
 Disallow: /admin
 Disallow: /developer
 Disallow: /mydecks
+Disallow: /decks/edit
+Disallow: /decks/playtest
 Disallow: /account
 Disallow: /login
 Disallow: /register

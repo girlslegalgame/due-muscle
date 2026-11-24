@@ -14,6 +14,7 @@ type AppLayoutData struct {
 	HideFooter  bool
 	Title       string
 	Description string
+	NoIndex     bool
 }
 
 // セッション情報などのコンテキスト（プロジェクトの実装に合わせて調整可能）
@@ -28,9 +29,11 @@ var GetUnreadNotificationCount = func(r *http.Request) int {
 }
 
 // テンプレート内で使用するヘルパー関数
+var bootVersion = time.Now().Unix()
+
 var tmplFuncs = template.FuncMap{
 	"time": func() int64 {
-		return time.Now().Unix()
+		return bootVersion
 	},
 	"year": func() int {
 		return time.Now().Year()
@@ -78,6 +81,7 @@ const appHTML = `<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ if .Title }}{{ .Title }} | デュエ筋{{ else }}デュエ筋 - デュエル・マスターズ デッキ制作ツール{{ end }}</title>
     {{ if .Description }}<meta name="description" content="{{ .Description }}">{{ end }}
+    {{ if .NoIndex }}<meta name="robots" content="noindex">{{ end }}
     <link rel="canonical" href="{{ .CanonicalURL }}">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="/css/style.css?v={{ time }}">
@@ -93,7 +97,11 @@ const appHTML = `<!DOCTYPE html>
             border-bottom: 1px solid #333 !important;
         }
 
-        header h1 a {
+        header .header-brand {
+            margin: 0;
+        }
+
+        header .header-brand a {
             color: #fff !important;
             display: flex;
             align-items: center;
@@ -128,6 +136,11 @@ const appHTML = `<!DOCTYPE html>
         .side-ad-wrapper {
             flex: 1;
             display: flex;
+        }
+
+        /* AdSense審査通過後に広告スロットを設定したら削除 */
+        .side-ad {
+            display: none !important;
         }
 
         /* --- スマートフォン環境（レスポンシブ） --- */
@@ -233,11 +246,11 @@ const appHTML = `<!DOCTYPE html>
 <body>
     <header>
         <div class="header-left">
-            <h1>
+            <div class="header-brand">
                 <a href="/">
                     <img src="/images/logo.webp" alt="デュエ筋" class="header-logo">
                 </a>
-            </h1>
+            </div>
         </div>
         
         <button class="menu-toggle" onclick="toggleMobileMenu()" aria-label="メニューを開閉する">
@@ -250,7 +263,7 @@ const appHTML = `<!DOCTYPE html>
             <a href="/mydecks">マイデッキ</a>
             <a href="/search">デッキ検索</a>
             <a href="/decks/new" onclick="handleDeckCreateClick(event)">デッキ作成</a>
-            <a href="javascript:void(0)" onclick="handleRuleBotClick()" style="cursor: pointer;">AIジャッジ</a>
+            <a href="/rule-bot" onclick="handleRuleBotClick(event)" style="cursor: pointer;">AIジャッジ</a>
             <a href="/guide">使い方・ヘルプ</a>
             <a href="/notifications">
                 お知らせ
@@ -516,7 +529,8 @@ function selectDeckType(url) {
             });
         });
         // ルールAIクリック時の振り分け処理
-        function handleRuleBotClick() {
+        function handleRuleBotClick(e) {
+            if (e) e.preventDefault();
             // ★ 未ログイン時は保存設定を無視して必ず毎回モーダルを表示
             const isLoggedIn = {{ if and .Session .Session.UserID }}true{{ else }}false{{ end }};
             const savedMode = isLoggedIn ? localStorage.getItem('default_rule_bot_mode') : null;
