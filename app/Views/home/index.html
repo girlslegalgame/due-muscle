@@ -180,6 +180,26 @@
         </div>
     </div>
 
+    <!-- 最新の更新・メンテナンス情報（5件自動表示） -->
+    {{if .recentNotifications}}
+    <div style="background: #111; border: 1px solid #333; border-radius: 8px; padding: 18px 22px; margin: 15px 15px 0; font-size: 0.9rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #222; padding-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px; font-weight: bold; color: #ffc107;">
+                <span>● お知らせ・更新情報</span>
+            </div>
+            <a href="/notifications" style="font-size: 0.8rem; color: #38bdf8 !important; text-decoration: underline !important;">すべて見る →</a>
+        </div>
+        <ul style="list-style: none; margin: 0; padding: 0;">
+            {{range .recentNotifications}}
+            <li style="padding: 6px 0; border-bottom: 1px dashed #222; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap;">
+                <span style="color: #888; font-size: 0.82rem; font-family: monospace;">{{.formatted_at}}</span>
+                <a href="/notifications" style="color: #eee !important; text-decoration: none !important; flex: 1; min-width: 200px;">{{.title}}</a>
+            </li>
+            {{end}}
+        </ul>
+    </div>
+    {{end}}
+
     <!-- サイト概要 -->
     <div class="content-box">
         <h2 style="text-align: center; border-left: none; padding-left: 0;">デュエ筋とは</h2>

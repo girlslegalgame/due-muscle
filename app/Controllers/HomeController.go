@@ -7,8 +7,9 @@ import (
 	"net/smtp"
 	"os"
 	"strings"
+	"time"
 
-	// require_once __DIR__ . '/../Views/view_helper.php' の代替
+	models "deck-maker/app/Models"
 	views "deck-maker/app/Views"
 )
 
@@ -19,7 +20,35 @@ func NewHomeController() *HomeController {
 }
 
 func (c *HomeController) Index(w http.ResponseWriter, r *http.Request) {
-	views.RenderView(w, r, "home/index.html", nil)
+	var recentNotifs []map[string]interface{}
+	if db, err := models.DatabaseConnect(); err == nil {
+		rows, err := db.Query(`
+			SELECT notification_id, title, created_at 
+			FROM notifications 
+			WHERE user_id IS NULL 
+			ORDER BY created_at DESC 
+			LIMIT 5
+		`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var id int
+				var title string
+				var createdAt time.Time
+				if err := rows.Scan(&id, &title, &createdAt); err == nil {
+					recentNotifs = append(recentNotifs, map[string]interface{}{
+						"id":           id,
+						"title":        title,
+						"formatted_at": createdAt.Format("2006/01/02"),
+					})
+				}
+			}
+		}
+	}
+
+	views.RenderView(w, r, "home/index.html", map[string]interface{}{
+		"recentNotifications": recentNotifs,
+	})
 }
 
 /**
