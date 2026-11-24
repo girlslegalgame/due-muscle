@@ -3581,7 +3581,7 @@ function ptMoveCard(cardId, from, to, opts = {}) {
     // ★ 盤面描画の完了後にバトルゾーン登場トリガーを実行
     if (to === 'battle') {
         const charIds = card.characteristics_ids || [];
-        const isEvoOrNeo = charIds.some(id => [2, 9, 13, 14, 16].includes(id));
+        const isEvoOrNeo = charIds.some(id => [2, 9, 13, 16].includes(id));
         if (!isEvoOrNeo) {
             ptTriggerBattleEnter(card);
         }
@@ -4338,8 +4338,8 @@ function ptExecuteDoubleSidedMoveWithData(cardId, fromZone, imgPath, cardName, r
         card.tapped = false;
     }
 
-    ptMoveCard(cardId, fromZone, 'battle', { skipDoubleSidedCheck: true });
     closePtModal();
+    ptMoveCard(cardId, fromZone, 'battle', { skipDoubleSidedCheck: true });
 }
 
 function ptExecuteDoubleSidedMove(cardId, fromZone, side) {
@@ -4356,8 +4356,8 @@ function ptExecuteDoubleSidedMove(cardId, fromZone, side) {
         card.flipped = false;
     }
 
-    ptMoveCard(cardId, fromZone, 'battle', { skipDoubleSidedCheck: true });
     closePtModal();
+    ptMoveCard(cardId, fromZone, 'battle', { skipDoubleSidedCheck: true });
 }
 
 // ==========================================

@@ -1038,9 +1038,8 @@ if (typeof DeckArticle === 'undefined') {
 </div>
 
 <!-- 既存デッキ詳細モーダル用の初動カード設定サブモーダル -->
-<div id="modalFirstActionSetupModal" class="sub-modal" style="z-index: 10001; background: rgba(0,0,0,0.5); display: none;">
-    <div class="sub-modal-content" style="width: 90%; max-width: 650px; height: auto; max-height: 80vh; margin: 10vh auto; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; background: #fff;">
-        <div class="sub-modal-header" style="padding: 12px 15px; background: #333; color: #fff; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
+<div id="modalFirstActionSetupModal" class="sub-modal" style="z-index: 10060; background: rgba(0,0,0,0.5); display: none;">
+    <div class="sub-modal-content" style="width: 90%; max-width: 650px; height: auto; max-height: 80vh; margin: 10vh auto; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; background: #fff;">        <div class="sub-modal-header" style="padding: 12px 15px; background: #333; color: #fff; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0;">
             <span style="font-weight: bold; font-size: 14px;">初動カードの設定</span>
             <span onclick="clearAllModalFaSelections()" style="cursor:pointer; font-size: 13px; font-weight: bold; color: #ff4d4d; text-decoration: underline; padding-right: 15px;">すべてクリア</span>
         </div>
@@ -1054,8 +1053,8 @@ if (typeof DeckArticle === 'undefined') {
     </div>
 </div>
 <!-- 特殊能力選択サブモーダル -->
-<div id="modalAbilitySelectModal" class="sub-modal" style="z-index: 10002;">
-    <div class="sub-modal-content" style="max-width: 440px; height: 75vh;">
+<div id="modalAbilitySelectModal" class="sub-modal" style="z-index: 10060;">
+    <div class="sub-modal-content" style="width: 90%; max-width: 440px; height: 75vh; background: #fff; border-radius: 12px; display: flex; flex-direction: column; overflow: hidden;">
         <div class="sub-modal-header" style="padding: 12px 15px; background: #333; color: #fff; display: flex; justify-content: space-between; align-items: center;">
             <span style="font-weight: bold; font-size: 14px;">特殊能力を選択</span>
             <span onclick="closeModalAbilitySelectModal()" style="cursor: pointer; font-size: 22px;">&times;</span>
