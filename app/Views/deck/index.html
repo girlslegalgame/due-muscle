@@ -684,17 +684,17 @@
             </p>
 
             <!-- 広告枠（誤タップを防ぐため上下マージンを確保しラベルを明記） -->
-            <div style="margin: 15px 0;">
-                <div style="font-size: 0.75rem; color: #888; margin-bottom: 4px;">スポンサーリンク</div>
-                <div style="min-height: 250px; background-color: #f9f9f9; display: flex; align-items: center; justify-content: center;">
+            <!-- <div style="margin: 15px 0;"> -->
+                <!-- <div style="font-size: 0.75rem; color: #888; margin-bottom: 4px;">スポンサーリンク</div> -->
+                <!-- <div style="width: 100%; min-height: 250px; background-color: #f9f9f9; display: block;"> -->
                     <!-- AdSense 広告ユニットタグ -->
-                    <ins class="adsbygoogle"
-                         style="display:block; width:100%;"
-                         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                         data-ad-slot="YYYYYYYYYY"
-                         data-ad-format="rectangle"></ins>
-                </div>
-            </div>
+                    <!-- <ins class="adsbygoogle" -->
+                         <!-- style="display:block; width:100%;" -->
+                         <!-- data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" -->
+                         <!-- data-ad-slot="YYYYYYYYYY" -->
+                         <!-- data-ad-format="rectangle"></ins> -->
+                <!-- </div> -->
+            <!-- </div> -->
 
             <!-- 広告との誤タップを防ぐため、十分な余白を取った閉じるボタン -->
             <button type="button" onclick="closeExportCompleteModal()" style="margin-top: 15px; padding: 10px 30px; background: #6c757d; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
@@ -824,12 +824,9 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
     const includeSpecial = document.getElementById('zip-include-special')?.checked ?? true;
     const includeLinked = document.getElementById('zip-include-linked')?.checked ?? true;
     const loadingModal = document.getElementById('zip-export-loading-modal');
+    const modalHeaderTitle = loadingModal ? loadingModal.querySelector('.sub-modal-header span') : null;
+    if (modalHeaderTitle) modalHeaderTitle.innerText = '出力処理中';
     if (loadingModal) loadingModal.style.display = 'flex';
-    try {
-    (adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (e) {
-        console.error('AdSense error:', e);
-    }
 
     if (buttonElement) {
         buttonElement.innerText = 'ZIP生成中...';
@@ -1059,8 +1056,8 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
             });
         });
 
-        Promise.all(promises).then(() => {
-            html2canvas(exportContainer, {
+        return Promise.all(promises).then(() => {
+            return html2canvas(exportContainer, {
                 useCORS: true,
                 scale: 2
             }).then(canvas => {
@@ -1307,12 +1304,6 @@ async function generateProxyPdf() {
     if (loadingModal) loadingModal.style.display = 'flex';
 
     try {
-    (adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (e) {
-        console.error('AdSense error:', e);
-    }
-
-    try {
         const { jsPDF } = window.jspdf;
         const zip = new JSZip();
 
@@ -1332,15 +1323,30 @@ async function generateProxyPdf() {
         // ★ ここに追加: 対象カードを格納する配列を初期化
         let allPrintCards = [];
 
-        // 1. 各デッキのカードリストを取得
-        try {
-            const ins = loadingModal ? loadingModal.querySelector('ins.adsbygoogle') : null;
-            if (ins && !ins.getAttribute('data-adsbygoogle-status')) {
-                (adsbygoogle = window.adsbygoogle || []).push({});
+        const getProxyCardKey = (c) => {
+            const name = (c.card_name || '').trim();
+            const isCombo = !!(c.combination_id && c.combination_id !== '0') ||
+                ((c.twinpact == 1 || c.twinpact === true || c.twinpact === '1') && !!c.partner_card_id);
+            if (isCombo && c.partner_card_id) {
+                const sid = parseInt(c.card_id);
+                const pid = parseInt(c.partner_card_id);
+                return sid < pid ? `${name} / ${c.partner_card_name}` : `${c.partner_card_name} / ${name}`;
             }
-        } catch (e) {
-            // console.error('AdSense error:', e);
-        }
+            return name;
+        };
+
+        const lookupCardMap = (mapObj, nameKey) => {
+            if (!mapObj) return undefined;
+            if (mapObj[nameKey] !== undefined) return parseInt(mapObj[nameKey]);
+            const clean = nameKey.replace(/\s+/g, '');
+            for (const k in mapObj) {
+                const kBase = k.replace(/\s*\[[^\]]*\]$/, '').replace(/\s+/g, '');
+                if (k.replace(/\s+/g, '') === clean || kBase === clean) {
+                    return parseInt(mapObj[k]);
+                }
+            }
+            return undefined;
+        };
 
         for (const cb of selectedCheckboxes) {
             const deckId = cb.value;
@@ -1348,67 +1354,73 @@ async function generateProxyPdf() {
             const cards = await res.json();
             if (!Array.isArray(cards)) continue;
 
-            let ownedMap = {};
+            let unownedMap = null;
+            let legacyOwnedMap = null;
             if (targetMode === 'unowned') {
-                // ① localStorage から取得
+                // ① 新形式 localStorage（未購入枚数）
                 try {
-                    const localData = localStorage.getItem('deck_owned_cards_' + deckId);
-                    if (localData) {
-                        const parsed = JSON.parse(localData);
+                    const localUnowned = localStorage.getItem('deck_unowned_cards_' + deckId);
+                    if (localUnowned) {
+                        const parsed = JSON.parse(localUnowned);
                         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                            Object.assign(ownedMap, parsed);
+                            unownedMap = parsed;
                         }
                     }
                 } catch(e) {}
 
-                // ② サーバーAPIから取得してマージ
+                // ② サーバーAPIから取得（is_legacy 判定に対応）
                 try {
                     const ownedRes = await fetch(`/api/decks/owned-cards?deck_id=${deckId}`);
                     if (ownedRes.ok) {
                         const fetched = await ownedRes.json();
                         if (fetched && typeof fetched === 'object' && !Array.isArray(fetched)) {
-                            Object.assign(ownedMap, fetched);
+                            if (fetched.is_legacy === true && fetched.data) {
+                                legacyOwnedMap = fetched.data;
+                            } else if (fetched.data && Object.keys(fetched.data).length > 0) {
+                                unownedMap = Object.assign({}, unownedMap || {}, fetched.data);
+                            } else if (fetched.is_legacy === undefined && Object.keys(fetched).length > 0) {
+                                legacyOwnedMap = fetched;
+                            }
                         }
                     }
                 } catch(e) {}
+
+                // ③ 新形式が空の場合のみ旧 localStorage（所持枚数）を参照
+                if (!unownedMap && !legacyOwnedMap) {
+                    try {
+                        const localOwned = localStorage.getItem('deck_owned_cards_' + deckId);
+                        if (localOwned) {
+                            const parsed = JSON.parse(localOwned);
+                            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                                legacyOwnedMap = parsed;
+                            }
+                        }
+                    } catch(e) {}
+                }
             }
 
-            // カード名の表記揺れ（空白等）を吸収して所持枚数を取得するヘルパー
-            const getOwnedCount = (nameKey) => {
-                if (ownedMap[nameKey] !== undefined) return parseInt(ownedMap[nameKey]) || 0;
-                // 空白を除去して比較
-                const clean = nameKey.replace(/\s+/g, '');
-                for (const k in ownedMap) {
-                    if (k.replace(/\s+/g, '') === clean) {
-                        return parseInt(ownedMap[k]) || 0;
-                    }
-                }
-                return 0;
-            };
-
-            // ★ デッキ内の各カードごとの「未購入（残り印刷必要）枚数」をあらかじめ集計
             // 1. まずデッキ内の全カードの総採用数を計算
             const cardTotalCounts = {};
             cards.forEach(c => {
-                let name = (c.card_name || '').trim();
-                const isTwin = (c.twinpact == 1 || c.twinpact === true || c.twinpact === '1') && !!c.partner_card_id;
-                let fullName = name;
-                if (isTwin) {
-                    const sid = parseInt(c.card_id);
-                    const pid = parseInt(c.partner_card_id);
-                    fullName = sid < pid ? `${c.card_name} / ${c.partner_card_name}` : `${c.partner_card_name} / ${c.card_name}`;
-                }
+                const fullName = getProxyCardKey(c);
                 const qty = parseInt(c.quantity || 1);
                 cardTotalCounts[fullName] = (cardTotalCounts[fullName] || 0) + qty;
             });
 
-            // 2. 所持数を引いた「残り必要枚数」カウンターを作成
+            // 2. 未購入設定に応じた「残り必要枚数」カウンターを作成
             const neededRemainingMap = {};
             for (const fullName in cardTotalCounts) {
                 const total = cardTotalCounts[fullName];
                 if (targetMode === 'unowned') {
-                    const owned = getOwnedCount(fullName);
-                    neededRemainingMap[fullName] = Math.max(0, total - owned);
+                    const unownedVal = lookupCardMap(unownedMap, fullName);
+                    if (unownedVal !== undefined && !isNaN(unownedVal)) {
+                        neededRemainingMap[fullName] = Math.min(total, Math.max(0, unownedVal));
+                    } else if (legacyOwnedMap) {
+                        const ownedVal = lookupCardMap(legacyOwnedMap, fullName) || 0;
+                        neededRemainingMap[fullName] = Math.max(0, total - ownedVal);
+                    } else {
+                        neededRemainingMap[fullName] = total;
+                    }
                 } else {
                     neededRemainingMap[fullName] = total;
                 }
@@ -1416,14 +1428,7 @@ async function generateProxyPdf() {
 
             // 3. 残り必要枚数分だけ allPrintCards に追加
             for (const c of cards) {
-                let name = (c.card_name || '').trim();
-                const isTwin = (c.twinpact == 1 || c.twinpact === true || c.twinpact === '1') && !!c.partner_card_id;
-                let fullName = name;
-                if (isTwin) {
-                    const sid = parseInt(c.card_id);
-                    const pid = parseInt(c.partner_card_id);
-                    fullName = sid < pid ? `${c.card_name} / ${c.partner_card_name}` : `${c.partner_card_name} / ${c.card_name}`;
-                }
+                const fullName = getProxyCardKey(c);
 
                 const rowQty = parseInt(c.quantity || 1);
                 const remaining = neededRemainingMap[fullName] || 0;
@@ -1451,17 +1456,58 @@ async function generateProxyPdf() {
 
         const totalPages = Math.ceil(allPrintCards.length / cardsPerPage);
 
-        const loadImage = (url) => new Promise((resolve) => {
-            const img = new Image();
-            img.crossOrigin = 'Anonymous';
-            img.onload = () => resolve(img);
-            img.onerror = () => {
-                const fallback = new Image();
-                fallback.onload = () => resolve(fallback);
-                fallback.src = '/images/card/noimage.webp';
+        const imageDataCache = new Map();
+        const loadImageForPdf = (url) => {
+            if (imageDataCache.has(url)) return Promise.resolve(imageDataCache.get(url));
+            if (url.startsWith('data:image/png')) {
+                const res = { dataUrl: url, format: 'PNG' };
+                imageDataCache.set(url, res);
+                return Promise.resolve(res);
+            }
+            const toJpegData = (img) => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth || 220;
+                canvas.height = img.naturalHeight || 308;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                return { dataUrl: canvas.toDataURL('image/jpeg', 0.92), format: 'JPEG' };
             };
-            img.src = url;
-        });
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.onload = () => {
+                    try {
+                        const res = toJpegData(img);
+                        imageDataCache.set(url, res);
+                        resolve(res);
+                    } catch (e) {
+                        resolve(null);
+                    }
+                };
+                img.onerror = () => {
+                    if (url === '/images/card/noimage.webp') {
+                        resolve(null);
+                        return;
+                    }
+                    const fallback = new Image();
+                    fallback.crossOrigin = 'Anonymous';
+                    fallback.onload = () => {
+                        try {
+                            const res = toJpegData(fallback);
+                            imageDataCache.set(url, res);
+                            resolve(res);
+                        } catch (e) {
+                            resolve(null);
+                        }
+                    };
+                    fallback.onerror = () => resolve(null);
+                    fallback.src = '/images/card/noimage.webp';
+                };
+                img.src = url;
+            });
+        };
 
         // 2. 9枚ごとに単一ページのPDFを作成しZIPに追加
         for (let page = 0; page < totalPages; page++) {
@@ -1475,10 +1521,10 @@ async function generateProxyPdf() {
                 const x = startX + (col * (cardWidth + spacingMm));
                 const y = startY + (row * (cardHeight + spacingMm));
 
-                const imgEl = await loadImage(pageCards[i].imgPath);
-                // ★修正: DataURL（PNG）とWebP画像の両方に対応
-                const imgFormat = pageCards[i].imgPath.startsWith('data:image/png') ? 'PNG' : 'WEBP';
-                pdf.addImage(imgEl, imgFormat, x, y, cardWidth, cardHeight, undefined, 'FAST');
+                const imgData = await loadImageForPdf(pageCards[i].imgPath);
+                if (imgData) {
+                    pdf.addImage(imgData.dataUrl, imgData.format, x, y, cardWidth, cardHeight, undefined, 'FAST');
+                }
             }
 
             const pdfBlob = pdf.output('blob');
@@ -1507,10 +1553,15 @@ function openExportCompleteModal() {
     const modal = document.getElementById('export-complete-modal');
     if (modal) {
         modal.style.display = 'flex';
-        // モーダル表示時に広告をロード
-        try {
-            (adsbygoogle = window.adsbygoogle || []).push({});
-        } catch (e) {}
+        // モーダル表示・幅確定後に未初期化の場合のみ広告をロード
+        requestAnimationFrame(() => {
+            const ins = modal.querySelector('ins.adsbygoogle');
+            if (ins && !ins.getAttribute('data-adsbygoogle-status') && ins.offsetWidth > 0) {
+                try {
+                    (adsbygoogle = window.adsbygoogle || []).push({});
+                } catch (e) {}
+            }
+        });
     }
 }
 
@@ -1567,41 +1618,6 @@ function fallbackCopyText(text) {
     }
 }
 let selectedActionDeck = null;
-
-/**
- * デッキアイテムクリック時の処理
- */
-function handleDeckItemClick(event, itemEl) {
-    // プロキシ選択モード時はチェックボックスをトグル
-    if (isProxySelectMode) {
-        if (event.target.classList.contains('deck-select-checkbox')) return;
-        const cb = itemEl.querySelector('.deck-select-checkbox');
-        if (cb) {
-            cb.checked = !cb.checked;
-            updateProxyButtonState();
-        }
-        return;
-    }
-
-    // 通常時はデッキ操作メニューモーダルを表示
-    const deckId = itemEl.dataset.deckId;
-    const deckName = itemEl.querySelector('h3')?.innerText.trim() || '';
-    const formatName = itemEl.querySelector('.format-badge')?.innerText.trim() || '';
-    
-    // サムネイル画像のIDを取得（出力で使用）
-    const thumbImg = itemEl.querySelector('.deck-thumbnail');
-    const thumbnailId = thumbImg ? thumbImg.dataset.thumbnailId : '';
-
-    selectedActionDeck = {
-        id: deckId,
-        name: deckName,
-        format: formatName,
-        thumbnailId: thumbnailId
-    };
-
-    document.getElementById('action-menu-deck-name').innerText = deckName;
-    document.getElementById('deck-action-menu-modal').style.display = 'flex';
-}
 
 function closeDeckActionMenu() {
     document.getElementById('deck-action-menu-modal').style.display = 'none';
