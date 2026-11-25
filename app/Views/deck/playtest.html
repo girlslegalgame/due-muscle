@@ -437,7 +437,8 @@
             height: 52dvh !important; /* ★ 高さを微調整 */
             max-height: 52dvh !important;
             width: auto !important;
-            aspect-ratio: 5 / 7 !important;
+            max-width: 85vw !important;
+            aspect-ratio: auto !important;
             z-index: 99999 !important;
             box-shadow: 0 0 35px rgba(0,0,0,0.9), 0 0 15px rgba(0,123,255,0.8) !important;
             cursor: pointer;
@@ -1187,7 +1188,8 @@
                 height: 50dvh !important;
                 max-height: 50dvh !important;
                 width: auto !important;
-                aspect-ratio: 5 / 7 !important;
+                max-width: 85vw !important;
+                aspect-ratio: auto !important;
                 z-index: 99999 !important;
                 box-shadow: 0 0 25px rgba(0,0,0,0.85), 0 0 10px rgba(0,123,255,0.7) !important;
                 cursor: pointer;
@@ -1480,6 +1482,19 @@
             background: #28a745;
             color: #fff;
         }
+        /* ★ 追加: キングセル合体で出そうとしている基点カード用の強調スタイル */
+        body.pt-board-select-active .playtest-card.pt-bs-trigger {
+            outline: 3px solid #fd7e14 !important;
+            box-shadow: 0 0 20px rgba(253, 126, 20, 0.95) !important;
+            z-index: 45 !important;
+            animation: none !important;
+        }
+        body.pt-board-select-active .playtest-card.pt-bs-trigger .pt-bs-badge {
+            background: #fd7e14 !important;
+            color: #fff !important;
+            font-weight: bold !important;
+            border: 1px solid #fff;
+        }
         .zone-hand .pt-bs-badge {
             bottom: auto;
             top: 4px;
@@ -1632,6 +1647,43 @@
                 font-size: 9px;
             }
         }
+        /* トースト通知 */
+        .pt-toast-container {
+            position: fixed;
+            top: 42px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 45000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            pointer-events: none;
+            max-width: 90vw;
+        }
+        .pt-toast {
+            background: rgba(24, 24, 28, 0.94);
+            color: #fff;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: bold;
+            border-left: 4px solid #17a2b8;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.75);
+            opacity: 0;
+            transform: translateY(-8px);
+            transition: opacity 0.22s ease, transform 0.22s ease;
+            text-align: center;
+            word-break: break-word;
+        }
+        .pt-toast.show { opacity: 1; transform: translateY(0); }
+        .pt-toast.warning { border-left-color: #fd7e14; color: #ffe8cc; }
+        .pt-toast.error { border-left-color: #dc3545; color: #ffd6d9; }
+        .pt-toast.info { border-left-color: #17a2b8; }
+        @media screen and (orientation: landscape) and (max-height: 900px), screen and (max-height: 600px) {
+            .pt-toast-container { top: 28px; }
+            .pt-toast { padding: 5px 12px; font-size: 11px; }
+        }
     </style>
     <script src="/js/card_image_helper.js?v=2"></script>
 </head>
@@ -1740,11 +1792,13 @@
 <div id="ptBoardSelectBanner" class="pt-glink-select-banner pt-board-select-banner" style="display: none;"></div>
 <!-- 処理中の呪文表示エリア -->
 <div id="ptCastingSpellBar" class="pt-casting-bar" style="display: none;"></div>
+<!-- トースト通知コンテナ -->
+<div id="ptToastContainer" class="pt-toast-container"></div>
 <!-- コンテキストメニュー -->
 <ul id="ptContextMenu" class="context-menu"></ul>
 <!-- 拡大表示専用モーダル（前面にポップアップ） -->
 <div id="ptDetailModal" class="pt-modal" style="z-index: 35000;" onclick="closePtDetailModal()">
-    <div class="pt-modal-content" style="max-width: 400px;" onclick="event.stopPropagation()">
+    <div class="pt-modal-content" style="max-width: min(92vw, 520px);" onclick="event.stopPropagation()">
         <div class="pt-modal-header">
             <h3>カード拡大表示</h3>
             <button class="pt-modal-close" onclick="closePtDetailModal()">&times;</button>
@@ -2757,11 +2811,21 @@ function renderZone(zoneId, arr, name) {
                 if (ptBoardSelect.allowedZones.includes('hand') && (!ptBoardSelect.isEligible || ptBoardSelect.isEligible(card, 'hand'))) {
                     isHandBsTarget = true;
                     el.classList.add('pt-bs-target');
-                    const selIdx = ptBoardSelect.selectedItems.findIndex(item => item.id === card.id);
+                    const isHandSelected = ptBoardSelect.isSelected
+                        ? ptBoardSelect.isSelected(card, 'hand')
+                        : ptBoardSelect.selectedItems.some(item => item.id === card.id);
+                    if (isHandSelected) {
+                        el.classList.add('pt-bs-selected');
+                    }
+                    if (ptBoardSelect.isTriggerCard && ptBoardSelect.isTriggerCard(card)) {
+                        el.classList.add('pt-bs-trigger');
+                    }
                     const badge = document.createElement('div');
                     badge.className = 'pt-bs-badge';
-                    if (selIdx !== -1) {
-                        el.classList.add('pt-bs-selected');
+                    if (ptBoardSelect.getBadgeText) {
+                        badge.innerText = ptBoardSelect.getBadgeText(card, 'hand') || '選択';
+                    } else if (isHandSelected) {
+                        const selIdx = ptBoardSelect.selectedItems.findIndex(item => item.id === card.id);
                         badge.innerText = ptBoardSelect.ordered ? `${selIdx + 1}番目` : '選択中';
                     } else {
                         badge.innerText = '選択';
@@ -2807,7 +2871,6 @@ function renderZone(zoneId, arr, name) {
 
             el.ondragover = (e) => { e.preventDefault(); e.stopPropagation(); };
 
-            // タップ(クリック)時の拡大フォーカス制御
             // タップ(クリック)時の拡大フォーカス制御
             el.onclick = (e) => {
                 e.stopPropagation();
@@ -2988,6 +3051,9 @@ function renderZone(zoneId, arr, name) {
                 if (bsSelectionCount > 0) {
                     el.classList.add('pt-bs-selected');
                 }
+                if (ptBoardSelect.isTriggerCard && ptBoardSelect.isTriggerCard(card)) {
+                    el.classList.add('pt-bs-trigger');
+                }
             }
         }
 
@@ -3127,6 +3193,16 @@ function renderZone(zoneId, arr, name) {
             e.stopPropagation();
             if (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.active) {
                 if (isBsTarget) ptHandleBoardSelectClick(card, zoneKeyForBs);
+                return;
+            }
+            // ★ 追加: 一括選択モード中はタップや個別モーダルを無効化し、選択のトグルのみ実行
+            if (isSelectMode) {
+                if (selectedCards.has(card.id)) {
+                    selectedCards.delete(card.id);
+                } else {
+                    selectedCards.add(card.id);
+                }
+                renderPtBoard();
                 return;
             }
             if (zoneId === 'pt-zone-battle' && typeof ptIsGLinkBoardSelectMode !== 'undefined' && ptIsGLinkBoardSelectMode) {
@@ -3349,7 +3425,7 @@ function handleDrop(e, targetZone) {
     if (targetZone === 'partner') {
         const dropCard = findCardById(id);
         if (!dropCard || !dropCard.is_partner) {
-            alert("パートナーゾーンにはパートナーカードしか置けません。");
+            ptShowToast("パートナーゾーンにはパートナーカードしか置けません。");
             ptDraggedCardId = null;
             return;
         }
@@ -3453,6 +3529,28 @@ function ptMoveCard(cardId, from, to, opts = {}) {
         card = ptState[from].splice(index, 1)[0];
     }
 
+    // ★ 追加: キングセル合体クリーチャーがバトルゾーンを離れた時、パーツを移動先ゾーンへ復帰し自身は消滅
+    if (from === 'battle' && card.is_king_cell_merged && card.king_cell_components && card.king_cell_components.length > 0) {
+        ptClearExLifeLinksForCard(card);
+        const components = card.king_cell_components;
+        card.king_cell_components = [];
+        components.forEach(comp => {
+            comp.underCards = [];
+            comp.is_under_stacked = false;
+            comp.faceDown = (to === 'shield') ? ((opts.faceDown !== undefined) ? opts.faceDown : true) : false;
+            comp.tapped = (to === 'mana') ? comp.is_multicolor : false;
+            comp.inverted = (to === 'mana');
+            if (to === 'deck') {
+                if (opts.bottom) ptState.deck.unshift(comp);
+                else ptState.deck.push(comp);
+            } else if (ptState[to]) {
+                ptState[to].push(comp);
+            }
+        });
+        renderPtBoard();
+        return true;
+    }
+
     if (from === 'casting' && card.sourceSessionId) {
         ptPendingOpenSessionAfterMove = card.sourceSessionId;
         card.sourceSessionId = null;
@@ -3492,7 +3590,7 @@ function ptMoveCard(cardId, from, to, opts = {}) {
 
     // ★ ここに挿入: パートナーゾーンへの移動ガード(パートナーカード以外は拒絶して元の位置に戻す)
     if (to === 'partner' && !card.is_partner) {
-        alert("パートナーゾーンにはパートナーカードしか置けません。");
+        ptShowToast("パートナーゾーンにはパートナーカードしか置けません。");
         ptState[from].splice(index, 0, card);
         return false;
     }
@@ -3594,7 +3692,7 @@ function ptMoveCard(cardId, from, to, opts = {}) {
 function ptExecuteUnderCardSelectMove(parentId, toZone, opts = {}) {
     const selectedItems = document.querySelectorAll('#ptUnderSelectGrid .pt-grid-item.selected');
     if (selectedItems.length === 0) {
-        alert("移動するカードを1枚以上選択してください。");
+        ptShowToast("移動するカードを1枚以上選択してください。");
         return;
     }
 
@@ -3993,7 +4091,7 @@ function ptRotate180(id) {
 
 function ptShuffleDeckAction() {
     ptShuffle(ptState.deck);
-    alert("山札をシャッフルしました。");
+    ptShowToast("山札をシャッフルしました。", "info");
     renderPtBoard();
 }
 
@@ -4042,7 +4140,7 @@ function ptMoveGRCardTo(targetZone) {
     const card = ptState.gr.pop();
     card.tapped = false;
     ptState.gr.unshift(card);
-    alert(`ルールにより、バトルゾーン以外の超GRのカードは一番下に戻されました。`);
+    ptShowToast(`ルールにより、バトルゾーン以外の超GRのカードは一番下に戻されました。`);
     renderPtBoard();
 }
 
@@ -4051,7 +4149,7 @@ function openManaToBattleMenu(id) {
 }
 
 function ptExecuteStackFromMana(manaCardId, bCardId) {
-    if (!bCardId) { alert('対象カードを選択してください。'); return; }
+    if (!bCardId) { ptShowToast('対象カードを選択してください。'); return; }
     
     let bCard = ptState.battle.find(c => c.id === bCardId);
     let manaIndex = ptState.mana.findIndex(c => c.id === manaCardId);
@@ -4071,7 +4169,7 @@ function openShieldToBattleMenu(id) {
 }
 
 function ptExecuteShieldReplace(shieldCardId, bCardId) {
-    if (!bCardId) { alert('対象カードを選択してください。'); return; }
+    if (!bCardId) { ptShowToast('対象カードを選択してください。'); return; }
 
     ptMoveCard(bCardId, 'battle', 'graveyard');
     ptMoveCard(shieldCardId, 'shield', 'battle');
@@ -4085,7 +4183,7 @@ function ptStackUnderCard(id) {
 }
 
 function ptExecuteStackOver(baseCardId, newTopId, fromZone) {
-    if (!newTopId || !fromZone) { alert('重ねるカードを選択してください。'); return; }
+    if (!newTopId || !fromZone) { ptShowToast('重ねるカードを選択してください。'); return; }
 
     let baseCardIndex = ptState.battle.findIndex(c => c.id === baseCardId);
     let newTopIndex = ptState[fromZone].findIndex(c => c.id === newTopId);
@@ -4116,18 +4214,11 @@ function ptExecuteBatchMove(toZone) {
     let anyModalOpened = false;
 
     if (toZone === 'deck') {
-        const action = confirm("山札に加えて「シャッフル」しますか？\n(「キャンセル」でシャッフルして山札の『一番下』に置きます)");
-        selectedCards.forEach(id => {
-            const from = findCardZone(id);
-            if (from) {
-                if (action) {
-                    ptMoveCard(id, from, 'deck');
-                } else {
-                    ptMoveCard(id, from, 'deck', {bottom: true});
-                }
-            }
-        });
-        ptShuffle(ptState.deck);
+        const ids = Array.from(selectedCards);
+        if (ids.length === 0) return;
+        closePtModal();
+        openViewerToDeckModal(null, ids);
+        return;
     } else {
         selectedCards.forEach(id => {
             const from = findCardZone(id);
@@ -4201,39 +4292,52 @@ function ptExecuteUntap(target) {
 
 function ptMoveDeckTopTo(targetZone) {
     if (ptState.deck.length === 0) {
-        alert("山札にカードがありません。");
+        ptShowToast("山札にカードがありません。", "warning");
         return;
     }
     const topCard = ptState.deck[ptState.deck.length - 1];
+    if (targetZone === 'shield') {
+        ptActiveRevealContext = null;
+        ptOpenShieldDropSelectModal(topCard.id, 'deck');
+        return;
+    }
     ptMoveCard(topCard.id, 'deck', targetZone);
 }
 // ★ 追加: 山札の一番下から指定ゾーンへ移動
 function ptMoveDeckBottomTo(targetZone) {
     if (ptState.deck.length === 0) {
-        alert("山札にカードがありません。");
+        ptShowToast("山札にカードがありません。", "warning");
         return;
     }
     const bottomCard = ptState.deck[0]; // 配列先頭が山札の一番下
+    if (targetZone === 'shield') {
+        ptOpenShieldDropSelectModal(bottomCard.id, 'deck');
+        return;
+    }
     ptMoveCard(bottomCard.id, 'deck', targetZone);
 }
 
 // ★ 追加: 山札の下から指定枚数見るプロンプト
 function ptLookAtDeckBottomPrompt() {
-    let input = prompt("山札の下から何枚見ますか？", "3");
-    if (input === null) return;
-    let count = parseInt(input, 10);
-    if (isNaN(count) || count < 1) {
-        alert("1以上の数値を入力してください。");
+    if (ptState.deck.length === 0) {
+        ptShowToast("山札にカードがありません。", "warning");
         return;
     }
-    ptLookAtDeckBottom(count);
+    ptOpenNumberPromptModal(
+        "山札の下から見る",
+        `山札の下から何枚見ますか？（残り: ${ptState.deck.length}枚）`,
+        Math.min(3, ptState.deck.length),
+        1,
+        ptState.deck.length,
+        (count) => ptLookAtDeckBottom(count)
+    );
 }
 
 // ★ 追加: 山札の下から指定枚数閲覧
 function ptLookAtDeckBottom(count) {
     const actualCount = Math.min(count, ptState.deck.length);
     if (actualCount === 0) {
-        alert("山札にカードがありません。");
+        ptShowToast("山札にカードがありません。");
         return;
     }
 
@@ -4295,7 +4399,7 @@ function ptPassTurnAndStart() {
         ptState.hand.push(card);
         updated = true;
     } else {
-        alert("山札が0枚のためドローできませんでした(ライブラリアウト)。");
+        ptShowToast("山札が0枚のためドローできませんでした(ライブラリアウト)。");
     }
 
     if (updated) {
@@ -4304,6 +4408,9 @@ function ptPassTurnAndStart() {
 }
 
 function isDoubleSidedCard(card) {
+    if (!card) return false;
+    const kingCellNames = ['王の覇気', '王の思念', '新世界王 ヴォルゼオス・バラモルド', '新世界王の闘気', '新世界王の思想', '新世界王の権威', 'Volzeos-Balamord'];
+    if (kingCellNames.includes(card.name) || card.is_king_cell_merged) return false;
     const hasCombination = card.combination_id !== null && card.combination_id !== undefined && card.combination_id !== '';
     const isTwin = card.twinpact === '1' || card.twinpact === 1 || card.twinpact === true || card.twinpact === 'true';
     const isDummyDouble = (card.is_dummy && card.dummy_card_type === 'double');
@@ -4493,20 +4600,24 @@ function ptExecute3DFlip(cardId, imgPath, cardName, rawCardtypeIds) {
 
 // 山札の上から見る(Look At Top)関連処理
 function ptLookAtDeckTopPrompt() {
-    let input = prompt("山札の上から何枚見ますか？", "3");
-    if (input === null) return;
-    let count = parseInt(input);
-    if (isNaN(count) || count < 1) {
-        alert("1以上の数値を入力してください。");
+    if (ptState.deck.length === 0) {
+        ptShowToast("山札にカードがありません。", "warning");
         return;
     }
-    ptLookAtDeckTop(count);
+    ptOpenNumberPromptModal(
+        "山札の上から見る",
+        `山札の上から何枚見ますか？（残り: ${ptState.deck.length}枚）`,
+        Math.min(3, ptState.deck.length),
+        1,
+        ptState.deck.length,
+        (count) => ptLookAtDeckTop(count)
+    );
 }
 
 function ptLookAtDeckTop(count) {
     const actualCount = Math.min(count, ptState.deck.length);
     if (actualCount === 0) {
-        alert("山札にカードがありません。");
+        ptShowToast("山札にカードがありません。");
         return;
     }
 
@@ -4523,7 +4634,7 @@ function ptLookAtDeckTop(count) {
 
 function ptAddMoreCardToLooking() {
     if (ptState.deck.length === 0) {
-        alert("山札にカードが残っていません。");
+        ptShowToast("山札にカードが残っていません。");
         return;
     }
     let card = ptState.deck.pop();
@@ -4564,17 +4675,21 @@ function updateReturnOrderUI() {
         }
     });
 
-    const btn = document.getElementById('btn-return-ordered');
-    if (btn) {
-        if (ptReturnOrder.length === ptLookingCards.length) {
-            btn.disabled = false;
-            btn.style.opacity = '1';
-            btn.innerText = `選択した順に山札の下に置く`;
-        } else {
-            btn.disabled = true;
-            btn.style.opacity = '0.5';
-            btn.innerText = `好きな順で山札の下に置く (${ptReturnOrder.length}/${ptLookingCards.length}選択中)`;
-        }
+    const btnTop = document.getElementById('btn-return-ordered-top');
+    const btnBottom = document.getElementById('btn-return-ordered-bottom');
+    const isAllSelected = ptReturnOrder.length === ptLookingCards.length && ptLookingCards.length > 0;
+
+    [btnTop, btnBottom].forEach(btn => {
+        if (!btn) return;
+        btn.disabled = !isAllSelected;
+        btn.style.opacity = isAllSelected ? '1' : '0.5';
+    });
+
+    if (btnTop) {
+        btnTop.innerText = isAllSelected ? '選択した順に山札の上に置く' : `好きな順で山札の上に置く (${ptReturnOrder.length}/${ptLookingCards.length}選択中)`;
+    }
+    if (btnBottom) {
+        btnBottom.innerText = isAllSelected ? '選択した順に山札の下に置く' : `好きな順で山札の下に置く (${ptReturnOrder.length}/${ptLookingCards.length}選択中)`;
     }
 }
 
@@ -4611,9 +4726,22 @@ function ptMoveLookingCardDirectly(cardId, targetZone) {
 }
 
 function ptReturnLookingCards(action) {
-    if (action === 'ordered_bottom') {
+    if (action === 'ordered_top') {
         if (ptReturnOrder.length !== ptLookingCards.length) {
-            alert("すべてのカードの順番を指定してください。");
+            ptShowToast("すべてのカードの順番を指定してください。");
+            return;
+        }
+        // 1番目に選んだカードが山札の一番上になるよう、逆順で山札配列の末尾（トップ）へpush
+        [...ptReturnOrder].reverse().forEach(cardId => {
+            const card = ptLookingCards.find(c => c.id === cardId);
+            if (card) {
+                card.faceDown = true;
+                ptState.deck.push(card);
+            }
+        });
+    } else if (action === 'ordered_bottom') {
+        if (ptReturnOrder.length !== ptLookingCards.length) {
+            ptShowToast("すべてのカードの順番を指定してください。");
             return;
         }
         ptReturnOrder.forEach(cardId => {
@@ -4714,7 +4842,7 @@ function ptExecuteShieldAdd(sourceCardId, count) {
     if (!sourceCard) return;
 
     if (ptState.deck.length < count) {
-        alert("山札の枚数が足りません。");
+        ptShowToast("山札の枚数が足りません。");
         return;
     }
 
@@ -4764,6 +4892,11 @@ function ptCheckEvolutionAndPlay(cardId, fromZone, opts = {}) {
         ptOpenAuraPlaySelector(cardId, fromZone);
         return;
     }    
+
+    // ★ 追加: キングセル合体判定（王の覇気/思念、新世界王の闘気/思想/権威）
+    if (!opts.skipKingCellCheck && ptCheckKingCellMerge(cardId, fromZone)) {
+        return;
+    }
 
     if (abIds.includes(100)) {
         ptExecuteAbility100(cardId, fromZone);
@@ -4839,7 +4972,7 @@ function ptCheckEvolutionAndPlay(cardId, fromZone, opts = {}) {
     } else if (mode === 'deck_shuffle_top') {
         // 山札が空の場合は警告
         if (ptState.deck.length === 0) {
-            alert("山札にカードがありません。");
+            ptShowToast("山札にカードがありません。");
             return;
         }
 
@@ -4907,7 +5040,7 @@ function updateEvoSelectUI() {
 // 決定処理 (指定順に underCards に重ねていく)
 function ptExecuteEvolutionPlay(cardId, fromZone) {
     if (ptEvoSelectedIds.length === 0) {
-        alert("重ねるカードを1枚以上選択してください。");
+        ptShowToast("重ねるカードを1枚以上選択してください。");
         return;
     }
 
@@ -4980,7 +5113,7 @@ function ptExecuteEvolutionDeckTop(cardId, fromZone) {
     const countInput = document.getElementById('evoDeckTopCount');
     const count = parseInt(countInput.value);
     if (isNaN(count) || count < 1 || count > ptState.deck.length) {
-        alert("有効な枚数を指定してください。");
+        ptShowToast("有効な枚数を指定してください。");
         return;
     }
 
@@ -5099,21 +5232,25 @@ function ptExecuteEvolutionDeckTop3(cardId, fromZone) {
 let ptLookingGRCards = [];
 
 function ptLookAtGRTopPrompt() {
-    let input = prompt("超GRの上から何枚見ますか？", "3");
-    if (input === null) return;
-    let count = parseInt(input);
-    if (isNaN(count) || count < 1) {
-        alert("1以上の数値を入力してください。");
+    if (ptState.gr.length === 0) {
+        ptShowToast("超GRにカードがありません。", "warning");
         return;
     }
-    ptLookAtGRTop(count);
+    ptOpenNumberPromptModal(
+        "超GRの上から見る",
+        `超GRの上から何枚見ますか？（残り: ${ptState.gr.length}枚）`,
+        Math.min(3, ptState.gr.length),
+        1,
+        ptState.gr.length,
+        (count) => ptLookAtGRTop(count)
+    );
 }
 
 function ptLookAtGRTop(count) {
     ptLookingGRCards = [];
     const actualCount = Math.min(count, ptState.gr.length);
     if (actualCount === 0) {
-        alert("超GRにカードがありません。");
+        ptShowToast("超GRにカードがありません。");
         return;
     }
 
@@ -5228,7 +5365,7 @@ function ptFlipZeron(cardId) {
 function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
     const selectedItems = (typeof ptBoardSelect !== 'undefined' && ptBoardSelect.selectedItems) ? [...ptBoardSelect.selectedItems] : [];
     if (selectedItems.length === 0) {
-        alert("カードを1枚以上選択してください。");
+        ptShowToast("カードを1枚以上選択してください。");
         return;
     }
 
@@ -5337,27 +5474,49 @@ function ptExecuteShieldStack(baseCardId, position, isFaceDown) {
 // 山札の上の1枚を既存のシールドの上または下に重ねる
 function ptStackDeckTopToShield(baseCardId, position) {
     if (ptState.deck.length === 0) {
-        alert("山札にカードがありません。");
+        ptShowToast("山札にカードがありません。", "warning");
         return;
     }
-    const isFaceDown = confirm("シールドに重ねるカードを「裏向き」にしますか？\n(「キャンセル」を選択すると表向きに重ねます)");
-    let baseCard = ptState.shield.find(c => c.id === baseCardId);
+    const baseCard = ptState.shield.find(c => c.id === baseCardId);
     if (!baseCard) return;
 
-    let deckCard = ptState.deck.pop();
-    deckCard.faceDown = isFaceDown;
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
 
-    if (position === 'under') {
-        baseCard.underCards.push(deckCard);
-    } else {
-        deckCard.underCards = ptFlattenCardList([baseCard, ...(baseCard.underCards || [])]);
-        baseCard.underCards = [];
-        const baseIdx = ptState.shield.findIndex(c => c.id === baseCardId);
-        if (baseIdx !== -1) {
-            ptState.shield[baseIdx] = deckCard;
+    title.innerText = "山札の1枚目をシールドに重ねる";
+    body.innerHTML = `
+        <div style="padding: 10px 0; text-align: center;">
+            <p style="font-size: 13px; color: #aaa; margin-bottom: 15px;">
+                山札の一番上を、このシールドの${position === 'under' ? '下' : '上'}にどちら向きで重ねますか？
+            </p>
+            <button id="btnStackDeckShieldDown" class="btn-pt-primary" style="width: 100%; padding: 11px; font-weight: bold; margin-bottom: 10px;">裏向きで重ねる</button>
+            <button id="btnStackDeckShieldUp" class="btn-pt-primary" style="width: 100%; padding: 11px; font-weight: bold; background: #28a745;">表向きで重ねる</button>
+        </div>
+    `;
+    footer.innerHTML = `<button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>`;
+
+    const exec = (isFaceDown) => {
+        const currentBase = ptState.shield.find(c => c.id === baseCardId);
+        if (!currentBase || ptState.deck.length === 0) { closePtModal(); return; }
+        let deckCard = ptState.deck.pop();
+        deckCard.faceDown = isFaceDown;
+        if (position === 'under') {
+            currentBase.underCards.push(deckCard);
+        } else {
+            deckCard.underCards = ptFlattenCardList([currentBase, ...(currentBase.underCards || [])]);
+            currentBase.underCards = [];
+            const baseIdx = ptState.shield.findIndex(c => c.id === baseCardId);
+            if (baseIdx !== -1) ptState.shield[baseIdx] = deckCard;
         }
-    }
-    renderPtBoard();
+        closePtModal();
+        renderPtBoard();
+    };
+
+    document.getElementById('btnStackDeckShieldDown').onclick = () => exec(true);
+    document.getElementById('btnStackDeckShieldUp').onclick = () => exec(false);
+    modal.style.display = 'flex';
 }
 
 // 一括選択した複数枚を「1つの新規シールド束」として盤面にセット
@@ -5497,22 +5656,19 @@ function ptMoveAllShieldComponents(parentId, toZone) {
 function ptSealCardPrompt(cardId) {
     const card = ptState.battle.find(c => c.id === cardId);
     if (!card) return;
-
-    const input = prompt(`「${card.name}」に山札の上から何枚封印を付けますか？`, "1");
-    if (input === null) return; // キャンセルされた場合
-
-    const count = parseInt(input, 10);
-    if (isNaN(count) || count < 1) {
-        alert("1以上の有効な数値を入力してください。");
+    if (ptState.deck.length === 0) {
+        ptShowToast("山札の残り枚数が足りません。", "warning");
         return;
     }
 
-    if (ptState.deck.length < count) {
-        alert("山札の残り枚数が足りません。");
-        return;
-    }
-
-    ptExecuteSeal(cardId, count);
+    ptOpenNumberPromptModal(
+        "封印を付ける",
+        `「${card.name}」に山札の上から何枚封印を付けますか？（残り: ${ptState.deck.length}枚）`,
+        1,
+        1,
+        ptState.deck.length,
+        (count) => ptExecuteSeal(cardId, count)
+    );
 }
 
 // 山札から指定枚数ポップし、裏向きにして対象カードの下敷き(封印)にする
@@ -5590,6 +5746,22 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
         targetCards.push(ptState[fromZone].splice(cardIdx, 1)[0]);
     }
 
+    const expandedCards = [];
+    targetCards.forEach(tc => {
+        if (tc && tc.is_king_cell_merged && tc.king_cell_components && tc.king_cell_components.length > 0) {
+            ptClearExLifeLinksForCard(tc);
+            tc.king_cell_components.forEach(comp => {
+                comp.underCards = [];
+                comp.is_under_stacked = false;
+                expandedCards.push(comp);
+            });
+            tc.king_cell_components = [];
+        } else if (tc) {
+            expandedCards.push(tc);
+        }
+    });
+    targetCards = expandedCards;
+
     if (fromZone === 'casting') {
         targetCards.forEach(tc => {
             if (tc && tc.sourceSessionId) {
@@ -5614,7 +5786,7 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
         });
     } else if (placementType === 'stack') {
         if (!ptSelectedDropShieldTargetId) {
-            alert("重ねる対象のシールドを選択してください。");
+            ptShowToast("重ねる対象のシールドを選択してください。");
             return;
         }
 
@@ -5666,7 +5838,7 @@ function ptExecuteShieldDrop(cardId, fromZone, placementType) {
 function ptExecuteShieldUnderCardSelectMove(parentId, toZone, opts = {}) {
     const selectedItems = document.querySelectorAll('#ptShieldUnderSelectGrid .pt-grid-item.selected');
     if (selectedItems.length === 0) {
-        alert("移動するカードを1枚以上選択してください。");
+        ptShowToast("移動するカードを1枚以上選択してください。");
         return;
     }
 
@@ -5822,7 +5994,7 @@ function ptExecuteAuraExistingPlay(auraId, fromZone, targetGrId, mode) {
             extraGr.faceDown = false;
             ptState.battle.push(extraGr);
         } else {
-            alert("超GRのカードが足りないため、追加GR召喚を行えませんでした。");
+            ptShowToast("超GRのカードが足りないため、追加GR召喚を行えませんでした。");
         }
     }
 
@@ -5836,7 +6008,7 @@ function ptExecuteAuraExistingPlay(auraId, fromZone, targetGrId, mode) {
  */
 function ptExecuteSingleGRAuraPlay(auraId, fromZone) {
     if (ptState.gr.length === 0) {
-        alert("超GRにカードがありません。");
+        ptShowToast("超GRにカードがありません。");
         return;
     }
 
@@ -5866,7 +6038,7 @@ function ptExecuteSingleGRAuraPlay(auraId, fromZone) {
  */
 function ptExecuteDoubleGRAuraPlay(auraId, fromZone) {
     if (ptState.gr.length < 2) {
-        alert("超GRに2枚以上のカードがありません。");
+        ptShowToast("超GRに2枚以上のカードがありません。");
         return;
     }
 
@@ -5982,11 +6154,11 @@ function ptCheckAndReturnSpecialCard(card, toZone, opts = {}) {
         if (hasGR) {
             card.tapped = false; card.inverted = false; card.faceDown = false;
             ptState.gr.unshift(card);
-            alert(`ルールにより、超GRクリーチャー「${card.name}」は超GRの一番下に戻されました。付随していたオーラ等は${zoneJapaneseName(toZone)}に移動しました。`);
+            ptShowToast(`ルールにより、超GRクリーチャー「${card.name}」は超GRの一番下に戻されました。付随していたオーラ等は${zoneJapaneseName(toZone)}に移動しました。`);
         } else if (hasPsychic) {
             card.tapped = false; card.inverted = false; card.faceDown = false;
             ptState.psychic.push(card);
-            alert(`ルールにより、サイキック・クリーチャー「${card.name}」は超次元に戻されました。付随していたオーラ等は${zoneJapaneseName(toZone)}に移動しました。`);
+            ptShowToast(`ルールにより、サイキック・クリーチャー「${card.name}」は超次元に戻されました。付随していたオーラ等は${zoneJapaneseName(toZone)}に移動しました。`);
         }
         return true;
     }
@@ -6040,7 +6212,7 @@ let ptRevealedUnmatchedCards = []; // 道中で捲れた適合外のカード
 // 捲り処理の実行
 function ptExecuteRevealUntil() {
     if (ptState.deck.length === 0) {
-        alert("山札にカードが存在しません。");
+        ptShowToast("山札にカードが存在しません。");
         return;
     }
 
@@ -6404,6 +6576,10 @@ function ptProcessNextBatchMove() {
     } else if (ptActiveRevealContext === 'deck_view') {
         const found = ptState.deck.find(c => c.id === cardId);
         if (found) card = found;
+    } else if (ptActiveRevealContext && ptActiveRevealContext.startsWith('viewer_')) {
+        const vZone = ptActiveRevealContext.replace('viewer_', '');
+        const found = ptState[vZone] ? ptState[vZone].find(c => c.id === cardId) : null;
+        if (found) card = found;
     } else {
         const idx = ptLookingCards.findIndex(c => c.id === cardId);
         if (idx !== -1) {
@@ -6418,7 +6594,10 @@ function ptProcessNextBatchMove() {
     }
 
     if (ptBatchMoveTargetZone === 'shield') {
-        ptOpenShieldDropSelectModal(cardId, 'deck');
+        const fromZ = (ptActiveRevealContext && ptActiveRevealContext.startsWith('viewer_'))
+            ? ptActiveRevealContext.replace('viewer_', '')
+            : 'deck';
+        ptOpenShieldDropSelectModal(cardId, fromZ);
     } else if (ptBatchMoveTargetZone === 'battle') {
         ptOpenBattlePlacementSelectModal(cardId, 'deck');
     }
@@ -6473,14 +6652,14 @@ function openBatchContextMenu(e) {
         <li onclick="ptExecuteBatchUntap()">一括アンタップ</li>
         <li onclick="ptExecuteBatchSeal()">一括封印 (バトルゾーンのみ)</li>
         <hr>
-        <li onclick="ptExecuteBatchMove('hand')"> 一括して手札に移動</li>
-        <li onclick="ptExecuteBatchMove('mana')">一括してマナに移動</li>
-        <li onclick="ptExecuteBatchMove('graveyard')">一括して墓地に移動</li>
-        <li onclick="ptExecuteBatchMove('battle')">一括してバトルゾーンに移動</li>
-        <!-- ⬇️ 【修正】一括配置選択モーダルを呼び出すように変更します -->
-        <li onclick="ptOpenBatchShieldPlacementModal()">一括してシールドに置く</li>
+        <li onclick="ptExecuteBatchMove('hand')">選択した ${count} 枚を手札に移動</li>
+        <li onclick="ptExecuteBatchMove('mana')">選択した ${count} 枚をマナに移動</li>
+        <li onclick="ptExecuteBatchMove('graveyard')">選択した ${count} 枚を墓地に移動</li>
+        <li onclick="ptExecuteBatchMove('battle')">選択した ${count} 枚をバトルゾーンに移動</li>
+        <li onclick="ptOpenBatchShieldPlacementModal()">選択した ${count} 枚をシールドに置く</li>
+        <li onclick="ptExecuteBatchMove('psychic')">選択した ${count} 枚を超次元に移動</li>
         <hr>
-        <li onclick="ptExecuteBatchMove('deck')">一括して山札に戻す</li>
+        <li onclick="ptExecuteBatchMove('deck')">選択した ${count} 枚を山札に戻す</li>
     `;
     
     menu.innerHTML = menuHtml; 
@@ -6528,12 +6707,12 @@ function ptExecuteBatchSeal() {
     });
 
     if (battleCardIds.length === 0) {
-        alert("バトルゾーンのカードが選択されていません。");
+        ptShowToast("バトルゾーンのカードが選択されていません。");
         return;
     }
 
     if (ptState.deck.length < battleCardIds.length) {
-        alert(`山札の残り枚数が足りません(必要枚数: ${battleCardIds.length}枚 / 残り: ${ptState.deck.length}枚)。`);
+        ptShowToast(`山札の残り枚数が足りません(必要枚数: ${battleCardIds.length}枚 / 残り: ${ptState.deck.length}枚)。`);
         return;
     }
 
@@ -6624,7 +6803,17 @@ function ptExecuteBatchShieldPlacement(mode) {
                 let childUnderCards = card.underCards || [];
                 card.underCards = [];
                 
-                collectedCards.push(card);
+                if (card.is_king_cell_merged && card.king_cell_components && card.king_cell_components.length > 0) {
+                    ptClearExLifeLinksForCard(card);
+                    card.king_cell_components.forEach(comp => {
+                        comp.underCards = [];
+                        comp.is_under_stacked = false;
+                        collectedCards.push(comp);
+                    });
+                    card.king_cell_components = [];
+                } else {
+                    collectedCards.push(card);
+                }
                 childUnderCards.forEach(cu => {
                     collectedCards.push(cu);
                 });
@@ -6772,15 +6961,14 @@ function ptMoveGroupedViewerBatch(fromZone, targetZone) {
     if (allIds.length === 0) return;
 
     if (targetZone === 'deck') {
-        const action = confirm("選択したカードを山札に加えて「シャッフル」しますか？\n(「キャンセル」で山札の『一番下』に置きます)");
-        allIds.forEach(id => {
-            ptMoveCard(id, fromZone, 'deck', { bottom: !action, skipUnderCheck: true });
-        });
-        if (action) {
-            ptShuffle(ptState.deck);
-        }
         closePtModal();
-        renderPtBoard();
+        openViewerToDeckModal(fromZone, allIds);
+        return;
+    } else if (targetZone === 'shield') {
+        ptActiveRevealContext = 'viewer_' + fromZone;
+        ptBatchMoveQueue = allIds;
+        ptBatchMoveTargetZone = 'shield';
+        ptProcessNextBatchMove();
         return;
     }
 
@@ -6817,7 +7005,7 @@ function ptExecuteGrUnderPlay(cardId, fromZone, count) {
     if (!card) return;
 
     if (ptState.gr.length < count) {
-        alert(`超GRの枚数が足りません。（指定: ${count}枚 / 残り: ${ptState.gr.length}枚）`);
+        ptShowToast(`超GRの枚数が足りません。（指定: ${count}枚 / 残り: ${ptState.gr.length}枚）`);
         return;
     }
 
@@ -6858,7 +7046,7 @@ let ptAb100PendingFromZone = null;
 
 function ptExecuteAbility100(cardId, fromZone) {
     if (ptState.deck.length === 0) {
-        alert("山札にカードがありません。");
+        ptShowToast("山札にカードがありません。");
         return;
     }
 
@@ -6958,7 +7146,7 @@ function renderAbility100Modal() {
 function ptConfirmAbility100() {
     const selectedEl = document.querySelector('#ptAb100MatchedGrid .pt-grid-item.selected');
     if (!selectedEl) {
-        alert("下に重ねるカードを選択してください。");
+        ptShowToast("下に重ねるカードを選択してください。");
         return;
     }
     const underCardId = selectedEl.dataset.cardId;
@@ -7081,7 +7269,7 @@ function ptExecuteEvo361Standalone(cardId, fromZone) {
 
 function ptExecuteEvo361Stack(cardId, fromZone) {
     if (!pt361SelectedTarget) {
-        alert("下に重ねるカードを選択するか、「重ねずに単体で出す」を選択してください。");
+        ptShowToast("下に重ねるカードを選択するか、「重ねずに単体で出す」を選択してください。");
         return;
     }
 
@@ -7194,7 +7382,7 @@ function openCrossTargetSelector(gearCardId) {
     const targets = ptState.battle.filter(c => c.id !== gearCardId && !c.faceDown);
 
     if (targets.length === 0) {
-        alert("バトルゾーンに対象となるクリーチャーがいません。");
+        ptShowToast("バトルゾーンに対象となるクリーチャーがいません。");
         return;
     }
 
@@ -7823,7 +8011,7 @@ function ptOpenGLinkChoiceSelectorModal(sourceCard, candidates, onComplete = nul
             className: 'btn-pt-primary',
             onClick: () => {
                 if (selectedCands.length === 0) {
-                    alert('リンクするカードを選択してください。');
+                    ptShowToast('リンクするカードを選択してください。');
                     return;
                 }
                 executeSelectedCands(selectedCands);
@@ -8690,7 +8878,7 @@ function ptShowCardDetailModalDirect(card) {
 
     body.innerHTML = `
         <div class="pt-detail-img-wrap" id="ptDetailImgWrap">
-            <img id="ptDetailImg" src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+            <img id="ptDetailImg" src="${displaySrc}" style="max-width:min(88vw, 480px); max-height:min(70vh, 70dvh); width:auto; height:auto; object-fit:contain; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
         </div>
         <div style="font-weight:bold; font-size:16px; color:#fff; margin-bottom:6px;">${displayName}</div>
     `;
@@ -8703,7 +8891,7 @@ function ptShowCardDetailModalDirect(card) {
     modal.style.display = 'flex';
 }
 
-// 構成カード一覧モーダル（クリックで各カードを拡大表示）
+// 構成カード一覧モーダル（クリックで各カードを拡大表示・右クリック/長押しで移動）
 function ptOpenUnderCardsViewerModal(cardId, fromZone) {
     const parentCard = ptState[fromZone] ? ptState[fromZone].find(c => c.id === cardId) : findCardById(cardId);
     if (!parentCard) return;
@@ -8716,15 +8904,17 @@ function ptOpenUnderCardsViewerModal(cardId, fromZone) {
     title.innerText = `構成カード一覧 (${(parentCard.underCards || []).length + 1}枚)`;
     body.innerHTML = `
         <p style="margin-bottom:12px; font-size:13px; color:#aaa; text-align:center;">
-            カードをクリックすると拡大表示できます。
+            左クリックで拡大表示、<b>右クリックまたは長押し</b>で各ゾーンへ移動できます。
         </p>
         <div class="pt-grid" id="ptUnderCardsViewerGrid" style="max-height:55vh; overflow-y:auto;"></div>
     `;
 
     const allComponents = [parentCard, ...(parentCard.underCards || [])];
+    window.ptUnderViewerCompMap = {};
     const grid = document.getElementById('ptUnderCardsViewerGrid');
 
     allComponents.forEach((c, idx) => {
+        window.ptUnderViewerCompMap[c.id] = c;
         const itemEl = document.createElement('div');
         itemEl.className = 'pt-grid-item';
         const isGR = c.characteristics_ids && c.characteristics_ids.includes(10);
@@ -8738,10 +8928,18 @@ function ptOpenUnderCardsViewerModal(cardId, fromZone) {
             <div class="card-qty" style="font-weight:bold; margin-top:4px;">${displayName}</div>
             <div style="font-size:10px; color:#17a2b8; margin-top:2px;">${label}</div>
         `;
-        // クリックで拡大表示へ、閉じた時にこの構成一覧画面に戻る
+        // クリックで拡大表示
         itemEl.onclick = () => {
-            ptShowCardDetailModalDirect(c, () => ptOpenUnderCardsViewerModal(cardId, fromZone));
+            ptShowCardDetailModalDirect(c);
         };
+        // 右クリックでコンテキストメニュー表示
+        itemEl.oncontextmenu = (e) => {
+            openUnderComponentContextMenu(e, parentCard, c, fromZone);
+        };
+        // スマホ長押しでコンテキストメニュー表示
+        if (typeof setupModalItemTouchMenu === 'function') {
+            setupModalItemTouchMenu(itemEl, (mockE) => openUnderComponentContextMenu(mockE, parentCard, c, fromZone));
+        }
         grid.appendChild(itemEl);
     });
 
@@ -8750,6 +8948,109 @@ function ptOpenUnderCardsViewerModal(cardId, fromZone) {
     `;
     modal.style.display = 'flex';
 }
+
+// 構成カード一覧専用 コンテキストメニュー表示
+function openUnderComponentContextMenu(e, parentCard, compCard, fromZone) {
+    if (e.preventDefault) e.preventDefault();
+    if (e.stopPropagation) e.stopPropagation();
+    ptHideContextMenu();
+
+    const menu = document.getElementById('ptContextMenu');
+    menu.innerHTML = `
+        <li onclick="ptHideContextMenu(); ptShowCardDetailModalDirect(findCardById('${compCard.id}') || (window.ptUnderViewerCompMap && window.ptUnderViewerCompMap['${compCard.id}']))">🔎 拡大表示</li>
+        <hr>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'hand')">手札に置く</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'mana')">マナゾーンに置く</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'graveyard')">墓地に置く</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'battle')">バトルゾーンに単体で出す</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'shield')">シールドに置く</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'deck')">山札の上に置く</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'deck_bottom')">山札の下に置く</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'deck_shuffle')">山札に加えてシャッフル</li>
+        <li onclick="ptMoveSingleComponent('${parentCard.id}', '${fromZone}', '${compCard.id}', 'psychic')">超次元ゾーンに置く</li>
+    `;
+    menu.style.display = 'block';
+    adjustMenuPosition(e, menu);
+}
+
+// 構成カードを1枚だけ引き抜いて目的ゾーンへ移動させる処理
+function ptMoveSingleComponent(parentId, fromZone, compId, toZone) {
+    ptHideContextMenu();
+    const zoneList = ptState[fromZone];
+    if (!zoneList) return;
+
+    const parentIdx = zoneList.findIndex(c => c.id === parentId);
+    if (parentIdx === -1) return;
+
+    const parentCard = zoneList[parentIdx];
+    const allComponents = ptFlattenCardList([parentCard, ...(parentCard.underCards || [])]);
+    const targetIdx = allComponents.findIndex(c => c.id === compId);
+    if (targetIdx === -1) return;
+
+    const targetCard = allComponents.splice(targetIdx, 1)[0];
+
+    // 親カードの束を再編成
+    zoneList.splice(parentIdx, 1);
+    let newParent = null;
+    if (allComponents.length > 0) {
+        newParent = allComponents[0];
+        newParent.underCards = allComponents.slice(1);
+        zoneList.splice(parentIdx, 0, newParent);
+    }
+
+    // 移動するカードの状態を初期化
+    targetCard.underCards = [];
+    targetCard.is_under_stacked = false;
+    targetCard.faceDown = false;
+    targetCard.tapped = false;
+    targetCard.inverted = false;
+    targetCard.equipped_to_id = null;
+
+    if (toZone !== 'battle' && targetCard.original_src) {
+        targetCard.src = targetCard.original_src;
+        targetCard.flipped = false;
+    }
+
+    // GR・サイキック等の特別帰還処理
+    const normalizedZone = toZone.startsWith('deck') ? 'deck' : toZone;
+    if (!ptCheckAndReturnSpecialCard(targetCard, normalizedZone)) {
+        const cardtypeIds = targetCard.cardtype_ids || [];
+        if (toZone === 'battle') {
+            if (cardtypeIds.some(id => [6, 7, 8].includes(id))) targetCard.tapped = true;
+            ptState.battle.push(targetCard);
+        } else if (toZone === 'mana') {
+            targetCard.inverted = true;
+            targetCard.tapped = targetCard.is_multicolor;
+            ptState.mana.push(targetCard);
+        } else if (toZone === 'shield') {
+            targetCard.faceDown = true;
+            ptState.shield.push(targetCard);
+        } else if (toZone === 'hand') {
+            ptState.hand.push(targetCard);
+        } else if (toZone === 'graveyard') {
+            ptState.graveyard.push(targetCard);
+        } else if (toZone === 'deck') {
+            ptState.deck.push(targetCard);
+        } else if (toZone === 'deck_bottom') {
+            ptState.deck.unshift(targetCard);
+        } else if (toZone === 'deck_shuffle') {
+            ptState.deck.push(targetCard);
+            ptShuffle(ptState.deck);
+        } else if (toZone === 'psychic') {
+            ptState.psychic.push(targetCard);
+        }
+    }
+
+    renderPtBoard();
+
+    // まだ2枚以上の構成が残っていればモーダルを更新、1枚以下になればモーダルを閉じる
+    if (newParent && newParent.underCards && newParent.underCards.length > 0) {
+        ptOpenUnderCardsViewerModal(newParent.id, fromZone);
+    } else {
+        closePtModal();
+    }
+}
+
 // ========================================================
 // 山札ドラッグ＆ドロップ処理
 // ========================================================
@@ -8770,7 +9071,7 @@ function ptDragDeck(e) {
 // ドロップ先ゾーン別の処理
 function ptExecuteDeckTopDropToZone(targetZone) {
     if (ptState.deck.length === 0) {
-        alert("山札にカードがありません。");
+        ptShowToast("山札にカードがありません。");
         return;
     }
     if (targetZone === 'deck') return;
@@ -8887,15 +9188,16 @@ function ptOpenExLifeSubstituteModal(card, from, to, opts, linkedShields) {
     body.innerHTML = html;
 
     footer.innerHTML = `
-        <button class="btn-pt-secondary" onclick="
-            closePtModal();
-            // 身代わりにせず離れる
-            ptMoveCard('${card.id}', '${from}', '${to}', { ...${JSON.stringify(opts)}, skipExLifeCheck: true });
-        ">身代わりにせず離れる</button>
-        <button class="btn-pt-primary" style="background:#28a745;" onclick="
-            ptExecuteExLifeSubstitute('${card.id}');
-        ">シールドを墓地に置いて留まる</button>
+        <button id="ptBtnExLifeLeave" class="btn-pt-secondary">身代わりにせず離れる</button>
+        <button id="ptBtnExLifeStay" class="btn-pt-primary" style="background:#28a745;">シールドを墓地に置いて留まる</button>
     `;
+    document.getElementById('ptBtnExLifeLeave').onclick = () => {
+        closePtModal();
+        ptMoveCard(card.id, from, to, { ...opts, skipExLifeCheck: true });
+    };
+    document.getElementById('ptBtnExLifeStay').onclick = () => {
+        ptExecuteExLifeSubstitute(card.id);
+    };
     modal.style.display = 'flex';
 }
 
@@ -9739,6 +10041,404 @@ function renderCastingSpellBar() {
             }, 180);
         }
     }
+}
+
+// ==========================================
+// キングセル合体召喚処理（ヴォルゼオス・バラモルド）
+// ==========================================
+const PT_KING_CELL_SETS = [
+    {
+        parts: ['王の覇気', '王の思念'],
+        mergedName: '新世界王 ヴォルゼオス・バラモルド'
+    },
+    {
+        parts: ['新世界王の闘気', '新世界王の思想', '新世界王の権威'],
+        mergedName: 'Volzeos-Balamord'
+    }
+];
+
+function ptCheckKingCellMerge(cardId, fromZone) {
+    const card = (ptState[fromZone] || []).find(c => c.id === cardId);
+    if (!card) return false;
+
+    const matchedSet = PT_KING_CELL_SETS.find(s => s.parts.includes(card.name));
+    if (!matchedSet) return false;
+
+    // 手札・マナ（および出そうとしているゾーン）から対象パーツを収集
+    const availablePool = [];
+    const checkZones = ['hand', 'mana'];
+    if (!checkZones.includes(fromZone)) checkZones.push(fromZone);
+
+    checkZones.forEach(z => {
+        (ptState[z] || []).forEach(c => {
+            if (matchedSet.parts.includes(c.name)) availablePool.push({ zone: z, card: c });
+        });
+    });
+
+    const partsMap = {};
+    matchedSet.parts.forEach(pName => {
+        partsMap[pName] = availablePool.filter(item => item.card.name === pName);
+    });
+
+    const isAllPartsAvailable = matchedSet.parts.every(pName => partsMap[pName].length > 0);
+    if (!isAllPartsAvailable) return false;
+
+    // 盤面直接選択モード（進化元やG・リンクと同様のUI）を開始
+    ptStartKingCellBoardSelectMode(card, fromZone, matchedSet, partsMap);
+    return true;
+}
+
+function ptStartKingCellBoardSelectMode(triggerCard, fromZone, cellSet, partsMap) {
+    closePtModal();
+    ptHideContextMenu();
+
+    const allowedZones = ['hand', 'mana'];
+    if (!allowedZones.includes(fromZone)) allowedZones.push(fromZone);
+
+    // 出すカード自身を該当パーツ枠の固定選択としてセット
+    const selectedPartIds = {};
+    selectedPartIds[triggerCard.name] = triggerCard.id;
+
+    // 残りのパーツをおまかせ自動選択するヘルパー
+    const syncSelectedItems = () => {
+        ptBoardSelect.selectedItems = Object.entries(selectedPartIds).map(([pName, cId]) => {
+            const found = partsMap[pName].find(item => item.card.id === cId);
+            return found ? { id: found.card.id, zone: found.zone, card: found.card } : { id: cId };
+        });
+    };
+
+    const applyAutoSelect = () => {
+        selectedPartIds[triggerCard.name] = triggerCard.id; // 出すカードは固定
+        cellSet.parts.forEach(pName => {
+            if (pName !== triggerCard.name) {
+                const list = partsMap[pName].filter(item => item.card.id !== triggerCard.id);
+                if (list.length > 0) {
+                    selectedPartIds[pName] = list[0].card.id;
+                }
+            }
+        });
+        syncSelectedItems();
+    };
+    applyAutoSelect();
+
+    const isCardSelected = (c) => Object.values(selectedPartIds).includes(c.id);
+
+    ptStartBoardSelectMode({
+        title: `《${triggerCard.name}》を出します。残りの合体パーツを選択してください`,
+        allowedZones: allowedZones,
+        multiSelect: false,
+        hideCancel: true,
+        hideDefaultConfirm: true,
+        isEligible: (c, z) => {
+            if (c.id === triggerCard.id) return true; // 出すカード自身は表示
+            if (c.name === triggerCard.name) return false; // 出すカードと同名の他カードは選択不可
+            return allowedZones.includes(z) && cellSet.parts.includes(c.name);
+        },
+        isSelected: (c) => isCardSelected(c),
+        isTriggerCard: (c) => c.id === triggerCard.id,
+        getBadgeText: (c) => {
+            if (c.id === triggerCard.id) return '出すカード（固定）';
+            if (isCardSelected(c)) return '選択中';
+            return '未選択';
+        },
+        extraButtons: [
+            {
+                label: '⚡ おまかせ自動選択',
+                className: 'btn-pt-secondary',
+                style: 'background:#17a2b8; color:#fff;',
+                onClick: () => {
+                    applyAutoSelect();
+                    ptRenderBoardSelectBanner();
+                    renderPtBoard();
+                }
+            },
+            {
+                label: '合体せず単体で出す',
+                className: 'btn-pt-secondary',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    ptCheckEvolutionAndPlay(triggerCard.id, fromZone, { skipKingCellCheck: true, skipDoubleSidedCheck: true });
+                }
+            },
+            {
+                label: '合体してバトルゾーンに出す',
+                className: 'btn-pt-primary',
+                style: 'background:#28a745; font-weight:bold;',
+                onClick: () => {
+                    const missingParts = cellSet.parts.filter(pName => !selectedPartIds[pName]);
+                    if (missingParts.length > 0) {
+                        ptShowToast(`パーツ「${missingParts.join('、')}」を選択してください。`);
+                        return;
+                    }
+                    const chosenPartsInfo = [];
+                    cellSet.parts.forEach(pName => {
+                        const pickedId = selectedPartIds[pName];
+                        const found = partsMap[pName].find(item => item.card.id === pickedId);
+                        if (found) chosenPartsInfo.push({ id: found.card.id, zone: found.zone });
+                    });
+                    ptExitBoardSelectMode();
+                    ptExecuteKingCellMerge(triggerCard.id, fromZone, cellSet.mergedName, chosenPartsInfo);
+                }
+            }
+        ],
+        onSelectSingle: (c) => {
+            // 出すカード自身および同名カードは選択不可
+            if (c.id === triggerCard.id || c.name === triggerCard.name) return;
+
+            const pName = c.name;
+            if (!cellSet.parts.includes(pName)) return;
+
+            // 選択中のものをタップした場合は解除、未選択ならそのパーツ枠として選択
+            if (selectedPartIds[pName] === c.id) {
+                delete selectedPartIds[pName];
+            } else {
+                selectedPartIds[pName] = c.id;
+            }
+            syncSelectedItems();
+            ptRenderBoardSelectBanner();
+            renderPtBoard();
+        }
+    });
+}
+
+function ptExecuteKingCellMerge(triggerCardId, fromZone, mergedCardName, chosenPartsInfo) {
+    closePtModal();
+    const triggerCard = (ptState[fromZone] || []).find(c => c.id === triggerCardId) || findCardById(triggerCardId);
+    if (!triggerCard) return;
+
+    // 各ゾーンから選択パーツを引き抜いて非表示化
+    const components = [];
+    chosenPartsInfo.forEach(info => {
+        const zList = ptState[info.zone];
+        if (zList) {
+            const idx = zList.findIndex(c => c.id === info.id);
+            if (idx !== -1) components.push(zList.splice(idx, 1)[0]);
+        }
+    });
+
+    const finishMerge = (mergedData) => {
+        const baseSrc = mergedData ? getCardImageUrl(mergedData.imagepath) : triggerCard.src;
+        const text = mergedData ? (mergedData.text || '') : (triggerCard.text || '');
+
+        let abilityIds = mergedData ? ptNormalizeIds(mergedData.ability_ids) : [];
+        // ★ EXライフ(10) / エクストラEXライフ(68) のテキスト解析バックアップ
+        if (text.includes('エクストラEXライフ') || text.includes('エクストラ・EXライフ') || text.includes('エクストラＥＸライフ')) {
+            if (!abilityIds.includes(68)) abilityIds.push(68);
+        } else if (text.includes('EXライフ') || text.includes('ＥＸライフ')) {
+            if (!abilityIds.includes(10)) abilityIds.push(10);
+        }
+
+        const mergedInstance = {
+            id: 'pt_kingcell_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+            card_id: mergedData ? (mergedData.card_id || '0') : triggerCard.card_id,
+            name: mergedCardName,
+            original_name: mergedCardName,
+            text: text,
+            src: baseSrc,
+            original_src: baseSrc,
+            creature_src: baseSrc,
+            type: 'main',
+            twinpact: '0',
+            combination_id: triggerCard.combination_id,
+            is_multicolor: true,
+            cardtype_ids: mergedData ? ptNormalizeIds(mergedData.cardtype_ids) : [1],
+            characteristics_ids: mergedData ? ptNormalizeIds(mergedData.characteristics_ids) : [],
+            ability_ids: abilityIds,
+            underCards: [],
+            tapped: false,
+            inverted: false,
+            faceDown: false,
+            flipped: false,
+            cost: mergedData && mergedData.cost !== null && mergedData.cost !== undefined ? parseInt(mergedData.cost, 10) : 10,
+            race_ids: [],
+            linked_ids: [],
+            is_king_cell_merged: true,
+            king_cell_components: components
+        };
+
+        ptState.battle.push(mergedInstance);
+        renderPtBoard();
+        ptTriggerBattleEnter(mergedInstance);
+    };
+
+    if (triggerCard.card_id && triggerCard.card_id !== '0') {
+        fetch(`/api/cards/combination?card_id=${triggerCard.card_id}`)
+            .then(res => res.json())
+            .then(data => {
+                const targetData = Array.isArray(data) ? data.find(c => c.card_name === mergedCardName) : null;
+                finishMerge(targetData);
+            })
+            .catch(() => finishMerge(null));
+    } else {
+        finishMerge(null);
+    }
+}
+// ==========================================
+// 山札への移動設定モーダル（墓地・超次元・一括選択 共通4択）
+// ==========================================
+function openViewerToDeckModal(fromZone, cardIds) {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = "山札への移動設定";
+    body.innerHTML = `
+        <div style="padding: 10px 0; text-align: center;">
+            <p style="font-size: 13px; color: #aaa; margin-bottom: 15px;">
+                選択された ${cardIds.length} 枚のカードを山札のどこに置きますか？
+            </p>
+            <button class="btn-pt-primary" id="btnDeckMoveTop" style="width: 100%; padding: 11px; font-weight: bold; margin-bottom: 10px;">山札の一番上に置く</button>
+            <button class="btn-pt-primary" id="btnDeckMoveBottom" style="width: 100%; padding: 11px; font-weight: bold; margin-bottom: 10px; background: #28a745;">山札の一番下に置く</button>
+            <button class="btn-pt-primary" id="btnDeckMoveShuffleBottom" style="width: 100%; padding: 11px; font-weight: bold; margin-bottom: 10px; background: #17a2b8;">シャッフルして山札の下に置く</button>
+            <button class="btn-pt-secondary" id="btnDeckMoveShuffleAll" style="width: 100%; padding: 11px; font-weight: bold; background: #fd7e14; color: white;">山札に加えてシャッフル</button>
+        </div>
+    `;
+
+    if (fromZone && (fromZone === 'graveyard' || fromZone === 'psychic')) {
+        const zoneName = (fromZone === 'graveyard') ? '墓地' : '超次元';
+        footer.innerHTML = `<button class="btn-pt-secondary" onclick="openGroupedViewer('${zoneName}', ptState['${fromZone}'], '${fromZone}')">戻る</button>`;
+    } else {
+        footer.innerHTML = `<button class="btn-pt-secondary" onclick="closePtModal()">キャンセル</button>`;
+    }
+
+    const executeDeckAction = (action) => {
+        const cardsToMove = [];
+        cardIds.forEach(id => {
+            const srcZone = fromZone || findCardZone(id);
+            if (srcZone && ptState[srcZone]) {
+                const idx = ptState[srcZone].findIndex(c => c.id === id);
+                if (idx !== -1) {
+                    let card = ptState[srcZone].splice(idx, 1)[0];
+                    let childUnderCards = card.underCards || [];
+                    card.underCards = [];
+                    if (card.is_king_cell_merged && card.king_cell_components && card.king_cell_components.length > 0) {
+                        ptClearExLifeLinksForCard(card);
+                        card.king_cell_components.forEach(comp => {
+                            comp.underCards = [];
+                            comp.is_under_stacked = false;
+                            cardsToMove.push(comp);
+                        });
+                        card.king_cell_components = [];
+                    } else {
+                        cardsToMove.push(card);
+                    }
+                    childUnderCards.forEach(cu => cardsToMove.push(cu));
+                }
+            }
+        });
+
+        cardsToMove.forEach(card => {
+            card.underCards = [];
+            card.is_under_stacked = false;
+            card.faceDown = false;
+            card.tapped = false;
+            card.inverted = false;
+            if (card.original_src) {
+                card.src = card.original_src;
+                card.flipped = false;
+            }
+        });
+
+        if (action === 'top') {
+            cardsToMove.forEach(c => ptState.deck.push(c));
+        } else if (action === 'bottom') {
+            cardsToMove.forEach(c => ptState.deck.unshift(c));
+        } else if (action === 'shuffle_bottom') {
+            ptShuffle(cardsToMove);
+            cardsToMove.forEach(c => ptState.deck.unshift(c));
+        } else if (action === 'shuffle_all') {
+            cardsToMove.forEach(c => ptState.deck.push(c));
+            ptShuffle(ptState.deck);
+        }
+
+        if (typeof selectedCards !== 'undefined') selectedCards.clear();
+        closePtModal();
+        renderPtBoard();
+    };
+
+    document.getElementById('btnDeckMoveTop').onclick = () => executeDeckAction('top');
+    document.getElementById('btnDeckMoveBottom').onclick = () => executeDeckAction('bottom');
+    document.getElementById('btnDeckMoveShuffleBottom').onclick = () => executeDeckAction('shuffle_bottom');
+    document.getElementById('btnDeckMoveShuffleAll').onclick = () => executeDeckAction('shuffle_all');
+
+    modal.style.display = 'flex';
+}
+
+// 画面上部中央への数秒トースト通知
+function ptShowToast(message, type = 'warning', duration = 3000) {
+    let container = document.getElementById('ptToastContainer');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'ptToastContainer';
+        container.className = 'pt-toast-container';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = `pt-toast ${type}`;
+    toast.innerText = message;
+    container.appendChild(toast);
+
+    requestAnimationFrame(() => toast.classList.add('show'));
+
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 250);
+    }, duration);
+}
+
+// 枚数選択用汎用モーダル
+function ptOpenNumberPromptModal(titleText, messageText, defaultVal, minVal, maxVal, onConfirm) {
+    const modal = document.getElementById('ptListModal');
+    const title = document.getElementById('ptModalTitle');
+    const body = document.getElementById('ptModalBody');
+    const footer = document.getElementById('ptModalFooter');
+
+    title.innerText = titleText;
+    const maxAttr = (maxVal !== null && maxVal !== undefined) ? `max="${maxVal}"` : '';
+    const quickNums = [1, 2, 3, 4, 5].filter(n => n >= minVal && (maxVal === null || maxVal === undefined || n <= maxVal));
+    const quickBtnsHtml = quickNums.map(n =>
+        `<button type="button" class="btn-pt-secondary pt-num-quick" data-val="${n}" style="padding:5px 12px; font-size:13px;">${n}枚</button>`
+    ).join('');
+
+    body.innerHTML = `
+        <div style="padding: 8px 0; text-align: center;">
+            <p style="font-size: 13px; color: #ccc; margin: 0 0 12px 0;">${messageText}</p>
+            <div style="display:flex; justify-content:center; align-items:center; gap:8px; margin-bottom:12px;">
+                <input type="number" id="ptNumberPromptInput" min="${minVal}" ${maxAttr} value="${defaultVal}"
+                    style="width:90px; padding:7px; text-align:center; background:#222; color:#fff; border:1px solid #555; border-radius:4px; font-size:16px; font-weight:bold;">
+                <span style="font-size:14px; color:#ccc;">枚</span>
+            </div>
+            ${quickBtnsHtml ? `<div style="display:flex; justify-content:center; flex-wrap:wrap; gap:6px;">${quickBtnsHtml}</div>` : ''}
+        </div>
+    `;
+    footer.innerHTML = `
+        <button id="ptBtnNumCancel" class="btn-pt-secondary">キャンセル</button>
+        <button id="ptBtnNumConfirm" class="btn-pt-primary" style="font-weight:bold;">決定</button>
+    `;
+
+    const inputEl = document.getElementById('ptNumberPromptInput');
+    document.querySelectorAll('.pt-num-quick').forEach(btn => {
+        btn.onclick = () => { inputEl.value = btn.dataset.val; };
+    });
+
+    const submit = () => {
+        const val = parseInt(inputEl.value, 10);
+        if (isNaN(val) || val < minVal || (maxVal !== null && maxVal !== undefined && val > maxVal)) {
+            const rangeMsg = (maxVal !== null && maxVal !== undefined) ? `${minVal}〜${maxVal}` : `${minVal}以上`;
+            ptShowToast(`${rangeMsg}の数値を入力してください。`, 'warning');
+            return;
+        }
+        closePtModal();
+        onConfirm(val);
+    };
+
+    document.getElementById('ptBtnNumCancel').onclick = () => closePtModal();
+    document.getElementById('ptBtnNumConfirm').onclick = submit;
+    inputEl.onkeydown = (e) => { if (e.key === 'Enter') submit(); };
+
+    modal.style.display = 'flex';
+    setTimeout(() => inputEl.select(), 50);
 }
 </script>
 </body>

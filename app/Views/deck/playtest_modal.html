@@ -236,7 +236,7 @@ function ptShowCardDetailModalById(id, zone) {
 
     body.innerHTML = `
         <div class="pt-detail-img-wrap" id="ptDetailImgWrap">
-            <img id="ptDetailImg" src="${displaySrc}" style="width:100%; max-width:320px; height:auto; aspect-ratio:5/7; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
+            <img id="ptDetailImg" src="${displaySrc}" style="max-width:min(88vw, 480px); max-height:min(70vh, 70dvh); width:auto; height:auto; object-fit:contain; border-radius:8px; box-shadow:0 8px 30px rgba(0,0,0,0.8); margin-bottom:12px;">
         </div>
         <div style="font-weight:bold; font-size:16px; color:#fff; margin-bottom:6px;">${displayName}</div>
         <div style="font-size:12px; color:#aaa;">(現在地: ${zoneJapaneseName(zone)})</div>
@@ -324,7 +324,7 @@ function ptViewDeck() {
 
 function ptBatchMoveFromDeck(targetZone) {
     const items = document.querySelectorAll('#ptDeckViewGrid .pt-grid-item.selected');
-    if (items.length === 0) { alert('カードを選択してください。'); return; }
+    if (items.length === 0) { ptShowToast('カードを選択してください。', 'warning'); return; }
 
     let allIds = [];
     items.forEach(item => {
@@ -332,26 +332,26 @@ function ptBatchMoveFromDeck(targetZone) {
         allIds = allIds.concat(ids);
     });
 
-    let anyModalOpened = false;
     if (targetZone === 'shield_select') {
-        const isFaceup = confirm("シールドに「表向き」で置きますか？\n(「キャンセル」で裏向きに置きます)");
-        allIds.forEach(id => {
-            const success = ptMoveCard(id, 'deck', 'shield', { faceDown: !isFaceup });
-            if (!success) anyModalOpened = true;
-        });
-    } else {
-        allIds.forEach(id => {
-            const success = ptMoveCard(id, 'deck', targetZone);
-            if (!success) anyModalOpened = true;
-        });
+        ptActiveRevealContext = 'deck_view';
+        ptBatchMoveQueue = allIds;
+        ptBatchMoveTargetZone = 'shield';
+        ptProcessNextBatchMove();
+        return;
     }
+
+    let anyModalOpened = false;
+    allIds.forEach(id => {
+        const success = ptMoveCard(id, 'deck', targetZone);
+        if (!success) anyModalOpened = true;
+    });
     if (!anyModalOpened) closePtModal();
     renderPtBoard();
 }
 
 function ptBatchDeckAction(action) {
     const items = document.querySelectorAll('#ptDeckViewGrid .pt-grid-item.selected');
-    if (items.length === 0) { alert('カードを選択してください。'); return; }
+    if (items.length === 0) { ptShowToast('カードを選択してください。'); return; }
 
     let selectedIds = [];
     items.forEach(item => {
@@ -437,7 +437,7 @@ function openGroupedViewer(titleText, cardArray, zoneKey) {
 
 function ptBatchMoveFromViewer(fromZone, targetZone) {
     const selectedItems = document.querySelectorAll('#ptViewerGrid .pt-grid-item.selected');
-    if (selectedItems.length === 0) { alert('カードを選択してください。'); return; }
+    if (selectedItems.length === 0) { ptShowToast('カードを選択してください。'); return; }
 
     let allIds = [];
     selectedItems.forEach(item => {
@@ -446,16 +446,16 @@ function ptBatchMoveFromViewer(fromZone, targetZone) {
     });
 
     let anyModalOpened = false;
-
     if (targetZone === 'deck') {
-        const action = confirm("選択したカードを山札に加えて「シャッフル」しますか？\n(「キャンセル」でシャッフルして山札の『一番下』に置きます)");
-        if (action) {
-            allIds.forEach(id => ptMoveCard(id, fromZone, 'deck', {skipUnderCheck:true}));
-            ptShuffle(ptState.deck);
-        } else {
-            allIds.forEach(id => ptMoveCard(id, fromZone, 'deck', {bottom:true, skipUnderCheck:true}));
-            ptShuffle(ptState.deck);
-        }
+        closePtModal();
+        openViewerToDeckModal(fromZone, allIds);
+        return;
+    } else if (targetZone === 'shield' || targetZone === 'shield_select') {
+        ptActiveRevealContext = 'viewer_' + fromZone;
+        ptBatchMoveQueue = allIds;
+        ptBatchMoveTargetZone = 'shield';
+        ptProcessNextBatchMove();
+        return;
     } else {
         allIds.forEach(id => {
             if (targetZone === 'battle') {
@@ -801,7 +801,8 @@ function renderLookingCardsModal() {
 
     footer.innerHTML = `
         <button class="btn-pt-primary" onclick="ptAddMoreCardToLooking()">＋ さらに1枚見る</button>
-        <button class="btn-pt-secondary" id="btn-return-ordered" onclick="ptReturnLookingCards('ordered_bottom')">好きな順で山札の下に置く</button>
+        <button class="btn-pt-secondary" id="btn-return-ordered-top" onclick="ptReturnLookingCards('ordered_top')">好きな順で山札の上に置く</button>
+        <button class="btn-pt-secondary" id="btn-return-ordered-bottom" onclick="ptReturnLookingCards('ordered_bottom')">好きな順で山札の下に置く</button>
         <button class="btn-pt-secondary" onclick="ptReturnLookingCards('shuffle_all')">すべて山札に戻してシャッフル</button>
         <button class="btn-pt-secondary" onclick="ptReturnLookingCards('shuffle_bottom')">すべてシャッフルして山札の下に置く</button>
         <button class="btn-pt-secondary" onclick="ptPauseRevealModal()" style="background:#6f42c1;">⏸ 保留して盤面を操作</button>
@@ -1116,7 +1117,7 @@ function openEvoTargetSelector(cardId, fromZone, mode) {
         confirmLabel: '決定してバトルゾーンに出す',
         onConfirm: (selectedItems) => {
             if (!selectedItems || selectedItems.length === 0) {
-                alert("重ねるカードを1枚以上選択してください。");
+                ptShowToast("重ねるカードを1枚以上選択してください。");
                 return;
             }
             ptEvoSelectedIds = selectedItems.map(item => item.id);
@@ -1528,7 +1529,7 @@ function openShieldStackSelector(baseCardId, position) {
                 style: '',
                 onClick: () => {
                     if (ptBoardSelect.selectedItems.length === 0) {
-                        alert("カードを1枚以上選択してください。");
+                        ptShowToast("カードを1枚以上選択してください。");
                         return;
                     }
                     ptExecuteShieldStack(baseCardId, position, true);
@@ -1540,7 +1541,7 @@ function openShieldStackSelector(baseCardId, position) {
                 style: 'background:#28a745;',
                 onClick: () => {
                     if (ptBoardSelect.selectedItems.length === 0) {
-                        alert("カードを1枚以上選択してください。");
+                        ptShowToast("カードを1枚以上選択してください。");
                         return;
                     }
                     ptExecuteShieldStack(baseCardId, position, false);
@@ -1677,7 +1678,7 @@ function openStackUnderBattleSelector(cardId, fromZone) {
 
     const targets = ptState.battle.filter(c => c.id !== cardId);
     if (targets.length === 0) {
-        alert("バトルゾーンに対象となるカードがありません。");
+        ptShowToast("バトルゾーンに対象となるカードがありません。");
         return;
     }
 
@@ -1705,7 +1706,7 @@ function openBattleToBattleStackModal(cardId, defaultPosition = 'under') {
 
     const targets = ptState.battle.filter(c => c.id !== cardId);
     if (targets.length === 0) {
-        alert("バトルゾーンに対象となる他のカードがありません。");
+        ptShowToast("バトルゾーンに対象となる他のカードがありません。");
         return;
     }
 
@@ -1777,7 +1778,7 @@ function openBattleToBattleStackModal(cardId, defaultPosition = 'under') {
 
 function ptStartBattleToBattleTargetSelect(cardId, position) {
     if (ptBattleStackSelectedIndices.length === 0) {
-        alert("移動するカードを1枚以上選択してください。");
+        ptShowToast("移動するカードを1枚以上選択してください。");
         return;
     }
     closePtModal();
@@ -1823,7 +1824,7 @@ function updateBattleStackSourceUI() {
 
 function ptExecuteBattleToBattleStack(sourceCardId, position, targetCardId) {
     if (!targetCardId) {
-        alert("重ねる先の対象カードを選択してください。");
+        ptShowToast("重ねる先の対象カードを選択してください。");
         return;
     }
 
@@ -1834,7 +1835,7 @@ function ptExecuteBattleToBattleStack(sourceCardId, position, targetCardId) {
     let cardsToMove = [];
     if (allComponents.length > 1) {
         if (ptBattleStackSelectedIndices.length === 0) {
-            alert("移動するカードを1枚以上選択してください。");
+            ptShowToast("移動するカードを1枚以上選択してください。");
             return;
         }
         // 選択された順番通りに移動カードを構築
@@ -1883,7 +1884,7 @@ function ptExecuteBattleToBattleStack(sourceCardId, position, targetCardId) {
     renderPtBoard();
 }
 function ptExecuteStackUnderBattle(cardId, fromZone, targetBattleId) {
-    if (!targetBattleId) { alert('対象カードを選択してください。'); return; }
+    if (!targetBattleId) { ptShowToast('対象カードを選択してください。'); return; }
 
     let bCard = ptState.battle.find(c => c.id === targetBattleId);
     if (!bCard) return;
@@ -1933,7 +1934,7 @@ function openStackFromHandSelector(id) {
 
 function openStackFromManaSelector(id) {
     if (ptState.battle.length === 0) {
-        alert("バトルゾーンに対象となるカードがありません。");
+        ptShowToast("バトルゾーンに対象となるカードがありません。");
         return;
     }
     ptStartBoardSelectMode({
@@ -1954,7 +1955,7 @@ function openStackFromManaSelector(id) {
 
 function openShieldReplaceSelector(id) {
     if (ptState.battle.length === 0) {
-        alert("バトルゾーンに対象となるカードがありません。");
+        ptShowToast("バトルゾーンに対象となるカードがありません。");
         return;
     }
     ptStartBoardSelectMode({
@@ -2284,7 +2285,7 @@ function openGrUnderCountModal(cardId, fromZone) {
         <button class="btn-pt-primary" onclick="
             const val = parseInt(document.getElementById('ptGrUnderCountInput').value, 10);
             if (isNaN(val) || val < 0 || val > 12) {
-                alert('0から12までの数値を入力してください。');
+                ptShowToast('0から12までの数値を入力してください。');
                 return;
             }
             ptExecuteGrUnderPlay('${cardId}', '${fromZone}', val);
