@@ -181,9 +181,10 @@ function getCardImageUrl(card) {
     function applyLazyLoading(img) {
         if (!img || img.tagName !== 'IMG') return;
         
-        // ★ 追加: デッキエリア内の画像はファーストビューのため lazy にしない
-        if (img.closest('#deck-area')) {
+        // ★ 追加: デッキエリア・画像出力用コンテナ内の画像は lazy にしない
+        if (img.closest('#deck-area') || img.closest('#deck-export-container')) {
             img.loading = 'eager';
+            img.decoding = 'sync';
             return;
         }
 

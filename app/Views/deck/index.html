@@ -111,16 +111,21 @@
 
 .export-card-item {
     position: relative;
-    aspect-ratio: 51 / 73;
+    width: 100%;
+    height: 0;
+    padding-bottom: 143.137%;
     overflow: hidden;
     border-radius: 4px;
     border: 1px solid #222222;
     background-color: #111111;
 }
 .export-card-img {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    display: block;
 }
 
 .export-sub-zone {
@@ -873,12 +878,16 @@ async function executeZipExport(deckId, deckName, formatName, thumbnailId, butto
  * 従来の画像出力処理
  */
 function executeImageExport(deckId, deckName, formatName, buttonElement) {
+    const loadingModal = document.getElementById('zip-export-loading-modal');
+    const modalHeaderTitle = loadingModal ? loadingModal.querySelector('.sub-modal-header span') : null;
+    if (modalHeaderTitle) modalHeaderTitle.innerText = '出力処理中';
+    if (loadingModal) loadingModal.style.display = 'flex';
+
     if (buttonElement) {
         buttonElement.innerText = '生成中...';
         buttonElement.disabled = true;
     }
     const apiEndpoint = `/api/decks/view?deck_id=${deckId}`;
-
     fetch(apiEndpoint)
     .then(res => res.json())
     .then(cards => {
@@ -995,16 +1004,21 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
         document.body.appendChild(exportContainer);
 
         const renderGrid = (cardsArray, gridId) => {
-            const grid = document.getElementById(gridId);
+            const grid = exportContainer.querySelector('#' + gridId);
             if (!grid) return;
             cardsArray.forEach(card => {
                 const imgWrap = document.createElement('div');
                 imgWrap.className = 'export-card-item';
-                
+
                 // ★修正: ダミーカードは自動生成画像URLを使用
                 const thumbPath = getIndexCardImageUrl(card);
 
-                imgWrap.innerHTML = `<img src="${thumbPath}" class="export-card-img" onerror="this.src='/images/card/noimage.webp';">`;
+                const img = document.createElement('img');
+                img.className = 'export-card-img';
+                img.loading = 'eager';
+                img.decoding = 'sync';
+                img.src = thumbPath;
+                imgWrap.appendChild(img);
                 grid.appendChild(imgWrap);
             });
         };
@@ -1017,10 +1031,30 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
         const images = exportContainer.querySelectorAll('img');
         const promises = Array.from(images).map(img => {
             return new Promise(resolve => {
-                if (img.complete) resolve();
-                else {
-                    img.onload = () => resolve();
-                    img.onerror = () => resolve();
+                const done = () => {
+                    if (typeof img.decode === 'function') {
+                        img.decode().catch(() => {}).finally(resolve);
+                    } else {
+                        resolve();
+                    }
+                };
+                if (img.complete && img.naturalWidth > 0) {
+                    done();
+                    return;
+                }
+                img.addEventListener('load', done, { once: true });
+                img.addEventListener('error', () => {
+                    if (!img.dataset.fallbackApplied && !img.src.endsWith('/images/card/noimage.webp')) {
+                        img.dataset.fallbackApplied = '1';
+                        img.addEventListener('load', done, { once: true });
+                        img.addEventListener('error', resolve, { once: true });
+                        img.src = '/images/card/noimage.webp';
+                    } else {
+                        resolve();
+                    }
+                }, { once: true });
+                if (img.complete && img.naturalWidth === 0) {
+                    img.dispatchEvent(new Event('error'));
                 }
             });
         });
@@ -1037,6 +1071,7 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
 
                 document.body.removeChild(exportContainer);
                 resetBtn();
+                openExportCompleteModal();
             }).catch(err => {
                 console.error(err);
                 alert('画像作成中にエラーが発生しました。');
@@ -1052,6 +1087,7 @@ function executeImageExport(deckId, deckName, formatName, buttonElement) {
     });
 
     function resetBtn() {
+        if (loadingModal) loadingModal.style.display = 'none';
         if (buttonElement) {
             buttonElement.innerText = 'デッキ出力';
             buttonElement.disabled = false;
