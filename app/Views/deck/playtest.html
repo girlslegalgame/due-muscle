@@ -3530,7 +3530,7 @@ function ptMoveCard(cardId, from, to, opts = {}) {
     }
 
     // ★ 追加: キングセル合体クリーチャーがバトルゾーンを離れた時、パーツを移動先ゾーンへ復帰し自身は消滅
-    if (from === 'battle' && card.is_king_cell_merged && card.king_cell_components && card.king_cell_components.length > 0) {
+    if ((from === 'battle' || from === 'casting') && card.is_king_cell_merged && card.king_cell_components && card.king_cell_components.length > 0) {
         ptClearExLifeLinksForCard(card);
         const components = card.king_cell_components;
         card.king_cell_components = [];
@@ -4409,7 +4409,7 @@ function ptPassTurnAndStart() {
 
 function isDoubleSidedCard(card) {
     if (!card) return false;
-    const kingCellNames = ['王の覇気', '王の思念', '新世界王 ヴォルゼオス・バラモルド', '新世界王の闘気', '新世界王の思想', '新世界王の権威', 'Volzeos-Balamord'];
+    const kingCellNames = ['王の覇気', '王の思念', '新世界王 ヴォルゼオス・バラモルド', '新世界王の闘気', '新世界王の思想', '新世界王の権威', 'Volzeos-Balamord', '新世界王の破壊', '新世界王の創造', '新世界秩序'];
     if (kingCellNames.includes(card.name) || card.is_king_cell_merged) return false;
     const hasCombination = card.combination_id !== null && card.combination_id !== undefined && card.combination_id !== '';
     const isTwin = card.twinpact === '1' || card.twinpact === 1 || card.twinpact === true || card.twinpact === 'true';
@@ -4895,6 +4895,9 @@ function ptCheckEvolutionAndPlay(cardId, fromZone, opts = {}) {
 
     // ★ 追加: キングセル合体判定（王の覇気/思念、新世界王の闘気/思想/権威）
     if (!opts.skipKingCellCheck && ptCheckKingCellMerge(cardId, fromZone)) {
+        return;
+    }
+    if (!opts.skipOrderCheck && ptCheckNewWorldOrderMerge(cardId, fromZone)) {
         return;
     }
 
@@ -10046,6 +10049,209 @@ function renderCastingSpellBar() {
 // ==========================================
 // キングセル合体召喚処理（ヴォルゼオス・バラモルド）
 // ==========================================
+const PT_ORDER_PARTS = ['新世界王の破壊', '新世界王の創造'];
+const PT_ORDER_SPELL_NAME = '新世界秩序';
+
+function ptCheckNewWorldOrderMerge(cardId, fromZone) {
+    const card = (ptState[fromZone] || []).find(c => c.id === cardId);
+    if (!card) return false;
+
+    if (!PT_ORDER_PARTS.includes(card.name)) return false;
+
+    const availablePool = [];
+    const checkZones = ['hand', 'mana'];
+    if (!checkZones.includes(fromZone)) checkZones.push(fromZone);
+
+    checkZones.forEach(z => {
+        (ptState[z] || []).forEach(c => {
+            if (PT_ORDER_PARTS.includes(c.name)) availablePool.push({ zone: z, card: c });
+        });
+    });
+
+    const partsMap = {};
+    PT_ORDER_PARTS.forEach(pName => {
+        partsMap[pName] = availablePool.filter(item => item.card.name === pName);
+    });
+
+    const isAllPartsAvailable = PT_ORDER_PARTS.every(pName => partsMap[pName].length > 0);
+    if (!isAllPartsAvailable) return false;
+
+    ptStartNewWorldOrderBoardSelectMode(card, fromZone, partsMap);
+    return true;
+}
+
+function ptStartNewWorldOrderBoardSelectMode(triggerCard, fromZone, partsMap) {
+    closePtModal();
+    ptHideContextMenu();
+
+    const allowedZones = ['hand', 'mana'];
+    if (!allowedZones.includes(fromZone)) allowedZones.push(fromZone);
+
+    const selectedPartIds = {};
+    selectedPartIds[triggerCard.name] = triggerCard.id;
+
+    const syncSelectedItems = () => {
+        ptBoardSelect.selectedItems = Object.entries(selectedPartIds).map(([pName, cId]) => {
+            const found = partsMap[pName].find(item => item.card.id === cId);
+            return found ? { id: found.card.id, zone: found.zone, card: found.card } : { id: cId };
+        });
+    };
+
+    const applyAutoSelect = () => {
+        selectedPartIds[triggerCard.name] = triggerCard.id;
+        PT_ORDER_PARTS.forEach(pName => {
+            if (pName !== triggerCard.name) {
+                const list = partsMap[pName].filter(item => item.card.id !== triggerCard.id);
+                if (list.length > 0) {
+                    selectedPartIds[pName] = list[0].card.id;
+                }
+            }
+        });
+        syncSelectedItems();
+    };
+    applyAutoSelect();
+
+    const isCardSelected = (c) => Object.values(selectedPartIds).includes(c.id);
+
+    ptStartBoardSelectMode({
+        title: `《${triggerCard.name}》から《${PT_ORDER_SPELL_NAME}》を唱えます。残りのパーツを選択してください`,
+        allowedZones: allowedZones,
+        multiSelect: false,
+        hideCancel: true,
+        hideDefaultConfirm: true,
+        isEligible: (c, z) => {
+            if (c.id === triggerCard.id) return true;
+            if (c.name === triggerCard.name) return false;
+            return allowedZones.includes(z) && PT_ORDER_PARTS.includes(c.name);
+        },
+        isSelected: (c) => isCardSelected(c),
+        isTriggerCard: (c) => c.id === triggerCard.id,
+        getBadgeText: (c) => {
+            if (c.id === triggerCard.id) return '出すカード（固定）';
+            if (isCardSelected(c)) return '選択中';
+            return '未選択';
+        },
+        extraButtons: [
+            {
+                label: '⚡ おまかせ自動選択',
+                className: 'btn-pt-secondary',
+                style: 'background:#17a2b8; color:#fff;',
+                onClick: () => {
+                    applyAutoSelect();
+                    ptRenderBoardSelectBanner();
+                    renderPtBoard();
+                }
+            },
+            {
+                label: '合体せず単体で出す',
+                className: 'btn-pt-secondary',
+                onClick: () => {
+                    ptExitBoardSelectMode();
+                    ptCheckEvolutionAndPlay(triggerCard.id, fromZone, { skipOrderCheck: true, skipKingCellCheck: true, skipDoubleSidedCheck: true });
+                }
+            },
+            {
+                label: `合体して《${PT_ORDER_SPELL_NAME}》を唱える`,
+                className: 'btn-pt-primary',
+                style: 'background:#9b59b6; font-weight:bold; color:#fff;',
+                onClick: () => {
+                    const missingParts = PT_ORDER_PARTS.filter(pName => !selectedPartIds[pName]);
+                    if (missingParts.length > 0) {
+                        ptShowToast(`パーツ「${missingParts.join('、')}」を選択してください。`);
+                        return;
+                    }
+                    const chosenPartsInfo = [];
+                    PT_ORDER_PARTS.forEach(pName => {
+                        const pickedId = selectedPartIds[pName];
+                        const found = partsMap[pName].find(item => item.card.id === pickedId);
+                        if (found) chosenPartsInfo.push({ id: found.card.id, zone: found.zone });
+                    });
+                    ptExitBoardSelectMode();
+                    ptExecuteNewWorldOrderMerge(triggerCard.id, fromZone, chosenPartsInfo);
+                }
+            }
+        ],
+        onSelectSingle: (c) => {
+            if (c.id === triggerCard.id || c.name === triggerCard.name) return;
+            const pName = c.name;
+            if (!PT_ORDER_PARTS.includes(pName)) return;
+
+            if (selectedPartIds[pName] === c.id) {
+                delete selectedPartIds[pName];
+            } else {
+                selectedPartIds[pName] = c.id;
+            }
+            syncSelectedItems();
+            ptRenderBoardSelectBanner();
+            renderPtBoard();
+        }
+    });
+}
+
+function ptExecuteNewWorldOrderMerge(triggerCardId, fromZone, chosenPartsInfo) {
+    closePtModal();
+    const triggerCard = (ptState[fromZone] || []).find(c => c.id === triggerCardId) || findCardById(triggerCardId);
+    if (!triggerCard) return;
+
+    const components = [];
+    chosenPartsInfo.forEach(info => {
+        const zList = ptState[info.zone];
+        if (zList) {
+            const idx = zList.findIndex(c => c.id === info.id);
+            if (idx !== -1) components.push(zList.splice(idx, 1)[0]);
+        }
+    });
+
+    const finishCast = (orderData) => {
+        const baseSrc = orderData ? getCardImageUrl(orderData.imagepath) : triggerCard.src;
+        const text = orderData ? (orderData.text || '') : '';
+
+        const orderInstance = {
+            id: 'pt_order_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
+            card_id: orderData ? (orderData.card_id || '0') : triggerCard.card_id,
+            name: PT_ORDER_SPELL_NAME,
+            original_name: PT_ORDER_SPELL_NAME,
+            text: text,
+            src: baseSrc,
+            original_src: baseSrc,
+            creature_src: baseSrc,
+            type: 'main',
+            twinpact: '0',
+            combination_id: triggerCard.combination_id,
+            is_multicolor: true,
+            cardtype_ids: [2],
+            characteristics_ids: orderData ? ptNormalizeIds(orderData.characteristics_ids) : [],
+            ability_ids: orderData ? ptNormalizeIds(orderData.ability_ids) : [],
+            underCards: [],
+            tapped: false,
+            inverted: false,
+            faceDown: false,
+            flipped: false,
+            cost: orderData && orderData.cost !== null && orderData.cost !== undefined ? parseInt(orderData.cost, 10) : 0,
+            race_ids: [],
+            linked_ids: [],
+            is_king_cell_merged: true,
+            king_cell_components: components
+        };
+
+        ptState.casting.push(orderInstance);
+        ptCastingBarCollapsed = false;
+        renderPtBoard();
+    };
+
+    if (triggerCard.card_id && triggerCard.card_id !== '0') {
+        fetch(`/api/cards/combination?card_id=${triggerCard.card_id}`)
+            .then(res => res.json())
+            .then(data => {
+                const targetData = Array.isArray(data) ? data.find(c => c.card_name === PT_ORDER_SPELL_NAME) : null;
+                finishCast(targetData);
+            })
+            .catch(() => finishCast(null));
+    } else {
+        finishCast(null);
+    }
+}
+
 const PT_KING_CELL_SETS = [
     {
         parts: ['王の覇気', '王の思念'],

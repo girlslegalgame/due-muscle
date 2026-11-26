@@ -749,6 +749,20 @@
 {{ template "card_detail_modal.html" . }}
 
 <script>
+// ページネーションに現在の検索パラメータを引き継ぐ
+document.addEventListener('DOMContentLoaded', () => {
+    const currentParams = new URLSearchParams(window.location.search);
+    document.querySelectorAll('.pagination-link').forEach(link => {
+        const href = link.getAttribute('href');
+        if (!href) return;
+        const match = href.match(/[?&]page=(\d+)/);
+        if (!match) return;
+        const newParams = new URLSearchParams(currentParams);
+        newParams.set('page', match[1]);
+        link.setAttribute('href', '?' + newParams.toString());
+    });
+});
+
 /**
  * デッキ削除
  */
