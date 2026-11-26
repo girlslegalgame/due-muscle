@@ -9,6 +9,7 @@ Disallow: /decks/playtest
 Disallow: /account
 Disallow: /login
 Disallow: /register
+Disallow: /notifications
 
 User-agent: Mediapartners-Google
 Allow: /

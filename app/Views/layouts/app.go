@@ -86,8 +86,10 @@ const appHTML = `<!DOCTYPE html>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="/css/style.css?v={{ time }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+    {{ if not .NoIndex }}
     <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1782055298829063"
      crossorigin="anonymous"></script>
+    {{ end }}
     <script src="/js/rule-bot-chat.js?v={{ time }}"></script>
     <style>
         /* --- ヘッダーを黒背景・白文字に変更 --- */

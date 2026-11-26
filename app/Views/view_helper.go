@@ -220,6 +220,24 @@ func RenderView(w http.ResponseWriter, r *http.Request, viewPath string, data ma
 	description, _ := data["description"].(string)
 	noIndex, _ := data["noIndex"].(bool)
 
+	// ★ 通知ページ、またはデッキ個別ページで条件を満たさない場合は noindex（広告非表示）を適用
+	if r.URL.Path == "/notifications" {
+		noIndex = true
+	} else if strings.HasSuffix(viewPath, "share.html") {
+		isPublic := false
+		if b, err := json.Marshal(data["deck"]); err == nil {
+			var dm map[string]interface{}
+			if json.Unmarshal(b, &dm) == nil {
+				isPublic = fmt.Sprint(dm["is_public"]) == "1" || fmt.Sprint(dm["is_public"]) == "true"
+			}
+		}
+		articleStr, _ := data["article"].(string)
+		cleaned := strings.ReplaceAll(strings.ReplaceAll(strings.TrimSpace(articleStr), "\r", ""), "\n", "")
+		if !isPublic || len([]rune(cleaned)) < 300 {
+			noIndex = true
+		}
+	}
+
 	layouts.RenderApp(w, r, sessionData, layouts.AppLayoutData{
 		Content:     content,
 		HideFooter:  hideFooter,
