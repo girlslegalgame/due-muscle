@@ -115,6 +115,19 @@
         const container = document.getElementById('official-goods-list-container');
         if (!container) return;
         container.innerHTML = '';
+        const clearDiv = document.createElement('div');
+        clearDiv.className = 'list-item';
+        clearDiv.dataset.search = '';
+        clearDiv.innerHTML = `
+            <span style="color: #6c757d;">（商品を指定しない）</span>
+            <button type="button" style="padding: 4px 10px; background:#6c757d; color:#fff; border:none; border-radius:4px; cursor:pointer;">選択</button>
+        `;
+        clearDiv.onclick = () => {
+            selectedGoodsId = null;
+            updateOfficialGoodsTriggerText();
+            closeOfficialGoodsModal();
+        };
+        container.appendChild(clearDiv);
         officialGoods.forEach(g => {
             const div = document.createElement('div');
             div.className = 'list-item';
@@ -164,9 +177,6 @@
 
         if (!name) return alert("テンプレート名を入力してください。");
         if (!formatId) return alert("フォーマットを選択してください。");
-        if (selectedIsOfficial === 1 && !selectedGoodsId) {
-            return alert("公式テンプレートの場合は商品を選択してください。");
-        }
 
         // ★ ダミーカード情報も含めて抽出
         const extractCardData = (img, type) => {

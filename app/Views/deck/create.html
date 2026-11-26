@@ -1407,6 +1407,9 @@
                 <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleCommand('insertUnorderedList')">・リスト</button>
                 <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleBlock('BLOCKQUOTE')">” 引用</button>
                 <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleHr()">― 区切り線</button>
+                {{ if .isTemplate }}
+                <button type="button" class="article-tool-btn" onmousedown="event.preventDefault()" onclick="execArticleLink()">🔗 リンク</button>
+                {{ end }}
             </div>
             <div style="font-size: 12px; color: #64748b;">
                 ※ 見出しや太文字もそのままの見た目で編集できます。右側（スマホは下部）のカード検索からカードをクリックすると、カーソル位置にカード画像を添付できます。
@@ -2771,6 +2774,42 @@ function execArticleHr() {
     const editor = focusAndRestoreArticleSelection();
     if (!editor) return;
     document.execCommand('insertHorizontalRule', false, null);
+    syncVisualEditorToInput();
+}
+
+function execArticleLink() {
+    const editor = focusAndRestoreArticleSelection();
+    if (!editor) return;
+    const url = prompt("リンク先URLを入力してください (https://...):");
+    if (!url) return;
+    let validUrl = url.trim();
+    if (!/^https?:\/\//i.test(validUrl)) {
+        validUrl = 'https://' + validUrl;
+    }
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed && sel.toString().trim() !== '') {
+        document.execCommand('createLink', false, validUrl);
+        if (sel.anchorNode && sel.anchorNode.parentElement && sel.anchorNode.parentElement.tagName === 'A') {
+            sel.anchorNode.parentElement.target = '_blank';
+            sel.anchorNode.parentElement.rel = 'noopener noreferrer';
+        }
+    } else {
+        const text = prompt("表示テキストを入力してください:", validUrl) || validUrl;
+        const a = document.createElement('a');
+        a.href = validUrl;
+        a.textContent = text;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        if (lastArticleRange && editor.contains(lastArticleRange.commonAncestorContainer)) {
+            lastArticleRange.insertNode(a);
+            lastArticleRange.setStartAfter(a);
+            lastArticleRange.collapse(true);
+            sel.removeAllRanges();
+            sel.addRange(lastArticleRange);
+        } else {
+            editor.appendChild(a);
+        }
+    }
     syncVisualEditorToInput();
 }
 
