@@ -704,6 +704,7 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 		sqlQuery = fmt.Sprintf(`
             SELECT 
     			c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.hypermode, cd.regulation,
+                (SELECT c_sub.cost FROM card_combination cc_p JOIN card_combination cc_s ON cc_p.combination_id = cc_s.combination_id JOIN card c_sub ON cc_s.card_id = c_sub.card_id WHERE cc_p.card_id = c.card_id AND cc_s.card_id <> c.card_id LIMIT 1) as partner_cost,
                 CASE 
                     WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (
                         SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
@@ -733,6 +734,7 @@ func (c *CardController) CardsApi(w http.ResponseWriter, r *http.Request) {
 		sqlQuery = fmt.Sprintf(`
             SELECT 
                 c.*, cd.modelnum, cd.imagepath, cd.`+"`limit`"+` as card_limit, cd.twinpact, cd.hypermode, cd.regulation,
+                (SELECT c_sub.cost FROM card_combination cc_p JOIN card_combination cc_s ON cc_p.combination_id = cc_s.combination_id JOIN card c_sub ON cc_s.card_id = c_sub.card_id WHERE cc_p.card_id = c.card_id AND cc_s.card_id <> c.card_id LIMIT 1) as partner_cost,
                 CASE
                     WHEN cd.twinpact = 1 AND ccb.combination_id IS NOT NULL THEN (                        SELECT GROUP_CONCAT(c_sub.card_name ORDER BY c_sub.card_id ASC SEPARATOR ' / ')
                         FROM card_combination cc_sub

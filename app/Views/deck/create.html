@@ -3651,6 +3651,9 @@ function fetchAndRender() {
                     img.dataset.cardLimit = card.card_limit !== undefined && card.card_limit !== null ? card.card_limit : ''; 
                     img.dataset.civ = card.civilization || card.civ || card.civ_ids || '';
                     img.dataset.cost = card.cost !== undefined ? card.cost : '';
+                    if (card.partner_cost !== undefined && card.partner_cost !== null && card.partner_cost !== '') {
+                        img.dataset.partnerCost = card.partner_cost;
+                    }
                     img.dataset.regulation = card.regulation || ''; // 追加
                     img.onerror = () => handleImageError(img);
 
