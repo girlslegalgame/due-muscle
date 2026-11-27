@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"golang.org/x/text/width"
@@ -1953,9 +1954,11 @@ func getVersionKeywords(db *sql.DB, cardId int) string {
 	return strings.Join(words, " ")
 }
 /**
- * 楽天市場APIを用いたデッキ価格査定API
+* 楽天市場APIを用いたデッキ価格査定API
  */
 var cachedYahooDMBrandID string
+var yahooApiMu sync.Mutex
+var lastYahooApiCall time.Time
 
 func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
@@ -2234,7 +2237,14 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			cachedYahooDMBrandID = strings.TrimSpace(envBid)
 			dmBrandId = cachedYahooDMBrandID
 		} else {
-			brandEndpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&results=30",
+			yahooApiMu.Lock()
+			if since := time.Since(lastYahooApiCall); since < 650*time.Millisecond {
+				time.Sleep(650*time.Millisecond - since)
+			}
+			lastYahooApiCall = time.Now()
+			yahooApiMu.Unlock()
+
+			brandEndpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&results=10",
 				url.QueryEscape(yahooAppId), url.QueryEscape("デュエル・マスターズ"))
 			client := &http.Client{Timeout: 5 * time.Second}
 			req, _ := http.NewRequest("GET", brandEndpoint, nil)
@@ -2274,9 +2284,63 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 		s = strings.ReplaceAll(s, "Σ", "シグマ")
 		s = width.Fold.String(s)
 		s = strings.ToLower(s)
-		// ★ 修正: 半角・全角ハイフン・長音記号・ダッシュを全て除去して比較
-		reg := regexp.MustCompile(`[\s・−―ー〜～~/／()（）「」『』【】[\]"'”"'♪!！？?==::**++&&-]`)
+		// ★ 修正: ピリオド・半角・全角ハイフン・長音記号・ダッシュ等を全て除去して比較
+		reg := regexp.MustCompile(`[\s・･.\-−―ー〜～~/／()（）「」『』【】\[\]"'”"'♪!！？?=:*+&]`)
 		return reg.ReplaceAllString(s, "")
+	}
+
+	isCardNameMatched := func(title, targetName string) bool {
+		normTarget := normalize(targetName)
+		if normTarget == "" {
+			return false
+		}
+		prep := strings.ReplaceAll(title, "\\", "")
+		prep = strings.ReplaceAll(prep, "∑", "シグマ")
+		prep = strings.ReplaceAll(prep, "Σ", "シグマ")
+		prep = width.Fold.String(prep)
+		prep = strings.ToLower(prep)
+		if !strings.Contains(normTarget, "デュエマ") && !strings.Contains(normTarget, "デュエルマスターズ") {
+			prep = regexp.MustCompile(`デュエル[・･\s]*マスターズ|デュエマ`).ReplaceAllString(prep, " ")
+		}
+
+		sepPattern := `[\s・･.\-−―〜～~/／()（）「」『』【】\[\]"'”"'♪!！？?=:*+&]*`
+		runes := []rune(normTarget)
+		parts := make([]string, len(runes))
+		for i, r := range runes {
+			parts[i] = regexp.QuoteMeta(string(r))
+		}
+		re, err := regexp.Compile(strings.Join(parts, sepPattern))
+		if err != nil {
+			return strings.Contains(normalize(title), normTarget)
+		}
+
+		isWordChar := func(r rune) bool {
+			return (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') ||
+				(r >= 'ぁ' && r <= 'ん') || (r >= 'ァ' && r <= 'ヶ') ||
+				(r >= 0x4E00 && r <= 0x9FFF) || r == '々' ||
+				r == 'ー' || r == '・' || r == '･' || r == '-' || r == '−' || r == '―'
+		}
+
+		for _, m := range re.FindAllStringIndex(prep, -1) {
+			start, end := m[0], m[1]
+			if start > 0 {
+				prevRunes := []rune(prep[:start])
+				if len(prevRunes) > 0 && isWordChar(prevRunes[len(prevRunes)-1]) {
+					continue
+				}
+			}
+			if end < len(prep) {
+				nextRunes := []rune(prep[end:])
+				if len(nextRunes) > 0 {
+					nr := nextRunes[0]
+					if isWordChar(nr) && nr != '枚' && nr != '版' {
+						continue
+					}
+				}
+			}
+			return true
+		}
+		return false
 	}
 
 	var twinpactTopNames []string
@@ -2356,7 +2420,7 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			verKw = getVersionKeywords(db, cardInfo.CardID)
 		}
 
-		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s_dm2", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
+		cacheKey := fmt.Sprintf("%x", md5Sum(fmt.Sprintf("%s_%s_%s_%s_%s_%s_dm3", targetService, versionMode, cardInfo.DisplayName, targetShopCode, extraKw, verKw)))
 
 		// ★ キャッシュクリア指定時は該当キーのキャッシュを事前に削除
 		if forceRefresh {
@@ -2515,12 +2579,6 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			}
 		}
 
-		normTop := normalize(topName)
-		normBottom := ""
-		if isTwinpact && bottomName != "" {
-			normBottom = normalize(bottomName)
-		}
-
 		fetchRakutenItems := func(kw string) ([]map[string]interface{}, int) {
 			endpoint := fmt.Sprintf("%s?applicationId=%s&accessKey=%s&keyword=%s&sort=standard&hits=30&minPrice=10",
 				apiBaseUrl, url.QueryEscape(appId), url.QueryEscape(accessKey), url.QueryEscape(kw))
@@ -2570,12 +2628,15 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			return ret, httpCode
 		}
 
-		fetchYahooItems := func(kw string, brandId string) ([]map[string]interface{}, int) {
+		fetchYahooItems := func(kw string, brandId string, sortParam string) ([]map[string]interface{}, int) {
 			if yahooAppId == "" {
 				return nil, 400
 			}
-			endpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&sort=%%2Bprice&results=20",
+			endpoint := fmt.Sprintf("https://shopping.yahooapis.jp/ShoppingWebService/V3/itemSearch?appid=%s&query=%s&results=50",
 				url.QueryEscape(yahooAppId), url.QueryEscape(kw))
+			if sortParam != "" {
+				endpoint += "&sort=" + url.QueryEscape(sortParam)
+			}
 
 			if brandId != "" {
 				endpoint += "&brand_id=" + url.QueryEscape(brandId)
@@ -2588,8 +2649,15 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			var body []byte
 			httpCode := 0
 
-			// 429(レートリミット)対策として最大2回リトライ
+			// 429(レートリミット)対策として間隔制御＋最大2回リトライ
 			for attempt := 0; attempt <= 2; attempt++ {
+				yahooApiMu.Lock()
+				if since := time.Since(lastYahooApiCall); since < 650*time.Millisecond {
+					time.Sleep(650*time.Millisecond - since)
+				}
+				lastYahooApiCall = time.Now()
+				yahooApiMu.Unlock()
+
 				req, _ := http.NewRequest("GET", endpoint, nil)
 				req.Header.Set("User-Agent", "Mozilla/5.0")
 
@@ -2604,7 +2672,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 				resp.Body.Close()
 
 				if httpCode == 429 {
-					time.Sleep(time.Duration(1000*(attempt+1)) * time.Millisecond)
+					time.Sleep(time.Duration(1500*(attempt+1)) * time.Millisecond)
+					yahooApiMu.Lock()
+					lastYahooApiCall = time.Now()
+					yahooApiMu.Unlock()
 					continue
 				}
 				break
@@ -2677,22 +2748,14 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 				isMatched := false
 				if !isTwinpact {
-					if strings.Contains(normTitle, normTop) {
-						isMatched = true
-					}
+					isMatched = isCardNameMatched(title, topName)
 				} else {
+					topHit := isCardNameMatched(title, topName)
+					bottomHit := bottomName != "" && isCardNameMatched(title, bottomName)
 					if isAmbiguous {
-						if normBottom != "" && strings.Contains(normTitle, normTop) && strings.Contains(normTitle, normBottom) {
-							isMatched = true
-						} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
-							isMatched = true
-						}
+						isMatched = bottomHit
 					} else {
-						if strings.Contains(normTitle, normTop) {
-							isMatched = true
-						} else if normBottom != "" && strings.Contains(normTitle, normBottom) {
-							isMatched = true
-						}
+						isMatched = topHit || bottomHit
 					}
 				}
 
@@ -2738,12 +2801,14 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 
 				isMatched := false
 				if !isTwinpact {
-					if strings.Contains(normTitle, normTop) {
-						isMatched = true
-					}
+					isMatched = isCardNameMatched(title, topName)
 				} else {
-					if strings.Contains(normTitle, normTop) || (normBottom != "" && strings.Contains(normTitle, normBottom)) {
-						isMatched = true
+					topHit := isCardNameMatched(title, topName)
+					bottomHit := bottomName != "" && isCardNameMatched(title, bottomName)
+					if isAmbiguous {
+						isMatched = bottomHit
+					} else {
+						isMatched = topHit || bottomHit
 					}
 				}
 
@@ -2800,9 +2865,9 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 			var brandMatched map[string]interface{} = nil
 			brandKeyword := baseSearchName
 
-			// 1. ブランド指定なしの通常検索
+			// 1. ブランド指定なしの通常検索（安い順）
 			for _, kw := range keywordsToTry {
-				yItems, yCode := fetchYahooItems(kw, "")
+				yItems, yCode := fetchYahooItems(kw, "", "+price")
 				lastApiHitCount = len(yItems)
 				httpCode = yCode
 				if len(yItems) > 0 {
@@ -2812,12 +2877,11 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 						break
 					}
 				}
-				time.Sleep(250 * time.Millisecond)
 			}
 			if noBrandMatched == nil && strings.Contains(topName, "・") {
 				fbBase := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
 				for _, fbKw := range []string{"デュエマ " + fbBase, "デュエルマスターズ " + fbBase} {
-					fbItems, fbCode := fetchYahooItems(fbKw, "")
+					fbItems, fbCode := fetchYahooItems(fbKw, "", "+price")
 					lastApiHitCount = len(fbItems)
 					httpCode = fbCode
 					if len(fbItems) > 0 {
@@ -2827,14 +2891,13 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 							break
 						}
 					}
-					time.Sleep(250 * time.Millisecond)
 				}
 			}
 
-			// 2. ブランド「デュエル・マスターズ」指定検索
+			// 2. ブランド「デュエル・マスターズ」指定検索（安い順）
 			if dmBrandId != "" {
 				for _, kw := range brandKeywordsToTry {
-					yItems, yCode := fetchYahooItems(kw, dmBrandId)
+					yItems, yCode := fetchYahooItems(kw, dmBrandId, "+price")
 					if len(yItems) > 0 {
 						lastApiHitCount = len(yItems)
 					}
@@ -2848,11 +2911,10 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 							break
 						}
 					}
-					time.Sleep(250 * time.Millisecond)
 				}
 				if brandMatched == nil && strings.Contains(topName, "・") {
 					fbBase := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
-					fbItems, fbCode := fetchYahooItems(fbBase, dmBrandId)
+					fbItems, fbCode := fetchYahooItems(fbBase, dmBrandId, "+price")
 					if len(fbItems) > 0 {
 						lastApiHitCount = len(fbItems)
 					}
@@ -2863,6 +2925,47 @@ func (c *DeckController) EstimatePriceApi(w http.ResponseWriter, r *http.Request
 						if cand := findBestYahooMatch(fbItems, false); cand != nil {
 							brandMatched = cand
 							brandKeyword = fbBase + " [brand:" + dmBrandId + "]"
+						}
+					}
+				}
+			}
+
+			// 2.5. 安い順の上位50件が別カード等で埋まった場合の関連度順フォールバック
+			if noBrandMatched == nil && brandMatched == nil {
+				if dmBrandId != "" && len(brandKeywordsToTry) > 0 {
+					yItems, yCode := fetchYahooItems(brandKeywordsToTry[0], dmBrandId, "")
+					if len(yItems) > 0 {
+						lastApiHitCount = len(yItems)
+						if cand := findBestYahooMatch(yItems, false); cand != nil {
+							brandMatched = cand
+							brandKeyword = brandKeywordsToTry[0] + " [brand:" + dmBrandId + ",score]"
+						}
+					}
+					if yCode != 0 {
+						httpCode = yCode
+					}
+				}
+				if brandMatched == nil && len(keywordsToTry) > 0 {
+					yItems, yCode := fetchYahooItems(keywordsToTry[0], "", "")
+					lastApiHitCount = len(yItems)
+					httpCode = yCode
+					if len(yItems) > 0 {
+						if cand := findBestYahooMatch(yItems, true); cand != nil {
+							noBrandMatched = cand
+							noBrandKeyword = keywordsToTry[0] + " [score]"
+						}
+					}
+				}
+				if noBrandMatched == nil && brandMatched == nil && strings.Contains(topName, "・") {
+					fbBase := strings.ReplaceAll(strings.ReplaceAll(topName, "・", ""), " ", "")
+					fbKw := "デュエマ " + fbBase
+					fbItems, fbCode := fetchYahooItems(fbKw, "", "")
+					lastApiHitCount = len(fbItems)
+					httpCode = fbCode
+					if len(fbItems) > 0 {
+						if cand := findBestYahooMatch(fbItems, true); cand != nil {
+							noBrandMatched = cand
+							noBrandKeyword = fbKw + " [score]"
 						}
 					}
 				}

@@ -1811,8 +1811,8 @@ async function runPriceEstimate(shopCode = null, refresh = false) {
             return;
         }
 
-        // 5種類ずつチャンクに分割（テーブル未生成時は空配列1回で全取得）
-        const chunkSize = 5;
+        // タイムアウト防止のためYahoo時は2種、楽天時は5種ずつチャンクに分割
+        const chunkSize = (service === 'yahoo') ? 2 : 5;
         const chunks = [];
         if (targetCardNames.length > 0) {
             for (let i = 0; i < targetCardNames.length; i += chunkSize) {
@@ -1855,6 +1855,9 @@ async function runPriceEstimate(shopCode = null, refresh = false) {
             if (!data.success) {
                 alert('査定エラー: ' + (data.error || '価格情報の取得に失敗しました'));
                 return;
+            }
+            if (data.debug && data.debug.logs) {
+                console.log('[PriceEstimate Debug]', data.debug.logs);
             }
 
             // ショップ一覧の更新
