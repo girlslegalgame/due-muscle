@@ -975,6 +975,13 @@ function calculateCreateKiyonagaHitRate() {
 
         if (costs.length === 0) costs.push(-1);
         deckCardCosts.push(costs);
+        console.log("清永計算データ:", {
+            "除外されたか": kiyonagaExcluded,
+            "山札枚数(N)": deckCardCosts.length,
+            "カード別コスト一覧": deckCardCosts,
+            "ヒット数": hitCombos,
+            "総組み合わせ数": totalCombos
+        });
     });
 
     const N = deckCardCosts.length;
