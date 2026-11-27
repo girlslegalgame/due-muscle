@@ -972,16 +972,8 @@ function calculateCreateKiyonagaHitRate() {
         if (!isNaN(cost2) && !costs.includes(cost2)) {
             costs.push(cost2);
         }
-
         if (costs.length === 0) costs.push(-1);
         deckCardCosts.push(costs);
-        console.log("清永計算データ:", {
-            "除外されたか": kiyonagaExcluded,
-            "山札枚数(N)": deckCardCosts.length,
-            "カード別コスト一覧": deckCardCosts,
-            "ヒット数": hitCombos,
-            "総組み合わせ数": totalCombos
-        });
     });
 
     const N = deckCardCosts.length;
@@ -1023,6 +1015,16 @@ function calculateCreateKiyonagaHitRate() {
     }
 
     const hitPercent = totalCombos > 0 ? ((hitCombos / totalCombos) * 100).toFixed(2) : '0.00';
+
+    console.log("清永計算データ:", {
+        "除外されたか": kiyonagaExcluded,
+        "山札枚数(N)": deckCardCosts.length,
+        "カード別コスト一覧": deckCardCosts,
+        "ヒット数": hitCombos,
+        "総組み合わせ数": totalCombos,
+        "ヒット率": hitPercent + "%"
+    });
+
     document.getElementById('create-kiyonaga-hit-percent').innerText = hitPercent;
     document.getElementById('create-kiyonaga-hit-combos').innerText = hitCombos.toLocaleString();
     document.getElementById('create-kiyonaga-total-combos').innerText = totalCombos.toLocaleString();
