@@ -3959,6 +3959,7 @@ function openCardMenu(e, card, zone) {
         menuHtml += `
             ${ptHasSpellSide(card) ? `<li onclick="ptCastSpell('${card.id}', 'hand')">✨ 唱える</li><hr>` : ''}
             <li onclick="openHandToBattleMenu('${card.id}')">バトルゾーンに置く</li>
+            <li onclick="ptStartBattleDropTargetSelect('${card.id}', 'hand', 'stack_over_faceup')">既存のカードの上に重ねる / 進化条件を無視して他のカードの上に重ねる</li>
             <li onclick="openStackUnderBattleSelector('${card.id}', 'hand')">バトルゾーンのカードの下に置く</li>
             <li onclick="ptMoveCard('${card.id}', 'hand', 'mana')">マナに置く</li>
             <li onclick="ptMoveCard('${card.id}', 'hand', 'graveyard')">墓地に置く</li>
@@ -5103,12 +5104,15 @@ function ptExecuteEvolutionPlay(cardId, fromZone) {
     // ★ 修正: 下敷きが全て重なり盤面が確定した後にリンク・登場時トリガーを実行
     if (playedCard) {
         setTimeout(() => {
-            ptTriggerBattleEnter(playedCard);
+            const opened = ptTriggerBattleEnter(playedCard);
+            if (!opened) {
+                ptReturnToPreviousModal();
+            }
         }, 60);
+    } else {
+        ptReturnToPreviousModal();
     }
 }
-
-let ptEvoDeckTopTempCards = [];
 
 
 // 山札の上のカードを重ねる処理の実行
@@ -6194,11 +6198,12 @@ function openLookingCardMenu(e, card) {
     });
     
     menu.innerHTML = `
+        ${count === 1 ? `<li onclick="ptShowCardDetailModalById('${card.id}', 'deck')">🔎 拡大表示</li><hr>` : ''}
         ${hasSpellSelected ? `<li onclick="ptCastLookingSpells()">✨ 選択した呪文を唱える</li><hr>` : ''}
         <li onclick="ptMoveLookingCardsBatch('hand')">選択した ${count} 枚を手札に加える</li>
         <li onclick="ptMoveLookingCardsBatch('mana')">選択した ${count} 枚をマナに置く</li>
         <li onclick="ptMoveLookingCardsBatch('graveyard')">選択した ${count} 枚を墓地に置く</li>
-        <li onclick="ptMoveLookingCardsBatch('battle')">選択した ${count} 枚をバトルゾーンに置く</li>
+        <li onclick="ptMoveLookingCardsBatch('battle')">選択した ${count} 枚をバトルゾーンに置く${hasSpellSelected ? ' / 唱える' : ''}</li>
         <li onclick="ptMoveLookingCardsBatch('shield')">選択した ${count} 枚をシールドに置く</li>
         <li onclick="ptMoveLookingCardsBatch('psychic')">選択した ${count} 枚を超次元に置く</li>
     `;
@@ -7266,7 +7271,10 @@ function ptExecuteEvo361Standalone(cardId, fromZone) {
     ptMoveCard(cardId, fromZone, 'battle', { skipUnderCheck: true, skipDoubleSidedCheck: true });
     const playedCard = ptState.battle.find(c => c.id === cardId);
     if (playedCard) {
-        ptTriggerBattleEnter(playedCard);
+        const opened = ptTriggerBattleEnter(playedCard);
+        if (!opened) ptReturnToPreviousModal();
+    } else {
+        ptReturnToPreviousModal();
     }
 }
 

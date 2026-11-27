@@ -1464,7 +1464,7 @@ function ptOpenBattlePlacementSelectModal(cardId, fromZone, opts = {}) {
         <div style="padding: 10px 0;">
             <p style="font-size: 13px; color: #aaa; margin-bottom: 15px;">「${card.name}」をどのようにバトルゾーンに配置しますか？</p>
             <button class="btn-pt-primary" onclick="ptExecuteBattlePlacement('${cardId}', '${fromZone}', 'new')" style="width: 100%; padding: 10px; font-weight: bold; margin-bottom: 15px;">
-                ⚔️ 単体でバトルゾーンに出す
+                ⚔️ 通常通りにバトルゾーンに出す
             </button>
     `;
 
@@ -1476,7 +1476,7 @@ function ptOpenBattlePlacementSelectModal(cardId, fromZone, opts = {}) {
             </p>
             <div style="display: flex; flex-direction: column; gap: 8px;">
                 <button class="btn-pt-primary" onclick="ptStartBattleDropTargetSelect('${cardId}', '${fromZone}', 'stack_under')" style="width: 100%; padding: 10px; font-weight: bold; background: #28a745;">🔽 既存カードの下に重ねる (表)</button>
-                <button class="btn-pt-primary" onclick="ptStartBattleDropTargetSelect('${cardId}', '${fromZone}', 'stack_over_faceup')" style="width: 100%; padding: 10px; font-weight: bold; background: #007bff;">🔼 既存カードの上に重ねる (表)</button>
+                <button class="btn-pt-primary" onclick="ptStartBattleDropTargetSelect('${cardId}', '${fromZone}', 'stack_over_faceup')" style="width: 100%; padding: 10px; font-weight: bold; background: #007bff;">🔼 既存カードの上に重ねる (表) / 進化条件を無視して他のカードの上に重ねる</button>
                 <button class="btn-pt-primary" onclick="ptStartBattleDropTargetSelect('${cardId}', '${fromZone}', 'stack_over_facedown')" style="width: 100%; padding: 10px; font-weight: bold; background: #dc3545;">🔒 既存カードに封印として置く (裏)</button>
             </div>
         `;
@@ -2030,8 +2030,9 @@ function openEvolutionChoiceModal(cardId, fromZone, mode) {
         <button class="btn-pt-primary" onclick="
             ptMoveCard('${cardId}', '${fromZone}', 'battle', {skipUnderCheck: true});
             const bCard = ptState.battle.find(c => c.id === '${cardId}');
-            if (bCard) ptTriggerBattleEnter(bCard);
+            const opened = bCard ? ptTriggerBattleEnter(bCard) : false;
             closePtModal();
+            if (!opened) ptReturnToPreviousModal();
         " style="width:100%; margin-bottom:10px; padding: 10px; font-weight:bold;">単体でバトルゾーンに置く</button>
         <button class="btn-pt-secondary" onclick="openEvoTargetSelector('${cardId}', '${fromZone}', '${mode}')" style="width:100%; padding: 10px; font-weight:bold;">他カードの上に重ねて置く</button>
     `;
