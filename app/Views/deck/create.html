@@ -2291,7 +2291,9 @@ function addCardToDeck(card, forcedType = null, forcedSlotId = null) {
     img.dataset.cost = card.cost !== undefined && card.cost !== null ? card.cost : '';
 
     // ★ 追加: ツインパクトの下面コストを img タグに付与
-    const pCost = card.partner_cost !== undefined ? card.partner_cost : card.dummy_partner_cost;
+    const pCost = card.partner_cost !== undefined && card.partner_cost !== null && card.partner_cost !== '' 
+        ? card.partner_cost 
+        : (cardCache[card.card_id] && cardCache[card.card_id].partner_cost !== undefined ? cardCache[card.card_id].partner_cost : card.dummy_partner_cost);
     if (pCost !== undefined && pCost !== null && pCost !== '') {
         img.dataset.partnerCost = pCost;
     }
@@ -2509,6 +2511,9 @@ const deckSortableConfig = {
             }
         } else {
             mainList.appendChild(item);
+            if (!item.dataset.partnerCost && cardCache[item.dataset.cardId] && cardCache[item.dataset.cardId].partner_cost) {
+                item.dataset.partnerCost = cardCache[item.dataset.cardId].partner_cost;
+            }
             if (!checkLimit(name, nameLimit, mainList, item, 60, "メインデッキ", comboNames)) {
                 item.remove();
             }
@@ -4669,6 +4674,7 @@ function getSerializedCards() {
             card_limit: img.dataset.cardLimit || cached.card_limit || '',
             civilization: img.dataset.civ || cached.civilization || '',
             cost: img.dataset.cost || cached.cost || '',
+            partner_cost: img.dataset.partnerCost || cached.partner_cost || '',
             card_type_in_deck: type,
             // ★追加: ダミーのツインパクト・両面情報を下書きに保存
             is_dummy: img.dataset.isDummy === "1",
@@ -4782,6 +4788,7 @@ function restoreDraft(draft) {
             card_limit: card.card_limit,
             civilization: card.civilization,
             cost: card.cost,
+            partner_cost: card.partner_cost || '',
             // ★追加: ツインパクト・両面情報を正しく復元
             is_dummy: card.is_dummy,
             dummy_card_type: card.dummy_card_type || 'normal',
