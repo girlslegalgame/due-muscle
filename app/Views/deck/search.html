@@ -459,11 +459,16 @@ function escapeHTML(str) {
 }
 
 function copyDeck(deckId) {
+    if (!IS_LOGGED_IN) {
+        alert('デッキを複製するにはログインが必要です。');
+        window.location.href = '/login';
+        return;
+    }
     if (!confirm("このデッキをコピーしてマイデッキに登録しますか？")) return;
     fetch('/api/decks/copy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deckId })
+        body: JSON.stringify({ deck_id: Number(deckId) })
     })
     .then(res => res.json())
     .then(data => {
@@ -504,7 +509,7 @@ function submitDeckReport() {
     fetch('/api/decks/report', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deckId, report_type: 'deck', reason: reason })
+        body: JSON.stringify({ deck_id: Number(deckId), report_type: 'deck', reason: reason })
     })
     .then(res => res.json())
     .then(data => {

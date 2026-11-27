@@ -1,9 +1,3 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>1人回し - {{if .deckName}}{{.deckName}}{{else}}デッキ{{end}}</title>
     <style>
         /* --- 基本・全体設定 --- */
         html, body {
@@ -214,10 +208,10 @@
             min-width: 0 !important;
             box-sizing: border-box !important;
             overflow: hidden !important;
-            height: calc(100vh - 170px);
+            height: calc(100vh - 72px);
         }
         body.pt-header-collapsed .playtest-board {
-            height: calc(100vh - 120px);
+            height: calc(100vh - 22px);
         }
         .playtest-row {
             display: flex !important;
@@ -1686,8 +1680,6 @@
         }
     </style>
     <script src="/js/card_image_helper.js?v=2"></script>
-</head>
-<body>
 <!-- スマホ縦向き警告オーバーレイ -->
 <div class="orientation-warning">
     <div class="orientation-icon">📱</div>
@@ -1702,6 +1694,7 @@
 </div>
 
 <div class="playtest-container">
+    {{/* AdSense審査通過後にコメント解除
     <div class="pc-top-ad-wrapper">
         <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-1782055298829063" crossorigin="anonymous"></script>
         <!-- playtest_top_banner -->
@@ -1713,6 +1706,7 @@
             (adsbygoogle = window.adsbygoogle || []).push({});
         </script>
     </div>
+    */}}
     <div class="header-bar-wrapper">
         <div class="header-bar">
             <h2>1人回し: {{if .deckName}}{{.deckName}}{{else}}デッキ{{end}}</h2>
@@ -10655,4 +10649,3 @@ function ptOpenNumberPromptModal(titleText, messageText, defaultVal, minVal, max
     setTimeout(() => inputEl.select(), 50);
 }
 </script>
-</body>

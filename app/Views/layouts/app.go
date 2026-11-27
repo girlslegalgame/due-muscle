@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -54,8 +55,18 @@ func RenderApp(w io.Writer, r *http.Request, session *SessionData, data AppLayou
 	unreadCnt := GetUnreadNotificationCount(r)
 
 	canonicalURL := "https://due-muscle.com" + r.URL.Path
-	if r.URL.RawQuery != "" && (r.URL.Path == "/decks/share" || r.URL.Path == "/decks/playtest" || r.URL.Path == "/users/decks") {
-		canonicalURL += "?" + r.URL.RawQuery
+	if r.URL.RawQuery != "" {
+		q := r.URL.Query()
+		switch r.URL.Path {
+		case "/decks/share", "/decks/playtest":
+			if deckID := q.Get("deck_id"); deckID != "" {
+				canonicalURL += "?deck_id=" + url.QueryEscape(deckID)
+			}
+		case "/users/decks":
+			if userID := q.Get("user_id"); userID != "" {
+				canonicalURL += "?user_id=" + url.QueryEscape(userID)
+			}
+		}
 	}
 
 	viewData := struct {

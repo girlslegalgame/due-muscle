@@ -468,8 +468,6 @@
     font-weight: bold;
 }
 </style>
-</head>
-<body>
 
 <!-- app/Views/deck/index.html の <div class="container"> 直下付近 -->
 
@@ -493,9 +491,37 @@
         {{ else }}
             <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; background: #fff; border-radius: 8px; border: 1px solid #ddd;">
                 {{ if not .IsLoggedIn }}
-                    <p style="font-size: 1.1rem; color: #333; font-weight: bold; margin-bottom: 10px;">アカウントを作成すると、デッキを保存できます。</p>
-                    <p style="color: #666; font-size: 0.9rem; margin-bottom: 25px;">作成したデッキをクラウドに保存して、いつでも編集や公開ができるようになります。</p>
-                    <a href="/register" style="display: inline-block; padding: 12px 30px; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;">アカウントを作成する</a>
+                    <p style="font-size: 1.15rem; color: #333; font-weight: bold; margin: 0 0 10px 0;">アカウントを作成すると、デッキを保存・管理できます。</p>
+                    <p style="color: #666; font-size: 0.9rem; margin: 0 0 24px 0;">作成したデッキをデータベースに保存して、PC・スマホのどちらからでも編集や公開、各種ツールでの出力ができるようになります。</p>
+                    <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-bottom: 28px;">
+                        <a href="/register" style="display: inline-block; padding: 12px 30px; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 6px; font-weight: bold; font-size: 1rem;">アカウントを作成する</a>
+                        <a href="/login" style="display: inline-block; padding: 12px 24px; background-color: #f1f5f9; color: #334155; text-decoration: none; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: bold; font-size: 1rem;">ログイン</a>
+                    </div>
+                    <div style="max-width: 820px; margin: 0 auto; border-top: 1px solid #eee; padding-top: 24px; text-align: left;">
+                        <h3 style="font-size: 0.95rem; color: #1a202c; margin: 0 0 14px 0; text-align: center;">マイデッキで使える主な機能</h3>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                                <div style="font-weight: bold; font-size: 0.92rem; color: #1a202c; margin-bottom: 6px;">デッキ保存・検索・公開設定</div>
+                                <p style="font-size: 0.82rem; color: #555; margin: 0; line-height: 1.5;">フォーマットや文明別にデッキを整理し、複製や解説記事の編集、公開／非公開の切り替えをいつでも行えます。</p>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                                <div style="font-weight: bold; font-size: 0.92rem; color: #1a202c; margin-bottom: 6px;">デッキ分析・確率計算</div>
+                                <p style="font-size: 0.82rem; color: #555; margin: 0; line-height: 1.5;">文明バランスやマナカーブのグラフ化に加え、初手ドロー確認、初動カードの引き込み確率計算、ハイランダーチェックを行えます。</p>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                                <div style="font-weight: bold; font-size: 0.92rem; color: #1a202c; margin-bottom: 6px;">一人回し・価格査定</div>
+                                <p style="font-size: 0.82rem; color: #555; margin: 0; line-height: 1.5;">保存したデッキをワンクリックで一人回し盤面に展開できるほか、デッキの概算価格査定や未所持管理にも対応しています。</p>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                                <div style="font-weight: bold; font-size: 0.92rem; color: #1a202c; margin-bottom: 6px;">レシピ画像・ココフォリアZIP出力</div>
+                                <p style="font-size: 0.82rem; color: #555; margin: 0; line-height: 1.5;">SNS共有用のデッキレシピ画像（PNG）や、オンラインセッションツール「ココフォリア」用のデッキZIPファイルを書き出せます。</p>
+                            </div>
+                            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+                                <div style="font-weight: bold; font-size: 0.92rem; color: #1a202c; margin-bottom: 6px;">プロキシ印刷用PDF出力</div>
+                                <p style="font-size: 0.82rem; color: #555; margin: 0; line-height: 1.5;">選択した複数デッキから全カードまたは未購入カードのみを抽出し、A4用紙（3×3・原寸サイズ）のPDFを一括生成します。</p>
+                            </div>
+                        </div>
+                    </div>
                 {{ else }}
                     <p style="color: #666;">デッキが登録されていません。</p>
                 {{ end }}
@@ -682,24 +708,8 @@
             <p style="color: #666; font-size: 0.85rem; margin: 0 0 15px 0;">
                 自動的にダウンロードが開始されない場合は、再度お試しください。
             </p>
-
-            <!-- 広告枠（誤タップを防ぐため上下マージンを確保しラベルを明記） -->
-            <!-- <div style="margin: 15px 0;"> -->
-                <!-- <div style="font-size: 0.75rem; color: #888; margin-bottom: 4px;">スポンサーリンク</div> -->
-                <!-- <div style="width: 100%; min-height: 250px; background-color: #f9f9f9; display: block;"> -->
-                    <!-- AdSense 広告ユニットタグ -->
-                    <!-- <ins class="adsbygoogle" -->
-                         <!-- style="display:block; width:100%;" -->
-                         <!-- data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" -->
-                         <!-- data-ad-slot="YYYYYYYYYY" -->
-                         <!-- data-ad-format="rectangle"></ins> -->
-                <!-- </div> -->
-            <!-- </div> -->
-
-            <!-- 広告との誤タップを防ぐため、十分な余白を取った閉じるボタン -->
             <button type="button" onclick="closeExportCompleteModal()" style="margin-top: 15px; padding: 10px 30px; background: #6c757d; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
                 閉じる
-            </button>
         </div>
     </div>
 </div>
@@ -1567,15 +1577,6 @@ function openExportCompleteModal() {
     const modal = document.getElementById('export-complete-modal');
     if (modal) {
         modal.style.display = 'flex';
-        // モーダル表示・幅確定後に未初期化の場合のみ広告をロード
-        requestAnimationFrame(() => {
-            const ins = modal.querySelector('ins.adsbygoogle');
-            if (ins && !ins.getAttribute('data-adsbygoogle-status') && ins.offsetWidth > 0) {
-                try {
-                    (adsbygoogle = window.adsbygoogle || []).push({});
-                } catch (e) {}
-            }
-        });
     }
 }
 

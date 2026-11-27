@@ -284,12 +284,19 @@
 <script>
 const userDataBridge = document.getElementById('user-data-bridge');
 const IS_LOGGED_IN = userDataBridge ? (userDataBridge.dataset.isLoggedIn === '1') : false;
-const TARGET_USER_ID = Number(userDataBridge ? userDataBridge.dataset.userId : 0);function copyDeck(deckId) {
+const TARGET_USER_ID = Number(userDataBridge ? userDataBridge.dataset.userId : 0);
+
+function copyDeck(deckId) {
+    if (!IS_LOGGED_IN) {
+        alert('デッキを複製するにはログインが必要です。');
+        window.location.href = '/login';
+        return;
+    }
     if (!confirm("このデッキをコピーしてマイデッキに登録しますか？")) return;
     fetch('/api/decks/copy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deckId })
+        body: JSON.stringify({ deck_id: Number(deckId) })
     })
     .then(res => res.json())
     .then(data => {
@@ -389,7 +396,7 @@ function submitDeckReportFromUserDecks() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-            deck_id: deckId, 
+            deck_id: Number(deckId), 
             report_type: 'deck', 
             reason: reason 
         })

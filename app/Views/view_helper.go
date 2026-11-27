@@ -220,8 +220,20 @@ func RenderView(w http.ResponseWriter, r *http.Request, viewPath string, data ma
 	description, _ := data["description"].(string)
 	noIndex, _ := data["noIndex"].(bool)
 
-	// ★ 通知ページ、またはデッキ個別ページで条件を満たさない場合は noindex（広告非表示）を適用
-	if r.URL.Path == "/notifications" {
+	// ★ 通知・認証・ツール・管理系ページ、または条件を満たさないデッキ個別ページは noindex（広告非表示）を適用
+	noIndexPaths := map[string]bool{
+		"/notifications":   true,
+		"/users/decks":     true,
+		"/decks/new":       true,
+		"/decks/edit":      true,
+		"/decks/playtest":  true,
+		"/login":           true,
+		"/login/verify":    true,
+		"/help/search":     true,
+		"/account":         true,
+		"/admin":           true,
+	}
+	if noIndexPaths[r.URL.Path] || strings.HasPrefix(r.URL.Path, "/developer") || (r.URL.Path == "/mydecks" && sessionData == nil) {
 		noIndex = true
 	} else if strings.HasSuffix(viewPath, "share.html") {
 		isPublic := false

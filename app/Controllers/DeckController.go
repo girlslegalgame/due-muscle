@@ -72,6 +72,26 @@ func getSessionUserID(r *http.Request) (int, bool) {
 	return 0, false
 }
 
+// デッキが公開中、または作成者本人であれば true を返す
+func (c *DeckController) canAccessDeck(db *sql.DB, deckId int, r *http.Request) (bool, bool) {
+	if deckId <= 0 {
+		return false, false
+	}
+	var ownerID, isPublic int
+	err := db.QueryRow("SELECT user_id, is_public FROM decks WHERE deck_id = ?", deckId).Scan(&ownerID, &isPublic)
+	if err != nil {
+		return false, false
+	}
+	if isPublic == 1 {
+		return true, true
+	}
+	currentUserID, ok := getSessionUserID(r)
+	if ok && currentUserID > 0 && ownerID == currentUserID {
+		return true, true
+	}
+	return true, false
+}
+
 // app/Controllers/DeckController.go の MyDecks 内
 
 func (c *DeckController) MyDecks(w http.ResponseWriter, r *http.Request) {
@@ -634,7 +654,17 @@ func (c *DeckController) CopyDeckApi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	srcDeckID, _ := strconv.Atoi(fmt.Sprintf("%v", sourceDeckId))
 	db := getDB()
+	if exists, allowed := c.canAccessDeck(db, srcDeckID, r); !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "コピー元のデッキが見つかりません。"})
+		return
+	} else if !allowed {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{"success": false, "error": "非公開デッキはコピーできません。"})
+		return
+	}
 	c.ensureDummyColumnsExist(db)
 	tx, err := db.Begin()
 	if err != nil {
@@ -879,6 +909,16 @@ func (c *DeckController) ViewDeckApi(w http.ResponseWriter, r *http.Request) {
 	deckId, _ := strconv.Atoi(deckIdStr)
 
 	db := getDB()
+	if exists, allowed := c.canAccessDeck(db, deckId, r); !exists {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "デッキが見つかりません。"})
+		return
+	} else if !allowed {
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]interface{}{"error": "このデッキは非公開です。"})
+		return
+	}
+
 	deckModel := models.NewDeck(db)
 	cards, err := deckModel.GetCardsByDeckId(deckId)
 	if err != nil {
@@ -1391,7 +1431,17 @@ func (c *DeckController) Playtest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	deckId, _ := strconv.Atoi(deckIdStr)
 	db := getDB()
+	if exists, allowed := c.canAccessDeck(db, deckId, r); !exists || !allowed {
+		views.RenderView(w, r, "deck/share_not_found.html", map[string]interface{}{
+			"title":       "デッキが見つかりません",
+			"description": "指定されたデッキは非公開または削除されたため表示できません。",
+			"noIndex":     true,
+		})
+		return
+	}
+
 	var deck map[string]interface{}
 	// デッキ基本情報取得
 	dRows, _ := db.Query("SELECT * FROM decks WHERE deck_id = ?", deckIdStr)
@@ -1580,16 +1630,22 @@ func (c *DeckController) ReportDeckApi(w http.ResponseWriter, r *http.Request) {
 	var input map[string]interface{}
 	json.NewDecoder(r.Body).Decode(&input)
 
-	var deckId *int = nil
-	if did, ok := input["deck_id"].(float64); ok && did > 0 {
-		i := int(did)
-		deckId = &i
+	toPosIntPtr := func(val interface{}) *int {
+		switch v := val.(type) {
+		case float64:
+			if int(v) > 0 {
+				i := int(v)
+				return &i
+			}
+		case string:
+			if i, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && i > 0 {
+				return &i
+			}
+		}
+		return nil
 	}
-	var reportedUserId *int = nil
-	if ruid, ok := input["reported_user_id"].(float64); ok && ruid > 0 {
-		i := int(ruid)
-		reportedUserId = &i
-	}
+	deckId := toPosIntPtr(input["deck_id"])
+	reportedUserId := toPosIntPtr(input["reported_user_id"])
 
 	reportType := "deck"
 	if rt, ok := input["report_type"].(string); ok && (rt == "user" || rt == "article") {

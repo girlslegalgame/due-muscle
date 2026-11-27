@@ -543,21 +543,6 @@ func RenderIndex(w io.Writer, data IndexViewData) error {
             <p style="color: #666; font-size: 0.85rem; margin: 0 0 15px 0;">
                 自動的にダウンロードが開始されない場合は、再度お試しください。
             </p>
-
-            <!-- 広告枠（誤タップを防ぐため上下マージンを確保しラベルを明記） -->
-            <div style="margin: 15px 0;">
-                <div style="font-size: 0.75rem; color: #888; margin-bottom: 4px;">スポンサーリンク</div>
-                <div style="min-height: 250px; background-color: #f9f9f9; display: flex; align-items: center; justify-content: center;">
-                    <!-- AdSense 広告ユニットタグ -->
-                    <ins class="adsbygoogle"
-                         style="display:block; width:100%;"
-                         data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                         data-ad-slot="YYYYYYYYYY"
-                         data-ad-format="rectangle"></ins>
-                </div>
-            </div>
-
-            <!-- 広告との誤タップを防ぐため、十分な余白を取った閉じるボタン -->
             <button type="button" onclick="closeExportCompleteModal()" style="margin-top: 15px; padding: 10px 30px; background: #6c757d; color: #fff; border: none; border-radius: 6px; font-weight: bold; cursor: pointer;">
                 閉じる
             </button>
