@@ -2469,9 +2469,12 @@ const deckSortableConfig = {
     },
     onAdd: function(evt) {
         const item = evt.item;
+        if (item.tagName !== 'IMG') {
+            item.remove();
+            return;
+        }
         const name = item.dataset.cardName;
-        const charIds = (item.dataset.charIds || '').split(',');
-        
+        const charIds = (item.dataset.charIds || '').split(',');        
         const limitVal = item.dataset.cardLimit;
         const nameLimit = (limitVal !== undefined && limitVal !== "" && limitVal !== null) ? parseInt(limitVal, 10) : 99;
 
@@ -2532,6 +2535,7 @@ const searchSortable = new Sortable(resultsDiv, {
         pull: 'clone', 
         put: false 
     }, 
+    draggable: 'img',
     sort: false, 
     animation: 150,
     forceFallback: true,      
